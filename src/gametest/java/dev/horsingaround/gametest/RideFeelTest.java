@@ -278,11 +278,32 @@ public final class RideFeelTest implements FabricClientGameTest {
 		int airborne = 0;
 		float noseUp = 0.0F;
 		float noseDown = 0.0F;
+		float airLegs = 0.0F;
+		float slowestStride = Float.MAX_VALUE;
+		boolean tucked = false;
+		boolean reaching = false;
+		boolean risingShot = false;
+		boolean fallingShot = false;
 		for (int i = 1; i <= 40; i++) {
 			ctx.waitTick();
 			elapsed++;
 			final Sample s = sample(ctx);
 			peak = Math.max(peak, s.y);
+			final float legs = ride(ctx, r -> r.airLegs(1.0F));
+			final float rise = ride(ctx, r -> r.airRise(1.0F));
+			airLegs = Math.max(airLegs, legs);
+			if (legs > 0.9F) {
+				slowestStride = Math.min(slowestStride, s.limbSpeed);
+				tucked |= rise > 0.4F;
+				reaching |= rise < -0.4F;
+				if (!risingShot && rise > 0.4F) {
+					sideScreenshot(ctx, "05c_jump_legs_rising");
+					risingShot = true;
+				} else if (!fallingShot && rise < -0.4F) {
+					sideScreenshot(ctx, "05d_jump_legs_landing");
+					fallingShot = true;
+				}
+			}
 			final float tilt = ride(ctx, r -> r.jumpPitch(1.0F));
 			noseUp = Math.max(noseUp, tilt);
 			noseDown = Math.min(noseDown, tilt);
@@ -302,12 +323,17 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("takes off front first: nose up (deg)", noseUp, 12.0, 26.0);
 		check("lands front first: nose down (deg)", -noseDown, 6.0, 16.0);
 		check("speed kept in the air (fraction)", slowest / before, 0.85, 1.3);
+		check("in the air the legs take the jump's shape (0..1)", airLegs, 0.95, 1.0);
+		check("the gallop stride stops in the air (leg-animation speed)", slowestStride, 0.0, 0.3);
+		check("front legs fold up rising, then reach for the ground coming down", tucked && reaching);
 		double landing = 0.0;
 		for (int i = 0; i < 6; i++) {
 			ctx.waitTick();
 			landing = Math.max(landing, sample(ctx).speed);
 		}
 		check("no surge after landing (fastest tick / before)", landing / before, 0.9, 1.12);
+		check("the stride picks up again after landing (leg-animation speed)", sample(ctx).limbSpeed, 0.85, 1.0);
+		check("legs back in the stride (jump shape, 0..1)", ride(ctx, r -> r.airLegs(1.0F)), 0.0, 0.01);
 		final float gallopDrain = elapsed * RideTuning.STAMINA_DRAIN_GALLOP;
 		check("jump stamina cost beyond gallop drain", staminaBefore - sample(ctx).stamina - gallopDrain, RideTuning.JUMP_STAMINA_COST - 0.02, RideTuning.JUMP_STAMINA_COST + 0.03);
 		ctx.waitTicks(10);
@@ -1083,10 +1109,18 @@ public final class RideFeelTest implements FabricClientGameTest {
 		// Two rows of trunks across the path with one 1-block gap, straight ahead.
 		lane(ctx, input, world, 620.5, -60, "tree_gap_test", "fill 610 -60 -20 630 -56 -20 minecraft:oak_log", "fill 620 -60 -20 620 -56 -20 minecraft:air");
 		input.holdKey(o -> o.keyUp);
+		final StringBuilder trace = new StringBuilder();
 		for (int i = 0; i < 300 && horseZ(ctx) > -26.0; i++) {
 			ctx.waitTick();
+			if (horseZ(ctx) < -15.0 && i % 3 == 0) {
+				trace.append(String.format(Locale.ROOT, "z%.2f x%.2f y%.2f v%.2f ledge%d | ", horseZ(ctx), horseX(ctx), sample(ctx).y, sample(ctx).speed,
+					ride(ctx, r -> r.ledgeTicks)));
+			}
 		}
 		check("fits through the gap", horseZ(ctx) < -25.9);
+		if (horseZ(ctx) >= -25.9) {
+			log("  path: %s", trace);
+		}
 		stop(ctx, input);
 	}
 
@@ -1369,22 +1403,42 @@ public final class RideFeelTest implements FabricClientGameTest {
 		double after = -1.0;
 		int landedAt = -1;
 		boolean shot = false;
+		final StringBuilder ledgeTrace = new StringBuilder();
+		int frames = 0;
+		int takeoffTick = -1;
+		int landTick = -1;
+		sideCamera(world, 409.5, -59.0, -18.0, 90.0F);
 		for (int i = 0; i < 300 && horseZ(ctx) > -26.0; i++) {
 			ctx.waitTick();
 			final Sample s = sample(ctx);
 			final double z = horseZ(ctx);
+			final int tick = horseTick(ctx);
+			// From the side, from the crouch to walking on from the top (a fixed camera: the horse alone, as the game never
+			// draws the local player for another camera), and its trace.
+			if (z < -15.0 && frames < 16) {
+				ledgeTrace.append(String.format(Locale.ROOT, "t%d z%.2f y%.2f vis%.2f tilt%.1f jump%.1f air%.2f | ",
+					tick, z, s.y, s.visualY, s.pitch, ride(ctx, r -> r.jumpPitch(1.0F)), ride(ctx, r -> r.airLegs(1.0F))));
+				cameraShot(ctx, String.format(Locale.ROOT, "14s_ledge_seq_%02d", frames));
+				if (z < -16.5 && frames % 2 == 0) {
+					// And from the riding camera swung to the side, to see the rider.
+					sideScreenshot(ctx, String.format(Locale.ROOT, "14r_ledge_rider_%02d", frames), 0.0F);
+				}
+				frames++;
+			}
 			if (Double.isNaN(takeoffZ)) {
 				if (ride(ctx, r -> r.ledgeClimbs) > climbs) {
 					takeoffZ = z;
+					takeoffTick = tick;
 				} else {
 					approach = s.speed;
 				}
 				continue;
 			}
 			peak = Math.max(peak, s.y);
-			if (!s.onGround) {
-				airborne++;
-			} else if (landedAt < 0 && s.y > -58.05) {
+			if (landTick < 0 && s.onGround && s.y > -58.05) {
+				landTick = tick;
+			}
+			if (landedAt < 0 && s.onGround && s.y > -58.05) {
 				landedAt = i;
 			}
 			if (landedAt >= 0 && i == landedAt + 10) {
@@ -1398,11 +1452,13 @@ public final class RideFeelTest implements FabricClientGameTest {
 				shot = true;
 			}
 		}
+		airborne = landTick - takeoffTick;
+		log("  jump: %s", ledgeTrace);
 		check("jumps up a 2-block ledge (blocks gained)", sample(ctx).y - -60.0, 1.95, 2.05);
 		check("one ledge jump", ride(ctx, r -> r.ledgeClimbs) - climbs, 1, 1);
-		check("takes off in its stride, before the wall (front to face, blocks)", takeoffZ - half(ctx) - -19.0, 0.4, 1.8);
+		check("bounds up it: takes off well before the wall (front to face, blocks)", takeoffZ - half(ctx) - -19.0, 1.2, 2.8);
 		check("no stop before it (walking speed at takeoff, blocks/tick)", approach / WALK_SPEED, 0.6, 1.2);
-		check("an arc, not a climb: forward travel on the way up (blocks)", risingTravel, 0.5, 2.5);
+		check("an arc, not a pop straight up: forward travel on the way up (blocks)", risingTravel, 1.2, 3.0);
 		check("in the air like a jump (ticks)", airborne, 5, 16);
 		check("clears the lip without launching (peak above the top, blocks)", peak - -58.0, 0.05, 0.6);
 		check("walks on from the top (speed after landing / walk)", after / WALK_SPEED, 0.6, 1.2);

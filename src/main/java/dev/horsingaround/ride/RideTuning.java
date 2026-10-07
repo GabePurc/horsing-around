@@ -296,9 +296,10 @@ public final class RideTuning {
 
 	/**
 	 * Ledges up to 2 blocks high: riding at one at a walk or trot, the horse jumps up it without stopping. It spots the
-	 * ledge within LEDGE_REACH of its chest, sinks onto its haunches over the last LEDGE_CROUCH_TICKS, and takes off
-	 * about a stride out (where its arc brings the body above the lip just as it reaches the face), clearing the lip by
-	 * LEDGE_CLEARANCE, then walks on. Not at a canter or gallop (it slows for the wall first); never onto leaves or a
+	 * ledge within LEDGE_REACH of its chest, sinks onto its haunches over the last LEDGE_CROUCH_TICKS, and bounds up it:
+	 * at least LEDGE_BOUND blocks/tick forward through the air (no more than LEDGE_MAX_FORWARD), taking off one and a
+	 * half to two blocks out, where that arc brings its chest to the face near the top of the arc (LEDGE_CROSS_HEIGHT of
+	 * the LEDGE_CLEARANCE above the lip), and lands a stride onto the top, then walks on. Not at a canter or gallop (it slows for the wall first); never onto leaves or a
 	 * lone log (it needs solid ground under LEDGE_SUPPORT of its body), and never over fences, walls or gates.
 	 */
 	public static boolean LEDGE_CLIMB = true;
@@ -308,11 +309,15 @@ public final class RideTuning {
 	 * it can jump, it doesn't go round: it slows to a trot by the time it is in reach and jumps it.
 	 */
 	static final float LEDGE_LINE_ANGLE = 30.0F;
-	static final float LEDGE_REACH = 2.5F;
+	static final float LEDGE_REACH = 3.0F;
 	static final float LEDGE_CLEARANCE = 0.3F;
 	static final double LEDGE_SUPPORT = 0.6;
 	/** Forward speed in the jump at least this, blocks/tick, and the run-up gives up after LEDGE_APPROACH_TICKS. */
 	static final float LEDGE_MIN_FORWARD = 0.1F;
+	static final float LEDGE_BOUND = 0.26F;
+	/** It takes off where its chest gets to the face once the body is this share of the clearance above the lip. */
+	static final float LEDGE_CROSS_HEIGHT = 0.75F;
+	static final float LEDGE_MAX_FORWARD = 0.32F;
 	static final int LEDGE_APPROACH_TICKS = 40;
 	static final float LEDGE_CROUCH_TICKS = 3.0F;
 	/** Crouching: the body sinks this far (blocks) and the nose lifts this much (degrees). */
@@ -397,6 +402,26 @@ public final class RideTuning {
 	static final float AIR_OFFSET_DECAY = 0.5F;
 	/** ...but by no more than this per tick, so a lag built up climbing out of water eases out instead of snapping. */
 	static final float AIR_OFFSET_MAX_STEP = 0.05F;
+	/**
+	 * Legs in the air (a jump, or a fall bigger than a step): the run cycle eases to a stop (AIR_STRIDE_STOP of the way a
+	 * tick) and the legs take the shape of a jump, blended in by AIR_LEGS_IN and out by AIR_LEGS_OUT a tick. Rising, the
+	 * front legs fold up under the chest (FORE_AIR_TUCK radians forward, lifted FORE_AIR_LIFT model pixels) and the hind
+	 * legs push back (HIND_AIR_PUSH); coming down, the front legs reach forward and down for the ground (FORE_AIR_REACH,
+	 * the leading one FORE_AIR_STAGGER ahead of the other) and the hind legs gather under the body (HIND_AIR_TUCK, lifted
+	 * HIND_AIR_LIFT). Rising or falling is the climb rate over AIR_LEG_RISE blocks/tick, eased by AIR_LEG_PHASE_EASE.
+	 */
+	public static final float AIR_STRIDE_STOP = 0.5F;
+	static final float AIR_LEGS_IN = 0.35F;
+	static final float AIR_LEGS_OUT = 0.25F;
+	public static final float FORE_AIR_TUCK = 1.3F;
+	public static final float FORE_AIR_LIFT = 2.0F;
+	public static final float FORE_AIR_REACH = 0.5F;
+	public static final float FORE_AIR_STAGGER = 0.3F;
+	public static final float HIND_AIR_PUSH = 0.7F;
+	public static final float HIND_AIR_TUCK = 0.55F;
+	public static final float HIND_AIR_LIFT = 1.5F;
+	static final float AIR_LEG_RISE = 0.3F;
+	static final float AIR_LEG_PHASE_EASE = 0.5F;
 	/** Touching down, the body sinks this many blocks per block/tick of fall speed (max LANDING_DIP_MAX), then recovers. */
 	static final float LANDING_DIP = 0.18F;
 	static final float LANDING_DIP_MAX = 0.2F;
@@ -418,6 +443,12 @@ public final class RideTuning {
 	public static float RIDER_BANK_FOLLOW = 0.3F;
 	/** Uphill the rider leans forward by this fraction of the horse's pitch; downhill they stay vertical. */
 	public static final float RIDER_UPHILL_LEAN = 0.25F;
+	/**
+	 * Jumping, the rider folds forward over the neck (the jumping position): RIDER_JUMP_FOLD degrees in the air, and
+	 * following RIDER_JUMP_FOLLOW of the horse's nose-up tilt as it takes off; coming down they sit up again.
+	 */
+	public static final float RIDER_JUMP_FOLD = 12.0F;
+	public static final float RIDER_JUMP_FOLLOW = 0.6F;
 	/** The hips ride the saddle exactly; the torso takes this share of the saddle's rocking. */
 	public static final float RIDER_SADDLE_PITCH_FOLLOW = 0.5F;
 	/** Seat height above the rider's origin; the rider pivots here. */

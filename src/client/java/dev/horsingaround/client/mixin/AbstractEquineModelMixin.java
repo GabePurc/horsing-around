@@ -1,5 +1,6 @@
 package dev.horsingaround.client.mixin;
 
+import dev.horsingaround.client.render.AirLegs;
 import dev.horsingaround.client.render.RidePoseState;
 import dev.horsingaround.ride.RideTuning;
 import net.minecraft.client.model.animal.equine.AbstractEquineModel;
@@ -14,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Neck reaching forward on climbs, legs folding up onto a step (and reaching down for one, and driving the
- * hindquarters up), and the head toss when the horse runs out of stamina, on the neck so Fresh Animations' animated
+ * hindquarters up), legs in the shape of a jump in the air, and the head toss when the horse runs out of stamina, on the neck so Fresh Animations' animated
  * head and neck (its children) carry it too. The motion matches Fresh Animations' own idle head shake.
  */
 @Mixin(AbstractEquineModel.class)
@@ -60,5 +61,6 @@ public abstract class AbstractEquineModelMixin {
 			this.leftHindLeg.xRot += swing;
 			this.rightHindLeg.xRot += swing;
 		}
+		AirLegs.pose(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, pose.horsingaround$airLegs(), pose.horsingaround$airRise());
 	}
 }

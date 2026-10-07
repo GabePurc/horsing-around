@@ -286,7 +286,11 @@ public final class RideController {
 		final double gravity = horse.getGravity();
 		final float launch = launchSpeed(height + LEDGE_CLEARANCE, gravity);
 		final int rise = ticksToRise(launch, height + 0.05, gravity);
-		final float takeoff = pace * rise;
+		// It bounds up: at least LEDGE_BOUND a tick forward through the air, taking off far enough out that its chest
+		// reaches the face near the top of the arc, so it sails over the lip and lands a stride onto the top, instead of
+		// popping straight up beside the face.
+		final float bound = Math.min(Math.max(pace, LEDGE_BOUND), LEDGE_MAX_FORWARD);
+		final float takeoff = bound * ticksToRise(launch, height + LEDGE_CLEARANCE * LEDGE_CROSS_HEIGHT, gravity);
 		final float face = Awareness.ledgeFace;
 		s.ledgeCrouch = Mth.clamp(1.0F - (face - takeoff) / (pace * LEDGE_CROUCH_TICKS), 0.0F, 1.0F);
 		if (face > takeoff + pace * 0.5F && !horse.horizontalCollision) {
@@ -297,7 +301,7 @@ public final class RideController {
 		s.ledgeCrouch = 0.0F;
 		s.ledgeTop = top;
 		// No faster than gets the chest to the face just as the body clears the lip, so it never meets the face rising.
-		s.ledgeForward = Mth.clamp(Math.min(pace, face / (rise + 1.0F)), LEDGE_MIN_FORWARD, 0.3F);
+		s.ledgeForward = Mth.clamp(Math.min(bound, face / (rise + 1.0F)), LEDGE_MIN_FORWARD, LEDGE_MAX_FORWARD);
 		s.ledgeClimbs++;
 		// The push isn't folded into the velocity on leaving the ground; the jump sets the motion itself.
 		s.jumpedOff = true;
@@ -669,6 +673,12 @@ public final class RideController {
 		if (onGround || horse.isPassenger() || horse.isInWater() || s.bankTicks > 0) {
 			s.jumpPitch += -s.jumpPitch * JUMP_PITCH_SMOOTHING;
 		}
+		// In a jump (or a bigger fall) the legs take its shape: folded up climbing, reaching for the ground coming down.
+		s.inAir = s.flying && !onGround && !horse.isPassenger() && !horse.isInWater() && s.bankTicks == 0;
+		s.airLegsO = s.airLegs;
+		s.airRiseO = s.airRise;
+		s.airLegs += Mth.clamp((s.inAir ? 1.0F : 0.0F) - s.airLegs, -AIR_LEGS_OUT, AIR_LEGS_IN);
+		s.airRise += (Mth.clamp((float) dy / AIR_LEG_RISE, -1.0F, 1.0F) - s.airRise) * AIR_LEG_PHASE_EASE;
 		s.wasOnGround = onGround;
 	}
 

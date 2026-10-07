@@ -3,6 +3,7 @@ package dev.horsingaround.client.compat;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
 import dev.horsingaround.client.mixin.ModelPartAccessor;
+import dev.horsingaround.client.render.AirLegs;
 import dev.horsingaround.ride.RideTuning;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -52,13 +53,14 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 
 	/**
 	 * Legs on a step, after the pack has animated them: the front legs fold up and forward onto a step or reach down for
-	 * one, the hind legs drive the hindquarters up or gather under going down. On every layer (body, saddle, armour) so
-	 * they stay together.
+	 * one, the hind legs drive the hindquarters up or gather under going down; and in the air, the shape of a jump. On
+	 * every layer (body, saddle, armour) so they stay together.
 	 */
 	private void stepLegs(final EMFModelPartRoot root, final RideState ride, final float partialTicks) {
 		final float fore = ride.foreLeg(partialTicks);
 		final float hind = ride.hindLeg(partialTicks);
-		if (fore == 0.0F && hind == 0.0F) {
+		final float air = ride.airLegs(partialTicks);
+		if (fore == 0.0F && hind == 0.0F && air <= 0.0F) {
 			return;
 		}
 		ModelPart[] parts = this.legs.get(root);
@@ -84,6 +86,7 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 				}
 			}
 		}
+		AirLegs.pose(parts[0], parts[1], parts[2], parts[3], air, ride.airRise(partialTicks));
 	}
 
 	private static ModelPart neck(final EMFModelPartRoot root) {

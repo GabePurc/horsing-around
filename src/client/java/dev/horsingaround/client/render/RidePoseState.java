@@ -55,4 +55,11 @@ public interface RidePoseState {
 	float horsingaround$foreLeg();
 
 	float horsingaround$hindLeg();
+
+	/** Legs in a jump: how far in its shape (0..1), and climbing (1) to falling (-1); vanilla model only. */
+	void horsingaround$setAirLegs(float air, float rise);
+
+	float horsingaround$airLegs();
+
+	float horsingaround$airRise();
 }

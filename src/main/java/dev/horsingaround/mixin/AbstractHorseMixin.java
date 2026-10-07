@@ -148,13 +148,19 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 
 	/**
 	 * Leg animation speed tracks the gait instead of vanilla's distance x 4, which maxes out at a slow trot. Keeps
-	 * cadence believable and lets Fresh Animations pick the matching walk, trot or gallop cycle.
+	 * cadence believable and lets Fresh Animations pick the matching walk, trot or gallop cycle. In the air (a jump or a
+	 * bigger fall) the stride stops: the legs take the jump's shape instead (see the equine model mixin).
 	 */
 	@Override
 	protected void updateWalkAnimation(final float distance) {
 		if (this.horsingaround$managed && this.getControllingPassenger() instanceof Player) {
+			final float scale = this.isBaby() ? 3.0F : 1.0F;
+			if (this.horsingaround$ride.inAir && !this.onGround()) {
+				this.walkAnimation.update(0.0F, RideTuning.AIR_STRIDE_STOP, scale);
+				return;
+			}
 			final float topSpeed = (float) this.getAttributeValue(Attributes.MOVEMENT_SPEED) * RideTuning.TERMINAL_VELOCITY_FACTOR;
-			this.walkAnimation.update(Math.min(distance / topSpeed * RideTuning.ANIMATION_SPEED_FACTOR, 1.0F), 0.4F, this.isBaby() ? 3.0F : 1.0F);
+			this.walkAnimation.update(Math.min(distance / topSpeed * RideTuning.ANIMATION_SPEED_FACTOR, 1.0F), 0.4F, scale);
 		} else {
 			super.updateWalkAnimation(distance);
 		}
