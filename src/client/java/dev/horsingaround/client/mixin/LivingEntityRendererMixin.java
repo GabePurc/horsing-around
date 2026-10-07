@@ -104,12 +104,13 @@ public abstract class LivingEntityRendererMixin {
 		final float ty = hy + OFFSET.y - RIDER_SEAT_HEIGHT + bodyLift + measuredLift - RIDER_SEAT_DROP;
 		final float tz = hz + OFFSET.z + fz * measuredForward + rz * measuredSide + shiftZ;
 		// The torso stays closer to upright: resists the bank, leans forward uphill, stays vertical downhill, takes
-		// part of the saddle's rocking, sways against the horse's surges, and folds forward with speed.
+		// part of the saddle's rocking, sways against the horse's surges and the push of leaves, and folds forward with
+		// speed.
 		final float forwardLean = FORWARD_LEAN_STILL + (FORWARD_LEAN_MOVING - FORWARD_LEAN_STILL) * saddle.moving
 			+ (FORWARD_LEAN_GALLOP - FORWARD_LEAN_MOVING) * saddle.gallop;
 		final float riderBank = bank * RIDER_BANK_FOLLOW + saddle.roll * RIDER_BANK_FOLLOW * Mth.DEG_TO_RAD;
 		final float riderPitch = -Math.max(pitch, 0.0F) * RIDER_UPHILL_LEAN
-			+ (saddle.pitch * RIDER_SADDLE_PITCH_FOLLOW - forwardLean + s.inertia(partialTicks)) * Mth.DEG_TO_RAD;
+			+ (saddle.pitch * RIDER_SADDLE_PITCH_FOLLOW - forwardLean + s.inertia(partialTicks) + s.leafPush(partialTicks)) * Mth.DEG_TO_RAD;
 		RIDER_ROTATION.rotationAxis(riderBank, fx, 0.0F, fz).rotateAxis(riderPitch, rx, 0.0F, rz);
 		pose.horsingaround$setPose(tx, ty, tz, RIDER_ROTATION.x, RIDER_ROTATION.y, RIDER_ROTATION.z, RIDER_ROTATION.w, 0.0F, RIDER_SEAT_HEIGHT, 0.0F);
 
@@ -126,7 +127,7 @@ public abstract class LivingEntityRendererMixin {
 		state.yRot = Mth.clamp(Mth.wrapDegrees(headYaw - horseYaw), -LOOK_LIMIT, LOOK_LIMIT);
 		final float twist = Mth.clamp(state.yRot * TORSO_TWIST, -TORSO_TWIST_MAX, TORSO_TWIST_MAX) * Mth.DEG_TO_RAD;
 		final float lift = saddle.lift * (0.5F + 0.5F * saddle.limbSpeed);
-		pose.horsingaround$setRider(-lift * HAND_BOB, legPitch, legRoll, twist, pelvis);
+		pose.horsingaround$setRider(-lift * HAND_BOB, legPitch, legRoll, twist, pelvis, s.shield(partialTicks));
 	}
 
 	@Inject(

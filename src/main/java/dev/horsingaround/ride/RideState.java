@@ -24,9 +24,30 @@ public final class RideState {
 	int jumpBuffer;
 	/** Out of its depth this tick (floating and swimming). */
 	public boolean swimming;
-	/** Climbing out of the water: current rise (blocks/tick) and ticks since the bank was last felt. */
-	float climbSpeed;
-	int climbLostTicks;
+	/**
+	 * Heaving out of the water up a bank: ticks into the heave (0 when not), how long the rise takes, where it started
+	 * and the bank's top, and the heading it climbs along.
+	 */
+	public int bankTicks;
+	float bankDuration;
+	double bankFrom;
+	double bankTop;
+	float bankYaw;
+	/** Ticks until a swimming horse looks properly at the bank in front of it again. */
+	int bankLook;
+	/** Banks climbed out onto (for tests). */
+	public int bankClimbs;
+	/**
+	 * How hard the horse is cutting round, 0..1 (from how far off it the rider looks; eases off as it comes round), whether
+	 * the next hard cut may scuff the ground, and how far it has sat back for it (0..1, visual).
+	 */
+	public float cut;
+	boolean scuffReady = true;
+	float cutSquat;
+	/** Hard cuts that scuffed the ground (for tests). */
+	public int cuts;
+	/** The rider's line meets a 2-block ledge the horse will jump rather than go round. */
+	boolean ledgeOnLine;
 	int rustleCooldown;
 	/** Ground contact at the start of the last ridden tick, to keep speed continuous through drops and landings. */
 	boolean wasGrounded = true;
@@ -110,6 +131,16 @@ public final class RideState {
 	float heightOffset;
 	float heightOffsetO;
 	boolean wasOnGround = true;
+	/**
+	 * Pushing through leaves: how far the rider has a hand up in front of their face (0..1), their lean back from the
+	 * push (degrees, top-back positive, on a spring), and the last clump of leaves their face met.
+	 */
+	float shield;
+	float shieldO;
+	float leafPush;
+	float leafPushO;
+	float leafPushVelocity;
+	long lastClump;
 	/** Rider's lean against the horse's surges (degrees, top-back positive), on a spring. */
 	float inertia;
 	float inertiaO;
@@ -196,6 +227,16 @@ public final class RideState {
 		return envelope * envelope;
 	}
 
+	/** How far the rider has a hand up against the leaves, 0..1. */
+	public float shield(final float partialTicks) {
+		return this.shieldO + (this.shield - this.shieldO) * partialTicks;
+	}
+
+	/** Rider lean back from pushing through leaves, degrees. */
+	public float leafPush(final float partialTicks) {
+		return this.leafPushO + (this.leafPush - this.leafPushO) * partialTicks;
+	}
+
 	/** Rider lean from the horse speeding up (back, positive) or slowing (forward), degrees. */
 	public float inertia(final float partialTicks) {
 		return this.inertiaO + (this.inertia - this.inertiaO) * partialTicks;
@@ -233,5 +274,10 @@ public final class RideState {
 		this.ledgeTicks = 0;
 		this.ledgeAir = false;
 		this.ledgeCrouch = 0.0F;
+		this.ledgeOnLine = false;
+		this.bankTicks = 0;
+		this.cut = 0.0F;
+		this.cutSquat = 0.0F;
+		this.scuffReady = true;
 	}
 }

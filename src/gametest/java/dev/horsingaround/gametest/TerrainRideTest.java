@@ -469,12 +469,15 @@ public final class TerrainRideTest implements FabricClientGameTest {
 				yield t.route(mid, 1, mid, SIZE - 2);
 			}
 			case RIVER -> {
+				// Banks like generated rivers': mostly level with the water or a block above it (climbable), here and there
+				// two (not), rising further back from the water.
 				t.heights((x, z) -> {
 					final double channel = Math.abs(z - (mid + 4.0 * Math.sin(x / 9.0)));
 					if (channel < 3.0) {
 						return -3;
 					}
-					return 1 + (int) Math.round(2.5 * t.fractal(x / 12.0, z / 12.0)) + (channel < 5.0 ? 0 : 1);
+					final double f = t.fractal(x / 12.0, z / 12.0);
+					return channel < 5.0 ? (int) Math.round(1.8 * f) : 1 + (int) Math.round(2.5 * f);
 				});
 				t.columns(Blocks.DIRT, Blocks.GRASS_BLOCK);
 				t.water();

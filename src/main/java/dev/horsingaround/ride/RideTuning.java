@@ -46,11 +46,24 @@ public final class RideTuning {
 	static final float SWIM_SINK_MAX = 0.06F;
 	static final float SWIM_RISE_MAX = 0.12F;
 	/**
-	 * Pushing against a bank (or pressing jump) while swimming, the horse climbs: its rise builds by SWIM_CLIMB_ACCEL
-	 * per tick up to SWIM_CLIMB_SPEED (blocks/tick) until it can walk out, instead of popping up.
+	 * Climbing out: swimming at a bank (or pressing jump at one) whose top is no more than BANK_MAX_ABOVE_WATER above the
+	 * top of the water's block layer, within BANK_REACH of the chest, with room on top, the horse heaves itself out: it
+	 * rises to the top in one smooth motion (eased in and out, over BANK_HEAVE_TICKS plus BANK_HEAVE_TICKS_PER_BLOCK for
+	 * each block of rise) while pressing forward at BANK_FORWARD blocks/tick, and walks on from the top. Higher banks
+	 * can't be climbed; the rider has to find a lower one.
 	 */
-	static final float SWIM_CLIMB_SPEED = 0.14F;
-	static final float SWIM_CLIMB_ACCEL = 0.035F;
+	static final double BANK_MAX_ABOVE_WATER = 1.125;
+	static final float BANK_REACH = 0.6F;
+	static final float BANK_HEAVE_TICKS = 6.0F;
+	static final float BANK_HEAVE_TICKS_PER_BLOCK = 6.0F;
+	/** The heave lifts the hooves this far above the bank's top, so the body moves onto it a few ticks before it settles. */
+	static final double BANK_CLEARANCE = 0.15;
+	static final float BANK_FORWARD = 0.12F;
+	/** Ticks the heave keeps pressing forward over the top for the hooves to find the bank, before giving up. */
+	static final int BANK_OVER_TICKS = 8;
+	/** Heaving out, the body tilts nose up by up to this much mid-heave (forehand on the bank first), eased this fast. */
+	static final float HEAVE_PITCH = 14.0F;
+	static final float HEAVE_PITCH_EASE = 0.3F;
 	/** Swimming is tiring: a full stamina bar lasts this long in deep water. */
 	static final float STAMINA_DRAIN_SWIM = 1.0F / (40 * 20);
 	/** Pushing through leaves holds the horse to this share of its gait speed. */
@@ -95,6 +108,8 @@ public final class RideTuning {
 	 * right of it, so the rider can ride at an angle while looking or aiming straight at something.
 	 */
 	static float STEER_OFFSET = 45.0F;
+	/** A or D alone (no W or S) ride the horse on at its gait, this many degrees left or right of the view: across it. */
+	static float ACROSS_OFFSET = 90.0F;
 	/** Fraction of the heading error the horse tries to correct each tick. */
 	static final float TURN_GAIN = 0.3F;
 	/**
@@ -116,6 +131,35 @@ public final class RideTuning {
 	static final float SIDESTEP = 0.35F;
 	/** How far the rider model's head and torso turn toward the view, degrees either side of the horse. */
 	public static final float LOOK_LIMIT = 110.0F;
+
+	// ---- Hard cuts: the further the rider looks off, the harder the horse cuts ----
+
+	/**
+	 * The further off where the horse is going the rider looks, the harder it cuts round: from CUT_START degrees off
+	 * (nothing) to CUT_FULL (all of it), eased, it sits back on its haunches, takes up to CUT_GRIP times its usual grip and
+	 * CUT_RATE_SCALE times its usual top turn rate, commits its weight up to CUT_WEIGHT_SHIFT a tick, and slows (braking
+	 * up to CUT_DECEL) to the speed at which that grip brings it round in about CUT_TURN_TICKS. Once committed it eases
+	 * out of the cut by CUT_RELEASE a tick as it comes round. 90 degrees at a gallop: ~0.85s at ~65% pace (a plain turn
+	 * took ~1.9s); 150: ~1s at ~45%; a look of 40 degrees or less (riding at an angle with A/D included) is ordinary
+	 * steering, so the horse still shifts its weight before it turns.
+	 */
+	public static boolean HARD_CUT = true;
+	static final float CUT_START = 40.0F;
+	static final float CUT_FULL = 100.0F;
+	static final float CUT_TURN_TICKS = 10.0F;
+	static final float CUT_RELEASE = 0.05F;
+	static final float CUT_GRIP = 2.2F;
+	static final float CUT_RATE_SCALE = 2.0F;
+	static final float CUT_TURN_GAIN = 0.6F;
+	static final float CUT_WEIGHT_SHIFT = 0.35F;
+	static final float CUT_TURN_ACCEL = 0.5F;
+	static final float CUT_DECEL = 0.1F;
+	/** Sitting back for a cut: the haunches drop this far (blocks) and the nose lifts this much (degrees), eased in and out. */
+	static final float CUT_SQUAT = 0.1F;
+	static final float CUT_SQUAT_PITCH = 5.0F;
+	static final float CUT_SQUAT_EASE = 0.35F;
+	/** Cutting hard (past halfway) from a trot or faster scuffs the ground: the block's step sound at this volume and a spray of it. */
+	static float CUT_SOUND_VOLUME = 0.6F;
 
 	// ---- Stamina ----
 
@@ -183,19 +227,33 @@ public final class RideTuning {
 	static final float LOOK_AHEAD_MAX = 12.0F;
 	/**
 	 * Going round obstacles: when the rider asks for a trot or more (never at a walk, so the rider has precise control)
-	 * and there is a way round in reach, the horse takes it: it looks along the obstacle, up to DETOUR_REACH blocks
-	 * either side, for the nearest place the rider's line is clear past it (DETOUR_CLEARANCE beyond), heads there (no
-	 * more than AVOID_MAX_ANGLE off the rider's line), then back onto the line. A wall with no way round in reach it
-	 * slows for instead of veering along it.
+	 * and there is a way round in reach, the horse takes the straightest one: it looks along the obstacle, up to
+	 * DETOUR_REACH blocks either side, for the least it has to move over (to within DETOUR_RESOLUTION) for the rider's
+	 * line to be clear past it (preferring a lane clear through anything else in a row behind it), and steers a straight
+	 * line for the point beside it DETOUR_PAST beyond its near face (the rider's line clear DETOUR_CLEARANCE further), no
+	 * more than AVOID_MAX_ANGLE off the rider's line; once the
+	 * rider's line is clear it heads where the rider looks again. A
+	 * wall with no way round in reach it slows for instead of veering along it. A 2-block ledge the rider rides straight
+	 * at, that it can jump, it doesn't go round: it jumps it.
 	 */
 	static final float DETOUR_REACH = 12.0F;
 	static final float AVOID_MAX_ANGLE = 85.0F;
-	static final float DETOUR_CLEARANCE = 2.0F;
+	static final float DETOUR_PAST = 1.5F;
+	static final float DETOUR_CLEARANCE = 1.0F;
+	static final float DETOUR_STEP = 0.5F;
+	static final float DETOUR_RESOLUTION = 0.125F;
 	/**
-	 * A detour line must be clear this much wider than the body on each side, so the horse turns early and wide enough
+	 * Things in a row: the way round one is better a lane clear on through what lies behind it, at least DETOUR_LANE
+	 * blocks past it (or to the end of what the horse can see), taken if no more than DETOUR_LANE_EXTRA further over than
+	 * the nearest way just past it. So going round one thing doesn't take the horse into the next.
+	 */
+	static final float DETOUR_LANE = 5.0F;
+	static final float DETOUR_LANE_EXTRA = 2.0F;
+	/**
+	 * A way round must be clear this much wider than the body on each side, so the horse doesn't clip the obstacle
 	 * despite the time it takes to shift its weight and come round.
 	 */
-	static final float DETOUR_MARGIN = 0.4F;
+	static final float DETOUR_MARGIN = 0.2F;
 	/**
 	 * Swinging round at speed: the horse needs ~TURN_LAG_TICKS to shift its weight, then turns at about TURN_EFFICIENCY
 	 * of its grip-limited rate; it slows as much as that takes to come round before what is ahead.
@@ -245,6 +303,11 @@ public final class RideTuning {
 	 */
 	public static boolean LEDGE_CLIMB = true;
 	static final float LEDGE_HEIGHT = 2.0F;
+	/**
+	 * From a trot up, a ledge the rider's line meets (and the horse is heading within LEDGE_LINE_ANGLE of that line) that
+	 * it can jump, it doesn't go round: it slows to a trot by the time it is in reach and jumps it.
+	 */
+	static final float LEDGE_LINE_ANGLE = 30.0F;
 	static final float LEDGE_REACH = 2.5F;
 	static final float LEDGE_CLEARANCE = 0.3F;
 	static final double LEDGE_SUPPORT = 0.6;
@@ -450,6 +513,35 @@ public final class RideTuning {
 	public static float FP_HAND_BOB = 0.6F;
 	/** Share of the saddle lift the third-person camera takes. */
 	public static final float THIRD_PERSON_BOUNCE_SCALE = 0.12F;
+
+	/**
+	 * Pushing through leaves at the rider's chest or face (looked for LEAF_LOOK_NEAR and LEAF_LOOK_FAR ahead of the rider,
+	 * at the eyes and LEAF_CHEST_BELOW_EYE below them, moving faster than LEAF_BRUSH_MIN_PACE of vanilla top speed): the
+	 * branches push the rider back toward LEAF_PUSH_MAX degrees at full pace (on a spring, with a LEAF_PUSH_KICK shove
+	 * as the face meets each new clump, never more than LEAF_PUSH_LIMIT), and the rider puts a hand up in front of their
+	 * face (all the way for leaves at the face, LEAF_SHIELD_CHEST of the way for leaves at the chest), raised by up to
+	 * LEAF_SHIELD_UP a tick and lowered by LEAF_SHIELD_DOWN.
+	 */
+	static final float LEAF_LOOK_NEAR = 0.3F;
+	static final float LEAF_LOOK_FAR = 0.9F;
+	static final double LEAF_CHEST_BELOW_EYE = 0.6;
+	static final float LEAF_BRUSH_MIN_PACE = 0.15F;
+	static final float LEAF_PUSH_MAX = 7.0F;
+	static final float LEAF_PUSH_KICK = 3.0F;
+	static final float LEAF_PUSH_LIMIT = 14.0F;
+	static final float LEAF_PUSH_STIFFNESS = 0.25F;
+	static final float LEAF_PUSH_DAMPING = 0.4F;
+	static final float LEAF_SHIELD_CHEST = 0.5F;
+	static final float LEAF_SHIELD_UP = 0.35F;
+	static final float LEAF_SHIELD_DOWN = 0.06F;
+	/**
+	 * The hand against the leaves: the arm raised forward and up (radians, from hanging), swung in toward the face, and
+	 * the head tucked down and turned a little away from the leaves.
+	 */
+	public static final float SHIELD_ARM_RAISE = 2.65F;
+	public static final float SHIELD_ARM_INWARD = 0.55F;
+	public static final float SHIELD_HEAD_TUCK = 0.3F;
+	public static final float SHIELD_HEAD_TURN = 0.25F;
 
 	// ---- World ----
 

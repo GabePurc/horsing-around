@@ -221,7 +221,8 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 			super.move(type, delta);
 			return;
 		}
-		if (!this.onGround() && !this.isInWater()) {
+		// (Not while heaving out of the water: that rises smoothly onto the bank by itself.)
+		if (!this.onGround() && !this.isInWater() && s.bankTicks == 0) {
 			((EntityAccessor) (Object) this).horsingaround$setOnGroundFlag(true);
 		}
 		final double x = this.getX();

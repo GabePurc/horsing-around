@@ -30,6 +30,12 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 			percent("turn_grip", 50, 200, c.turnGrip, v -> c.turnGrip = v),
 			percent("turn_response", 50, 200, c.turnResponse, v -> c.turnResponse = v),
 			whole("side_angle", "degrees", 15, 90, c.sideAngle, v -> c.sideAngle = v),
+			whole("across_angle", "degrees", 45, 120, c.acrossAngle, v -> c.acrossAngle = v),
+			OptionInstance.createBoolean(KEY + "hard_cuts", OptionInstance.cachedConstantTooltip(Component.translatable(KEY + "hard_cuts.tooltip")),
+				c.hardCuts, v -> {
+					c.hardCuts = v;
+					HorseConfig.apply();
+				}),
 			OptionInstance.createBoolean(KEY + "horse_avoids", OptionInstance.cachedConstantTooltip(Component.translatable(KEY + "horse_avoids.tooltip")),
 				c.horseAvoids, v -> {
 					c.horseAvoids = v;

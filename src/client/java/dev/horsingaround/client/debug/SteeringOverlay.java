@@ -17,7 +17,7 @@ import net.minecraft.world.phys.Vec3;
  * (green, at the tick's position), the rider's line
  * (white), where the horse is heading (yellow), its detour round something (aqua), what its look-ahead found along the
  * rider's line (red: a wall, orange: danger, blue: a jumpable gap), the ledge it is jumping (green), and the ground
- * carrying its front and back on a step (magenta). Debug only, so it may allocate.
+ * carrying its front and back on a step (magenta); how hard it is cutting round, while it does. Debug only, so it may allocate.
  */
 public final class SteeringOverlay {
 	private static final String[] GAITS = {"stop", "walk", "trot", "canter", "gallop"};
@@ -55,7 +55,8 @@ public final class SteeringOverlay {
 			Gizmos.point(new Vec3(horse.getX() - forward.x * RideTuning.HIND_HOOVES, hind, horse.getZ() - forward.z * RideTuning.HIND_HOOVES), 0xFFFF40FF, 6.0F)
 				.setAlwaysOnTop();
 		}
-		Gizmos.billboardTextOverMob(horse, 0, String.format(Locale.ROOT, "%s %.2f  blocked %.2f", GAITS[s.gait], s.speed, s.blocked), 0xFFFFFFFF, 0.6F);
+		Gizmos.billboardTextOverMob(horse, 0, String.format(Locale.ROOT, "%s %.2f  blocked %.2f%s", GAITS[s.gait], s.speed, s.blocked,
+			s.cut > 0.0F ? String.format(Locale.ROOT, "  cut %.0f%%", s.cut * 100.0F) : ""), 0xFFFFFFFF, 0.6F);
 	}
 
 	private static Vec3 direction(final float yaw, final double length) {

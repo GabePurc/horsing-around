@@ -82,7 +82,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			ctx.waitTicks(10);
 			ctx.runOnClient(mc -> mc.gui.hud.getChat().clearMessages(false));
 
-			// -Psections=<names> runs only some sections (core, stairs, picking, steps); all of them by default.
+			// -Psections=<names> runs only some sections (core, cuts, stairs, picking, steps); all of them by default.
 			final String sections = System.getProperty("horsingaround.sections", "");
 			if (sections.isEmpty() || sections.contains("core")) {
 				mounting(ctx);
@@ -98,12 +98,17 @@ public final class RideFeelTest implements FabricClientGameTest {
 				standingJump(ctx);
 				dismount(ctx, input);
 			}
+			if (sections.isEmpty() || sections.contains("cuts")) {
+				hardCuts(ctx, input, world);
+			}
 			if (sections.isEmpty() || sections.contains("stairs")) {
 				stairs(ctx, input, world);
 				forest(ctx, input, world);
 				downhill(ctx, input, world);
 				trample(ctx, input, world);
 				water(ctx, input, world);
+				bank(ctx, input, world, 940, 1);
+				bank(ctx, input, world, 960, 2);
 			}
 			if (sections.isEmpty() || sections.contains("picking")) {
 				pickingItsWay(ctx, input, world);
@@ -521,7 +526,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		section("Riding through leaves");
 		final TestServerContext server = world.getServer();
 		server.runCommand("fill 97 -60 -80 104 -57 -31 minecraft:stone");
-		server.runCommand("fill 97 -56 -46 104 -54 -38 minecraft:oak_leaves[persistent=true]");
+		// Tall enough that the rider's chest and face are in the leaves too.
+		server.runCommand("fill 97 -56 -46 104 -52 -38 minecraft:oak_leaves[persistent=true]");
 		ctx.waitTicks(5);
 		input.lookAt(180.0F, 10.0F);
 		input.holdKey(o -> o.keyUp);
@@ -532,10 +538,21 @@ public final class RideFeelTest implements FabricClientGameTest {
 		double inside = 0.0;
 		int insideTicks = 0;
 		boolean shot = false;
+		float shield = 0.0F;
+		float push = 0.0F;
+		int exitShots = 0;
+		final StringBuilder trace = new StringBuilder();
 		for (int i = 0; i < 300 && sample(ctx).y > -57.5; i++) {
 			ctx.waitTick();
 			final Sample s = sample(ctx);
 			final boolean inLeaves = ctx.computeOnClient(mc -> Foliage.leavesIn(mc.player.getVehicle()) != null);
+			final float hand = ride(ctx, r -> r.shield(1.0F));
+			final float back = ride(ctx, r -> r.leafPush(1.0F));
+			shield = Math.max(shield, hand);
+			push = Math.max(push, back);
+			if (inLeaves || hand > 0.0F) {
+				trace.append(String.format(Locale.ROOT, "z%.1f hand%.2f push%.1f | ", horseZ(ctx), hand, back));
+			}
 			if (inLeaves) {
 				inside += s.speed;
 				insideTicks++;
@@ -547,6 +564,16 @@ public final class RideFeelTest implements FabricClientGameTest {
 				outside += s.speed;
 				outsideTicks++;
 			}
+			// Coming out of the stand, hand still up: the rider from in front and above as the face clears the leaves, then
+			// from the side once clear of them (the riding camera swung round: a fixed camera can't show the rider, as the
+			// game never draws the local player for another camera).
+			if (exitShots == 0 && horseZ(ctx) < -45.8) {
+				frontScreenshot(ctx, "08d_leaves_exit_front", -25.0F);
+				exitShots++;
+			} else if (exitShots == 1 && horseZ(ctx) < -47.2) {
+				sideScreenshot(ctx, "08e_leaves_exit_side", 0.0F);
+				exitShots++;
+			}
 			// Carry on well clear of the leaves so later camera checks aren't taken against them.
 			if (ctx.computeOnClient(mc -> mc.player.getVehicle().getZ()) < -64.0) {
 				break;
@@ -556,6 +583,11 @@ public final class RideFeelTest implements FabricClientGameTest {
 		final double z = ctx.computeOnClient(mc -> mc.player.getVehicle().getZ());
 		check("rode through a 9-block-deep stand of leaves (z beyond -47)", z, -80.0, -47.0);
 		check("leaves slow the horse (inside / outside speed)", insideTicks > 0 && outsideTicks > 0 ? (inside / insideTicks) / (outside / outsideTicks) : 0.0, 0.6, 0.9);
+		log("  rider: %s", trace);
+		check("the rider puts a hand up against the leaves (0..1)", shield, 0.9, 1.0);
+		check("the leaves push the rider back (deg)", push, 2.0, 14.0);
+		check("hand down again once clear", ride(ctx, r -> r.shield(1.0F)), 0.0, 0.01);
+		check("upright again once clear (deg)", Math.abs((double) ride(ctx, r -> r.leafPush(1.0F))), 0.0, 0.5);
 		ticksUntilStopped(ctx, 60);
 	}
 
@@ -705,6 +737,212 @@ public final class RideFeelTest implements FabricClientGameTest {
 		ticksUntilStopped(ctx, 60);
 	}
 
+	// ---- Hard cuts: the further the rider looks off, the harder the horse cuts round ----
+
+	/** What a turn toward a view {@code angle} degrees right of a galloping horse looked like. */
+	private record Turn(int ticks, double slowest, float lean, float squat, float cut, int cuts) {
+	}
+
+	/** Gallops north in its own lane, then looks {@code angle} degrees right and measures the turn. */
+	private Turn gallopAndLook(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final int x, final float angle, final String shot) {
+		lane(ctx, input, world, x + 0.5, -60, "cut_test_" + x);
+		gallopNorth(ctx, input);
+		ctx.waitTicks(40);
+		final int cuts = ride(ctx, s -> s.cuts);
+		final double before = sample(ctx).speed;
+		input.lookAt(180.0F + angle, 10.0F);
+		double slowest = Double.MAX_VALUE;
+		float lean = 0.0F;
+		float squat = 0.0F;
+		float cut = 0.0F;
+		int ticks = 0;
+		final StringBuilder trace = new StringBuilder();
+		while (Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - (180.0F + angle))) > 5.0F && ticks < 80) {
+			ctx.waitTick();
+			ticks++;
+			final Sample s = sample(ctx);
+			slowest = Math.min(slowest, s.speed);
+			lean = Math.max(lean, s.lean);
+			squat = Math.max(squat, s.pitch);
+			cut = Math.max(cut, ride(ctx, r -> r.cut));
+			trace.append(String.format(Locale.ROOT, "%.0f/%.2f/%.2f ", Mth.wrapDegrees(s.horseYaw - 180.0F), s.speed, ride(ctx, r -> r.cut)));
+			if (shot != null && ticks == 6) {
+				frontScreenshot(ctx, shot);
+			}
+		}
+		log("  heading/speed/cut: %s", trace);
+		return new Turn(ticks, slowest / before, lean, squat, cut, ride(ctx, s -> s.cuts) - cuts);
+	}
+
+	private void hardCuts(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Hard cuts off: turning the view 90 deg at a gallop (for comparison)");
+		ctx.runOnClient(mc -> {
+			HorseConfig.get().hardCuts = false;
+			HorseConfig.apply();
+		});
+		final Turn plain = gallopAndLook(ctx, input, world, 1200, 90.0F, null);
+		ctx.runOnClient(mc -> HorseConfig.reset());
+		check("a plain turn is gradual at a gallop (ticks to come round 90 deg)", plain.ticks, 25, 60);
+		check("...and keeps its pace (slowest / before)", plain.slowest, 0.85, 1.05);
+		stop(ctx, input);
+
+		section("Looking 20 deg off at a gallop: ordinary steering");
+		final Turn small = gallopAndLook(ctx, input, world, 1240, 20.0F, null);
+		check("no cut", small.cut, 0.0, 0.01);
+		check("keeps its pace (slowest / before)", small.slowest, 0.85, 1.05);
+		stop(ctx, input);
+
+		section("Looking 60 deg off at a gallop: cuts a little");
+		final Turn half = gallopAndLook(ctx, input, world, 1280, 60.0F, null);
+		check("cuts partly (most, 0..1)", half.cut, 0.1, 0.6);
+		stop(ctx, input);
+
+		section("Looking 90 deg off at a gallop: sits back and cuts round");
+		final Turn hard = gallopAndLook(ctx, input, world, 1320, 90.0F, "05a_hard_cut_front");
+		check("cuts hard (most, 0..1)", hard.cut, 0.85, 1.0);
+		check("comes round much faster than a plain turn (ticks)", hard.ticks, 10, (int) (plain.ticks * 0.65));
+		check("slows to do it (slowest / before)", hard.slowest, 0.5, 0.85);
+		check("slows more than for a 60 deg look (slowest, 90 vs 60)", half.slowest - hard.slowest, 0.03, 0.5);
+		check("banks hard into it (deg)", hard.lean, 10.0, 15.0);
+		check("sits back on its haunches (nose up, deg)", hard.squat, 2.0, 8.0);
+		check("scuffs the ground once", hard.cuts, 1, 1);
+		ctx.waitTicks(40);
+		check("eases out of the cut", ride(ctx, s -> s.cut), 0.0, 0.01);
+		check("gallops on after (speed / gallop)", sample(ctx).speed / GALLOP_SPEED, 0.9, 1.1);
+		stop(ctx, input);
+
+		section("Looking 150 deg round at a gallop: slows more, cuts tighter");
+		final Turn round = gallopAndLook(ctx, input, world, 1360, 150.0F, null);
+		check("slows more than for 90 deg (slowest, 90 vs 150)", hard.slowest - round.slowest, 0.05, 0.6);
+		check("still comes round promptly (ticks)", round.ticks, 10, 35);
+		stop(ctx, input);
+
+		section("A or D alone at a gallop: rides across the view");
+		lane(ctx, input, world, 1440.5, -60, "across_test");
+		gallopNorth(ctx, input);
+		ctx.waitTicks(40);
+		input.releaseKey(o -> o.keyUp);
+		input.holdKey(o -> o.keyRight);
+		ctx.waitTicks(60);
+		check("D alone: horse rides 90 deg right of the view (deg)", Mth.wrapDegrees(sample(ctx).horseYaw - sample(ctx).playerYaw), 85.0, 95.0);
+		check("...at full pace (speed / gallop)", averageSpeed(ctx, 5) / GALLOP_SPEED, 0.9, 1.1);
+		check("...still galloping", sample(ctx).gait == RideTuning.GALLOP);
+		check("the view was never pulled (deg)", Math.abs(Mth.wrapDegrees(sample(ctx).playerYaw - 180.0F)), 0.0, 0.5);
+		input.releaseKey(o -> o.keyRight);
+		input.holdKey(o -> o.keyLeft);
+		ctx.waitTicks(80);
+		check("A alone: horse rides 90 deg left of the view (deg)", Mth.wrapDegrees(sample(ctx).horseYaw - sample(ctx).playerYaw), -95.0, -85.0);
+		check("...at full pace (speed / gallop)", averageSpeed(ctx, 5) / GALLOP_SPEED, 0.9, 1.1);
+		input.holdKey(o -> o.keyUp);
+		ctx.waitTicks(40);
+		check("W+A: back to 45 deg left of the view (deg)", Mth.wrapDegrees(sample(ctx).horseYaw - sample(ctx).playerYaw), -50.0, -40.0);
+		input.releaseKey(o -> o.keyLeft);
+		input.releaseKey(o -> o.keyUp);
+		check("letting go of everything, it eases to a stop (ticks)", ticksUntilStopped(ctx, 120), 10, 80);
+
+		section("D alone from a standstill: walks off to the right");
+		final double sx = horseX(ctx);
+		final double sz = horseZ(ctx);
+		input.holdKey(o -> o.keyRight);
+		ctx.waitTicks(40);
+		check("moves off (blocks)", Math.hypot(horseX(ctx) - sx, horseZ(ctx) - sz), 1.0, 20.0);
+		check("heading 90 deg right of the view (deg)", Mth.wrapDegrees(sample(ctx).horseYaw - sample(ctx).playerYaw), 85.0, 95.0);
+		check("at a walk", sample(ctx).gait == RideTuning.WALK);
+		input.releaseKey(o -> o.keyRight);
+		ticksUntilStopped(ctx, 60);
+
+		section("Looking round while standing");
+		lane(ctx, input, world, 1400.5, -60, "cut_test_still");
+		input.lookAt(180.0F + 150.0F, 10.0F);
+		ctx.waitTicks(10);
+		check("doesn't turn the horse (free look, deg)", Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - 180.0F)), 0.0, 1.0);
+		check("no cut", ride(ctx, s -> s.cut), 0.0, 0.0);
+		input.holdKey(o -> o.keyUp);
+		final int pivot = ticksToFace(ctx, 330.0F, 60);
+		check("W held, it pivots round 150 deg on its haunches (ticks)", pivot, 8, 22);
+		stop(ctx, input);
+	}
+
+	private static int horseTick(final ClientGameTestContext ctx) {
+		return ctx.computeOnClient(mc -> mc.player.getVehicle() == null ? 0 : mc.player.getVehicle().tickCount);
+	}
+
+	/** Ticks until the horse heads within 5 degrees of yaw (or the limit). */
+	private static int ticksToFace(final ClientGameTestContext ctx, final float yaw, final int limit) {
+		int ticks = 0;
+		while (Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - yaw)) > 5.0F && ticks < limit) {
+			ctx.waitTick();
+			ticks++;
+		}
+		return ticks;
+	}
+
+	/**
+	 * Swimming across a deep pool to a bank {@code height} blocks above the top of the water's block layer: one block
+	 * is climbed out of in a smooth heave, two are not.
+	 */
+	private void bank(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final int x, final int height) {
+		section("Swimming to a bank " + height + " block" + (height == 1 ? "" : "s") + " above the water");
+		// Water three deep (its top block is the ground's top layer, y=-61) from z=-4 to z=-24; the bank beyond.
+		lane(ctx, input, world, x + 0.5, -60, "bank_test_" + x,
+			String.format(Locale.ROOT, "fill %d -63 -24 %d -61 -4 minecraft:water", x - 4, x + 4),
+			String.format(Locale.ROOT, "fill %d -60 -34 %d %d -25 minecraft:stone", x - 4, x + 4, -61 + height));
+		sideCamera(world, x + 6.5, -59, -24.5, 90.0F);
+		final int climbs = ride(ctx, s -> s.bankClimbs);
+		input.holdKey(o -> o.keyUp);
+		hitboxes(ctx, true);
+		double steepestRise = 0.0;
+		double steepestVisualRise = 0.0;
+		double steepestTilt = 0.0;
+		Sample previous = sample(ctx);
+		int previousTick = horseTick(ctx);
+		int heaveStart = -1;
+		int heaveTicks = -1;
+		int shots = 0;
+		final StringBuilder trace = new StringBuilder();
+		for (int i = 0; i < (height <= 1 ? 400 : 250) && horseZ(ctx) > -28.0; i++) {
+			ctx.waitTick();
+			final Sample s = sample(ctx);
+			final int bankTicks = ride(ctx, r -> r.bankTicks);
+			// Per game tick: a screenshot can make the client catch up a tick or two between samples.
+			final int tick = horseTick(ctx);
+			final int ticks = Math.max(tick - previousTick, 1);
+			previousTick = tick;
+			if (horseZ(ctx) < -18.0) {
+				steepestRise = Math.max(steepestRise, (s.y - previous.y) / ticks);
+				steepestVisualRise = Math.max(steepestVisualRise, (s.visualY - previous.visualY) / ticks);
+				steepestTilt = Math.max(steepestTilt, Math.abs(s.pitch - previous.pitch) / ticks);
+				trace.append(String.format(Locale.ROOT, "%d: z%.2f y%.2f vis%.2f tilt%.1f heave%d | ", i, horseZ(ctx), s.y, s.visualY, s.pitch, bankTicks));
+			}
+			if (bankTicks > 0 && heaveStart < 0) {
+				heaveStart = i;
+			}
+			if (heaveStart >= 0 && heaveTicks < 0 && s.onGround && s.y > -60.0 + height - 0.05) {
+				heaveTicks = i - heaveStart;
+			}
+			if (heaveStart >= 0 && shots < 5 && (i - heaveStart) % 4 == 0) {
+				cameraShot(ctx, String.format(Locale.ROOT, "19_bank_%d_%d", height, shots++));
+			}
+			previous = s;
+		}
+		hitboxes(ctx, false);
+		log("  climb: %s", trace);
+		if (height <= 1) {
+			check("climbs out onto the bank", sample(ctx).y > -60.05 + height && horseZ(ctx) < -27.9);
+			check("one heave", ride(ctx, s -> s.bankClimbs) - climbs, 1, 1);
+			check("heaves out in about a second (ticks from the bank to on top)", heaveTicks, 8, 30);
+			check("rises smoothly (fastest rise, blocks/tick)", steepestRise, 0.0, 0.2);
+			check("looks smooth (fastest rendered rise, blocks/tick)", steepestVisualRise, 0.0, 0.2);
+			check("tilts smoothly (most tilt change in a tick, deg)", steepestTilt, 0.0, 2.5);
+			check("rider still mounted", ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse));
+		} else {
+			check("can't climb a bank 2 blocks above the water (still in the water)", ctx.computeOnClient(mc -> mc.player.getVehicle().isInWater()));
+			check("no heave", ride(ctx, s -> s.bankClimbs) - climbs, 0, 0);
+		}
+		input.releaseKey(o -> o.keyUp);
+		ctx.waitTicks(20);
+	}
+
 	/** Spawned with the tag minus those still alive at full health. */
 	private static int trampled(final TestServerContext server, final String tag) {
 		return server.computeOnServer(s -> {
@@ -762,6 +1000,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 		hurtingDrop(ctx, input, world, true);
 		ledgeAtAWalk(ctx, input, world);
 		ledgeAtAGallop(ctx, input, world);
+		ledgeStraightAhead(ctx, input, world);
+		pillar(ctx, input, world);
+		treesInARow(ctx, input, world);
 		bushes(ctx, input, world);
 		fence(ctx, input, world);
 		input.releaseKey(o -> o.keyUp);
@@ -799,8 +1040,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("no detour in open ground (deg)", Math.max(openOffset, earlyOffset), 0.0, 0.5);
 		check("rides past the tree", horseZ(ctx) < -45.0 && sample(ctx).y > -60.1);
 		check("never touches the trunk", !touched);
-		check("swerves round it (blocks off the line)", maxSide, 1.0, 4.0);
-		check("keeps its pace going round (slowest / gallop)", slowest / GALLOP_SPEED, 0.6, 1.1);
+		check("swerves round it, no more than it needs (blocks off the line)", maxSide, 0.9, 2.0);
+		check("keeps its pace going round (slowest / gallop)", slowest / GALLOP_SPEED, 0.75, 1.1);
 		check("heads where the rider looks again after (deg off)", Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - 180.0F)), 0.0, 3.0);
 		check("detour eased out after (deg)", ride(ctx, r -> Math.abs(r.avoidOffset)), 0.0, 0.5);
 		stop(ctx, input);
@@ -830,7 +1071,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		log("  path: %s", trace);
 		check("goes round it", horseZ(ctx) < -55.0);
 		check("never runs into it", !touched);
-		check("swings out past its end (blocks off the line)", maxSide, 7.0, 14.0);
+		check("swings out past its end (blocks off the line; its end is 6.5 out)", maxSide, 7.0, 13.0);
 		check("keeps moving going round (slowest / gallop)", slowest / GALLOP_SPEED, 0.4, 1.1);
 		ctx.waitTicks(40);
 		check("then heads where the rider looks again (deg off)", Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - 180.0F)), 0.0, 5.0);
@@ -1173,16 +1414,131 @@ public final class RideFeelTest implements FabricClientGameTest {
 		lane(ctx, input, world, 420.5, -60, "ledge_gallop_test", "fill 405 -60 -60 435 -59 -40 minecraft:stone");
 		gallopNorth(ctx, input);
 		double climbSpeed = -1.0;
+		double lowest = Double.MAX_VALUE;
 		final int climbs = ride(ctx, s -> s.ledgeClimbs);
 		for (int i = 0; i < 300 && horseZ(ctx) > -45.0; i++) {
 			ctx.waitTick();
 			if (climbSpeed < 0.0 && ride(ctx, s -> s.ledgeClimbs) > climbs) {
 				climbSpeed = previousSpeed;
 			}
+			if (horseZ(ctx) < -30.0 && climbSpeed < 0.0) {
+				lowest = Math.min(lowest, sample(ctx).speed);
+			}
 			previousSpeed = sample(ctx).speed;
 		}
 		check("slows before jumping up (speed at takeoff / trot)", climbSpeed / TROT_SPEED, 0.0, 1.05);
+		check("only to a trot, not a walk (slowest before takeoff / trot)", lowest / TROT_SPEED, 0.85, 1.05);
 		check("then jumps up", sample(ctx).y - -60.0, 1.95, 2.05);
+		stop(ctx, input);
+	}
+
+	/** A 2-block ledge only 5 wide, so there is a way round: ridden straight at, the horse jumps it rather than going round. */
+	private void ledgeStraightAhead(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		for (final boolean gallop : new boolean[] {false, true}) {
+			section((gallop ? "Galloping" : "Trotting") + " straight at a narrow 2-block ledge with a way round");
+			final int x = gallop ? 1080 : 1060;
+			lane(ctx, input, world, x + 0.5, -60, "ledge_line_test_" + x, String.format(Locale.ROOT, "fill %d -60 -40 %d -59 -20 minecraft:stone", x - 2, x + 2));
+			final int climbs = ride(ctx, s -> s.ledgeClimbs);
+			input.lookAt(180.0F, 10.0F);
+			input.holdKey(o -> o.keyUp);
+			ctx.waitTicks(2);
+			for (int i = 0; i < (gallop ? 3 : 1); i++) {
+				input.pressKey(o -> o.keySprint);
+				ctx.waitTicks(4);
+			}
+			double maxSide = 0.0;
+			float maxOffset = 0.0F;
+			for (int i = 0; i < 300 && horseZ(ctx) > -26.0; i++) {
+				ctx.waitTick();
+				maxSide = Math.max(maxSide, Math.abs(horseX(ctx) - (x + 0.5)));
+				maxOffset = Math.max(maxOffset, ride(ctx, s -> Math.abs(s.avoidOffset)));
+			}
+			check("doesn't go round it (deg of detour)", maxOffset, 0.0, 1.0);
+			check("stays on the rider's line (blocks off it)", maxSide, 0.0, 0.3);
+			check("jumps up it", ride(ctx, s -> s.ledgeClimbs) - climbs, 1, 1);
+			check("on top (blocks gained)", sample(ctx).y - -60.0, 1.95, 2.05);
+			stop(ctx, input);
+		}
+
+		section("Trotting past a 2-block ledge that only catches the flank");
+		// The ledge's west face is 0.25 east of the rider's line: the body overlaps it by 0.2, the line itself is clear.
+		lane(ctx, input, world, 1100.75, -60, "ledge_flank_test", "fill 1101 -60 -40 1106 -59 -20 minecraft:stone");
+		final int climbs = ride(ctx, s -> s.ledgeClimbs);
+		input.lookAt(180.0F, 10.0F);
+		input.holdKey(o -> o.keyUp);
+		ctx.waitTicks(2);
+		input.pressKey(o -> o.keySprint);
+		boolean touched = false;
+		double maxSide = 0.0;
+		for (int i = 0; i < 300 && horseZ(ctx) > -42.0; i++) {
+			ctx.waitTick();
+			maxSide = Math.max(maxSide, Math.abs(horseX(ctx) - 1100.75));
+			touched |= horseZ(ctx) < -18.0 && ctx.computeOnClient(mc -> mc.player.getVehicle().horizontalCollision);
+		}
+		check("goes round it instead of jumping", ride(ctx, s -> s.ledgeClimbs) == climbs && sample(ctx).y < -59.9);
+		check("rides on past it", horseZ(ctx) < -41.9);
+		check("without scraping it", !touched);
+		check("moves over only as much as it needs (blocks off the line)", maxSide, 0.2, 1.2);
+		stop(ctx, input);
+	}
+
+	/**
+	 * Trunks in a row: one dead ahead, then one just right of the line and one further left. Going round the first on the
+	 * right (the side the horse would try first) leads into the second; the lane on the left runs clear past all three.
+	 */
+	private void treesInARow(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Galloping at trunks in a row");
+		lane(ctx, input, world, 1500.5, -60, "row_test",
+			"fill 1500 -60 -25 1500 -56 -25 minecraft:oak_log",
+			"fill 1502 -60 -29 1502 -56 -29 minecraft:oak_log",
+			"fill 1497 -60 -33 1497 -56 -33 minecraft:oak_log");
+		gallopNorth(ctx, input);
+		boolean touched = false;
+		double maxSide = 0.0;
+		double slowest = Double.MAX_VALUE;
+		final StringBuilder trace = new StringBuilder();
+		for (int i = 0; i < 300 && horseZ(ctx) > -45.0; i++) {
+			ctx.waitTick();
+			final double z = horseZ(ctx);
+			if (z < -18.0 && z > -40.0) {
+				touched |= ctx.computeOnClient(mc -> mc.player.getVehicle().horizontalCollision);
+				maxSide = Math.max(maxSide, Math.abs(horseX(ctx) - 1500.5));
+				slowest = Math.min(slowest, sample(ctx).speed);
+				trace.append(String.format(Locale.ROOT, "z%.1f x%.2f v%.2f o%.0f | ", z, horseX(ctx), sample(ctx).speed, ride(ctx, r -> r.avoidOffset)));
+			}
+		}
+		log("  path: %s", trace);
+		check("rides through", horseZ(ctx) < -44.9);
+		check("never touches any of them", !touched);
+		check("threads them without swinging wide (blocks off the line)", maxSide, 0.5, 2.5);
+		check("keeps its pace (slowest / gallop)", slowest / GALLOP_SPEED, 0.6, 1.1);
+		stop(ctx, input);
+	}
+
+	/** A 2-block pillar dead ahead: nothing to land on, so the horse goes round it. */
+	private void pillar(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Trotting at a 2-block pillar");
+		lane(ctx, input, world, 1120.5, -60, "pillar_test", "fill 1120 -60 -20 1120 -59 -20 minecraft:stone");
+		final int climbs = ride(ctx, s -> s.ledgeClimbs);
+		input.lookAt(180.0F, 10.0F);
+		input.holdKey(o -> o.keyUp);
+		ctx.waitTicks(2);
+		input.pressKey(o -> o.keySprint);
+		boolean touched = false;
+		double maxSide = 0.0;
+		final StringBuilder trace = new StringBuilder();
+		for (int i = 0; i < 300 && horseZ(ctx) > -30.0; i++) {
+			ctx.waitTick();
+			maxSide = Math.max(maxSide, Math.abs(horseX(ctx) - 1120.5));
+			touched |= ctx.computeOnClient(mc -> mc.player.getVehicle().horizontalCollision);
+			if (horseZ(ctx) < -10.0) {
+				trace.append(String.format(Locale.ROOT, "z%.1f x%.2f v%.2f o%.0f | ", horseZ(ctx), horseX(ctx), sample(ctx).speed, ride(ctx, r -> r.avoidOffset)));
+			}
+		}
+		log("  path: %s", trace);
+		check("goes round it (no jump onto it)", ride(ctx, s -> s.ledgeClimbs) == climbs && horseZ(ctx) < -29.9 && sample(ctx).y < -59.9);
+		check("never touches it", !touched);
+		check("swerves no more than it needs (blocks off the line)", maxSide, 0.9, 2.0);
 		stop(ctx, input);
 	}
 
@@ -1593,6 +1949,18 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 	private void screenshot(final ClientGameTestContext ctx, final String name) {
 		log("  screenshot %s -> %s", name, ctx.takeScreenshot("horsingaround_" + name));
+	}
+
+	/** {@link #frontScreenshot} with the view pitched for one frame (negative looks up, so the camera looks down from above). */
+	private void frontScreenshot(final ClientGameTestContext ctx, final String name, final float viewPitch) {
+		final float pitch = ctx.computeOnClient(mc -> mc.player.getXRot());
+		ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+		ctx.runOnClient(mc -> setView(mc.player, mc.player.getYRot(), viewPitch));
+		screenshot(ctx, name);
+		ctx.runOnClient(mc -> {
+			setView(mc.player, mc.player.getYRot(), pitch);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		});
 	}
 
 	/** Mirrored third person for a look at the horse's face and legs; the ride camera only replaces the back view. */
