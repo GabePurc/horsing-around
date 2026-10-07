@@ -98,6 +98,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 				standingJump(ctx);
 				dismount(ctx, input);
 			}
+			if (sections.isEmpty() || sections.contains("ledges")) {
+				messyLedges(ctx, input, world);
+			}
 			if (sections.contains("legs")) {
 				// Only on request: close side shots of the legs in a jump, for judging the pose.
 				jumpLegShots(ctx, input, world);
@@ -1591,6 +1594,89 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("threads them without swinging wide (blocks off the line)", maxSide, 0.5, 2.5);
 		check("keeps its pace (slowest / gallop)", slowest / GALLOP_SPEED, 0.6, 1.1);
 		stop(ctx, input);
+	}
+
+	/** A 2-block ledge like the ones in generated worlds: what it is, how it's built, how it's ridden at, and whether it should be jumped. */
+	private record Ledge(String name, String[] build, float look, int spurs, double faceZ, boolean jump) {
+	}
+
+	/**
+	 * 2-block ledges as generated worlds make them: met at an angle, with snow or grass or a bump on top, leaves or a
+	 * branch overhead, from a step up, on slabs, from a standstill, at a canter. Each is walked (or cantered) at; the
+	 * report says whether the horse jumped and, if it didn't, why the last look at the ledge turned it down.
+	 */
+	private void messyLedges(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		final List<Ledge> ledges = List.of(
+			new Ledge("straight on", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone"}, 0.0F, 0, -10.0, true),
+			new Ledge("at 30 degrees", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone"}, 30.0F, 0, -10.0, true),
+			new Ledge("at 45 degrees", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone"}, 45.0F, 0, -10.0, true),
+			new Ledge("snow on top", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-15 -58 -30 ~15 -58 -11 minecraft:snow[layers=2]"}, 0.0F, 0, -10.0, true),
+			new Ledge("grass and flowers on top", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:grass_block", "fill ~-15 -58 -30 ~15 -58 -11 minecraft:short_grass",
+				"fill ~-1 -58 -12 ~1 -58 -12 minecraft:poppy"}, 0.0F, 0, -10.0, true),
+			new Ledge("a bump two blocks in", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-15 -58 -13 ~15 -58 -13 minecraft:stone"}, 0.0F, 0, -10.0, true),
+			new Ledge("leaves overhead", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-4 -56 -14 ~4 -55 -5 minecraft:oak_leaves[persistent=true]"}, 0.0F, 0, -10.0, true),
+			new Ledge("a branch four blocks up (just room)", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-4 -56 -12 ~4 -56 -6 minecraft:oak_log"}, 0.0F, 0, -10.0, true),
+			new Ledge("a branch three blocks up (no room)", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-4 -57 -12 ~4 -57 -6 minecraft:oak_log"}, 0.0F, 0, -10.0, false),
+			new Ledge("snow on top, at a canter at 30 degrees", new String[] {"fill ~-25 -60 -40 ~25 -59 -21 minecraft:stone", "fill ~-25 -58 -40 ~25 -58 -21 minecraft:snow[layers=3]"}, 30.0F, 2, -20.0, true),
+			new Ledge("from a step up", new String[] {"fill ~-15 -60 -30 ~15 -58 -11 minecraft:stone", "fill ~-15 -60 -10 ~15 -60 -6 minecraft:stone"}, 0.0F, 0, -10.0, true),
+			new Ledge("slabs on top (1.5 up)", new String[] {"fill ~-15 -60 -30 ~15 -60 -11 minecraft:stone", "fill ~-15 -59 -30 ~15 -59 -11 minecraft:smooth_stone_slab"}, 0.0F, 0, -10.0, true),
+			new Ledge("rough grass ground", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:dirt", "fill ~-15 -61 -10 ~15 -61 0 minecraft:dirt_path"}, 0.0F, 0, -10.0, true),
+			new Ledge("at a canter", new String[] {"fill ~-15 -60 -40 ~15 -59 -21 minecraft:stone"}, 0.0F, 2, -20.0, true),
+			new Ledge("at a canter, at 30 degrees", new String[] {"fill ~-25 -60 -40 ~25 -59 -21 minecraft:stone"}, 30.0F, 2, -20.0, true),
+			new Ledge("from a standstill at the face", new String[] {"fill ~-15 -60 -30 ~15 -59 -2 minecraft:stone"}, 0.0F, 0, -1.0, true)
+		);
+		for (int i = 0; i < ledges.size(); i++) {
+			final Ledge ledge = ledges.get(i);
+			section("2-block ledge: " + ledge.name());
+			final int x = 1700 + i * 40;
+			final String[] build = new String[ledge.build().length];
+			for (int b = 0; b < build.length; b++) {
+				build[b] = ledge.build()[b].replace("~-25", String.valueOf(x - 25)).replace("~25", String.valueOf(x + 25))
+					.replace("~-15", String.valueOf(x - 15)).replace("~15", String.valueOf(x + 15))
+					.replace("~-4", String.valueOf(x - 4)).replace("~4", String.valueOf(x + 4))
+					.replace("~-1", String.valueOf(x - 1)).replace("~1", String.valueOf(x + 1));
+			}
+			lane(ctx, input, world, x + 0.5, -60, "messy_ledge_" + i, build);
+			final int climbs = ride(ctx, r -> r.ledgeClimbs);
+			final double startY = sample(ctx).y;
+			input.lookAt(180.0F + ledge.look(), 10.0F);
+			input.holdKey(o -> o.keyUp);
+			ctx.waitTicks(2);
+			for (int sp = 0; sp < ledge.spurs(); sp++) {
+				input.pressKey(o -> o.keySprint);
+				ctx.waitTicks(4);
+			}
+			int lastReason = -1;
+			double closest = Double.MAX_VALUE;
+			final StringBuilder trace = new StringBuilder();
+			for (int t = 0; t < 240 && ride(ctx, r -> r.ledgeClimbs) == climbs; t++) {
+				ctx.waitTick();
+				final double gap = horseZ(ctx) - half(ctx) - ledge.faceZ();
+				closest = Math.min(closest, gap);
+				if (gap < 3.5) {
+					lastReason = dev.horsingaround.ride.Awareness.ledgeRejection;
+					if (t % 4 == 0) {
+						trace.append(String.format(Locale.ROOT, "gap%.2f v%.2f yaw%.0f %s | ", gap, sample(ctx).speed, sample(ctx).horseYaw,
+							dev.horsingaround.ride.Awareness.LEDGE_REASONS[Math.max(lastReason, 0)]));
+					}
+				}
+			}
+			ctx.waitTicks(20);
+			final boolean jumped = ride(ctx, r -> r.ledgeClimbs) > climbs;
+			log("  %s; closest to the face %s; last look: %s", jumped ? "jumped" : "did not jump",
+				closest == Double.MAX_VALUE ? "n/a" : String.format(Locale.ROOT, "%.2f", closest),
+				lastReason < 0 ? "never looked" : dev.horsingaround.ride.Awareness.LEDGE_REASONS[lastReason]);
+			if (!jumped) {
+				log("  approach: %s", trace);
+			}
+			if (ledge.jump()) {
+				check("jumps it", jumped);
+				check("up on top (blocks gained)", sample(ctx).y - startY, 1.4, 3.1);
+			} else {
+				check("doesn't try (no room to jump)", !jumped);
+			}
+			stop(ctx, input);
+		}
 	}
 
 	/**

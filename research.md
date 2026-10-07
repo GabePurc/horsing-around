@@ -271,6 +271,15 @@ Translation:
 - The rider folds forward in the air (12 degrees, plus following 60% of the horse's nose-up rise) and sits up again
   coming down.
 
+Follow-up (play-test, same day): the horse sometimes refused 2-block ledges, and going up a block sometimes teleported
+the view up it. Ledges built like generated worlds' (met at an angle, snow on top, bumps, leaves or a branch overhead,
+from a step, slabs, at a canter) showed two causes: a layer of snow on top made "no room to land", and from a trot up
+a ledge met at an angle was taken for a wall to go round, because a flank of the look-ahead met it before the centre
+line did. Both fixed: a thin layer on top (up to a quarter block) counts as the ledge's top, and a wall is a ledge on
+the rider's line if every line that met it met a ledge. The teleport came from runs of steps (up a mountainside): the
+drawn body fell further behind each step until a reset meant for teleports snapped it 1.5 blocks; now past 0.8 blocks
+behind it catches up smoothly (up to 0.12 blocks a tick extra) and only a real teleport (3+ blocks) snaps.
+
 ## Staying vanilla
 
 - No new HUD panels. Stamina lives in the vanilla horse jump bar, which charged jumping no longer needs.

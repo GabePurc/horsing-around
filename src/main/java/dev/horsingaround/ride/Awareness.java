@@ -98,6 +98,18 @@ public final class Awareness {
 	private static boolean profileFallsAway;
 	/** Distance to the face of the last ledge found, blocks. */
 	static float ledgeFace;
+	/** Why the last ledge looked at can't be jumped (for tests and the steering overlay); LEDGE_OK when it can. */
+	public static int ledgeRejection;
+	public static final int LEDGE_OK = 0;
+	public static final int LEDGE_NO_FACE = 1;
+	public static final int LEDGE_ONLY_A_STEP = 2;
+	public static final int LEDGE_FENCE = 3;
+	public static final int LEDGE_TOO_HIGH = 4;
+	public static final int LEDGE_NO_ROOM_ON_TOP = 5;
+	public static final int LEDGE_NO_HEADROOM = 6;
+	public static final int LEDGE_NOTHING_TO_LAND_ON = 7;
+	public static final String[] LEDGE_REASONS = {"ok", "no face", "only a step", "fence or taller than a block", "too high", "no room on top",
+		"no headroom", "nothing to land on"};
 	/** Distance to the first step down along the last profile looked at for slopes (MAX_VALUE if none). */
 	private static float firstEdge = Float.MAX_VALUE;
 
@@ -556,7 +568,8 @@ public final class Awareness {
 			final double rGround = columnGround;
 			if (c == BLOCKED || l == BLOCKED || r == BLOCKED) {
 				kind = WALL;
-				wallLedge = c == BLOCKED && cLedge && (l != BLOCKED || lLedge) && (r != BLOCKED || columnLedge);
+				// Every line that met something met a ledge (met at an angle, a flank gets there before the centre does).
+				wallLedge = (c != BLOCKED || cLedge) && (l != BLOCKED || lLedge) && (r != BLOCKED || columnLedge);
 				endGround = centre;
 				return d;
 			}
@@ -671,8 +684,9 @@ public final class Awareness {
 				return GROUND;
 			}
 			if (ceiling == Double.MAX_VALUE) {
-				// The first thing met coming down: the top of whatever is in the way, a ledge if no more than 2 up.
-				columnLedge = surface <= ground + LEDGE_HEIGHT + 0.01;
+				// The first thing met coming down: the top of whatever is in the way, a ledge if no more than 2 up (and a
+				// layer of snow or a carpet on top).
+				columnLedge = surface <= ground + LEDGE_HEIGHT + LEDGE_TOP_LAYER;
 			}
 			ceiling = by + shape.min(Direction.Axis.Y);
 		}
@@ -875,17 +889,19 @@ public final class Awareness {
 			}
 		}
 		if (face < 0.0F) {
-			return Double.NaN;
+			return reject(LEDGE_NO_FACE);
 		}
 		final AABB at = box.move(fx * (face + 0.05), 0.0, fz * (face + 0.05));
 		if (level.noBlockCollision(horse, at.move(0.0, STEP_UP + 0.05, 0.0))) {
-			return Double.NaN;
+			return reject(LEDGE_ONLY_A_STEP);
 		}
 		double top = Double.NEGATIVE_INFINITY;
 		final int x1 = Mth.floor(at.maxX - 1.0E-7);
 		final int z1 = Mth.floor(at.maxZ - 1.0E-7);
 		final int y0 = Mth.floor(box.minY + 0.5);
-		final int y1 = Mth.floor(box.minY + LEDGE_HEIGHT - 0.01);
+		// Up to a thin layer (snow, a carpet) on top of the second block; anything taller is a wall the landing check finds.
+		final double highest = box.minY + LEDGE_HEIGHT + LEDGE_TOP_LAYER;
+		final int y1 = Mth.floor(highest);
 		for (int x = Mth.floor(at.minX); x <= x1; x++) {
 			for (int z = Mth.floor(at.minZ); z <= z1; z++) {
 				for (int y = y0; y <= y1; y++) {
@@ -894,7 +910,7 @@ public final class Awareness {
 						continue;
 					}
 					if (state.is(BlockTags.FENCES) || state.is(BlockTags.WALLS) || state.is(BlockTags.FENCE_GATES)) {
-						return Double.NaN;
+						return reject(LEDGE_FENCE);
 					}
 					final VoxelShape shape = state.getCollisionShape(level, POS, context);
 					if (shape.isEmpty()) {
@@ -902,24 +918,37 @@ public final class Awareness {
 					}
 					final double height = shape.max(Direction.Axis.Y);
 					if (height > 1.0) {
-						return Double.NaN;
+						return reject(LEDGE_FENCE);
 					}
-					top = Math.max(top, y + height);
+					if (y + height <= highest) {
+						top = Math.max(top, y + height);
+					}
 				}
 			}
 		}
 		if (!(top > box.minY + STEP_UP)) {
-			return Double.NaN;
+			return reject(LEDGE_TOO_HIGH);
 		}
 		// Room to jump and to land, and solid ground to land on.
 		final AABB landing = box.move(fx * (face + 1.0), top - box.minY + 0.01, fz * (face + 1.0));
 		// The body is about two blocks long whatever its collision box: it needs that much ledge to land on.
-		if (!level.noBlockCollision(horse, landing) || !level.noBlockCollision(horse, box.expandTowards(0.0, top - box.minY + LEDGE_CLEARANCE + 0.05, 0.0))
-			|| support(level, context, landing.expandTowards(fx * BODY_LENGTH_EXTRA, 0.0, fz * BODY_LENGTH_EXTRA), top) < LEDGE_SUPPORT) {
-			return Double.NaN;
+		if (!level.noBlockCollision(horse, landing)) {
+			return reject(LEDGE_NO_ROOM_ON_TOP);
+		}
+		if (!level.noBlockCollision(horse, box.expandTowards(0.0, top - box.minY + LEDGE_CLEARANCE + 0.05, 0.0))) {
+			return reject(LEDGE_NO_HEADROOM);
+		}
+		if (support(level, context, landing.expandTowards(fx * BODY_LENGTH_EXTRA, 0.0, fz * BODY_LENGTH_EXTRA), top) < LEDGE_SUPPORT) {
+			return reject(LEDGE_NOTHING_TO_LAND_ON);
 		}
 		ledgeFace = face;
+		ledgeRejection = LEDGE_OK;
 		return top;
+	}
+
+	private static double reject(final int why) {
+		ledgeRejection = why;
+		return Double.NaN;
 	}
 
 	/**

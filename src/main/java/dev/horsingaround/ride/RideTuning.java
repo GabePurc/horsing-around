@@ -304,6 +304,8 @@ public final class RideTuning {
 	 */
 	public static boolean LEDGE_CLIMB = true;
 	static final float LEDGE_HEIGHT = 2.0F;
+	/** A ledge may have a thin layer on top (snow, a carpet) this thick and still be jumped onto. */
+	static final float LEDGE_TOP_LAYER = 0.26F;
 	/**
 	 * From a trot up, a ledge the rider's line meets (and the horse is heading within LEDGE_LINE_ANGLE of that line) that
 	 * it can jump, it doesn't go round: it slows to a trot by the time it is in reach and jumps it.
@@ -351,6 +353,14 @@ public final class RideTuning {
 	static final double STEP_LEAD_MAX = 1.5;
 	/** The body follows the ground down a step of up to this many blocks; past a bigger drop the hooves stay level. */
 	static final double STEP_REACH = 1.25;
+	/**
+	 * Step after step (up or down a mountainside) the drawn body falls behind the physical one; past STEP_LAG blocks it
+	 * catches up by up to STEP_CATCH_UP blocks a tick on top of its easing, so it never snaps. Only a body more than
+	 * STEP_SNAP off (a teleport) is put straight where it is.
+	 */
+	static final double STEP_LAG = 0.8;
+	static final double STEP_CATCH_UP = 0.12;
+	static final float STEP_SNAP = 3.0F;
 	/**
 	 * A real horse doesn't lean far on a step: the body tilts toward PITCH_MAX degrees (about three quarters of it once
 	 * the front is PITCH_RISE blocks above the back, levelling off beyond) and the hindquarters keep the weight, the body

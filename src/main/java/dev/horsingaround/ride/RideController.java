@@ -617,8 +617,8 @@ public final class RideController {
 		s.hindLegO = s.hindLeg;
 		final boolean onGround = horse.onGround();
 		final double y = horse.getY();
-		if (Math.abs(s.heightOffset) > 1.5F || Double.isNaN(s.hind)) {
-			// First seen, or moved a long way at once: stand where the body is.
+		if (Math.abs(s.heightOffset) > STEP_SNAP || Double.isNaN(s.hind)) {
+			// First seen, or teleported: stand where the body is.
 			s.heightOffset = 0.0F;
 			s.flying = !onGround;
 			carry(s, y);
@@ -763,9 +763,20 @@ public final class RideController {
 		s.hind += (s.hindEase - s.hind) * ease;
 		s.hindRise = (float) (s.hind - hindBefore);
 
-		final double rise = s.fore - s.hind;
+		double rise = s.fore - s.hind;
+		double body = s.hind + rise * (rise > 0.0 ? BODY_RISE_UP : BODY_RISE_DOWN);
+		// Up (or down) step after step, the drawn body mustn't fall too far behind: past STEP_LAG it catches up a little
+		// faster, never by more than STEP_CATCH_UP a tick, so it never has to snap.
+		final double behind = y - body;
+		if (Math.abs(behind) > STEP_LAG) {
+			final double catchUp = Math.copySign(Math.min(Math.abs(behind) - STEP_LAG, STEP_CATCH_UP), behind);
+			s.fore += catchUp;
+			s.hind += catchUp;
+			s.foreEase += catchUp;
+			s.hindEase += catchUp;
+			body += catchUp;
+		}
 		final float tilt = PITCH_MAX * (float) Math.tanh(rise / PITCH_RISE);
-		final double body = s.hind + rise * (rise > 0.0 ? BODY_RISE_UP : BODY_RISE_DOWN);
 		// Crouching for a ledge jump: haunches down, nose up.
 		// Sitting back into a cut does the same, a little less.
 		final float crouchPitch = s.ledgeCrouch * LEDGE_CROUCH_PITCH + s.cutSquat * CUT_SQUAT_PITCH;
