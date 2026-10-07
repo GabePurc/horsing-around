@@ -3,7 +3,8 @@ package dev.horsingaround.client.api;
 import dev.horsingaround.client.RideCamera;
 
 /**
- * For camera add-ons (such as Horsing Around: Over the Shoulder). An add-on that places the third-person camera
+ * Public contract for camera add-ons (such as Horsing Around: Over the Shoulder, which keeps a compile-only copy of
+ * these signatures; change both together). An add-on that places the third-person camera
  * itself calls {@link #claimThirdPerson()}, and can use the riding values here so it moves the way the horse does.
  */
 public final class RideCameraApi {

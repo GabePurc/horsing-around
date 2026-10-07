@@ -10,6 +10,3 @@ pluginManagement {
 }
 
 rootProject.name = 'horsing-around'
-
-// Optional add-on: RDR2-style over-the-shoulder third-person camera (separate mod, separate jar).
-include 'shoulder-cam'

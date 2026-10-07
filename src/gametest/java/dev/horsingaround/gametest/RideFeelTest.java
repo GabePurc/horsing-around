@@ -1,9 +1,6 @@
 package dev.horsingaround.gametest;
 
 import dev.horsingaround.client.RideCamera;
-import dev.horsingaround.shoulder.ShoulderCamClient;
-import dev.horsingaround.shoulder.config.ShoulderConfig;
-import dev.horsingaround.shoulder.config.ShoulderSettingsScreen;
 import dev.horsingaround.ride.Foliage;
 import dev.horsingaround.ride.HorseConfig;
 import dev.horsingaround.ride.RideState;
@@ -57,7 +54,6 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 	@Override
 	public void runTest(final ClientGameTestContext ctx) {
-		ctx.runOnClient(mc -> ShoulderCamClient.setEnabled(false));
 		screenshot(ctx, "00a_title_screen");
 		final boolean fresh = enableFreshAnimations(ctx);
 		log("Fresh Animations pack: %s, EMF loaded: %s", fresh ? "enabled" : "not found", FabricLoader.getInstance().isModLoaded("entity_model_features"));
@@ -97,7 +93,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			downhill(ctx, input, world);
 			trample(ctx, input, world);
 			water(ctx, input, world);
-			shoulderCamera(ctx, input, world);
+			horseSettings(ctx);
 		} finally {
 			writeReport();
 		}
@@ -688,72 +684,17 @@ public final class RideFeelTest implements FabricClientGameTest {
 		});
 	}
 
-	private void shoulderCamera(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
-		section("Over-the-shoulder add-on");
-		ctx.runOnClient(mc -> ShoulderCamClient.setEnabled(true));
-		ctx.waitTicks(20);
-		check("riding: camera sits off the right shoulder (blocks)", cameraSideOffset(ctx), 0.3, 1.0);
-		screenshot(ctx, "09a_shoulder_riding");
-		input.holdKeyFor(o -> o.keyShift, 3);
-		ctx.waitTicks(10);
-		ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
-		input.lookAt(180.0F, 5.0F);
-		ctx.waitTicks(30);
-		check("on foot: camera sits off the right shoulder (blocks)", cameraSideOffset(ctx), 0.5, 1.0);
-		screenshot(ctx, "09b_shoulder_on_foot");
-
-		// Walk while sweeping the view: the camera must look exactly where the player looks and keep a steady orbit.
-		input.holdKey(o -> o.keyUp);
-		float worstAngle = 0.0F;
-		double nearest = Double.MAX_VALUE;
-		double farthest = 0.0;
-		double sideLow = Double.MAX_VALUE;
-		double sideHigh = -Double.MAX_VALUE;
-		for (int i = 0; i < 24; i++) {
-			input.lookAt(180.0F + i * 7.5F, 10.0F);
-			ctx.waitTick();
-			final double[] frame = ctx.computeOnClient(mc -> {
-				final net.minecraft.client.Camera camera = mc.gameRenderer.mainCamera();
-				return new double[] {
-					Math.abs(Mth.wrapDegrees(camera.yRot() - mc.player.getViewYRot(1.0F))) + Math.abs(camera.xRot() - mc.player.getViewXRot(1.0F)),
-					camera.position().distanceTo(mc.player.getEyePosition(1.0F))
-				};
-			});
-			worstAngle = Math.max(worstAngle, (float) frame[0]);
-			nearest = Math.min(nearest, frame[1]);
-			farthest = Math.max(farthest, frame[1]);
-			final double sideNow = cameraSideOffset(ctx);
-			sideLow = Math.min(sideLow, sideNow);
-			sideHigh = Math.max(sideHigh, sideNow);
-			if (i == 12) {
-				screenshot(ctx, "09c_shoulder_walking_turning");
-			}
-		}
-		input.releaseKey(o -> o.keyUp);
-		check("camera looks exactly where the player looks (deg off)", worstAngle, 0.0, 0.01);
-		crosshairAim(ctx, input, world);
-		check("orbit radius steady while walking and turning (blocks of variation)", farthest - nearest, 0.0, 0.05);
-		check("shoulder offset steady while walking and turning (blocks of variation)", sideHigh - sideLow, 0.0, 0.05);
-		ctx.runOnClient(mc -> ShoulderCamClient.swapShoulder());
-		ctx.waitTicks(30);
-		check("swap shoulder moves the camera left (blocks)", cameraSideOffset(ctx), -1.0, -0.5);
-		ctx.runOnClient(mc -> ShoulderCamClient.swapShoulder());
-
-		section("Camera settings (Mod Menu)");
+	private void horseSettings(final ClientGameTestContext ctx) {
+		section("Horse settings (Mod Menu)");
 		ctx.setScreen(() -> new net.minecraft.client.gui.screens.PauseScreen(true));
 		ctx.waitTicks(3);
 		screenshot(ctx, "10a_pause_menu");
 		ctx.setScreen(() -> com.terraformersmc.modmenu.api.ModMenuApi.createModsScreen(null));
 		ctx.waitTicks(3);
-		ctx.getInput().typeChars("Shoulder");
+		ctx.getInput().typeChars("Horsing");
 		ctx.waitTicks(3);
 		screenshot(ctx, "10b_mod_menu_list");
 		ctx.setScreen(() -> null);
-		check("Mod Menu lists the camera settings", FabricLoader.getInstance().getEntrypointContainers("modmenu", Object.class).stream()
-			.anyMatch(entry -> entry.getProvider().getMetadata().getId().equals("horsingaround_shoulder")));
-		ctx.runOnClient(mc -> ShoulderConfig.get().footSide = 1.2F);
-		ctx.waitTicks(30);
-		check("a changed setting applies live (shoulder offset, blocks)", cameraSideOffset(ctx), 1.1, 1.3);
 		check("Mod Menu lists the horse settings", FabricLoader.getInstance().getEntrypointContainers("modmenu", Object.class).stream()
 			.anyMatch(entry -> entry.getProvider().getMetadata().getId().equals("horsingaround")));
 		ctx.runOnClient(mc -> {
@@ -765,50 +706,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		ctx.setScreen(() -> new dev.horsingaround.client.config.HorseSettingsScreen(null));
 		ctx.waitTicks(5);
 		screenshot(ctx, "10c_horse_settings");
-		ctx.setScreen(() -> new ShoulderSettingsScreen(null));
-		ctx.waitTicks(5);
-		screenshot(ctx, "10_camera_settings");
 		ctx.setScreen(() -> null);
-		ctx.runOnClient(mc -> ShoulderConfig.reset());
-		ctx.runOnClient(mc -> ShoulderCamClient.setEnabled(false));
-		ctx.waitTicks(5);
-		check("add-on off: vanilla centred camera again (blocks)", Math.abs(cameraSideOffset(ctx)), 0.0, 0.1);
-	}
-
-	private void crosshairAim(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
-		// A wall 3 blocks ahead: the block under the screen-centre crosshair must be the one the player targets, and
-		// the server must hear the rotation toward it (that is what aims arrows).
-		world.getServer().runCommand("execute at @p run fill ~-4 ~ ~-3 ~4 ~3 ~-3 minecraft:oak_planks");
-		input.lookAt(180.0F, 0.0F);
-		ctx.waitTicks(10);
-		final boolean sameBlock = ctx.computeOnClient(mc -> {
-			final net.minecraft.client.Camera camera = mc.gameRenderer.mainCamera();
-			final net.minecraft.world.phys.Vec3 from = camera.position();
-			final org.joml.Vector3fc f = camera.forwardVector();
-			final net.minecraft.world.phys.Vec3 to = from.add(f.x() * 32.0, f.y() * 32.0, f.z() * 32.0);
-			final net.minecraft.world.phys.BlockHitResult underCrosshair = mc.level.clip(new net.minecraft.world.level.ClipContext(
-				from, to, net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.NONE, mc.player));
-			return mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult targeted
-				&& targeted.getType() != net.minecraft.world.phys.HitResult.Type.MISS
-				&& targeted.getBlockPos().equals(underCrosshair.getBlockPos());
-		});
-		check("targets the block under the centre crosshair", sameBlock);
-		screenshot(ctx, "09d_shoulder_crosshair_wall");
-		final float[] yaws = ctx.computeOnClient(mc -> new float[] {mc.player.getYRot(), dev.horsingaround.shoulder.ShoulderAim.yaw()});
-		final float serverYaw = world.getServer().computeOnServer(server -> server.getPlayerList().getPlayers().get(0).getYRot());
-		check("view stays straight while aim corrects for the shoulder (deg between)", Math.abs(Mth.wrapDegrees(yaws[1] - yaws[0])), 3.0, 20.0);
-		check("server aims where the crosshair points (deg off)", Math.abs(Mth.wrapDegrees(serverYaw - yaws[1])), 0.0, 1.0);
-		world.getServer().runCommand("execute at @p run fill ~-4 ~ ~-3 ~4 ~3 ~-3 minecraft:air");
-	}
-
-	/** Camera position relative to the player's eyes along the player's right, blocks (negative = left). */
-	private static double cameraSideOffset(final ClientGameTestContext ctx) {
-		return ctx.computeOnClient(mc -> {
-			final net.minecraft.world.phys.Vec3 camera = mc.gameRenderer.mainCamera().position();
-			final net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
-			final float yaw = mc.player.getYRot() * Mth.DEG_TO_RAD;
-			return (camera.x - eye.x) * -Mth.cos(yaw) + (camera.z - eye.z) * -Mth.sin(yaw);
-		});
 	}
 
 	// ---- helpers ----

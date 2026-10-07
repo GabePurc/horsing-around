@@ -48,10 +48,6 @@ dependencies {
 	// Optional integration: settings screen in Mod Menu.
 	compileOnly "maven.modrinth:modmenu:${project.modmenu_version}"
 
-	// Dev-only: the over-the-shoulder add-on (its own mod and jar), so runClient and the ride test exercise it.
-	localRuntime project(':shoulder-cam')
-	gametestCompileOnly project(':shoulder-cam')
-
 	// Dev-only: Mod Menu, to reach the add-on's settings screen in runClient.
 	localRuntime "maven.modrinth:modmenu:${project.modmenu_version}"
 	gametestCompileOnly "maven.modrinth:modmenu:${project.modmenu_version}"
@@ -60,6 +56,17 @@ dependencies {
 	// Dev-only: the Fresh Animations stack, so runClient and the ride test look like the target setup.
 	localRuntime "maven.modrinth:entity-model-features:${project.emf_version}"
 	localRuntime "maven.modrinth:entitytexturefeatures:${project.etf_version}"
+}
+
+// Dev convenience: runClient also loads the Over the Shoulder add-on when it has been built in its sibling folder
+// (separate repo). The ride test runs without it so this mod's own riding camera is what gets tested.
+def overTheShoulderJars = fileTree(project.over_the_shoulder_libs) {
+	include 'horsing-around-shoulder-*.jar'
+	exclude '*-sources.jar'
+}.files
+if (!overTheShoulderJars.isEmpty()) {
+	def addMods = overTheShoulderJars.join(File.pathSeparator)
+	tasks.matching { it.name == "runClient" }.configureEach { systemProperty "fabric.addMods", addMods }
 }
 
 // Fresh Animations is a resource pack; fetch it once and drop it into both dev run folders.

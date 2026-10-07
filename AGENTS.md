@@ -14,14 +14,15 @@ Read before design-sensitive work:
 The user guides the *feel*; Claude is the sole developer. Feel numbers live in
 `src/main/java/dev/horsingaround/ride/RideTuning.java` so tuning passes stay in one file.
 
-Two mods live here: Horsing Around (root project, `build/libs/`) and the optional add-on Horsing Around: Over the
-Shoulder (`shoulder-cam/`, `shoulder-cam/build/libs/`). The add-on must keep working without the core mod; it only
-reaches the core through `dev.horsingaround.client.api.RideCameraApi`, guarded by `isModLoaded("horsingaround")`.
+The optional add-on Horsing Around: Over the Shoulder lives in its own repo, checked out next to this one as
+`../Over the Shoulder`. It reaches this mod only through `dev.horsingaround.client.api.RideCameraApi` (and keeps a
+compile-only copy of it), so treat that class's public signatures as a contract: change both repos together.
 
-The add-on's player settings live in `shoulder-cam/.../config/ShoulderConfig.java` (JSON in the config folder) with a
-vanilla-style screen reachable from Mod Menu (optional dependency; never required at runtime).
+Player settings live in `HorseConfig` (JSON in the config folder) with a vanilla-style screen reachable from Mod Menu
+(optional dependency; never required at runtime).
 
-Build: `./gradlew build`. Play-test: `./gradlew runClient` (loads both mods, Mod Menu, and the Fresh Animations stack).
+Build: `./gradlew build`. Play-test: `./gradlew runClient` (loads Mod Menu, the Fresh Animations stack, and the
+add-on if it has been built in `../Over the Shoulder`).
 Gradle is pinned to Homebrew JDK 25 via `org.gradle.java.home` in `gradle.properties`.
 
 Verify every gameplay change with `./gradlew runClientGameTest` (`src/gametest/.../RideFeelTest.java`). It rides a
