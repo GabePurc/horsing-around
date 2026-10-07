@@ -1,0 +1,37 @@
+{
+	"schemaVersion": 1,
+	"id": "horsingaround",
+	"version": "${version}",
+	"name": "Horsing Around",
+	"description": "Weighty, momentum-based horse riding with gaits, stamina and turning inertia, kept close to vanilla.",
+	"license": "All-Rights-Reserved",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"dev.horsingaround.HorsingAround"
+		],
+		"client": [
+			"dev.horsingaround.client.HorsingAroundClient"
+		],
+		"modmenu": [
+			"dev.horsingaround.client.config.HorseModMenu"
+		]
+	},
+	"mixins": [
+		"horsingaround.mixins.json",
+		{
+			"config": "horsingaround.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	},
+	"icon": "assets/horsingaround/icon.png",
+	"suggests": {
+		"modmenu": "*"
+	}
+}

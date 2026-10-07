@@ -1,0 +1,15 @@
+{
+	"required": true,
+	"package": "dev.horsingaround.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"AbstractHorseMixin",
+		"LeavesBlockMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

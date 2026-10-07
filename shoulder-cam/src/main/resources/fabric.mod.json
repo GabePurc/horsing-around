@@ -1,0 +1,31 @@
+{
+	"schemaVersion": 1,
+	"id": "horsingaround_shoulder",
+	"version": "${version}",
+	"name": "Horsing Around: Over the Shoulder",
+	"description": "Red Dead style over-the-shoulder third-person camera. Works on its own; with Horsing Around it takes over the riding camera too.",
+	"license": "All-Rights-Reserved",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"dev.horsingaround.shoulder.ShoulderCamClient"
+		],
+		"modmenu": [
+			"dev.horsingaround.shoulder.config.ShoulderModMenu"
+		]
+	},
+	"mixins": [
+		"horsingaround_shoulder.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"horsingaround": "*",
+		"modmenu": "*"
+	},
+	"icon": "assets/horsingaround_shoulder/icon.png"
+}

@@ -1,0 +1,24 @@
+{
+	"required": true,
+	"package": "dev.horsingaround.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"AbstractClientPlayerMixin",
+		"AbstractEquineModelMixin",
+		"CameraMixin",
+		"FirstPersonHandsMixin",
+		"HudMixin",
+		"HumanoidModelMixin",
+		"JumpableVehicleBarMixin",
+		"LivingEntityRenderStateMixin",
+		"LivingEntityRendererMixin",
+		"LocalPlayerMixin",
+		"ModelPartAccessor"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

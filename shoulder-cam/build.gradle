@@ -1,0 +1,55 @@
+plugins {
+	id 'net.fabricmc.fabric-loom'
+}
+
+repositories {
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = 'Modrinth'
+				url = 'https://api.modrinth.com/maven'
+			}
+		}
+		filter {
+			includeGroup 'maven.modrinth'
+		}
+	}
+}
+
+// Compile against the Horsing Around jar (main + client classes) for the optional riding integration.
+
+version = project.shoulder_version
+group = project.group
+base {
+	archivesName = 'horsing-around-shoulder'
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Optional: settings screen in Mod Menu (only used when Mod Menu is installed).
+	compileOnly "maven.modrinth:modmenu:${project.modmenu_version}"
+
+	// Optional: riding integration with Horsing Around (only touched when it is installed).
+	compileOnly files(rootProject.tasks.named('jar'))
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}

@@ -1,0 +1,104 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+repositories {
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = 'Modrinth'
+				url = 'https://api.modrinth.com/maven'
+			}
+		}
+		filter {
+			includeGroup 'maven.modrinth'
+		}
+	}
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"horsingaround" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+// Automated in-game ride test: ./gradlew runClientGameTest (report and screenshots land in build/run/clientGameTest).
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "horsingaround-gametest"
+		enableGameTests = false
+		enableClientGameTests = true
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Optional integration: ride the horse's real animated body when Entity Model Features animates it.
+	compileOnly "maven.modrinth:entity-model-features:${project.emf_version}"
+	compileOnly "maven.modrinth:entitytexturefeatures:${project.etf_version}"
+	// Optional integration: settings screen in Mod Menu.
+	compileOnly "maven.modrinth:modmenu:${project.modmenu_version}"
+
+	// Dev-only: the over-the-shoulder add-on (its own mod and jar), so runClient and the ride test exercise it.
+	localRuntime project(':shoulder-cam')
+	gametestCompileOnly project(':shoulder-cam')
+
+	// Dev-only: Mod Menu, to reach the add-on's settings screen in runClient.
+	localRuntime "maven.modrinth:modmenu:${project.modmenu_version}"
+	gametestCompileOnly "maven.modrinth:modmenu:${project.modmenu_version}"
+	localRuntime "maven.modrinth:placeholder-api:${project.placeholder_api_version}"
+
+	// Dev-only: the Fresh Animations stack, so runClient and the ride test look like the target setup.
+	localRuntime "maven.modrinth:entity-model-features:${project.emf_version}"
+	localRuntime "maven.modrinth:entitytexturefeatures:${project.etf_version}"
+}
+
+// Fresh Animations is a resource pack; fetch it once and drop it into both dev run folders.
+def freshAnimationsZip = layout.projectDirectory.file(".gradle/dev-packs/${project.fresh_animations_file}").asFile
+def freshAnimationsUrl = project.fresh_animations_url
+def freshAnimationsTargets = [
+	layout.projectDirectory.dir("run/resourcepacks").asFile,
+	layout.buildDirectory.dir("run/clientGameTest/resourcepacks").get().asFile
+]
+def installFreshAnimations = tasks.register("installFreshAnimations") {
+	outputs.files(freshAnimationsTargets.collect { new File(it, freshAnimationsZip.name) })
+	doLast {
+		if (!freshAnimationsZip.exists()) {
+			freshAnimationsZip.parentFile.mkdirs()
+			new URI(freshAnimationsUrl).toURL().withInputStream { input -> freshAnimationsZip.withOutputStream { it << input } }
+		}
+		freshAnimationsTargets.each { dir ->
+			dir.mkdirs()
+			java.nio.file.Files.copy(freshAnimationsZip.toPath(), new File(dir, freshAnimationsZip.name).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+		}
+	}
+}
+installFreshAnimations.configure { mustRunAfter "deleteGameTestRunDir" }
+tasks.matching { it.name in ["runClient", "runClientGameTest"] }.configureEach { dependsOn installFreshAnimations }
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}

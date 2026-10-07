@@ -1,0 +1,16 @@
+{
+	"schemaVersion": 1,
+	"id": "horsingaround-gametest",
+	"version": "1.0.0",
+	"name": "Horsing Around ride test",
+	"environment": "client",
+	"entrypoints": {
+		"fabric-client-gametest": [
+			"dev.horsingaround.gametest.RideFeelTest"
+		]
+	},
+	"depends": {
+		"horsingaround": "*",
+		"fabric-client-gametest-api-v1": "*"
+	}
+}
