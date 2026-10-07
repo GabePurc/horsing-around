@@ -9,7 +9,7 @@ vanilla keys, with no crashes in singleplayer and on a dedicated server with the
    brakes then backs up slowly.
 2. **Momentum**: gradual acceleration per gait, gradual coasting stop, harder braking.
 3. **Turning inertia**: horse turns toward the camera at a speed-limited rate; free look while standing still; A/D
-   steer horse and camera together; no strafing.
+   ride the horse at an angle to the view; no strafing.
 4. **Stamina**: galloping drains; exhaustion forces a canter until recovered; small vanilla-style indicator.
 5. **Body language**: horse and rider lean into turns.
 6. **Sounds**: hoof clip matches actual speed.
@@ -22,7 +22,11 @@ vanilla keys, with no crashes in singleplayer and on a dedicated server with the
 13. **Fresh Animations**: works with EMF + ETF + Fresh Animations without visual or log errors.
 14. **The horse has a say** (user direction): steers round obstacles from a trot, slows for walls, refuses drops that
     would hurt it and hazards; never in the rider's way (no steering at a walk, edges and walls alongside untouched).
-15. **Ledge jumps** (user direction): at a walk or trot the horse jumps up 2-block ledges on its own; never fences.
+15. **Ledge jumps** (user direction): ridden straight at a 2-block ledge the horse jumps up it in its stride (from a
+    canter or gallop it slows to a trot first) instead of going round; never fences.
+16. **Hard cuts** (user direction): the further the rider turns the view, the harder the horse cuts round, slowing
+    to make the tighter turn.
+17. **Banks** (user direction): out of deep water the horse climbs only banks up to a block above the water.
 
 ## Out of scope for MVP
 
@@ -36,6 +40,8 @@ camel or llama changes.
 - A gallop turn is visibly wider than a walk turn.
 - A full stamina bar lasts roughly 14 seconds of galloping.
 - A running jump keeps at least 85% of ground speed in the air.
+- Looking 90 degrees off at a gallop, the horse comes round in well under two thirds of the time of a plain turn,
+  slowing to do it.
 - `./gradlew runClientGameTest` passes.
 - No per-tick allocations beyond vanilla's for ridden horses; no work at all for unridden horses beyond a cheap reset.
 

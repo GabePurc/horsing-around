@@ -177,11 +177,56 @@ Translation (`RideController.steps`, `Footing`, tuning in `RideTuning`):
   its look-ahead found and the ground carrying its front and back. A pathfinding visualizer would show nothing: a
   ridden horse doesn't use vanilla pathfinding.
 
+## Hard cuts, straighter lines, ledges on the line, banks (user direction, 2026-10-07)
+
+Play-test feedback: movement should be more dynamic, with hard cuts. First asked for as D (or A) pressed while looking
+that way; revised the same day: the cut should come from how far the rider turns the view, gradually, the horse
+slowing a little to cut harder and adapting its speed, lean and weight shift to turn at the radius the rider asks for
+(before, looking far to the side kept the same speed and turning circle). Also: it looked at one obstacle at a time;
+with several in a row, going round one shouldn't lead it into the next. Dodging trees sometimes over-corrects: the horse should keep as
+straight a line toward where the rider looks as it can while dodging what is in front of it. Riding straight at a
+2-block jump it should jump it, and only go round otherwise; it felt like a fight because it steered away from it.
+Getting out of water still felt odd, and it climbed banks up to three blocks out of the water: one block at most.
+
+Reference: cutting and reining horses turn hard by sitting back on their hocks and pivoting on the hindquarters
+(the rollback), with far more sideways grip than in a relaxed turn and at a large cost in speed. Horses leave deep
+water by getting their forehand onto the bank first and heaving the rest up after it.
+
+Translation (`RideController.tick`, `Awareness.detour`, `Awareness.bank`; tuning in `RideTuning`):
+
+- Hard cuts from the view: how hard the horse cuts grows smoothly with how far off its heading the rider looks, from
+  nothing at 40 degrees (so riding at an angle with A/D, and ordinary steering, keep the weight-then-turn order) to
+  all of it at 100. Cutting, it sits back (haunches down, nose up a few degrees), takes up to 2.2 times its grip and
+  twice its top turn rate, commits its weight up to twice as fast, and slows, braking harder, to the speed at which
+  that grip brings it round in about half a second; it eases out of the cut as it comes round and gallops on. The turn
+  radius therefore follows the look: 90 degrees at a gallop comes round in ~0.75s at ~68% pace (a plain turn takes
+  1.9s), 150 in ~1s at ~45%, banking up to the full 15 degrees. Cutting hard from a trot up scuffs up the ground.
+  Standing still, looking round is still free look; with W held the horse pivots on its haunches. A/D keep riding at
+  an angle. ("Hard cuts" can be switched off.)
+- Straighter dodging: the horse plans its way round with its own steering model. It looks for the least it has to move
+  over (to 1/8 block, 0.2 to spare either side), aims past the obstacle on a line that grazes its near corner (or, where
+  that line meets something else in a crowded forest, doglegs out beside the near face), then simulates how its
+  weight-shift turning will carry it and picks the least angle that gets it clear by the time its chest gets there. It
+  heads back for the rider's line as soon as its momentum will carry it clear, so it doesn't swing wide. (Before, it
+  aimed at the near corner in whole blocks, so it swerved late, steeply and twice as far as needed.)
+- Things in a row: the way round one obstacle is better a lane that stays clear through what lies behind it (5 blocks
+  past it, or to the end of the look-ahead); a lane up to 2 blocks further over than the nearest way past is taken
+  over it, so the horse threads a row of trunks instead of dodging one into the next. Nose to a big trunk, where every
+  line out at an angle clips it, it steps aside along it and comes round (the body slides along the face).
+- Ledges on the line: from a trot up, a ledge the rider's centre line meets and the horse can jump (room to land its
+  body length on top) isn't gone round: the horse slows only to a trot by the time it is in reach and jumps it. A ledge
+  that only catches its flank, or a pillar with nothing to land on, it goes round.
+- Banks: a swimming horse climbs out only onto a bank whose top is no more than a block above the top of the water's
+  block layer (1.125, so a snow layer still counts); higher banks it can't climb. The climb is one heave of about a
+  second: the body rises to the top eased in and out while pressing forward, nose up mid-heave as the forehand gets
+  onto the bank, levelling as the hindquarters come up. Wading, the 2-block ledge jump from the bottom makes the same
+  one-block limit.
+
 ## Staying vanilla
 
 - No new HUD panels. Stamina lives in the vanilla horse jump bar, which charged jumping no longer needs.
 - Speeds are multiples of each horse's own speed attribute, so breeding still matters. Canter is a little below vanilla
   top speed and gallop a little above, so long-distance travel time is similar to vanilla.
-- Vanilla keys only: W/S/A/D, sprint, jump. No new keybinds for the core loop.
+- Vanilla keys only: W/S/A/D, sprint, jump. No new keybinds for the core loop (hard cuts are A/D pressed toward the view).
 - Vanilla jumping (charge with space) is untouched.
 - Camels and llamas keep their vanilla controls.

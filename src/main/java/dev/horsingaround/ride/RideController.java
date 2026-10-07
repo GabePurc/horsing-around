@@ -86,9 +86,8 @@ public final class RideController {
 		// Water: wade while the hooves reach the bottom (slower the deeper it is), swim once they don't.
 		final double depth = horse.isInWater() ? horse.getFluidHeight(FluidTags.WATER) : 0.0;
 		// Start swimming once out of depth; keep swimming until the hooves find the bottom (no flicker at the threshold).
-		// A climb out of the water carries on until the hooves are on the bank.
-		final boolean climbing = s.climbSpeed > 0.0F && !horse.onGround();
-		s.swimming = !horse.onGround() && (climbing || depth > (s.swimming ? 0.5 : WADE_DEPTH));
+		// A heave out of the water carries on until the hooves are on the bank.
+		s.swimming = !horse.onGround() && (s.bankTicks > 0 || depth > (s.swimming ? 0.5 : WADE_DEPTH));
 		if (s.swimming) {
 			// Deep water takes the way off quickly.
 			target = Math.min(target, SWIM_SPEED);
@@ -117,6 +116,30 @@ public final class RideController {
 			Awareness.rest(s);
 		}
 		targetYaw += s.avoidOffset;
+
+		// Hard cuts: the further off it the rider looks, the more the horse sits back and slows to cut round tighter.
+		final float turn = Math.abs(Mth.wrapDegrees(targetYaw - horse.getYRot()));
+		final boolean footing = horse.onGround() && !s.swimming && s.ledgeTicks == 0 && (forward || back || steer != 0 || Math.abs(s.speed) > 0.02F);
+		final float ask = HARD_CUT && footing ? smoothstep((turn - CUT_START) / (CUT_FULL - CUT_START)) : 0.0F;
+		s.cut = ask >= s.cut ? ask : Math.max(ask, s.cut - CUT_RELEASE);
+		if (s.cut > 0.0F && s.speed > 0.0F) {
+			// The speed at which its grip, cutting this hard, brings it round in about CUT_TURN_TICKS.
+			final float wanted = Math.min(turn / CUT_TURN_TICKS, TURN_RATE_STILL * Mth.lerp(s.cut, 1.0F, CUT_RATE_SCALE)) * (Mth.DEG_TO_RAD * 20.0F);
+			final float metresPerUnit = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * (TERMINAL_VELOCITY_FACTOR * 20.0F);
+			target = Math.min(target, LATERAL_GRIP * Mth.lerp(s.cut, 1.0F, CUT_GRIP) / Math.max(wanted, 1.0E-3F) / metresPerUnit);
+			if (s.speed > target) {
+				rate = Math.max(rate, Mth.lerp(s.cut, DECEL_REIN, CUT_DECEL));
+			}
+		}
+		if (s.cut > 0.5F && s.scuffReady) {
+			s.scuffReady = false;
+			s.cuts++;
+			scuff(horse, s, Mth.wrapDegrees(targetYaw - horse.getYRot()) > 0.0F ? 1 : -1);
+		} else if (s.cut < 0.2F) {
+			s.scuffReady = true;
+		}
+		s.cutSquat += (s.cut - s.cutSquat) * CUT_SQUAT_EASE;
+
 		s.speed = s.speed < target ? Math.min(s.speed + rate, target) : Math.max(s.speed - rate, target);
 
 		// Only a real hit sheds momentum: one that stopped most of the last tick's travel, not a scrape along a trunk.
@@ -139,9 +162,11 @@ public final class RideController {
 		tiredness(horse, s, wasExhausted);
 
 		if (s.swimming) {
-			swim(horse, s, depth, jumps > 0 || forward && horse.horizontalCollision);
-		} else {
-			s.climbSpeed = 0.0F;
+			swim(horse, s, depth, forward || jumps > 0);
+		} else if (s.bankTicks > 0) {
+			// Hooves on the bank: out of the water.
+			s.bankTicks = 0;
+			s.bankClimbs++;
 		}
 
 		// Ledges up to 2 blocks: riding at one at a walk or trot, the horse jumps up it in its stride.
@@ -195,17 +220,19 @@ public final class RideController {
 		// Steering: the horse heads where the rider looks, offset 45 degrees left or right while A/D are held; the view
 		// itself is never moved. Standing still with no input leaves the rider free to look around. The head leads,
 		// the horse commits its weight (banks, side-steps when slow), then the body turns.
+		// Cutting hard, it has more grip and turns, commits and checks its turn faster.
+		final float cut = s.cut;
 		final float speedFraction = gallopFraction(s.speed);
 		final float metresPerSecond = Math.abs(s.speed) * (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * (TERMINAL_VELOCITY_FACTOR * 20.0F);
-		final float maxTurn = maxTurnRate(metresPerSecond);
+		final float maxTurn = maxTurnRate(metresPerSecond, cut);
 		float desired = 0.0F;
 		if (forward || back || steer != 0 || Math.abs(s.speed) > 0.02F) {
-			desired = Mth.clamp(Mth.wrapDegrees(targetYaw - horse.getYRot()) * TURN_GAIN / maxTurn, -1.0F, 1.0F);
+			desired = Mth.clamp(Mth.wrapDegrees(targetYaw - horse.getYRot()) * Mth.lerp(cut, TURN_GAIN, CUT_TURN_GAIN) / maxTurn, -1.0F, 1.0F);
 		}
 		s.headLead += (desired * Mth.lerp(speedFraction, HEAD_LEAD_STILL, HEAD_LEAD_GALLOP) - s.headLead) * HEAD_LEAD_RESPONSE;
-		final float shift = Mth.lerp(speedFraction, WEIGHT_SHIFT_STILL, WEIGHT_SHIFT_GALLOP);
+		final float shift = Mth.lerp(cut, Mth.lerp(speedFraction, WEIGHT_SHIFT_STILL, WEIGHT_SHIFT_GALLOP), CUT_WEIGHT_SHIFT);
 		s.turnIntent += Mth.clamp(desired - s.turnIntent, -shift, shift);
-		final float accel = maxTurn * TURN_ACCEL;
+		final float accel = maxTurn * Mth.lerp(cut, TURN_ACCEL, CUT_TURN_ACCEL);
 		s.yawVelocity += Mth.clamp(maxTurn * s.turnIntent * Math.abs(s.turnIntent) - s.yawVelocity, -accel, accel);
 		s.heading = horse.getYRot() + s.yawVelocity;
 		s.bankRate = s.turnIntent * maxTurn;
@@ -326,25 +353,136 @@ public final class RideController {
 
 	/** Turn rate limit, degrees per tick, at a ground speed in metres (blocks) per second: grip-limited above a walk. */
 	static float maxTurnRate(final float metresPerSecond) {
-		return Math.min(TURN_RATE_STILL, LATERAL_GRIP / Math.max(metresPerSecond, 0.1F) * (Mth.RAD_TO_DEG / 20.0F));
+		return maxTurnRate(metresPerSecond, 0.0F);
+	}
+
+	/** {@link #maxTurnRate(float)} cutting this hard (0..1): sat back on its haunches, the horse has more grip and pivots faster. */
+	private static float maxTurnRate(final float metresPerSecond, final float cut) {
+		return Math.min(TURN_RATE_STILL * Mth.lerp(cut, 1.0F, CUT_RATE_SCALE),
+			LATERAL_GRIP * Mth.lerp(cut, 1.0F, CUT_GRIP) / Math.max(metresPerSecond, 0.1F) * (Mth.RAD_TO_DEG / 20.0F));
+	}
+
+	/**
+	 * Where the horse's steering takes it: how far to the right (blocks; negative is left) of the line along
+	 * {@code lineYaw} through where it is now it has got by the time it is {@code distance} along that line, if it goes
+	 * round something {@code offset} degrees off the line from now on. The same weight-shift model as the ride tick (hard
+	 * cuts included), at the current speed, starting from how it is turning now. For planning ways round (Awareness); no
+	 * allocation.
+	 */
+	static float sideAfter(final AbstractHorse horse, final RideState s, final float lineYaw, final float offset, final float distance) {
+		final float blocksPerUnit = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR;
+		final float speed = Math.max(s.speed, GAIT_SPEED[WALK]) * blocksPerUnit;
+		final float shift = Mth.lerp(gallopFraction(s.speed), WEIGHT_SHIFT_STILL, WEIGHT_SHIFT_GALLOP);
+		float heading = Mth.wrapDegrees(horse.getYRot() - lineYaw);
+		float avoid = s.avoidOffset;
+		float intent = s.turnIntent;
+		float velocity = s.yawVelocity;
+		float cut = s.cut;
+		float along = 0.0F;
+		float side = 0.0F;
+		for (int tick = 0; tick < 60 && along < distance; tick++) {
+			avoid += Mth.clamp(offset - avoid, -AVOID_RATE, AVOID_RATE);
+			final float ask = HARD_CUT ? smoothstep((Math.abs(avoid - heading) - CUT_START) / (CUT_FULL - CUT_START)) : 0.0F;
+			cut = ask >= cut ? ask : Math.max(ask, cut - CUT_RELEASE);
+			final float maxTurn = maxTurnRate(speed * 20.0F, cut);
+			final float accel = maxTurn * Mth.lerp(cut, TURN_ACCEL, CUT_TURN_ACCEL);
+			final float desired = Mth.clamp((avoid - heading) * Mth.lerp(cut, TURN_GAIN, CUT_TURN_GAIN) / maxTurn, -1.0F, 1.0F);
+			intent += Mth.clamp(desired - intent, -Mth.lerp(cut, shift, CUT_WEIGHT_SHIFT), Mth.lerp(cut, shift, CUT_WEIGHT_SHIFT));
+			velocity += Mth.clamp(maxTurn * intent * Math.abs(intent) - velocity, -accel, accel);
+			heading += velocity;
+			along += speed * Mth.cos(heading * Mth.DEG_TO_RAD);
+			side += speed * Mth.sin(heading * Mth.DEG_TO_RAD);
+		}
+		return side;
+	}
+
+	/** A hard cut from a trot or faster scuffs up the ground under the hind hooves, thrown out of the turn ({@code side} 1 right). */
+	private static void scuff(final AbstractHorse horse, final RideState s, final int side) {
+		if (s.speed < GAIT_SPEED[TROT] * 0.8F) {
+			return;
+		}
+		final BlockState ground = horse.getBlockStateOn();
+		if (ground.isAir() || ground.getRenderShape() == net.minecraft.world.level.block.RenderShape.INVISIBLE) {
+			return;
+		}
+		final Level level = horse.level();
+		final RandomSource random = horse.getRandom();
+		if (CUT_SOUND_VOLUME > 0.0F) {
+			level.playLocalSound(
+				horse.getX(), horse.getY(), horse.getZ(), ground.getSoundType().getStepSound(), horse.getSoundSource(), CUT_SOUND_VOLUME, 0.7F + random.nextFloat() * 0.1F, false
+			);
+		}
+		final float yaw = horse.getYRot() * Mth.DEG_TO_RAD;
+		final double fx = -Mth.sin(yaw);
+		final double fz = Mth.cos(yaw);
+		// Thrown out of the turn: a cut to the right (larger yaw) throws the dirt to the left, (cos, sin) of the yaw.
+		final double ox = Mth.cos(yaw) * side;
+		final double oz = Mth.sin(yaw) * side;
+		final BlockParticleOption particle = new BlockParticleOption(ParticleTypes.BLOCK, ground);
+		for (int i = 0; i < 10; i++) {
+			final double spread = random.nextDouble() * 0.6 - 0.3;
+			level.addParticle(particle,
+				horse.getX() - fx * (HIND_HOOVES - spread), horse.getY() + 0.1, horse.getZ() - fz * (HIND_HOOVES - spread),
+				ox * (0.15 + random.nextDouble() * 0.15), 0.1 + random.nextDouble() * 0.15, oz * (0.15 + random.nextDouble() * 0.15));
+		}
 	}
 
 	/**
 	 * Out of its depth the horse floats with its back at the waterline and its head up. Vanilla water physics are
 	 * bypassed for a ridden horse (see the horse mixin), so this sets the vertical motion each tick before travel: a
-	 * settle toward the floating depth, or a steadily building climb up a bank.
+	 * settle toward the floating depth, or a heave up a bank no more than a block above the water.
+	 *
+	 * @param pressing riding forward (or jumping) at whatever is ahead
 	 */
-	private static void swim(final AbstractHorse horse, final RideState s, final double depth, final boolean heave) {
+	private static void swim(final AbstractHorse horse, final RideState s, final double depth, final boolean pressing) {
 		final Vec3 movement = horse.getDeltaMovement();
-		// Keep climbing a few ticks after the bank is cleared so the hooves get over its lip.
-		s.climbLostTicks = heave ? 0 : s.climbLostTicks + 1;
-		if (heave || s.climbSpeed > 0.0F && s.climbLostTicks <= 4) {
-			s.climbSpeed = Math.min(s.climbSpeed + SWIM_CLIMB_ACCEL, SWIM_CLIMB_SPEED);
-			horse.setDeltaMovement(movement.x, s.climbSpeed, movement.z);
+		if (s.bankTicks == 0 && pressing && --s.bankLook <= 0 && (horse.horizontalCollision || Awareness.bankAhead(horse))) {
+			// Something to climb out onto ahead; a bank too high is looked at again only every few ticks.
+			s.bankLook = 4;
+			final double top = Awareness.bank(horse, horse.getYRot(), depth);
+			if (!Double.isNaN(top)) {
+				s.bankTicks = 1;
+				s.bankFrom = horse.getY();
+				s.bankTop = top + BANK_CLEARANCE;
+				s.bankYaw = horse.getYRot();
+				s.bankDuration = BANK_HEAVE_TICKS + BANK_HEAVE_TICKS_PER_BLOCK * (float) (s.bankTop - s.bankFrom);
+			}
+		}
+		if (s.bankTicks > 0) {
+			heave(horse, s);
 			return;
 		}
-		s.climbSpeed = 0.0F;
 		horse.setDeltaMovement(movement.x, Mth.clamp((depth - SWIM_FLOAT_DEPTH) * SWIM_BUOYANCY, -SWIM_SINK_MAX, SWIM_RISE_MAX), movement.z);
+	}
+
+	/**
+	 * Heaving out up a bank: the body rises to the bank's top in one smooth motion (eased in and out) while it presses
+	 * forward against the bank, so it moves onto the top as soon as it clears the lip; then it keeps pressing forward
+	 * until its hooves are on the bank (or gives up after BANK_OVER_TICKS and drops back into the water).
+	 */
+	private static void heave(final AbstractHorse horse, final RideState s) {
+		final float t = s.bankTicks++;
+		final float yaw = s.bankYaw * Mth.DEG_TO_RAD;
+		final double forwardX = -Mth.sin(yaw) * BANK_FORWARD;
+		final double forwardZ = Mth.cos(yaw) * BANK_FORWARD;
+		if (t >= s.bankDuration + BANK_OVER_TICKS) {
+			s.bankTicks = 0;
+			return;
+		}
+		// Over the top, it settles onto the bank.
+		double vy = -horse.getGravity();
+		if (t < s.bankDuration) {
+			// Smoothstep from where it started to the top: the rise this tick.
+			vy = (s.bankTop - s.bankFrom) * (smoothstep((t + 1.0F) / s.bankDuration) - smoothstep(t / s.bankDuration));
+			// Stay on the curve even if the bank held the body back a little.
+			vy += Mth.clamp(s.bankFrom + (s.bankTop - s.bankFrom) * smoothstep(t / s.bankDuration) - horse.getY(), -0.05, 0.05);
+		}
+		horse.setDeltaMovement(forwardX, vy, forwardZ);
+	}
+
+	private static float smoothstep(final float t) {
+		final float x = Mth.clamp(t, 0.0F, 1.0F);
+		return x * x * (3.0F - 2.0F * x);
 	}
 
 	/**
@@ -487,6 +625,14 @@ public final class RideController {
 			s.pitch += -s.pitch * PITCH_SMOOTHING;
 			s.heightOffset *= AIR_OFFSET_DECAY;
 			s.flying = true;
+		} else if (s.bankTicks > 0) {
+			// Heaving out of the water: the forehand gets onto the bank first, so the nose is up most mid-heave, and the
+			// body levels as the hindquarters come up after it.
+			final float progress = Math.min((s.bankTicks - 1) / s.bankDuration, 1.0F);
+			s.pitch += (HEAVE_PITCH * Mth.sin(progress * Mth.PI) - s.pitch) * HEAVE_PITCH_EASE;
+			final double previous = horse.yo + s.heightOffset;
+			s.heightOffset = (float) (previous + (y - previous) * WATER_HEIGHT_SMOOTHING - y);
+			s.flying = true;
 		} else if (horse.isInWater()) {
 			// Afloat or wading: ease height changes (climbing out, bobbing) in world space, and raise the nose as the
 			// horse climbs.
@@ -519,7 +665,7 @@ public final class RideController {
 			s.foreLeg *= 0.5F;
 			s.hindLeg *= 0.5F;
 		}
-		if (onGround || horse.isPassenger() || horse.isInWater()) {
+		if (onGround || horse.isPassenger() || horse.isInWater() || s.bankTicks > 0) {
 			s.jumpPitch += -s.jumpPitch * JUMP_PITCH_SMOOTHING;
 		}
 		s.wasOnGround = onGround;
@@ -563,13 +709,14 @@ public final class RideController {
 		final float tilt = PITCH_MAX * (float) Math.tanh(rise / PITCH_RISE);
 		final double body = s.hind + rise * (rise > 0.0 ? BODY_RISE_UP : BODY_RISE_DOWN);
 		// Crouching for a ledge jump: haunches down, nose up.
-		final float crouch = s.ledgeCrouch;
+		// Sitting back into a cut does the same, a little less.
+		final float crouchPitch = s.ledgeCrouch * LEDGE_CROUCH_PITCH + s.cutSquat * CUT_SQUAT_PITCH;
 		// The tilt eases once more on its own, so quick bumps at speed rock the body gently instead of jolting it.
-		s.pitch += (tilt + crouch * LEDGE_CROUCH_PITCH - s.pitch) * TILT_EASE;
-		s.heightOffset = (float) (body - y) - crouch * LEDGE_CROUCH;
+		s.pitch += (tilt + crouchPitch - s.pitch) * TILT_EASE;
+		s.heightOffset = (float) (body - y) - s.ledgeCrouch * LEDGE_CROUCH - s.cutSquat * CUT_SQUAT;
 		// The legs make up what the tilt doesn't: the front end of the body is below the ground its hooves are going to
 		// (fold up onto it) or above it (reach down for it); the hind legs drive while the hindquarters rise.
-		final double slope = Math.tan((s.pitch - crouch * LEDGE_CROUCH_PITCH) * Mth.DEG_TO_RAD);
+		final double slope = Math.tan((s.pitch - crouchPitch) * Mth.DEG_TO_RAD);
 		s.foreLeg = Mth.clamp((float) (s.fore - body - FORE_HOOVES * slope) / LEG_POSE_REACH, -1.0F, 1.0F);
 		s.hindLeg = Mth.clamp((float) (body - HIND_HOOVES * slope - s.hind) / LEG_POSE_REACH + Math.max(s.hindRise, 0.0F) / HIND_DRIVE_SPEED, -1.0F, 1.0F);
 	}

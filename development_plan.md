@@ -25,7 +25,7 @@ Fresh Animations compatibility, automated ride test.
 ## Phase 3: drama at speed
 
 Done early at the user's request (phase 1g): the horse picks its way (detours, slowing for walls, refusing cliffs and
-hazards with a snort and head toss) and jumps up 2-block ledges.
+hazards with a snort and head toss) and jumps up 2-block ledges. Also early (phase 1j): hard cuts.
 
 - Skid stop with rear when braking hard from a gallop.
 - Stumble or throw the rider on a hard crash.
