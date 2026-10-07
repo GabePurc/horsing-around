@@ -17,8 +17,9 @@ public interface RidePoseState {
 	 * @param legPitch radians to tip the legs (top-back positive) so they hold still against the saddle while the
 	 *                 torso rocks, leans and pumps
 	 * @param legRoll  same for roll (top-right positive)
+	 * @param shield   how far a hand is up in front of the face against leaves, 0..1
 	 */
-	void horsingaround$setRider(float handBob, float legPitch, float legRoll, float twistRadians, float pelvis);
+	void horsingaround$setRider(float handBob, float legPitch, float legRoll, float twistRadians, float pelvis, float shield);
 
 	boolean horsingaround$isRider();
 
@@ -29,6 +30,9 @@ public interface RidePoseState {
 	float horsingaround$legRoll();
 
 	float horsingaround$twist();
+
+	/** How far a hand is up in front of the face against leaves, 0..1. */
+	float horsingaround$shield();
 
 	/** Torso swing from the shoulders (radians, negative slides the pelvis forward). */
 	float horsingaround$pelvis();

@@ -108,6 +108,8 @@ public final class RideTuning {
 	 * right of it, so the rider can ride at an angle while looking or aiming straight at something.
 	 */
 	static float STEER_OFFSET = 45.0F;
+	/** A or D alone (no W or S) ride the horse on at its gait, this many degrees left or right of the view: across it. */
+	static float ACROSS_OFFSET = 90.0F;
 	/** Fraction of the heading error the horse tries to correct each tick. */
 	static final float TURN_GAIN = 0.3F;
 	/**
@@ -511,6 +513,35 @@ public final class RideTuning {
 	public static float FP_HAND_BOB = 0.6F;
 	/** Share of the saddle lift the third-person camera takes. */
 	public static final float THIRD_PERSON_BOUNCE_SCALE = 0.12F;
+
+	/**
+	 * Pushing through leaves at the rider's chest or face (looked for LEAF_LOOK_NEAR and LEAF_LOOK_FAR ahead of the rider,
+	 * at the eyes and LEAF_CHEST_BELOW_EYE below them, moving faster than LEAF_BRUSH_MIN_PACE of vanilla top speed): the
+	 * branches push the rider back toward LEAF_PUSH_MAX degrees at full pace (on a spring, with a LEAF_PUSH_KICK shove
+	 * as the face meets each new clump, never more than LEAF_PUSH_LIMIT), and the rider puts a hand up in front of their
+	 * face (all the way for leaves at the face, LEAF_SHIELD_CHEST of the way for leaves at the chest), raised by up to
+	 * LEAF_SHIELD_UP a tick and lowered by LEAF_SHIELD_DOWN.
+	 */
+	static final float LEAF_LOOK_NEAR = 0.3F;
+	static final float LEAF_LOOK_FAR = 0.9F;
+	static final double LEAF_CHEST_BELOW_EYE = 0.6;
+	static final float LEAF_BRUSH_MIN_PACE = 0.15F;
+	static final float LEAF_PUSH_MAX = 7.0F;
+	static final float LEAF_PUSH_KICK = 3.0F;
+	static final float LEAF_PUSH_LIMIT = 14.0F;
+	static final float LEAF_PUSH_STIFFNESS = 0.25F;
+	static final float LEAF_PUSH_DAMPING = 0.4F;
+	static final float LEAF_SHIELD_CHEST = 0.5F;
+	static final float LEAF_SHIELD_UP = 0.35F;
+	static final float LEAF_SHIELD_DOWN = 0.06F;
+	/**
+	 * The hand against the leaves: the arm raised forward and up (radians, from hanging), swung in toward the face, and
+	 * the head tucked down and turned a little away from the leaves.
+	 */
+	public static final float SHIELD_ARM_RAISE = 2.65F;
+	public static final float SHIELD_ARM_INWARD = 0.55F;
+	public static final float SHIELD_HEAD_TUCK = 0.3F;
+	public static final float SHIELD_HEAD_TURN = 0.25F;
 
 	// ---- World ----
 

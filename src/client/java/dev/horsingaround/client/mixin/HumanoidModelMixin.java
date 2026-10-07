@@ -18,7 +18,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Rider pose on a horse: feet in the stirrups, hands on the reins bobbing with the saddle, and the torso turning
- * toward where the rider looks. A hand leaves the reins while it swings, uses an item, or holds a two-handed pose.
+ * toward where the rider looks. A hand leaves the reins while it swings, uses an item, or holds a two-handed pose, and
+ * comes up in front of the face, head tucked, when pushing through leaves.
  */
 @Mixin(HumanoidModel.class)
 public abstract class HumanoidModelMixin {
@@ -26,6 +27,9 @@ public abstract class HumanoidModelMixin {
 	@Unique
 	private static final float HIP_DEPTH = 12.0F;
 
+	@Shadow
+	@Final
+	public ModelPart head;
 	@Shadow
 	@Final
 	public ModelPart body;
@@ -96,6 +100,26 @@ public abstract class HumanoidModelMixin {
 			this.leftArm.xRot = -REINS_ARM_FORWARD + handBob;
 			this.leftArm.yRot = REINS_ARM_INWARD + twist * 0.5F;
 			this.leftArm.zRot = 0.0F;
+		}
+
+		// Leaves: the off hand (or the other, if that one is busy) comes up in front of the face, and the head tucks down
+		// and turns a little away.
+		final float shield = rider.horsingaround$shield();
+		if (shield > 0.0F) {
+			HumanoidArm arm = state.mainArm.getOpposite();
+			if (arm == swingArm || arm == usingArm) {
+				arm = arm.getOpposite();
+			}
+			if (arm != swingArm && arm != usingArm) {
+				final boolean left = arm == HumanoidArm.LEFT;
+				final ModelPart part = left ? this.leftArm : this.rightArm;
+				final float inward = left ? SHIELD_ARM_INWARD : -SHIELD_ARM_INWARD;
+				part.xRot = Mth.lerp(shield, part.xRot, -SHIELD_ARM_RAISE + handBob * 0.5F);
+				part.yRot = Mth.lerp(shield, part.yRot, inward + twist);
+				part.zRot = Mth.lerp(shield, part.zRot, 0.0F);
+				this.head.xRot += SHIELD_HEAD_TUCK * shield;
+				this.head.yRot += (left ? -SHIELD_HEAD_TURN : SHIELD_HEAD_TURN) * shield;
+			}
 		}
 	}
 

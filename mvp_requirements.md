@@ -8,8 +8,8 @@ vanilla keys, with no crashes in singleplayer and on a dedicated server with the
 1. **Gaits**: walk, trot, canter, gallop. Sprint tap steps up, S tap steps down, releasing W eases to a stop, S held
    brakes then backs up slowly.
 2. **Momentum**: gradual acceleration per gait, gradual coasting stop, harder braking.
-3. **Turning inertia**: horse turns toward the camera at a speed-limited rate; free look while standing still; A/D
-   ride the horse at an angle to the view; no strafing.
+3. **Turning inertia**: horse turns toward the camera at a speed-limited rate; free look while standing still; with W,
+   A/D ride the horse 45 degrees off the view, alone 90 (across it, at the gait); no strafing.
 4. **Stamina**: galloping drains; exhaustion forces a canter until recovered; small vanilla-style indicator.
 5. **Body language**: horse and rider lean into turns.
 6. **Sounds**: hoof clip matches actual speed.

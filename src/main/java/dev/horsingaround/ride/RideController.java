@@ -8,6 +8,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.core.Direction;
@@ -26,8 +27,9 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * simulates the ride (the rider's client), before vanilla applies rotation and travel.
  *
  * <p>Controls: W rides at the current gait, sprint taps spur up a gait, S taps rein down a gait, S held brakes then
- * backs up, releasing W lets the horse ease to a stop. With the mouse the horse heads where the camera looks; A/D turn
- * the horse and the camera swings around behind it. Space jumps immediately, harder the faster the horse is going.
+ * backs up, letting go lets the horse ease to a stop. The horse heads where the camera looks; with W, A/D angle it 45
+ * degrees off the view, and A or D alone ride it across the view (90 degrees off), at the gait too. The view is never
+ * moved. Space jumps immediately, harder the faster the horse is going.
  */
 public final class RideController {
 	/** Scratch position for ground probes; visuals only tick on the client thread. */
@@ -50,7 +52,9 @@ public final class RideController {
 		final AbstractHorse horse, final RideState s, final Player rider, final Input in, final int spurs, final int reins, final int jumps
 	) {
 		final long started = profile ? System.nanoTime() : 0L;
-		final boolean forward = in.forward();
+		// A or D alone ride on at the gait as well, across the view; with W they angle the horse off it.
+		final boolean across = !in.forward() && !in.backward() && in.left() != in.right();
+		final boolean forward = in.forward() || across;
 		if (horse.onGround()) {
 			s.leapt = false;
 		}
@@ -104,7 +108,7 @@ public final class RideController {
 		// The horse has a say: on solid ground it slows for walls, stops short of drops that would hurt it and of
 		// hazards, and from a trot steers round obstacles it can pass. Swimming, jumps and climbs are left alone.
 		final int steer = (in.right() ? 1 : 0) - (in.left() ? 1 : 0);
-		float targetYaw = rider.getYRot() + steer * STEER_OFFSET;
+		float targetYaw = rider.getYRot() + steer * (across ? ACROSS_OFFSET : STEER_OFFSET);
 		s.riderYaw = targetYaw;
 		if (AVOID_DANGER && horse.onGround() && !s.swimming && s.ledgeTicks == 0 && (forward || s.speed > 0.02F)) {
 			final float limit = Awareness.look(horse, s, targetYaw, forward);
@@ -217,8 +221,8 @@ public final class RideController {
 			s.jumpBuffer--;
 		}
 
-		// Steering: the horse heads where the rider looks, offset 45 degrees left or right while A/D are held; the view
-		// itself is never moved. Standing still with no input leaves the rider free to look around. The head leads,
+		// Steering: the horse heads where the rider looks, offset 45 degrees left or right while A/D are held with W (90,
+		// across the view, with A or D alone); the view itself is never moved. Standing still with no input leaves the rider free to look around. The head leads,
 		// the horse commits its weight (banks, side-steps when slow), then the body turns.
 		// Cutting hard, it has more grip and turns, commits and checks its turn faster.
 		final float cut = s.cut;
@@ -269,7 +273,7 @@ public final class RideController {
 		// The run-up.
 		final double top = Awareness.ledge(horse, s.ledgeYaw, LEDGE_REACH);
 		if (!forward || !horse.onGround() || Double.isNaN(top) || s.ledgeTicks > LEDGE_APPROACH_TICKS
-			|| Math.abs(Mth.wrapDegrees(rider(horse) - s.ledgeYaw)) > 60.0F) {
+			|| Math.abs(Mth.wrapDegrees(s.riderYaw - s.ledgeYaw)) > 60.0F) {
 			endLedge(s);
 			return;
 		}
@@ -308,10 +312,6 @@ public final class RideController {
 		s.ledgeTicks = 0;
 		s.ledgeAir = false;
 		s.ledgeCrouch = 0.0F;
-	}
-
-	private static float rider(final AbstractHorse horse) {
-		return horse.getControllingPassenger() instanceof Player player ? player.getYRot() : horse.getYRot();
 	}
 
 	/** Takeoff speed whose arc (vanilla gravity and drag) peaks at least {@code height} up. */
@@ -604,6 +604,7 @@ public final class RideController {
 		final float inertiaTarget = horse.isVehicle() ? Mth.clamp(surge * INERTIA_GAIN, -INERTIA_MAX, INERTIA_MAX) : 0.0F;
 		s.inertiaVelocity += (inertiaTarget - s.inertia) * INERTIA_STIFFNESS - s.inertiaVelocity * INERTIA_DAMPING;
 		s.inertia = Mth.clamp(s.inertia + s.inertiaVelocity, -INERTIA_MAX, INERTIA_MAX);
+		brush(horse, s, groundSpeed, bodyYaw);
 
 		s.pitchO = s.pitch;
 		s.jumpPitchO = s.jumpPitch;
@@ -669,6 +670,52 @@ public final class RideController {
 			s.jumpPitch += -s.jumpPitch * JUMP_PITCH_SMOOTHING;
 		}
 		s.wasOnGround = onGround;
+	}
+
+	/**
+	 * Pushing through leaves at the rider's chest and face: the branches push the rider back, more the faster the horse
+	 * goes, with a shove each time the face meets a new clump, and the rider puts a hand up in front of their face. Looks
+	 * at the rider's face and chest just ahead (a few block reads), only for a horse a player rides; everyone sees it.
+	 */
+	private static void brush(final AbstractHorse horse, final RideState s, final float groundSpeed, final float bodyYaw) {
+		s.shieldO = s.shield;
+		s.leafPushO = s.leafPush;
+		final boolean ridden = horse.getControllingPassenger() instanceof Player;
+		if (!ridden && s.shield == 0.0F && s.leafPush == 0.0F && s.leafPushVelocity == 0.0F) {
+			return;
+		}
+		boolean face = false;
+		boolean chest = false;
+		final float pace = Math.min(groundSpeed / ((float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR), 1.0F);
+		if (RIDE_THROUGH_LEAVES && pace > LEAF_BRUSH_MIN_PACE && horse.getControllingPassenger() instanceof Player rider) {
+			final float yaw = bodyYaw * Mth.DEG_TO_RAD;
+			final double fx = -Mth.sin(yaw);
+			final double fz = Mth.cos(yaw);
+			final double eye = rider.getEyeY();
+			final int faceY = Mth.floor(eye);
+			final int chestY = Mth.floor(eye - LEAF_CHEST_BELOW_EYE);
+			for (int i = 0; i < 2; i++) {
+				final float ahead = i == 0 ? LEAF_LOOK_NEAR : LEAF_LOOK_FAR;
+				final int x = Mth.floor(rider.getX() + fx * ahead);
+				final int z = Mth.floor(rider.getZ() + fz * ahead);
+				if (!face && horse.level().getBlockState(PROBE.set(x, faceY, z)).is(BlockTags.LEAVES)) {
+					face = true;
+					// The face meets a new clump: a shove.
+					final long clump = BlockPos.asLong(x, faceY, z);
+					if (i == 0 && clump != s.lastClump) {
+						s.lastClump = clump;
+						s.leafPushVelocity += LEAF_PUSH_KICK * pace;
+					}
+				}
+				chest |= horse.level().getBlockState(PROBE.set(x, chestY, z)).is(BlockTags.LEAVES);
+			}
+		}
+		// The hand goes up quickly and comes down once clear.
+		final float shield = face ? 1.0F : chest ? LEAF_SHIELD_CHEST : 0.0F;
+		s.shield += Mth.clamp(shield - s.shield, -LEAF_SHIELD_DOWN, LEAF_SHIELD_UP);
+		final float push = face || chest ? LEAF_PUSH_MAX * pace : 0.0F;
+		s.leafPushVelocity += (push - s.leafPush) * LEAF_PUSH_STIFFNESS - s.leafPushVelocity * LEAF_PUSH_DAMPING;
+		s.leafPush = Mth.clamp(s.leafPush + s.leafPushVelocity, -LEAF_PUSH_LIMIT * 0.25F, LEAF_PUSH_LIMIT);
 	}
 
 	/**

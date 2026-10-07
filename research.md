@@ -222,11 +222,30 @@ Translation (`RideController.tick`, `Awareness.detour`, `Awareness.bank`; tuning
   onto the bank, levelling as the hindquarters come up. Wading, the 2-block ledge jump from the bottom makes the same
   one-block limit.
 
+## Riding across the view, and leaves you can feel (user direction, 2026-10-07)
+
+Play-test feedback: holding just D should move the horse 80-90 degrees to the right (A to the left) instead of letting
+it stop, so the rider can run forward, 45 degrees left/right and 80-90 degrees left/right at full speed. In third
+person the rider should react to leaves: the leaves push the rider back slightly and they hold a hand up to keep them
+off their face; going through leaves felt like phasing through them.
+
+Translation:
+
+- A or D alone (no W or S) ride the horse on at its gait 90 degrees left or right of the view (setting "A/D alone
+  angle", 45-120); with W, 45 as before; letting go of everything still eases it to a stop. Swinging from straight
+  ahead to across the view at a gallop is a 90-degree turn, so it is a hard cut like any other (it slows to make it,
+  then gallops on).
+- Leaves at the rider's chest or face (looked for just ahead of the rider, a few block reads a tick, only for ridden
+  horses, on every client so everyone sees it): the rider leans back from the push (toward 7 degrees at full pace, on a
+  spring, with a shove as their face meets each new clump) and puts the off hand up in front of their face (the main
+  hand if the off hand is busy), head tucked and turned a little away; the hand comes up in about 3 ticks and down
+  about 0.8s after they are clear.
+
 ## Staying vanilla
 
 - No new HUD panels. Stamina lives in the vanilla horse jump bar, which charged jumping no longer needs.
 - Speeds are multiples of each horse's own speed attribute, so breeding still matters. Canter is a little below vanilla
   top speed and gallop a little above, so long-distance travel time is similar to vanilla.
-- Vanilla keys only: W/S/A/D, sprint, jump. No new keybinds for the core loop (hard cuts are A/D pressed toward the view).
+- Vanilla keys only: W/S/A/D, sprint, jump. No new keybinds for the core loop.
 - Vanilla jumping (charge with space) is untouched.
 - Camels and llamas keep their vanilla controls.

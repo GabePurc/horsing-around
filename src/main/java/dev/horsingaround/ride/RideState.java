@@ -131,6 +131,16 @@ public final class RideState {
 	float heightOffset;
 	float heightOffsetO;
 	boolean wasOnGround = true;
+	/**
+	 * Pushing through leaves: how far the rider has a hand up in front of their face (0..1), their lean back from the
+	 * push (degrees, top-back positive, on a spring), and the last clump of leaves their face met.
+	 */
+	float shield;
+	float shieldO;
+	float leafPush;
+	float leafPushO;
+	float leafPushVelocity;
+	long lastClump;
 	/** Rider's lean against the horse's surges (degrees, top-back positive), on a spring. */
 	float inertia;
 	float inertiaO;
@@ -215,6 +225,16 @@ public final class RideState {
 		phaseOut[0] = t * RideTuning.HEAD_SHAKE_RATE;
 		final float envelope = (float) Math.sin(Math.PI * t / RideTuning.HEAD_SHAKE_TICKS);
 		return envelope * envelope;
+	}
+
+	/** How far the rider has a hand up against the leaves, 0..1. */
+	public float shield(final float partialTicks) {
+		return this.shieldO + (this.shield - this.shieldO) * partialTicks;
+	}
+
+	/** Rider lean back from pushing through leaves, degrees. */
+	public float leafPush(final float partialTicks) {
+		return this.leafPushO + (this.leafPush - this.leafPushO) * partialTicks;
 	}
 
 	/** Rider lean from the horse speeding up (back, positive) or slowing (forward), degrees. */

@@ -526,7 +526,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		section("Riding through leaves");
 		final TestServerContext server = world.getServer();
 		server.runCommand("fill 97 -60 -80 104 -57 -31 minecraft:stone");
-		server.runCommand("fill 97 -56 -46 104 -54 -38 minecraft:oak_leaves[persistent=true]");
+		// Tall enough that the rider's chest and face are in the leaves too.
+		server.runCommand("fill 97 -56 -46 104 -52 -38 minecraft:oak_leaves[persistent=true]");
 		ctx.waitTicks(5);
 		input.lookAt(180.0F, 10.0F);
 		input.holdKey(o -> o.keyUp);
@@ -537,10 +538,21 @@ public final class RideFeelTest implements FabricClientGameTest {
 		double inside = 0.0;
 		int insideTicks = 0;
 		boolean shot = false;
+		float shield = 0.0F;
+		float push = 0.0F;
+		int exitShots = 0;
+		final StringBuilder trace = new StringBuilder();
 		for (int i = 0; i < 300 && sample(ctx).y > -57.5; i++) {
 			ctx.waitTick();
 			final Sample s = sample(ctx);
 			final boolean inLeaves = ctx.computeOnClient(mc -> Foliage.leavesIn(mc.player.getVehicle()) != null);
+			final float hand = ride(ctx, r -> r.shield(1.0F));
+			final float back = ride(ctx, r -> r.leafPush(1.0F));
+			shield = Math.max(shield, hand);
+			push = Math.max(push, back);
+			if (inLeaves || hand > 0.0F) {
+				trace.append(String.format(Locale.ROOT, "z%.1f hand%.2f push%.1f | ", horseZ(ctx), hand, back));
+			}
 			if (inLeaves) {
 				inside += s.speed;
 				insideTicks++;
@@ -552,6 +564,16 @@ public final class RideFeelTest implements FabricClientGameTest {
 				outside += s.speed;
 				outsideTicks++;
 			}
+			// Coming out of the stand, hand still up: the rider from in front and above as the face clears the leaves, then
+			// from the side once clear of them (the riding camera swung round: a fixed camera can't show the rider, as the
+			// game never draws the local player for another camera).
+			if (exitShots == 0 && horseZ(ctx) < -45.8) {
+				frontScreenshot(ctx, "08d_leaves_exit_front", -25.0F);
+				exitShots++;
+			} else if (exitShots == 1 && horseZ(ctx) < -47.2) {
+				sideScreenshot(ctx, "08e_leaves_exit_side", 0.0F);
+				exitShots++;
+			}
 			// Carry on well clear of the leaves so later camera checks aren't taken against them.
 			if (ctx.computeOnClient(mc -> mc.player.getVehicle().getZ()) < -64.0) {
 				break;
@@ -561,6 +583,11 @@ public final class RideFeelTest implements FabricClientGameTest {
 		final double z = ctx.computeOnClient(mc -> mc.player.getVehicle().getZ());
 		check("rode through a 9-block-deep stand of leaves (z beyond -47)", z, -80.0, -47.0);
 		check("leaves slow the horse (inside / outside speed)", insideTicks > 0 && outsideTicks > 0 ? (inside / insideTicks) / (outside / outsideTicks) : 0.0, 0.6, 0.9);
+		log("  rider: %s", trace);
+		check("the rider puts a hand up against the leaves (0..1)", shield, 0.9, 1.0);
+		check("the leaves push the rider back (deg)", push, 2.0, 14.0);
+		check("hand down again once clear", ride(ctx, r -> r.shield(1.0F)), 0.0, 0.01);
+		check("upright again once clear (deg)", Math.abs((double) ride(ctx, r -> r.leafPush(1.0F))), 0.0, 0.5);
 		ticksUntilStopped(ctx, 60);
 	}
 
@@ -789,6 +816,40 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("slows more than for 90 deg (slowest, 90 vs 150)", hard.slowest - round.slowest, 0.05, 0.6);
 		check("still comes round promptly (ticks)", round.ticks, 10, 35);
 		stop(ctx, input);
+
+		section("A or D alone at a gallop: rides across the view");
+		lane(ctx, input, world, 1440.5, -60, "across_test");
+		gallopNorth(ctx, input);
+		ctx.waitTicks(40);
+		input.releaseKey(o -> o.keyUp);
+		input.holdKey(o -> o.keyRight);
+		ctx.waitTicks(60);
+		check("D alone: horse rides 90 deg right of the view (deg)", Mth.wrapDegrees(sample(ctx).horseYaw - sample(ctx).playerYaw), 85.0, 95.0);
+		check("...at full pace (speed / gallop)", averageSpeed(ctx, 5) / GALLOP_SPEED, 0.9, 1.1);
+		check("...still galloping", sample(ctx).gait == RideTuning.GALLOP);
+		check("the view was never pulled (deg)", Math.abs(Mth.wrapDegrees(sample(ctx).playerYaw - 180.0F)), 0.0, 0.5);
+		input.releaseKey(o -> o.keyRight);
+		input.holdKey(o -> o.keyLeft);
+		ctx.waitTicks(80);
+		check("A alone: horse rides 90 deg left of the view (deg)", Mth.wrapDegrees(sample(ctx).horseYaw - sample(ctx).playerYaw), -95.0, -85.0);
+		check("...at full pace (speed / gallop)", averageSpeed(ctx, 5) / GALLOP_SPEED, 0.9, 1.1);
+		input.holdKey(o -> o.keyUp);
+		ctx.waitTicks(40);
+		check("W+A: back to 45 deg left of the view (deg)", Mth.wrapDegrees(sample(ctx).horseYaw - sample(ctx).playerYaw), -50.0, -40.0);
+		input.releaseKey(o -> o.keyLeft);
+		input.releaseKey(o -> o.keyUp);
+		check("letting go of everything, it eases to a stop (ticks)", ticksUntilStopped(ctx, 120), 10, 80);
+
+		section("D alone from a standstill: walks off to the right");
+		final double sx = horseX(ctx);
+		final double sz = horseZ(ctx);
+		input.holdKey(o -> o.keyRight);
+		ctx.waitTicks(40);
+		check("moves off (blocks)", Math.hypot(horseX(ctx) - sx, horseZ(ctx) - sz), 1.0, 20.0);
+		check("heading 90 deg right of the view (deg)", Mth.wrapDegrees(sample(ctx).horseYaw - sample(ctx).playerYaw), 85.0, 95.0);
+		check("at a walk", sample(ctx).gait == RideTuning.WALK);
+		input.releaseKey(o -> o.keyRight);
+		ticksUntilStopped(ctx, 60);
 
 		section("Looking round while standing");
 		lane(ctx, input, world, 1400.5, -60, "cut_test_still");
@@ -1888,6 +1949,18 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 	private void screenshot(final ClientGameTestContext ctx, final String name) {
 		log("  screenshot %s -> %s", name, ctx.takeScreenshot("horsingaround_" + name));
+	}
+
+	/** {@link #frontScreenshot} with the view pitched for one frame (negative looks up, so the camera looks down from above). */
+	private void frontScreenshot(final ClientGameTestContext ctx, final String name, final float viewPitch) {
+		final float pitch = ctx.computeOnClient(mc -> mc.player.getXRot());
+		ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+		ctx.runOnClient(mc -> setView(mc.player, mc.player.getYRot(), viewPitch));
+		screenshot(ctx, name);
+		ctx.runOnClient(mc -> {
+			setView(mc.player, mc.player.getYRot(), pitch);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		});
 	}
 
 	/** Mirrored third person for a look at the horse's face and legs; the ride camera only replaces the back view. */

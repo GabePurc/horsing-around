@@ -30,6 +30,7 @@ public final class HorseConfig {
 	public float turnGrip = 1.0F;
 	public float turnResponse = 1.0F;
 	public float sideAngle = 45.0F;
+	public float acrossAngle = 90.0F;
 	public boolean hardCuts = true;
 	public boolean horseAvoids = true;
 	public boolean climbLedges = true;
@@ -105,6 +106,7 @@ public final class HorseConfig {
 		WEIGHT_SHIFT_GALLOP = 0.18F * c.turnResponse;
 		TURN_ACCEL = 0.25F * c.turnResponse;
 		STEER_OFFSET = c.sideAngle;
+		ACROSS_OFFSET = c.acrossAngle;
 		HARD_CUT = c.hardCuts;
 		AVOID_DANGER = c.horseAvoids;
 		LEDGE_CLIMB = c.climbLedges;
