@@ -3,6 +3,8 @@ package dev.horsingaround.ride;
 /** Per-horse riding state. Movement fields are only meaningful on the instance simulating the ride (the rider's client). */
 public final class RideState {
 	public int gait = RideTuning.STOP;
+	/** Ridden by a player, so its collision box is narrowed (see the living-entity mixin); kept in step on every side. */
+	public boolean narrow;
 	/** Current speed as a multiple of the movement-speed attribute; negative when backing up. */
 	public float speed;
 	public float stamina = 1.0F;
@@ -30,6 +32,8 @@ public final class RideState {
 	boolean wasGrounded = true;
 	/** The last takeoff was a jump, which already carried the ground speed into the air. */
 	public boolean jumpedOff;
+	/** In the air from a jump (the rider's or up a ledge) rather than from stepping off something. */
+	boolean leapt;
 	/** Stride count at the last huff. */
 	int lastHuffStride;
 	/** Server side: where the horse was last tick, and its smoothed ground speed, for trampling. */
@@ -47,20 +51,36 @@ public final class RideState {
 	int avoidReplan;
 	/** Distance along the heading to the first danger, and to the first jumpable gap, this tick; MAX_VALUE when none. */
 	float dangerAhead = Float.MAX_VALUE;
+	/** The danger ahead is a hazard with safe ground just beyond, so the rider may jump it. */
+	boolean dangerJumpable;
 	float gapAhead = Float.MAX_VALUE;
 	/** Tick of the last refusal (snort and head toss), and refusals so far (for tests). */
 	int lastRefusal = Integer.MIN_VALUE / 2;
 	public int refusals;
+	/** Times the edge and hazard guard planted the horse's feet (for tests). */
+	public int guardStops;
+	public int guardChecks;
+
+	/** For tests: distance to the danger and the wall ahead this tick. */
+	public float debugDanger() {
+		return this.dangerAhead;
+	}
+
+	public float debugWall() {
+		return this.wallAhead;
+	}
 	/** Distance along the way ahead to a wall this tick; MAX_VALUE when none. */
 	float wallAhead = Float.MAX_VALUE;
 	/**
-	 * Jumping up a ledge: ticks into it (0 when not; gathering up to LEDGE_GATHER_TICKS, then in the air), the ledge's
-	 * top, the heading, and the forward speed of the jump.
+	 * Jumping up a ledge: ticks since the ledge was spotted (0 when not), whether it has taken off, the ledge's top, the
+	 * heading, the forward speed of the jump, and how far it has sunk onto its haunches (0..1).
 	 */
 	public int ledgeTicks;
+	public boolean ledgeAir;
 	double ledgeTop;
 	float ledgeYaw;
 	float ledgeForward;
+	float ledgeCrouch;
 	/** Ledge jumps made (for tests). */
 	public int ledgeClimbs;
 
@@ -70,6 +90,9 @@ public final class RideState {
 	float lastBodyYaw;
 	float pitch;
 	float pitchO;
+	/** Tilt with the flight while airborne (nose up taking off, down landing), degrees, on top of the terrain pitch. */
+	float jumpPitch;
+	float jumpPitchO;
 	/** Rendered height minus physical height, so block step-ups become a smooth climb. */
 	float heightOffset;
 	float heightOffsetO;
@@ -122,6 +145,11 @@ public final class RideState {
 		return this.pitchO + (this.pitch - this.pitchO) * partialTicks;
 	}
 
+	/** Tilt with the flight while airborne, degrees; positive is nose up. */
+	public float jumpPitch(final float partialTicks) {
+		return this.jumpPitchO + (this.jumpPitch - this.jumpPitchO) * partialTicks;
+	}
+
 	/** Head-shake envelope 0..1 at the given time (client ticks), with its phase in radians in {@code phaseOut[0]}. */
 	public float headShake(final float ageTicks, final float[] phaseOut) {
 		final float t = ageTicks - this.headShakeStart;
@@ -158,5 +186,7 @@ public final class RideState {
 		this.gapAhead = Float.MAX_VALUE;
 		this.wallAhead = Float.MAX_VALUE;
 		this.ledgeTicks = 0;
+		this.ledgeAir = false;
+		this.ledgeCrouch = 0.0F;
 	}
 }

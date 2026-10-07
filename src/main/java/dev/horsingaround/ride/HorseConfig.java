@@ -107,7 +107,8 @@ public final class HorseConfig {
 		AVOID_DANGER = c.horseAvoids;
 		LEDGE_CLIMB = c.climbLedges;
 		STAMINA_DRAIN_GALLOP = 1.0F / (Math.max(c.gallopSeconds, 1.0F) * 20.0F);
-		JUMP_POWER_STILL = 0.4F * c.jumpHeight;
+		JUMP_POWER_STILL = 0.55F * c.jumpHeight;
+		JUMP_MIN_VELOCITY = 0.42F * c.jumpHeight;
 		JUMP_POWER_RUNNING = 0.8F * c.jumpHeight;
 		JUMP_STAMINA_COST = c.jumpCost;
 		AUTO_THIRD_PERSON = c.thirdPersonOnMount;

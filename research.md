@@ -109,24 +109,41 @@ Implementation notes:
 
 The horse should feel alive and help the rider, not run blindly into trees or off cliffs, and it must never become an
 annoyance ("super important"). RDR2 horses steer round trees and rocks on their own at speed, pull up and refuse at
-cliff edges, and won't leap off a drop. Two-block ledges: the user wants the horse to get up them on its own at a walk
-or trot (not at full speed), and it should look like a jump, not climbing a ladder.
+cliff edges, and won't leap off a drop. Follow-ups from play-testing (2026-10-06/07): mountains are slopes, not sheer
+drops, so momentum must not carry the horse into a hurting fall; where there is a way round something the rider runs
+at, the horse should take it rather than plant its face in it; a fall costing a heart or two is fine unless the horse
+is low on health (more cautious then); 2-block ledges should be jumped smoothly in the stride, a little before the
+wall, never onto leaves; jumps should tilt like a real horse's (front up, push off behind, land front first); the
+ridden horse's box should match its body. Tests must stand up to messy generated terrain, not just perfect lanes.
 
 Translation (`Awareness`, tuning in `RideTuning`):
 
-- Look-ahead: three lines (centre and flanks just inside the body) follow the ground along the path, ~1s of travel
-  (2-12 blocks). Walls = too high to step or no headroom; danger = a drop beyond the horse's own safe fall distance
-  (6 blocks for vanilla horses, so it never gets hurt) under all three lines, or a hazard (lava, fire, magma, cactus,
-  berry bushes, powder snow, cobwebs, lit campfires, plus the `horsingaround:horse_avoids` block tag).
-- Detours only from a trot, only round things the horse can actually pass (a detour must get past the obstacle along
-  the rider's line), up to 40 degrees, eased in and out; then it heads where the rider looks again. A long wall it
-  can't get round makes it slow to a walk instead of veering.
-- Speed: slows to a walk before walls (then walks right up to them), stops short of danger with a snort and head toss
-  from a trot or faster, refuses to jump off a cliff, plants its feet at the lip of a gap if the rider doesn't jump.
+- Look-ahead: three lines (centre and flanks at the body's edge, widened for diagonal headings because the collision
+  box doesn't turn) follow the ground along the path, ~1s of travel (2-12 blocks), recording the ground profile.
+  Walls = too high to step or no headroom; danger = a fall it won't take under all three lines, or a hazard (lava,
+  fire, magma, cactus, berry bushes, powder snow, cobwebs, lit campfires, the `horsingaround:horse_avoids` tag).
+- Going round: when the rider asks for a trot or more, the horse looks along the obstacle (up to 12 blocks either
+  side) for the nearest place the rider's line is clear past it, heads there (up to 85 degrees off), slows as much as
+  it needs to make the turn and to come back round, and returns to the rider's line once clear with room to spare. A
+  wall with no way round in reach: it slows to a walk and walks up to it. Never at a walk.
+- Falls: any fall that doesn't hurt (vanilla horses take half damage past 6 blocks, so up to ~8) is fine; a sheer drop
+  that costs the horse up to 2 hearts and the rider (who takes the fall with it) up to 3 is taken when both are
+  healthy; below 40% health, none. Hazards are gone round or stopped for (snort and head toss from a trot); the rider
+  can still jump one with ground beyond; never a cliff.
+- Slopes: momentum carries a horse past each step down before it lands, so it simulates the flight over every step
+  on the profile and keeps a pace that lands without any hurt, braking before the first step (it can't brake in the
+  air). A slope is taken at a pace, never at a cost.
+- Last resort guard (on the ground, and during a drop off a step but not a jump): the next tick's travel, side-step
+  included, may not enter a hazard (it slides along it instead) or carry it off a fall it won't take.
+- Ledges up to 2 blocks (never fences, walls, gates, leaves or a lone log: it needs solid ground for its ~2-block body
+  length): jumped in the stride from a walk or trot, taking off about a stride out, a brief crouch, an arc that clears
+  the lip by ~0.3, then it walks on. From a canter or gallop it slows first.
+- Jumps tilt with the flight: nose up taking off (pivoting on the hind hooves), level over the top, nose down landing
+  (pivoting on the front hooves). Every jump takes off at least as high as a player's (~1.25 blocks).
+- Ridden, the collision box narrows from vanilla's 1.4-block square to 0.9 (about the body's width), so it threads
+  1-block gaps between trees.
 - Not annoying: no steering at a walk; riding beside walls and along cliff edges is untouched; safe drops, water
-  landings and jumpable gaps (up to 4 blocks) are the rider's call; both behaviours can be switched off in settings.
-- Ledges up to 2 blocks (never fences, walls or gates, so pens hold horses): the horse halts, gathers itself (~0.25s,
-  haunches down) and jumps up in an arc that clears the lip by ~0.3 blocks. At a canter or gallop it slows first.
+  landings and jumpable gaps are left to the rider; both behaviours can be switched off.
 
 ## Staying vanilla
 

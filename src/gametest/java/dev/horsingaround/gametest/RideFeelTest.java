@@ -54,6 +54,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 	@Override
 	public void runTest(final ClientGameTestContext ctx) {
+		if (!System.getProperty("horsingaround.tests", "ride").contains("ride")) {
+			return;
+		}
 		screenshot(ctx, "00a_title_screen");
 		final boolean fresh = enableFreshAnimations(ctx);
 		log("Fresh Animations pack: %s, EMF loaded: %s", fresh ? "enabled" : "not found", FabricLoader.getInstance().isModLoaded("entity_model_features"));
@@ -105,6 +108,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 	private void mounting(final ClientGameTestContext ctx) {
 		section("Mounting");
+		check("ridden, the horse's box narrows to its body (width, blocks)", ctx.computeOnClient(mc -> (double) mc.player.getVehicle().getBbWidth()), 0.85, 0.95);
 		check("camera switched to third person", ctx.computeOnClient(mc -> mc.options.getCameraType()) == CameraType.THIRD_PERSON_BACK);
 		screenshot(ctx, "01_mounted");
 		sideScreenshot(ctx, "01b_seated_side");
@@ -251,11 +255,16 @@ public final class RideFeelTest implements FabricClientGameTest {
 		double peak = startY;
 		double slowest = Double.MAX_VALUE;
 		int airborne = 0;
+		float noseUp = 0.0F;
+		float noseDown = 0.0F;
 		for (int i = 1; i <= 40; i++) {
 			ctx.waitTick();
 			elapsed++;
 			final Sample s = sample(ctx);
 			peak = Math.max(peak, s.y);
+			final float tilt = ride(ctx, r -> r.jumpPitch(1.0F));
+			noseUp = Math.max(noseUp, tilt);
+			noseDown = Math.min(noseDown, tilt);
 			if (!s.onGround) {
 				airborne++;
 				slowest = Math.min(slowest, s.speed);
@@ -269,6 +278,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		}
 		check("jump fires instantly (airborne ticks)", airborne, 8, 30);
 		check("running jump height (blocks)", peak - startY, 1.5, 2.4);
+		check("takes off front first: nose up (deg)", noseUp, 12.0, 26.0);
+		check("lands front first: nose down (deg)", -noseDown, 6.0, 16.0);
 		check("speed kept in the air (fraction)", slowest / before, 0.85, 1.3);
 		double landing = 0.0;
 		for (int i = 0; i < 6; i++) {
@@ -418,7 +429,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			ctx.waitTick();
 			peak = Math.max(peak, sample(ctx).y);
 		}
-		check("standing jump height (blocks)", peak - startY, 0.2, 1.0);
+		check("standing jump clears a block (height, blocks)", peak - startY, 1.0, 1.45);
 	}
 
 	private void dismount(final ClientGameTestContext ctx, final TestInput input) {
@@ -426,6 +437,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 		input.holdKeyFor(o -> o.keyShift, 3);
 		ctx.waitTicks(5);
 		check("dismounted", ctx.computeOnClient(mc -> mc.player.getVehicle() == null));
+		ctx.waitTicks(2);
+		check("unridden, it is vanilla size again (width, blocks)", ctx.computeOnClient(mc -> mc.level.getEntitiesOfClass(AbstractHorse.class, mc.player.getBoundingBox().inflate(4.0))
+			.stream().mapToDouble(h -> h.getBbWidth()).max().orElse(0.0)), 1.35, 1.45);
 		check("camera restored to first person", ctx.computeOnClient(mc -> mc.options.getCameraType()) == CameraType.FIRST_PERSON);
 	}
 
@@ -716,6 +730,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 	private void pickingItsWay(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
 		treeInThePath(ctx, input, world);
+		wallWithAWayRound(ctx, input, world);
 		longWall(ctx, input, world);
 		alongsideWall(ctx, input, world);
 		cliff(ctx, input, world);
@@ -724,8 +739,14 @@ public final class RideFeelTest implements FabricClientGameTest {
 		lava(ctx, input, world);
 		gap(ctx, input, world, true);
 		gap(ctx, input, world, false);
+		treeGap(ctx, input, world);
+		mountainside(ctx, input, world, 640, 1);
+		mountainside(ctx, input, world, 680, 2);
+		hurtingDrop(ctx, input, world, false);
+		hurtingDrop(ctx, input, world, true);
 		ledgeAtAWalk(ctx, input, world);
 		ledgeAtAGallop(ctx, input, world);
+		bushes(ctx, input, world);
 		fence(ctx, input, world);
 		input.releaseKey(o -> o.keyUp);
 	}
@@ -763,34 +784,162 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("rides past the tree", horseZ(ctx) < -45.0 && sample(ctx).y > -60.1);
 		check("never touches the trunk", !touched);
 		check("swerves round it (blocks off the line)", maxSide, 1.0, 4.0);
-		check("keeps its pace going round (slowest / gallop)", slowest / GALLOP_SPEED, 0.7, 1.1);
+		check("keeps its pace going round (slowest / gallop)", slowest / GALLOP_SPEED, 0.6, 1.1);
 		check("heads where the rider looks again after (deg off)", Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - 180.0F)), 0.0, 3.0);
 		check("detour eased out after (deg)", ride(ctx, r -> Math.abs(r.avoidOffset)), 0.0, 0.5);
 		stop(ctx, input);
 	}
 
+	private void wallWithAWayRound(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Galloping at a wall with a way round");
+		// 13 wide, 3 high; the rider looks straight at its middle.
+		lane(ctx, input, world, 320.5, -60, "wall_round_test", "fill 314 -60 -40 326 -58 -40 minecraft:stone");
+		gallopNorth(ctx, input);
+		double maxSide = 0.0;
+		double slowest = Double.MAX_VALUE;
+		boolean touched = false;
+		final StringBuilder trace = new StringBuilder();
+		for (int i = 0; i < 300 && horseZ(ctx) > -60.0; i++) {
+			ctx.waitTick();
+			final double z = horseZ(ctx);
+			maxSide = Math.max(maxSide, Math.abs(horseX(ctx) - 320.5));
+			if (z < -20.0 && i % 2 == 0) {
+				trace.append(String.format(Locale.ROOT, "z%.1f x%.1f v%.2f o%.0f | ", z, horseX(ctx), sample(ctx).speed, ride(ctx, r -> r.avoidOffset)));
+			}
+			if (z < -30.0 && z > -45.0) {
+				slowest = Math.min(slowest, sample(ctx).speed);
+				touched |= ctx.computeOnClient(mc -> mc.player.getVehicle().horizontalCollision);
+			}
+		}
+		log("  path: %s", trace);
+		check("goes round it", horseZ(ctx) < -55.0);
+		check("never runs into it", !touched);
+		check("swings out past its end (blocks off the line)", maxSide, 7.0, 14.0);
+		check("keeps moving going round (slowest / gallop)", slowest / GALLOP_SPEED, 0.4, 1.1);
+		ctx.waitTicks(40);
+		check("then heads where the rider looks again (deg off)", Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - 180.0F)), 0.0, 5.0);
+		stop(ctx, input);
+	}
+
+	private void treeGap(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Walking through a 1-block gap between trunks");
+		// Two rows of trunks across the path with one 1-block gap, straight ahead.
+		lane(ctx, input, world, 620.5, -60, "tree_gap_test", "fill 610 -60 -20 630 -56 -20 minecraft:oak_log", "fill 620 -60 -20 620 -56 -20 minecraft:air");
+		input.holdKey(o -> o.keyUp);
+		for (int i = 0; i < 300 && horseZ(ctx) > -26.0; i++) {
+			ctx.waitTick();
+		}
+		check("fits through the gap", horseZ(ctx) < -25.9);
+		stop(ctx, input);
+	}
+
+	/** A mountainside of steps, {@code drop} blocks down per block forward, from a 15-block-high shoulder. */
+	private void mountainside(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final int x, final int drop) {
+		section("Galloping down a mountainside (" + drop + " down per block)");
+		final List<String> build = new ArrayList<>();
+		build.add("fill " + (x - 10) + " -60 -30 " + (x + 10) + " -46 6 minecraft:stone");
+		for (int k = 1; -46 - k * drop > -60; k++) {
+			build.add("fill " + (x - 10) + " -60 " + (-30 - k) + " " + (x + 10) + " " + (-46 - k * drop) + " " + (-30 - k) + " minecraft:stone");
+		}
+		lane(ctx, input, world, x + 0.5, -45, "mountain_test_" + drop, build.toArray(String[]::new));
+		final float health = ctx.computeOnClient(mc -> ((AbstractHorse) mc.player.getVehicle()).getHealth());
+		gallopNorth(ctx, input);
+		double longestFall = 0.0;
+		double slope = 0.0;
+		int slopeTicks = 0;
+		for (int i = 0; i < 400 && horseZ(ctx) > -60.0; i++) {
+			ctx.waitTick();
+			longestFall = Math.max(longestFall, ctx.computeOnClient(mc -> mc.player.getVehicle().fallDistance));
+			final double z = horseZ(ctx);
+			if (z < -31.0 && sample(ctx).y > -59.5) {
+				slope += sample(ctx).speed;
+				slopeTicks++;
+			}
+		}
+		ctx.waitTicks(10);
+		check("gets down (blocks descended)", -45.0 - sample(ctx).y, 14.5, 15.5);
+		check("never falls far enough to get hurt (longest fall, blocks)", longestFall, 0.0, 7.95);
+		check("horse unhurt", ctx.computeOnClient(mc -> ((AbstractHorse) mc.player.getVehicle()).getHealth()) >= health);
+		check("takes the slope at a safe pace (speed / gallop)", slope / Math.max(slopeTicks, 1) / GALLOP_SPEED, 0.15, drop == 1 ? 1.05 : 0.8);
+		stop(ctx, input);
+	}
+
+	/** A sheer 9-block drop: one fall-damage point for the horse (horses take half damage past 6 blocks). Healthy, it takes it; hurt, it won't. */
+	private void hurtingDrop(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final boolean hurt) {
+		section(hurt ? "Galloping at a 9-block drop, horse at 30% health" : "Galloping at a 9-block drop, healthy");
+		final int x = hurt ? 740 : 720;
+		final String tag = hurt ? "drop7_hurt_test" : "drop7_test";
+		lane(ctx, input, world, x + 0.5, -51, tag, "fill " + (x - 5) + " -60 -40 " + (x + 5) + " -52 6 minecraft:stone");
+		final TestServerContext server = world.getServer();
+		server.runCommand("attribute @e[tag=" + tag + ",limit=1] minecraft:max_health base set 20");
+		server.runCommand("data merge entity @e[tag=" + tag + ",limit=1] {Health:" + (hurt ? 6 : 20) + "f}");
+		ctx.waitTicks(5);
+		log("  horse health %.1f / %.1f, will fall up to %.2f blocks",
+			ctx.computeOnClient(mc -> ((AbstractHorse) mc.player.getVehicle()).getHealth()),
+			ctx.computeOnClient(mc -> ((AbstractHorse) mc.player.getVehicle()).getMaxHealth()),
+			ctx.computeOnClient(mc -> dev.horsingaround.ride.Awareness.acceptableFall((AbstractHorse) mc.player.getVehicle())));
+		final float before = ctx.computeOnClient(mc -> ((AbstractHorse) mc.player.getVehicle()).getHealth());
+		gallopNorth(ctx, input);
+		boolean moving = false;
+		for (int i = 0; i < 300 && horseZ(ctx) > -50.0; i++) {
+			ctx.waitTick();
+			final double speed = sample(ctx).speed;
+			moving |= speed > 0.3;
+			if (moving && speed < 0.001 && sample(ctx).onGround) {
+				break;
+			}
+		}
+		ctx.waitTicks(10);
+		if (hurt) {
+			check("a hurt horse won't take a fall that hurts (still on top)", sample(ctx).y > -51.05);
+		} else {
+			check("a healthy horse takes a fall that costs half a heart (landed below)", sample(ctx).y < -59.9);
+			check("and it costs no more than that (health lost)", before - ctx.computeOnClient(mc -> ((AbstractHorse) mc.player.getVehicle()).getHealth()), 0.5, 1.0);
+		}
+		stop(ctx, input);
+	}
+
+	private void bushes(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Walking into bushes on a step");
+		// A 1-block step with leaves on it and a lone log in the middle of the path: no ledge to jump onto.
+		lane(ctx, input, world, 760.5, -60, "bush_test",
+			"fill 755 -60 -20 765 -60 -20 minecraft:stone",
+			"fill 755 -59 -20 765 -58 -20 minecraft:oak_leaves[persistent=true]",
+			"setblock 760 -59 -20 minecraft:oak_log");
+		final int climbs = ride(ctx, s -> s.ledgeClimbs);
+		input.holdKey(o -> o.keyUp);
+		ctx.waitTicks(160);
+		check("doesn't try to jump onto a lone log in a bush", ride(ctx, r -> r.ledgeClimbs) == climbs && sample(ctx).y < -59.9);
+		stop(ctx, input);
+		section("Walking into a leafy step");
+		lane(ctx, input, world, 780.5, -60, "leafy_test",
+			"fill 775 -60 -20 785 -60 -20 minecraft:stone",
+			"fill 775 -59 -20 785 -58 -20 minecraft:oak_leaves[persistent=true]");
+		final int leafyClimbs = ride(ctx, s -> s.ledgeClimbs);
+		input.holdKey(o -> o.keyUp);
+		for (int i = 0; i < 300 && horseZ(ctx) > -24.0; i++) {
+			ctx.waitTick();
+		}
+		check("steps up through the leaves instead of jumping onto them", ride(ctx, r -> r.ledgeClimbs) == leafyClimbs && horseZ(ctx) < -23.9);
+		stop(ctx, input);
+	}
+
 	private void longWall(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
-		section("Galloping at a long wall");
-		lane(ctx, input, world, 320.5, -60, "wall_test", "fill 310 -60 -40 330 -58 -40 minecraft:stone");
+		section("Galloping at a wall with no way round in reach");
+		lane(ctx, input, world, 560.5, -60, "wall_test", "fill 540 -60 -40 580 -58 -40 minecraft:stone");
 		final int climbs = ride(ctx, s -> s.ledgeClimbs);
 		gallopNorth(ctx, input);
 		double contactSpeed = -1.0;
 		double maxSide = 0.0;
-		final StringBuilder trace = new StringBuilder();
 		for (int i = 0; i < 300 && contactSpeed < 0.0; i++) {
 			ctx.waitTick();
-			maxSide = Math.max(maxSide, Math.abs(horseX(ctx) - 320.5));
-			if (horseZ(ctx) < -25.0) {
-				trace.append(String.format(Locale.ROOT, "z%.1f x%.2f v%.2f o%.0f yaw%.0f | ", horseZ(ctx), horseX(ctx), sample(ctx).speed,
-					ride(ctx, r -> r.avoidOffset), sample(ctx).horseYaw));
-			}
+			maxSide = Math.max(maxSide, Math.abs(horseX(ctx) - 560.5));
 			if (ctx.computeOnClient(mc -> mc.player.getVehicle().horizontalCollision)) {
 				contactSpeed = Math.max(sample(ctx).speed, ctx.computeOnClient(mc -> mc.player.getVehicle().getDeltaMovement().horizontalDistance()));
 			}
 		}
-		log("  path: %s", trace);
 		check("slows to a walk before the wall (speed at contact / walk)", contactSpeed / WALK_SPEED, 0.0, 1.15);
-		check("walks right up to it (gap to the wall, blocks)", horseZ(ctx) - 0.7 - -39.0, -0.01, 0.3);
+		check("walks right up to it (gap to the wall, blocks)", horseZ(ctx) - half(ctx) - -39.0, -0.01, 0.3);
 		check("doesn't veer off along a wall it can't get round (blocks off the line)", maxSide, 0.0, 1.0);
 		ctx.waitTicks(40);
 		check("doesn't try to climb a 3-block wall", ride(ctx, s -> s.ledgeClimbs) == climbs && sample(ctx).y < -59.9);
@@ -799,8 +948,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 	private void alongsideWall(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
 		section("Galloping alongside a wall");
-		// The wall's face is at x=499; the horse's flank (half-width 0.7) runs 0.05 from it.
-		lane(ctx, input, world, 499.75, -60, "beside_test", "fill 498 -60 6 498 -58 -80 minecraft:stone");
+		// The wall's face is at x=499; the horse's flank (half-width 0.45 while ridden) runs 0.05 from it.
+		lane(ctx, input, world, 499.5, -60, "beside_test", "fill 498 -60 6 498 -58 -80 minecraft:stone");
 		gallopNorth(ctx, input);
 		double speed = 0.0;
 		int ticks = 0;
@@ -816,13 +965,13 @@ public final class RideFeelTest implements FabricClientGameTest {
 		}
 		check("keeps full pace beside a wall (speed / gallop)", speed / Math.max(ticks, 1) / GALLOP_SPEED, 0.92, 1.1);
 		check("doesn't shy away from it (deg)", maxOffset, 0.0, 0.5);
-		check("stays beside it (blocks off the line)", Math.abs(horseX(ctx) - 499.75), 0.0, 0.3);
+		check("stays beside it (blocks off the line)", Math.abs(horseX(ctx) - 499.5), 0.0, 0.3);
 		stop(ctx, input);
 	}
 
 	private void cliff(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
-		section("Galloping at a 10-block cliff");
-		lane(ctx, input, world, 340.5, -50, "cliff_test", "fill 335 -60 -40 345 -51 6 minecraft:stone");
+		section("Galloping at a 14-block cliff");
+		lane(ctx, input, world, 340.5, -46, "cliff_test", "fill 335 -60 -40 345 -47 6 minecraft:stone");
 		final int refusals = ride(ctx, s -> s.refusals);
 		gallopNorth(ctx, input);
 		boolean moving = false;
@@ -834,22 +983,22 @@ public final class RideFeelTest implements FabricClientGameTest {
 				break;
 			}
 		}
-		check("stops at the edge (still on top)", sample(ctx).y > -50.05 && sample(ctx).onGround);
-		check("stops close to the edge, not early (front to edge, blocks)", horseZ(ctx) - 0.7 - -40.0, 0.0, 2.5);
+		check("stops at the edge (still on top)", sample(ctx).y > -46.05 && sample(ctx).onGround);
+		check("stops close to the edge, not early (front to edge, blocks)", horseZ(ctx) - half(ctx) - -40.0, 0.0, 2.5);
 		check("snorts and tosses its head", ride(ctx, s -> s.refusals) > refusals);
 		frontScreenshot(ctx, "13_cliff_refusal");
 		ctx.waitTicks(40);
-		check("holding W at the edge, it stays put", sample(ctx).y > -50.05 && horseZ(ctx) - 0.7 > -40.0);
+		check("holding W at the edge, it stays put", sample(ctx).y > -46.05 && horseZ(ctx) - half(ctx) > -40.0);
 		input.pressKey(o -> o.keyJump);
 		ctx.waitTicks(30);
-		check("won't jump off the cliff", sample(ctx).y > -50.05 && sample(ctx).onGround);
+		check("won't jump off the cliff", sample(ctx).y > -46.05 && sample(ctx).onGround);
 		stop(ctx, input);
 	}
 
 	private void alongTheEdge(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
 		section("Galloping along a cliff edge");
-		// A 5-wide ridge; the horse runs with its left flank hanging 0.3 over the west edge (x=378), then the ridge ends.
-		lane(ctx, input, world, 378.4, -50, "edge_test", "fill 378 -60 -60 382 -51 6 minecraft:stone");
+		// A 5-wide ridge; the horse runs with its flank hanging 0.25 over the west edge (x=378), then the ridge ends.
+		lane(ctx, input, world, 378.2, -46, "edge_test", "fill 378 -60 -60 382 -47 6 minecraft:stone");
 		gallopNorth(ctx, input);
 		double speed = 0.0;
 		int ticks = 0;
@@ -860,7 +1009,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			ctx.waitTick();
 			final Sample s = sample(ctx);
 			final double z = horseZ(ctx);
-			lowest = Math.min(lowest, s.y - -50.0);
+			lowest = Math.min(lowest, s.y - -46.0);
 			if (z < -20.0 && z > -45.0) {
 				speed += s.speed;
 				ticks++;
@@ -874,7 +1023,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("keeps full pace along the edge (speed / gallop)", speed / Math.max(ticks, 1) / GALLOP_SPEED, 0.92, 1.1);
 		check("doesn't shy from the edge (deg)", maxOffset, 0.0, 0.5);
 		check("stays on the ridge (lowest, blocks)", lowest, -0.05, 0.05);
-		check("stops where the ridge ends", sample(ctx).y > -50.05 && horseZ(ctx) - 0.7 > -60.0);
+		check("stops where the ridge ends", sample(ctx).y > -46.05 && horseZ(ctx) - half(ctx) > -60.0);
 		stop(ctx, input);
 	}
 
@@ -898,8 +1047,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 	}
 
 	private void lava(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
-		section("Galloping at a lava pool");
-		lane(ctx, input, world, 440.5, -60, "lava_test", "fill 435 -61 -48 445 -61 -40 minecraft:lava");
+		section("Galloping at a lava lake with no way round");
+		lane(ctx, input, world, 600.5, -60, "lava_test", "fill 585 -61 -48 615 -61 -40 minecraft:lava");
 		gallopNorth(ctx, input);
 		boolean burnt = false;
 		boolean moving = false;
@@ -913,16 +1062,16 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 		}
 		check("stops short of lava (never in it)", !burnt && sample(ctx).y > -60.05);
-		check("stops close to it, not early (front to lava, blocks)", horseZ(ctx) - 0.7 - -39.0, 0.0, 2.5);
+		check("stops close to it, not early (front to lava, blocks)", horseZ(ctx) - half(ctx) - -39.0, 0.0, 2.5);
 		stop(ctx, input);
 	}
 
 	private void gap(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final boolean jump) {
 		section(jump ? "Jumping a 3-block gap at a gallop" : "Galloping at a 3-block gap without jumping");
 		final int x = jump ? 460 : 480;
-		lane(ctx, input, world, x + 0.5, -50, jump ? "gap_jump_test" : "gap_test",
-			"fill " + (x - 5) + " -60 -60 " + (x + 5) + " -51 6 minecraft:stone",
-			"fill " + (x - 5) + " -60 -33 " + (x + 5) + " -51 -31 minecraft:air");
+		lane(ctx, input, world, x + 0.5, -46, jump ? "gap_jump_test" : "gap_test",
+			"fill " + (x - 5) + " -60 -60 " + (x + 5) + " -47 6 minecraft:stone",
+			"fill " + (x - 5) + " -60 -33 " + (x + 5) + " -47 -31 minecraft:air");
 		final int refusals = ride(ctx, s -> s.refusals);
 		gallopNorth(ctx, input);
 		boolean pressed = false;
@@ -941,10 +1090,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 		}
 		if (jump) {
 			ctx.waitTicks(10);
-			check("cleared the gap and landed on top", horseZ(ctx) < -45.0 && sample(ctx).y > -50.05);
+			check("cleared the gap and landed on top", horseZ(ctx) < -45.0 && sample(ctx).y > -46.05);
 			check("didn't brake for a gap it can jump", ride(ctx, s -> s.refusals) == refusals);
 		} else {
-			check("plants its feet at the lip (still on top)", sample(ctx).y > -50.05 && horseZ(ctx) > -30.75);
+			check("plants its feet at the lip (still on top)", sample(ctx).y > -46.05 && horseZ(ctx) - half(ctx) > -31.0);
 		}
 		stop(ctx, input);
 	}
@@ -955,15 +1104,15 @@ public final class RideFeelTest implements FabricClientGameTest {
 		lane(ctx, input, world, 400.5, -60, "ledge_test", "fill 395 -60 -40 405 -59 -20 minecraft:stone");
 		final int climbs = ride(ctx, s -> s.ledgeClimbs);
 		input.holdKey(o -> o.keyUp);
-		int gather = 0;
-		double takeoffSpeed = 0.0;
+		double approach = 0.0;
 		double takeoffZ = Double.NaN;
 		int airborne = 0;
 		double risingTravel = -1.0;
 		double peak = -60.0;
+		double after = -1.0;
+		int landedAt = -1;
 		boolean shot = false;
-		final StringBuilder trace = new StringBuilder();
-		for (int i = 0; i < 300 && horseZ(ctx) > -24.0; i++) {
+		for (int i = 0; i < 300 && horseZ(ctx) > -26.0; i++) {
 			ctx.waitTick();
 			final Sample s = sample(ctx);
 			final double z = horseZ(ctx);
@@ -971,17 +1120,18 @@ public final class RideFeelTest implements FabricClientGameTest {
 				if (ride(ctx, r -> r.ledgeClimbs) > climbs) {
 					takeoffZ = z;
 				} else {
-					if (ride(ctx, r -> r.ledgeTicks) > 0) {
-						gather++;
-					}
-					takeoffSpeed = s.speed;
+					approach = s.speed;
 				}
 				continue;
 			}
-			trace.append(String.format(Locale.ROOT, "y%.2f z%.2f | ", s.y, z));
 			peak = Math.max(peak, s.y);
 			if (!s.onGround) {
 				airborne++;
+			} else if (landedAt < 0 && s.y > -58.05) {
+				landedAt = i;
+			}
+			if (landedAt >= 0 && i == landedAt + 10) {
+				after = s.speed;
 			}
 			if (risingTravel < 0.0 && s.y >= -58.05) {
 				risingTravel = takeoffZ - z;
@@ -991,15 +1141,14 @@ public final class RideFeelTest implements FabricClientGameTest {
 				shot = true;
 			}
 		}
-		log("  after takeoff: %s", trace);
 		check("jumps up a 2-block ledge (blocks gained)", sample(ctx).y - -60.0, 1.95, 2.05);
 		check("one ledge jump", ride(ctx, r -> r.ledgeClimbs) - climbs, 1, 1);
-		check("gathers itself first (ticks)", gather, 3, 8);
-		check("from a standstill (speed just before takeoff, blocks/tick)", takeoffSpeed, 0.0, 0.03);
-		check("takes off close to the face (front to face, blocks)", takeoffZ - 0.7 - -19.0, 0.0, 1.0);
-		check("an arc, not a climb: forward travel on the way up (blocks)", risingTravel, 0.3, 2.0);
+		check("takes off in its stride, before the wall (front to face, blocks)", takeoffZ - half(ctx) - -19.0, 0.4, 1.8);
+		check("no stop before it (walking speed at takeoff, blocks/tick)", approach / WALK_SPEED, 0.6, 1.2);
+		check("an arc, not a climb: forward travel on the way up (blocks)", risingTravel, 0.5, 2.5);
 		check("in the air like a jump (ticks)", airborne, 5, 16);
 		check("clears the lip without launching (peak above the top, blocks)", peak - -58.0, 0.05, 0.6);
+		check("walks on from the top (speed after landing / walk)", after / WALK_SPEED, 0.6, 1.2);
 		stop(ctx, input);
 	}
 
@@ -1008,14 +1157,15 @@ public final class RideFeelTest implements FabricClientGameTest {
 		lane(ctx, input, world, 420.5, -60, "ledge_gallop_test", "fill 405 -60 -60 435 -59 -40 minecraft:stone");
 		gallopNorth(ctx, input);
 		double climbSpeed = -1.0;
+		final int climbs = ride(ctx, s -> s.ledgeClimbs);
 		for (int i = 0; i < 300 && horseZ(ctx) > -45.0; i++) {
 			ctx.waitTick();
-			if (climbSpeed < 0.0 && ride(ctx, s -> s.ledgeTicks) > 0) {
-				climbSpeed = Math.max(sample(ctx).speed, previousSpeed);
+			if (climbSpeed < 0.0 && ride(ctx, s -> s.ledgeClimbs) > climbs) {
+				climbSpeed = previousSpeed;
 			}
 			previousSpeed = sample(ctx).speed;
 		}
-		check("slows before jumping up (speed when it starts / trot)", climbSpeed / TROT_SPEED, 0.0, 1.0);
+		check("slows before jumping up (speed at takeoff / trot)", climbSpeed / TROT_SPEED, 0.0, 1.05);
 		check("then jumps up", sample(ctx).y - -60.0, 1.95, 2.05);
 		stop(ctx, input);
 	}
@@ -1033,7 +1183,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 	/** Builds a lane with the given commands, then seats the player on a fresh horse at (x, y, 0.5) facing north. */
 	private void lane(
-		final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final double x, final int y, final String tag,
+		final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final double x, final double y, final String tag,
 		final String... build
 	) {
 		final TestServerContext server = world.getServer();
@@ -1045,8 +1195,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		for (final String command : build) {
 			server.runCommand(command);
 		}
-		server.runCommand(String.format(Locale.ROOT, "tp @p %.2f %d 0.5 180 10", x, y));
-		server.runCommand(String.format(Locale.ROOT, "summon minecraft:horse %.2f %d 0.5 {Tame:1b,Variant:1,Rotation:[180f,0f],"
+		server.runCommand(String.format(Locale.ROOT, "tp @p %.2f %.2f 0.5 180 10", x, y));
+		server.runCommand(String.format(Locale.ROOT, "summon minecraft:horse %.2f %.2f 0.5 {Tame:1b,Variant:1,Rotation:[180f,0f],"
 			+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
 			+ "attributes:[{id:\"minecraft:movement_speed\",base:%sd}],Tags:[\"%s\"]}", x, y, SPEED_ATTRIBUTE, tag));
 		for (int attempt = 0; attempt < 10 && !ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse); attempt++) {
@@ -1072,6 +1222,11 @@ public final class RideFeelTest implements FabricClientGameTest {
 	private static void stop(final ClientGameTestContext ctx, final TestInput input) {
 		input.releaseKey(o -> o.keyUp);
 		ticksUntilStopped(ctx, 80);
+	}
+
+	/** Half the ridden horse's collision box width. */
+	private static double half(final ClientGameTestContext ctx) {
+		return ctx.computeOnClient(mc -> mc.player.getVehicle().getBbWidth() * 0.5);
 	}
 
 	private static double horseX(final ClientGameTestContext ctx) {

@@ -51,6 +51,10 @@ from a code audit on 2026-10-06:
   environment with no client classes.
 - Join a vanilla server with the mod client-only and check riding, jumping and water for rubber-banding.
 
+- The ridden horse's collision box is narrowed (0.9 vs vanilla 1.4) on both sides when the server has the mod; on a
+  server without it the server keeps the wide box, so squeezing through tight gaps could rubber-band. Only narrow
+  when the server has the mod (same network-channel check as leaves).
+
 **Mixin hygiene** (so neither we nor other mods lose features silently)
 - `AbstractHorseMixin` adds overrides of `updateWalkAnimation`, `shouldTravelInFluid` and `getFlyingSpeed`;
   `LeavesBlockMixin` adds `getCollisionShape`. If another mod adds the same method, Mixin skips one with only a log
