@@ -41,6 +41,28 @@ public final class RideState {
 	/** Client tick when the exhausted head shake started; Integer.MIN_VALUE when none. */
 	public int headShakeStart = Integer.MIN_VALUE;
 	int jumpRecovery;
+	/** Detour around an obstacle ahead, degrees added to the heading; eased toward avoidTarget, re-planned every few ticks. */
+	public float avoidOffset;
+	float avoidTarget;
+	int avoidReplan;
+	/** Distance along the heading to the first danger, and to the first jumpable gap, this tick; MAX_VALUE when none. */
+	float dangerAhead = Float.MAX_VALUE;
+	float gapAhead = Float.MAX_VALUE;
+	/** Tick of the last refusal (snort and head toss), and refusals so far (for tests). */
+	int lastRefusal = Integer.MIN_VALUE / 2;
+	public int refusals;
+	/** Distance along the way ahead to a wall this tick; MAX_VALUE when none. */
+	float wallAhead = Float.MAX_VALUE;
+	/**
+	 * Jumping up a ledge: ticks into it (0 when not; gathering up to LEDGE_GATHER_TICKS, then in the air), the ledge's
+	 * top, the heading, and the forward speed of the jump.
+	 */
+	public int ledgeTicks;
+	double ledgeTop;
+	float ledgeYaw;
+	float ledgeForward;
+	/** Ledge jumps made (for tests). */
+	public int ledgeClimbs;
 
 	// Visual body pose, computed on every client for every horse.
 	float lean;
@@ -130,5 +152,11 @@ public final class RideState {
 		this.bankRate = Float.NaN;
 		this.jumpBuffer = 0;
 		this.pendingJump = 0.0F;
+		this.avoidOffset = 0.0F;
+		this.avoidTarget = 0.0F;
+		this.dangerAhead = Float.MAX_VALUE;
+		this.gapAhead = Float.MAX_VALUE;
+		this.wallAhead = Float.MAX_VALUE;
+		this.ledgeTicks = 0;
 	}
 }

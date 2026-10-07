@@ -9,6 +9,7 @@ import dev.horsingaround.ride.RideStateHolder;
 import dev.horsingaround.ride.RideTuning;
 import dev.horsingaround.ride.Trample;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -25,6 +26,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -66,6 +68,9 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 	@Shadow
 	protected abstract void playJumpSound();
 
+	@Shadow
+	protected abstract @Nullable SoundEvent getAngrySound();
+
 	@Override
 	public RideState horsingaround$ride() {
 		return this.horsingaround$ride;
@@ -74,6 +79,11 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 	@Override
 	public boolean horsingaround$managed() {
 		return this.horsingaround$managed;
+	}
+
+	@Override
+	public @Nullable SoundEvent horsingaround$angrySound() {
+		return this.getAngrySound();
 	}
 
 	/** First ridden hook each tick: advance the ride simulation and hand vanilla a forward/back-only input. */

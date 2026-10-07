@@ -5,6 +5,7 @@ import static dev.horsingaround.ride.RideTuning.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.FluidTags;
@@ -90,6 +91,21 @@ public final class RideController {
 			target *= LEAVES_SPEED_FACTOR;
 			rustle(horse, s, leaves);
 		}
+
+		// The horse has a say: on solid ground it slows for walls, stops short of drops that would hurt it and of
+		// hazards, and from a trot steers round obstacles it can pass. Swimming, jumps and climbs are left alone.
+		final int steer = (in.right() ? 1 : 0) - (in.left() ? 1 : 0);
+		float targetYaw = rider.getYRot() + steer * STEER_OFFSET;
+		if (AVOID_DANGER && horse.onGround() && !s.swimming && s.ledgeTicks == 0 && (forward || s.speed > 0.02F)) {
+			final float limit = Awareness.look(horse, s, targetYaw);
+			target = Math.min(target, limit);
+			if (s.speed > limit) {
+				rate = Math.max(rate, DECEL_BRAKE);
+			}
+		} else {
+			Awareness.rest(s);
+		}
+		targetYaw += s.avoidOffset;
 		s.speed = s.speed < target ? Math.min(s.speed + rate, target) : Math.max(s.speed - rate, target);
 
 		if (s.speed > CRASH_SPEED && horse.horizontalCollision && !horse.minorHorizontalCollision) {
@@ -116,13 +132,30 @@ public final class RideController {
 			s.climbSpeed = 0.0F;
 		}
 
+		// Ledges up to 2 blocks: riding at one at a walk or trot, the horse gathers itself and jumps up.
+		if (s.ledgeTicks > 0) {
+			ledgeJump(horse, s, forward);
+		} else if (LEDGE_CLIMB && forward && horse.onGround() && !s.swimming && s.jumpBuffer == 0 && s.speed > 0.0F
+			&& s.speed <= GAIT_SPEED[TROT] + 0.05F && (Awareness.nearWall(s) || horse.horizontalCollision)) {
+			final double top = Awareness.ledge(horse, horse.getYRot(), LEDGE_REACH);
+			if (!Double.isNaN(top)) {
+				s.ledgeTicks = 1;
+				s.ledgeTop = top;
+				s.ledgeYaw = horse.getYRot();
+			}
+		}
+
 		// Jumping: fires on press (or on landing if pressed just before), no charging.
-		if (jumps > 0 && !s.swimming) {
+		if (jumps > 0 && !s.swimming && s.ledgeTicks == 0) {
 			s.jumpBuffer = JUMP_BUFFER_TICKS;
 		}
 		if (horse.onGround()) {
 			if (s.jumpRecovery > 0) {
 				s.jumpRecovery--;
+			} else if (s.jumpBuffer > 0 && AVOID_DANGER && Awareness.refusesJump(s)) {
+				// No leaping off a cliff or into lava (a gap with ground beyond is fine).
+				s.jumpBuffer = 0;
+				Awareness.refuse(horse, s);
 			} else if (s.jumpBuffer > 0) {
 				float power = JUMP_POWER_STILL + (JUMP_POWER_RUNNING - JUMP_POWER_STILL) * Math.min(Math.max(s.speed, 0.0F) / GAIT_SPEED[CANTER], 1.0F);
 				if (s.exhausted) {
@@ -146,10 +179,8 @@ public final class RideController {
 		final float speedFraction = gallopFraction(s.speed);
 		final float metresPerSecond = Math.abs(s.speed) * (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * (TERMINAL_VELOCITY_FACTOR * 20.0F);
 		final float maxTurn = Math.min(TURN_RATE_STILL, LATERAL_GRIP / Math.max(metresPerSecond, 0.1F) * (Mth.RAD_TO_DEG / 20.0F));
-		final int steer = (in.right() ? 1 : 0) - (in.left() ? 1 : 0);
 		float desired = 0.0F;
 		if (forward || back || steer != 0 || Math.abs(s.speed) > 0.02F) {
-			final float targetYaw = rider.getYRot() + steer * STEER_OFFSET;
 			desired = Mth.clamp(Mth.wrapDegrees(targetYaw - horse.getYRot()) * TURN_GAIN / maxTurn, -1.0F, 1.0F);
 		}
 		s.headLead += (desired * Mth.lerp(speedFraction, HEAD_LEAD_STILL, HEAD_LEAD_GALLOP) - s.headLead) * HEAD_LEAD_RESPONSE;
@@ -161,6 +192,101 @@ public final class RideController {
 		s.bankRate = s.turnIntent * maxTurn;
 		// Weight committed ahead of the rotation pushes the horse a little sideways into the turn.
 		s.sidestep = (s.turnIntent - s.yawVelocity / maxTurn) * SIDESTEP * (1.0F - Math.min(speedFraction * 1.4F, 1.0F));
+
+		if (AVOID_DANGER && horse.onGround() && !s.swimming && s.ledgeTicks == 0) {
+			Awareness.guard(horse, s);
+		}
+	}
+
+	/**
+	 * Jumping up a ledge: the horse halts at it and gathers itself for LEDGE_GATHER_TICKS, then jumps in an arc that
+	 * peaks LEDGE_CLEARANCE above the lip, carried forward so the hooves come over the edge as it gets there. Letting
+	 * go of forward or turning away before takeoff calls it off.
+	 */
+	private static void ledgeJump(final AbstractHorse horse, final RideState s, final boolean forward) {
+		final int tick = ++s.ledgeTicks;
+		final float yaw = s.ledgeYaw * Mth.DEG_TO_RAD;
+		final double fx = -Mth.sin(yaw);
+		final double fz = Mth.cos(yaw);
+		s.speed = 0.0F;
+		if (tick <= LEDGE_GATHER_TICKS) {
+			if (!forward || Math.abs(Mth.wrapDegrees(rider(horse) - s.ledgeYaw)) > 60.0F) {
+				s.ledgeTicks = 0;
+				return;
+			}
+			// It pulls up at the ledge to gather itself.
+			final Vec3 movement = horse.getDeltaMovement();
+			horse.setDeltaMovement(movement.x * 0.3, movement.y, movement.z * 0.3);
+			return;
+		}
+		if (tick == LEDGE_GATHER_TICKS + 1) {
+			final double top = Awareness.ledge(horse, s.ledgeYaw, LEDGE_REACH + 0.3F);
+			if (Double.isNaN(top) || !horse.onGround()) {
+				s.ledgeTicks = 0;
+				return;
+			}
+			final double height = top - horse.getY();
+			final double gravity = horse.getGravity();
+			final float launch = launchSpeed(height + LEDGE_CLEARANCE, gravity);
+			s.ledgeForward = Mth.clamp((Awareness.ledgeFace + 0.3F) / ticksToRise(launch, height + 0.05, gravity), 0.06F, 0.3F);
+			s.ledgeTop = top;
+			s.ledgeClimbs++;
+			// The push isn't folded into the velocity on leaving the ground; the jump sets the motion itself.
+			s.jumpedOff = true;
+			final boolean exhaustedBefore = s.exhausted;
+			spend(s, LEDGE_STAMINA_COST);
+			tiredness(horse, s, exhaustedBefore);
+			hoofSound(horse, SoundEvents.HORSE_JUMP);
+			horse.setDeltaMovement(fx * s.ledgeForward, launch, fz * s.ledgeForward);
+			return;
+		}
+		if (horse.onGround() || tick > LEDGE_GATHER_TICKS + 40) {
+			s.ledgeTicks = 0;
+			return;
+		}
+		final Vec3 movement = horse.getDeltaMovement();
+		horse.setDeltaMovement(fx * s.ledgeForward, movement.y, fz * s.ledgeForward);
+	}
+
+	private static float rider(final AbstractHorse horse) {
+		return horse.getControllingPassenger() instanceof Player player ? player.getYRot() : horse.getYRot();
+	}
+
+	/** Takeoff speed whose arc (vanilla gravity and drag) peaks at least {@code height} up. */
+	private static float launchSpeed(final double height, final double gravity) {
+		for (float launch = 0.3F; launch < 1.5F; launch += 0.01F) {
+			double y = 0.0;
+			double vy = launch;
+			while (vy > 0.0) {
+				y += vy;
+				vy = (vy - gravity) * 0.98;
+			}
+			if (y >= height) {
+				return launch;
+			}
+		}
+		return 1.5F;
+	}
+
+	/** Ticks for an arc launched at {@code launch} to climb {@code height}. */
+	private static int ticksToRise(final float launch, final double height, final double gravity) {
+		double y = 0.0;
+		double vy = launch;
+		int ticks = 1;
+		while ((y += vy) < height && vy > 0.0) {
+			vy = (vy - gravity) * 0.98;
+			ticks++;
+		}
+		return ticks;
+	}
+
+	/** The jump sound of a ledge jump, heard by the rider. */
+	private static void hoofSound(final AbstractHorse horse, final SoundEvent sound) {
+		if (CLIMB_SOUND_VOLUME > 0.0F) {
+			horse.level().playLocalSound(
+				horse.getX(), horse.getY(), horse.getZ(), sound, horse.getSoundSource(), CLIMB_SOUND_VOLUME, 0.9F + horse.getRandom().nextFloat() * 0.2F, false
+			);
+		}
 	}
 
 	/**
@@ -332,10 +458,12 @@ public final class RideController {
 				s.pitchTarget = Mth.clamp((float) Math.toDegrees(Math.atan2(front - back, 2.0 * HOOF_REACH)), -PITCH_MAX, PITCH_MAX);
 				s.heightTarget = y + Mth.clamp((front - y) * STEP_ANTICIPATION, -0.3, STEP_ANTICIPATION);
 			}
-			s.pitch += (s.pitchTarget - s.pitch) * PITCH_SMOOTHING;
+			// Gathering for a ledge jump: haunches down, nose up.
+			final float crouch = s.ledgeTicks > 0 && s.ledgeTicks <= LEDGE_GATHER_TICKS ? (float) s.ledgeTicks / LEDGE_GATHER_TICKS : 0.0F;
+			s.pitch += (s.pitchTarget + crouch * LEDGE_CROUCH_PITCH - s.pitch) * PITCH_SMOOTHING;
 			// Smooth in world space so a one-tick step-up of the physics body becomes a climb.
 			final double previous = horse.yo + s.heightOffset;
-			s.heightOffset = (float) (previous + (s.heightTarget - previous) * STEP_SMOOTHING - horse.getY());
+			s.heightOffset = (float) (previous + (s.heightTarget - crouch * LEDGE_CROUCH - previous) * STEP_SMOOTHING - horse.getY());
 		} else {
 			final float flight = (float) Math.toDegrees(Math.atan2(dy, Math.sqrt(horizontalSq) + 1.0E-3)) * AIR_PITCH_SCALE;
 			s.pitch += (Mth.clamp(flight, -AIR_PITCH_MAX, AIR_PITCH_MAX) - s.pitch) * PITCH_SMOOTHING;

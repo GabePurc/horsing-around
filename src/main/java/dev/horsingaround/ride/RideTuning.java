@@ -137,6 +137,66 @@ public final class RideTuning {
 	/** Air acceleration relative to the ridden speed (vanilla 0.1). 0.2 holds flat-ground speed through a jump. */
 	public static final float AIR_CONTROL = 0.2F;
 
+	// ---- The horse has a say: it picks its way (see Awareness) ----
+
+	/**
+	 * The horse looks ahead and won't run into trouble: it steers around obstacles it can pass, slows to a walk for
+	 * walls, and stops short of drops that would hurt it (beyond its safe fall distance, 6 blocks for vanilla horses)
+	 * and of hazards (lava, fire, cactus, berry bushes, powder snow...). The rider's intent always wins otherwise.
+	 */
+	public static boolean AVOID_DANGER = true;
+	/** How far ahead the horse looks: this many ticks of travel, within limits (blocks). */
+	static final float LOOK_AHEAD_TICKS = 20.0F;
+	static final float LOOK_AHEAD_MIN = 2.0F;
+	static final float LOOK_AHEAD_MAX = 12.0F;
+	/**
+	 * Steering round obstacles starts above a walk and is full from a trot, so at a walk the rider has precise control.
+	 * The horse tries detours this many degrees apart, up to the max, and takes the first (smallest) that passes the
+	 * obstacle by DETOUR_CLEARANCE blocks; a wall it can't get round within that angle it slows for instead of veering.
+	 */
+	static final float AVOID_ANGLE_STEP = 10.0F;
+	static final float AVOID_MAX_ANGLE = 40.0F;
+	static final float DETOUR_CLEARANCE = 2.0F;
+	/**
+	 * A detour line must be clear this much wider than the body on each side, so the horse turns early and wide enough
+	 * despite the time it takes to shift its weight and come round.
+	 */
+	static final float DETOUR_MARGIN = 0.6F;
+	/** While detouring, the horse only brakes for its current heading when the obstacle is this close (blocks). */
+	static final float DETOUR_EMERGENCY = 2.5F;
+	/** The detour eases in and out by this many degrees per tick; detours are re-planned every few ticks. */
+	static final float AVOID_RATE = 5.0F;
+	static final int AVOID_REPLAN_TICKS = 2;
+	/**
+	 * Slowing for what's ahead: braking is planned at this share of the full brake (so it starts early and smooth),
+	 * allows for the ~1.5 ticks the body lags its speed, and stops this many blocks short.
+	 */
+	static final float BRAKE_PLAN = 0.8F;
+	static final float BRAKE_LAG_TICKS = 1.5F;
+	static final float STOP_MARGIN = 0.2F;
+	/** Gaps up to this wide (with safe ground at about the same height beyond) stay jumpable: no braking, no refusal. */
+	static final float GAP_REACH = 4.0F;
+	/** Refusing (a drop or hazard from a trot or faster, or a jump off a cliff): a snort and a head toss, at most this often. */
+	static final int REFUSAL_COOLDOWN_TICKS = 60;
+	static float REFUSAL_VOLUME = 0.5F;
+
+	/**
+	 * Ledges up to 2 blocks high: riding toward one at a walk or trot, the horse halts at it, gathers itself for a moment
+	 * (haunches down, nose up) and jumps up onto it in an arc that clears the lip by LEDGE_CLEARANCE. Not at a canter or
+	 * gallop (it slows for the wall first), and never over fences, walls or gates, so pens still hold horses.
+	 */
+	public static boolean LEDGE_CLIMB = true;
+	static final float LEDGE_HEIGHT = 2.0F;
+	/** It takes off when the ledge's face is this close to its chest, blocks. */
+	static final float LEDGE_REACH = 0.9F;
+	public static final int LEDGE_GATHER_TICKS = 5;
+	static final float LEDGE_CLEARANCE = 0.3F;
+	/** Gathering: the body sinks this far (blocks) and the nose lifts this much (degrees). */
+	static final float LEDGE_CROUCH = 0.12F;
+	static final float LEDGE_CROUCH_PITCH = 6.0F;
+	static final float LEDGE_STAMINA_COST = 0.04F;
+	static float CLIMB_SOUND_VOLUME = 0.35F;
+
 	// ---- Visuals (client) ----
 
 	/** Visual bank into turns: degrees per (deg/tick of turn x (blocks/tick)^2 of speed), capped. */

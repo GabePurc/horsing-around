@@ -20,6 +20,9 @@ vanilla keys, with no crashes in singleplayer and on a dedicated server with the
 11. **Camera**: RDR2-style third-person riding camera (see `research.md`).
 12. **Jumping**: instant, momentum-based jumps; the jump bar shows stamina.
 13. **Fresh Animations**: works with EMF + ETF + Fresh Animations without visual or log errors.
+14. **The horse has a say** (user direction): steers round obstacles from a trot, slows for walls, refuses drops that
+    would hurt it and hazards; never in the rider's way (no steering at a walk, edges and walls alongside untouched).
+15. **Ledge jumps** (user direction): at a walk or trot the horse jumps up 2-block ledges on its own; never fences.
 
 ## Out of scope for MVP
 
