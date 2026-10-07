@@ -23,7 +23,9 @@ Player settings live in `HorseConfig` (JSON in the config folder) with a vanilla
 
 Build: `./gradlew build`. Play-test: `./gradlew runClient` (loads Mod Menu, the Fresh Animations stack, and the
 add-on if it has been built in `../Over the Shoulder`).
-Gradle is pinned to Homebrew JDK 25 via `org.gradle.java.home` in `gradle.properties`.
+Builds must work on any machine: never commit machine-specific paths. Gradle picks JDK 25 through
+`gradle/gradle-daemon-jvm.properties` (downloads one if needed); local JDK locations go in `~/.gradle/gradle.properties`.
+Release-readiness work (Modrinth, compatibility with other mods) is planned in `development_plan.md`, Release.
 
 Verify every gameplay change with `./gradlew runClientGameTest` (`src/gametest/.../RideFeelTest.java`). It rides a
 horse with simulated keys and writes `build/run/clientGameTest/horsingaround-ride-report.txt` plus screenshots in

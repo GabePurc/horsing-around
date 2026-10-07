@@ -35,3 +35,19 @@ camel or llama changes.
 - A running jump keeps at least 85% of ground speed in the air.
 - `./gradlew runClientGameTest` passes.
 - No per-tick allocations beyond vanilla's for ridden horses; no work at all for unridden horses beyond a cheap reset.
+
+## Release (Modrinth) requirements
+
+User direction (2026-10-06): the mods will be published on Modrinth for anyone to install. Before the first release:
+
+1. **Any machine**: both repos build from a fresh clone on Windows, macOS and Linux with only a Java 17+ runtime for
+   the Gradle launcher; Gradle finds or downloads JDK 25 itself. CI builds every push.
+2. **Plain Fabric install**: needs only Fabric Loader and Fabric API. Mod Menu, EMF/ETF and Fresh Animations stay
+   optional; the add-on works with or without Horsing Around.
+3. **Every install mix works**: mod on both sides, client only (vanilla or unmodded servers: no rubber-banding, no
+   kicks), server only (vanilla clients ride normally). Features that need the server's agreement switch off when the
+   server lacks the mod.
+4. **Compatible with basically any mod**: no crashes, no log errors, and no silently disabled features (ours or
+   theirs) alongside popular Fabric mods, checked by an automated run with a mod pack (see `development_plan.md`,
+   Release). Doesn't have to hold in dev runs before then.
+5. **Store-ready metadata**: license, authors, links (source, issues), description, icon, screenshots.

@@ -1,0 +1,6 @@
+# Line endings: gradlew must stay LF (Linux/macOS CI), gradlew.bat CRLF (Windows).
+* text=auto eol=lf
+*.bat text eol=crlf
+*.jar binary
+*.png binary
+*.zip binary

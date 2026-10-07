@@ -9,4 +9,11 @@ pluginManagement {
 	}
 }
 
+// Minecraft 26.x needs JDK 25. gradle/gradle-daemon-jvm.properties asks for it; this plugin downloads one when the
+// machine has none (installed JDKs are found automatically, or listed in ~/.gradle/gradle.properties under
+// org.gradle.java.installations.paths).
+plugins {
+	id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
 rootProject.name = 'horsing-around'

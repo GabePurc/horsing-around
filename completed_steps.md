@@ -89,6 +89,11 @@
 
 - [x] Split into two repos: Horsing Around (this one) and Horsing Around: Over the Shoulder (`../Over the Shoulder`); the add-on compiles against a compile-only copy of `RideCameraApi` and has its own camera test (12 checks, including riding when Horsing Around is built next door); this repo's `runClient` loads the add-on when built, its ride test runs without it
 
+## Release readiness (user request, 2026-10-06)
+
+- [x] Builds on any machine (both repos): no machine-specific paths; `gradle/gradle-daemon-jvm.properties` asks for JDK 25 and the foojay resolver downloads one if none is installed (any Java 17+ starts the wrapper); `.gitattributes` keeps `gradlew` LF and `gradlew.bat` CRLF; sibling-repo dev paths accept both the local folder names and the GitHub repo names; GitHub Actions builds every push on Linux and attaches the jars. Verified by building both repos from a clean copy with an empty Gradle home and only JDK 11/17 installed
+- [ ] Compatibility pass and store metadata (plan in `development_plan.md`, Release)
+
 ## Tooling
 
 - [x] Automated client ride test (`./gradlew runClientGameTest`): 65 checks (the 12 shoulder-camera checks moved to the add-on repo) covering gradual and smooth climbing out of water, wading pace, swimming (speed, head above water, rider kept, climbing out), saddle side-sway follow, rider inertia (surge and braking), Fresh Animations stirrups held, trampling (walk vs gallop), horse settings in Mod Menu and live apply, downhill speed continuity, landing surge, jump arc, huff rhythm, head toss on the FA model, mouse steering, A/D 45-degree offset without view pull, riding through leaves, free aim and look limit, aiming while turning, Fresh Animations body sync, staircase climbing (smoothness, pitch), weight-shift timing, gait animation speeds, first-person bob, mounting camera, free look, walk/gallop speed, spur timing, A/D turn rate and lean, running and standing jumps, stamina and exhaustion, coasting, braking, reversing, mouse steering, dismount; writes `build/run/clientGameTest/horsingaround-ride-report.txt` and screenshots (back, front and side views)

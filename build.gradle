@@ -58,12 +58,15 @@ dependencies {
 	localRuntime "maven.modrinth:entitytexturefeatures:${project.etf_version}"
 }
 
-// Dev convenience: runClient also loads the Over the Shoulder add-on when it has been built in its sibling folder
-// (separate repo). The ride test runs without it so this mod's own riding camera is what gets tested.
-def overTheShoulderJars = fileTree(project.over_the_shoulder_libs) {
-	include 'horsing-around-shoulder-*.jar'
-	exclude '*-sources.jar'
-}.files
+// Dev convenience: runClient also loads the Over the Shoulder add-on when it has been built in a sibling checkout
+// (separate repo; first folder in over_the_shoulder_libs that has a jar). The ride test runs without it so this mod's
+// own riding camera is what gets tested.
+def overTheShoulderJars = project.over_the_shoulder_libs.split(',').collect { dir ->
+	fileTree(dir.trim()) {
+		include 'horsing-around-shoulder-*.jar'
+		exclude '*-sources.jar'
+	}.files
+}.find { !it.isEmpty() } ?: []
 if (!overTheShoulderJars.isEmpty()) {
 	def addMods = overTheShoulderJars.join(File.pathSeparator)
 	tasks.matching { it.name == "runClient" }.configureEach { systemProperty "fabric.addMods", addMods }
