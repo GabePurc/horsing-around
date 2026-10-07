@@ -69,6 +69,19 @@ public final class RideState {
 	public float debugWall() {
 		return this.wallAhead;
 	}
+
+	public float debugGap() {
+		return this.gapAhead;
+	}
+
+	/** For tests and the steering overlay: world height of the ground carrying the front and the back of the body. */
+	public double debugFore() {
+		return this.fore;
+	}
+
+	public double debugHind() {
+		return this.hind;
+	}
 	/** Distance along the way ahead to a wall this tick; MAX_VALUE when none. */
 	float wallAhead = Float.MAX_VALUE;
 	/**
@@ -102,9 +115,31 @@ public final class RideState {
 	float inertiaO;
 	float inertiaVelocity;
 	float lastGroundSpeed;
-	/** Last terrain targets; reused while the horse stands still so probes only run when it moves. */
-	float pitchTarget;
-	double heightTarget;
+	/**
+	 * Steps in two beats: world height of the ground carrying the front and the back of the body, eased in two stages
+	 * (the first stage in the *Ease fields), how far the back rose last tick, and the ground under each pair of hooves
+	 * (reused while the horse stands still, so probes only run when it moves). NaN until first placed.
+	 */
+	double fore = Double.NaN;
+	double hind = Double.NaN;
+	double foreEase;
+	double hindEase;
+	float hindRise;
+	double foreGround;
+	double hindGround;
+	/** In the air from a jump or a fall bigger than a step: the body follows its flight instead of the ground. */
+	boolean flying;
+	/** Leg poses for steps, -1..1: front legs folded up (+) or reaching down (-); hind legs driving (+) or gathered (-). */
+	float foreLeg;
+	float foreLegO;
+	float hindLeg;
+	float hindLegO;
+	/** Share of the last move's travel that a collision took (0 when nothing was hit). */
+	public float blocked;
+	/** Corners slipped past (for tests). */
+	public int slips;
+	/** Where the rider is asking the horse to go this tick (view plus A/D offset), degrees; for the steering overlay. */
+	public float riderYaw;
 
 	// Saddle motion measured from an animation pack (Entity Model Features), written each rendered frame. Client only.
 	public float animatedLift;
@@ -168,6 +203,16 @@ public final class RideState {
 
 	public float heightOffset(final float partialTicks) {
 		return this.heightOffsetO + (this.heightOffset - this.heightOffsetO) * partialTicks;
+	}
+
+	/** Front legs on a step, -1..1: folded up onto it (+) or reaching down for it (-). */
+	public float foreLeg(final float partialTicks) {
+		return this.foreLegO + (this.foreLeg - this.foreLegO) * partialTicks;
+	}
+
+	/** Hind legs on a step, -1..1: driving the hindquarters up (+) or gathered under the body going down (-). */
+	public float hindLeg(final float partialTicks) {
+		return this.hindLegO + (this.hindLeg - this.hindLegO) * partialTicks;
 	}
 
 	void resetMotion() {

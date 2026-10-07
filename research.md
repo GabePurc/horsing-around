@@ -145,6 +145,38 @@ Translation (`Awareness`, tuning in `RideTuning`):
 - Not annoying: no steering at a walk; riding beside walls and along cliff edges is untouched; safe drops, water
   landings and jumpable gaps are left to the rider; both behaviours can be switched off.
 
+## Steps in two beats, and footing (user direction, 2026-10-07)
+
+Play-test feedback: going up and down a block the lean was too linear and unsatisfying. A real horse gets its front
+legs up on the block, then its back legs; it doesn't lean much, it bends its front knees to get the front legs up.
+And the box clipping 1-block-tall things while riding stopped all the horse's speed. Also: 2-block ledges should be
+jumped even with leaves on top; seeing where the horse is trying to steer helps play-testing.
+
+Translation (`RideController.steps`, `Footing`, tuning in `RideTuning`):
+
+- The front and the back of the body each follow the ground under their own hooves (front ~0.65 ahead, hind ~0.5
+  behind): the forehand goes up a step first, then the hindquarters; going down, the front reaches down first.
+- Smooth above all (play-test, same day: the first version, on springs with a hard tilt cap, snapped to full tilt in
+  a tick and dipped nose-down after the push, which felt erratic on natural terrain). Each end eases in two stages, so
+  every change starts and stops softly with no overshoot, quicker with speed; the ground is read as far ahead as the
+  easing lags, so each end still moves as its own hooves reach the step and slopes are followed without falling
+  behind. The tilt levels off softly toward 10 degrees (about 6 on a single block at a walk, less at speed) and is
+  eased once more so quick bumps at speed rock the body rather than jolt it: at most ~1-2.5 degrees a tick anywhere.
+  At a gallop the two beats run together, as they would.
+- The weight stays on the hindquarters: the body sits 30% of the way up toward the front's height (20% going down).
+  The front legs fold up and forward onto the step (or reach down for it), the hind legs drive back as the
+  hindquarters rise. A block is about as tall as a Minecraft horse's legs, so with rigid model legs the front hooves
+  pass through the edge of a step for a moment; the body hides it from the riding camera.
+- Footing: in the air (off a drop, or a jump a little short) the horse gets a hoof on anything within a step of its
+  hooves and carries on; vanilla's step-up only works with the hooves down, so meeting the far side of a dip in the
+  air stopped it dead. A shoulder caught on a corner (up to 0.3 blocks) slips past it. Only a head-on hit (more than
+  65% of the travel stopped) is a crash; before, any touch at speed halved the speed and dropped to a trot (vanilla's
+  "minor collision" test only exists for players). Ridden, a full block is a step even from a path, farmland, mud or
+  soul sand (step height 1.125).
+- Steering overlay: with hitboxes shown (F3+B), the ridden horse draws the rider's line, its heading, its detour, what
+  its look-ahead found and the ground carrying its front and back. A pathfinding visualizer would show nothing: a
+  ridden horse doesn't use vanilla pathfinding.
+
 ## Staying vanilla
 
 - No new HUD panels. Stamina lives in the vanilla horse jump bar, which charged jumping no longer needs.

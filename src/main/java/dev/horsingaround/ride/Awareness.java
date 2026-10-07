@@ -51,7 +51,7 @@ public final class Awareness {
 	/** Half the body's width, from its collision box, and the side lines just inside it (so riding alongside a wall or an edge reads clear). */
 	private static float half = 0.45F;
 	private static float side = 0.3F;
-	private static final double STEP_UP = 1.0;
+	private static final double STEP_UP = RIDDEN_STEP_HEIGHT;
 	private static final double BODY_HEIGHT = 1.6;
 	/** How much longer the horse's body is than its (square) collision box, nose to tail. */
 	private static final double BODY_LENGTH_EXTRA = 1.0;

@@ -54,7 +54,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 	private static final int SIZE = 64;
 	private static final double SPEED_ATTRIBUTE = 0.225;
 	private static final double GALLOP_SPEED = SPEED_ATTRIBUTE * RideTuning.TERMINAL_VELOCITY_FACTOR * RideTuning.GAIT_SPEED[RideTuning.GALLOP];
-	/** Running into something faster than this (a slow trot) counts as a crash. */
+	/** Running head-on into something (more than CRASH_BLOCKED of the travel stopped) faster than this (a slow trot) is a crash. */
 	private static final double CRASH_SPEED = SPEED_ATTRIBUTE * RideTuning.TERMINAL_VELOCITY_FACTOR * 0.45;
 	private static final int MAX_TICKS = 600;
 	/** Damage a horse or rider must never take on a ride. */
@@ -198,6 +198,10 @@ public final class TerrainRideTest implements FabricClientGameTest {
 		final java.util.ArrayDeque<String> recent = new java.util.ArrayDeque<>();
 		float previousHealth = ctx.computeOnClient(mc -> ((AbstractHorse) mc.player.getVehicle()).getHealth());
 		int traced = 0;
+		double previousPitch = 0.0;
+		double previousTick = -1.0;
+		double maxTiltRate = 0.0;
+		final java.util.ArrayList<Double> tiltRates = new java.util.ArrayList<>();
 		for (; ticks < MAX_TICKS; ticks++) {
 			ctx.waitTick();
 			// Diagnostics: when the horse gets hurt, say how it was moving and what it is in.
@@ -250,7 +254,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 				final RideState s = ((RideStateHolder) horse).horsingaround$ride();
 				return new double[] {
 					Math.hypot(horse.getX() - horse.xo, horse.getZ() - horse.zo),
-					horse.horizontalCollision && !horse.minorHorizontalCollision ? 1 : 0,
+					s.blocked > RideTuning.CRASH_BLOCKED ? 1 : 0,
 					horse.fallDistance,
 					horse.isInLava() ? 1 : 0,
 					s.avoidOffset,
@@ -258,7 +262,9 @@ public final class TerrainRideTest implements FabricClientGameTest {
 					horse.getY(),
 					horse.getZ(),
 					RideController.lastTickNanos,
-					horse.isInWater() ? 1 : 0
+					horse.isInWater() ? 1 : 0,
+					s.pitch(1.0F),
+					horse.tickCount
 				};
 			});
 			if (now == null) {
@@ -266,6 +272,14 @@ public final class TerrainRideTest implements FabricClientGameTest {
 				break;
 			}
 			final double speed = now[0];
+			// How fast the body tilts on the ground model (jump tilt is separate), per game tick.
+			if (now[11] > previousTick && previousTick >= 0) {
+				final double rate = Math.abs(now[10] - previousPitch) / (now[11] - previousTick);
+				maxTiltRate = Math.max(maxTiltRate, rate);
+				tiltRates.add(rate);
+			}
+			previousPitch = now[10];
+			previousTick = now[11];
 			travelled += speed;
 			// (Swimming into a bank is not a crash.)
 			if (now[1] > 0 && previousSpeed > CRASH_SPEED && now[9] == 0) {
@@ -338,6 +352,10 @@ public final class TerrainRideTest implements FabricClientGameTest {
 		check("keeps moving (pace / gallop)", travelled / Math.max(ticks, 1) / GALLOP_SPEED, scenario.minPace(), 1.2);
 		check("crashes into things at speed", crashes, 0, 2);
 		check("dead ends the rider had to turn away from", stuck, 0, scenario.maxStuck());
+		tiltRates.sort(null);
+		log("  body tilt change per tick: 99th percentile %.2f deg, most %.2f deg",
+			tiltRates.isEmpty() ? 0.0 : tiltRates.get((int) (tiltRates.size() * 0.99)), maxTiltRate);
+		check("smooth: the body never snaps into a tilt (max change per tick, deg)", maxTiltRate, 0.0, 3.5);
 		server.runCommand("ride @p dismount");
 		server.runCommand("kill @e[tag=" + TAG + "]");
 		return crashes;

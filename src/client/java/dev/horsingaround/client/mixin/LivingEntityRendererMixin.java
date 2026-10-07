@@ -45,6 +45,7 @@ public abstract class LivingEntityRendererMixin {
 		final boolean isHorse = entity instanceof RideStateHolder;
 		if (!((isHorse ? entity : entity.getVehicle()) instanceof RideStateHolder holder) || !holder.horsingaround$managed()) {
 			pose.horsingaround$clearPose();
+			pose.horsingaround$setLegs(0.0F, 0.0F);
 			return;
 		}
 		final LivingEntity horse = (LivingEntity) holder;
@@ -63,8 +64,9 @@ public abstract class LivingEntityRendererMixin {
 		// A generated gait motion moves the horse model too; a measured one is already in the animated model.
 		final float bodyPitch = saddle.synthetic ? pitch + saddle.pitch * Mth.DEG_TO_RAD : pitch;
 		// The jump tilt pivots on the hooves: the hind ones as it lifts its front to take off, the front ones as it lands.
-		final float pivotForward = (jump > 0.0F ? -HOOF_REACH : HOOF_REACH) * (1.0F - Mth.cos(jump));
-		final float bodyLift = s.heightOffset(partialTicks) + (saddle.synthetic ? saddle.lift : 0.0F) + HOOF_REACH * Mth.sin(Math.abs(jump));
+		final float pivot = jump > 0.0F ? -HIND_HOOVES : FORE_HOOVES;
+		final float pivotForward = pivot * (1.0F - Mth.cos(jump));
+		final float bodyLift = s.heightOffset(partialTicks) + (saddle.synthetic ? saddle.lift : 0.0F) + Math.abs(pivot) * Mth.sin(Math.abs(jump));
 		final float shiftX = fx * pivotForward;
 		final float shiftZ = fz * pivotForward;
 		HORSE_ROTATION.rotationAxis(bank, fx, 0.0F, fz).rotateAxis(bodyPitch, rx, 0.0F, rz);
@@ -78,6 +80,8 @@ public abstract class LivingEntityRendererMixin {
 				shake == 0.0F ? 0.0F : Mth.cos(SHAKE_PHASE[0]) * HEAD_SHAKE_ROLL * shake
 			);
 			pose.horsingaround$setNeck(packAnimated ? 0.0F : pitch * NECK_COUNTER_PITCH);
+			// Legs on a step; a pack-animated model gets them in the Entity Model Features hook too.
+			pose.horsingaround$setLegs(packAnimated ? 0.0F : s.foreLeg(partialTicks), packAnimated ? 0.0F : s.hindLeg(partialTicks));
 			if (bank == 0.0F && bodyPitch == 0.0F && bodyLift == 0.0F) {
 				pose.horsingaround$clearPose();
 			} else {

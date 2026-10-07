@@ -44,4 +44,11 @@ public interface RidePoseState {
 	void horsingaround$setNeck(float pitch);
 
 	float horsingaround$neckPitch();
+
+	/** Leg poses on a step, -1..1 (see {@code RideState#foreLeg} and {@code RideState#hindLeg}); vanilla model only. */
+	void horsingaround$setLegs(float fore, float hind);
+
+	float horsingaround$foreLeg();
+
+	float horsingaround$hindLeg();
 }

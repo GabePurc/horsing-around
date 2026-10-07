@@ -46,6 +46,45 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 
 	/** Stirrup parts found per saddle model (searched once; pack reloads create new models). */
 	private final Map<ModelPart, ModelPart[]> stirrups = new WeakHashMap<>();
+	/** Leg parts per model (front left, front right, hind left, hind right; null where the model has none). */
+	private final Map<ModelPart, ModelPart[]> legs = new WeakHashMap<>();
+	private static final String[] LEG_NAMES = {"left_front_leg", "right_front_leg", "left_hind_leg", "right_hind_leg"};
+
+	/**
+	 * Legs on a step, after the pack has animated them: the front legs fold up and forward onto a step or reach down for
+	 * one, the hind legs drive the hindquarters up or gather under going down. On every layer (body, saddle, armour) so
+	 * they stay together.
+	 */
+	private void stepLegs(final EMFModelPartRoot root, final RideState ride, final float partialTicks) {
+		final float fore = ride.foreLeg(partialTicks);
+		final float hind = ride.hindLeg(partialTicks);
+		if (fore == 0.0F && hind == 0.0F) {
+			return;
+		}
+		ModelPart[] parts = this.legs.get(root);
+		if (parts == null) {
+			parts = new ModelPart[LEG_NAMES.length];
+			for (int i = 0; i < LEG_NAMES.length; i++) {
+				parts[i] = root.getAllVanillaPartsByNameEMF().get(LEG_NAMES[i]);
+			}
+			this.legs.put(root, parts);
+		}
+		final float tuck = Math.max(fore, 0.0F);
+		final float foreSwing = -tuck * RideTuning.FORE_TUCK_ANGLE + Math.min(fore, 0.0F) * RideTuning.FORE_REACH_ANGLE;
+		final float lift = tuck * RideTuning.FORE_TUCK_LIFT;
+		final float hindSwing = hind * (hind > 0.0F ? RideTuning.HIND_DRIVE_ANGLE : RideTuning.HIND_GATHER_ANGLE);
+		for (int i = 0; i < parts.length; i++) {
+			final ModelPart leg = parts[i];
+			if (leg != null) {
+				if (i < 2) {
+					leg.xRot += foreSwing;
+					leg.y -= lift;
+				} else {
+					leg.xRot += hindSwing;
+				}
+			}
+		}
+	}
 
 	private static ModelPart neck(final EMFModelPartRoot root) {
 		final ModelPart neck = root.getAllVanillaPartsByNameEMF().get("head_parts");
@@ -96,6 +135,8 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		}
 		final EMFModelPartRoot root = context.animatingModelRoot();
 		final RideState ride = holder.horsingaround$ride();
+		final float partialTicks = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
+		this.stepLegs(root, ride, partialTicks);
 		if (!root.isMainModel) {
 			this.holdStirrups(root);
 			return;
@@ -103,7 +144,6 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		// Climbing, the neck reaches forward; applied after the pack so its own neck logic isn't disturbed.
 		final ModelPart neckPart = neck(root);
 		if (neckPart != null) {
-			final float partialTicks = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
 			neckPart.xRot += (ride.pitch(partialTicks) + ride.jumpPitch(partialTicks)) * Mth.DEG_TO_RAD * RideTuning.NECK_COUNTER_PITCH;
 		}
 		final ModelPart body = root.getAllVanillaPartsByNameEMF().get("body");
