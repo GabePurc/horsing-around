@@ -511,7 +511,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("climbed the staircase (blocks)", sample(ctx).y - startY, 3.9, 4.1);
 		check("physics still steps a block in one tick", maxPhysicsStep, 0.9, 1.1);
 		check("rendered horse climbs smoothly (max rise per tick)", maxVisualStep, 0.05, 0.4);
-		check("nose pitches up while climbing, but not far (deg)", maxPitch, 6.0, 11.5);
+		check("nose pitches up while climbing, but not far (deg)", maxPitch, 4.0, 10.5);
 		ticksUntilStopped(ctx, 60);
 		ctx.waitTicks(10);
 		check("level again on the plateau (pitch deg)", Math.abs(sample(ctx).pitch), 0.0, 2.0);
@@ -1238,6 +1238,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		double maxHind = 0.0;
 		double forehandFirst = Double.NaN;
 		double maxVisualStep = 0.0;
+		double maxTiltRate = 0.0;
 		int shots = 0;
 		Sample previous = sample(ctx);
 		int previousTick = ctx.computeOnClient(mc -> mc.player.getVehicle().tickCount);
@@ -1258,8 +1259,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 			if (hindHalf < 0 && hind >= 0.5) {
 				hindHalf = tick;
 			}
-			if (Double.isNaN(forehandFirst) && fore > 0.9 && hind < 0.1) {
-				forehandFirst = (s.visualY - low) / step;
+			if (Double.isNaN(forehandFirst) && fore >= 0.75) {
+				forehandFirst = hind;
 			}
 			if (fore > 0.02 && (hindHalf < 0 || tick <= hindHalf + 8)) {
 				log("    tick %d: physics %.2f body %.3f front %.3f back %.3f tilt %.1f legs %.2f / %.2f",
@@ -1271,6 +1272,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			// (The test thread now and then sees two ticks at once.)
 			if (tick > previousTick) {
 				maxVisualStep = Math.max(maxVisualStep, Math.abs(s.visualY - previous.visualY) / (tick - previousTick));
+				maxTiltRate = Math.max(maxTiltRate, Math.abs(s.pitch - previous.pitch) / (tick - previousTick));
 			}
 			previous = s;
 			previousTick = tick;
@@ -1288,15 +1290,14 @@ public final class RideFeelTest implements FabricClientGameTest {
 		ctx.waitTicks(10);
 		check("on the other level (blocks)", (sample(ctx).y - low) * step, 0.95, 1.05);
 		check("the forehand goes first (ticks before the hindquarters)", hindHalf - foreHalf, trot ? 2 : 4, trot ? 8 : 12);
-		check("leans no more than a real horse (max tilt, deg)", maxTilt, 6.0, 11.5);
-		if (!trot) {
-			check("forehand " + (up ? "up" : "down") + ", hindquarters not yet: body part way (share of the step)", forehandFirst, 0.05, 0.4);
-		}
-		check(up ? "front legs fold up onto the step" : "front legs reach down for it", maxFore, 0.6, 1.0);
+		check("leans no more than a real horse (max tilt, deg)", maxTilt, 3.0, 10.0);
+		check("leans gently, never snaps (max tilt change per tick, deg)", maxTiltRate, 0.2, 3.0);
+		check("two beats: forehand three quarters " + (up ? "up" : "down") + ", hindquarters still behind (their share of the step)", forehandFirst, 0.0, trot ? 0.5 : 0.35);
+		check(up ? "front legs fold up onto the step" : "front legs reach down for it", maxFore, 0.4, 1.0);
 		if (up) {
 			check("hind legs drive the hindquarters up", maxHind, 0.6, 1.0);
 		}
-		check("smooth (max rendered height change per tick, blocks)", maxVisualStep, 0.03, 0.4);
+		check("smooth (max rendered height change per tick, blocks)", maxVisualStep, 0.03, trot ? 0.2 : 0.15);
 		check("level again after (pitch deg)", Math.abs(sample(ctx).pitch), 0.0, 1.5);
 	}
 

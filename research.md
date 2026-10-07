@@ -155,14 +155,18 @@ jumped even with leaves on top; seeing where the horse is trying to steer helps 
 Translation (`RideController.steps`, `Footing`, tuning in `RideTuning`):
 
 - The front and the back of the body each follow the ground under their own hooves (front ~0.65 ahead, hind ~0.5
-  behind) on a spring, quicker with speed: the forehand goes up a step first, the hindquarters follow with a push
-  (a hint of overshoot). Going down, the front reaches down first. A step up is reached for ~2 ticks of travel early;
-  a step down only once the hooves are past the edge. At a gallop the two beats run together, as they would.
-- The weight stays on the hindquarters: the body tilts at most 11 degrees (was 15) and sits a fifth of the way up
-  toward the front's height (a tenth going down). The front legs fold up and forward onto the step (or reach down for
-  it), the hind legs drive back as the hindquarters rise. A block is about as tall as a Minecraft horse's legs, so with
-  rigid model legs the front hooves pass through the edge of a step for a moment; the body hides it from the riding
-  camera.
+  behind): the forehand goes up a step first, then the hindquarters; going down, the front reaches down first.
+- Smooth above all (play-test, same day: the first version, on springs with a hard tilt cap, snapped to full tilt in
+  a tick and dipped nose-down after the push, which felt erratic on natural terrain). Each end eases in two stages, so
+  every change starts and stops softly with no overshoot, quicker with speed; the ground is read as far ahead as the
+  easing lags, so each end still moves as its own hooves reach the step and slopes are followed without falling
+  behind. The tilt levels off softly toward 10 degrees (about 6 on a single block at a walk, less at speed) and is
+  eased once more so quick bumps at speed rock the body rather than jolt it: at most ~1-2.5 degrees a tick anywhere.
+  At a gallop the two beats run together, as they would.
+- The weight stays on the hindquarters: the body sits 30% of the way up toward the front's height (20% going down).
+  The front legs fold up and forward onto the step (or reach down for it), the hind legs drive back as the
+  hindquarters rise. A block is about as tall as a Minecraft horse's legs, so with rigid model legs the front hooves
+  pass through the edge of a step for a moment; the body hides it from the riding camera.
 - Footing: in the air (off a drop, or a jump a little short) the horse gets a hoof on anything within a step of its
   hooves and carries on; vanilla's step-up only works with the hooves down, so meeting the far side of a dip in the
   air stopped it dead. A shoulder caught on a corner (up to 0.3 blocks) slips past it. Only a head-on hit (more than

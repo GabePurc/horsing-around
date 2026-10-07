@@ -269,28 +269,32 @@ public final class RideTuning {
 	public static final float HIND_HOOVES = 0.5F;
 	/**
 	 * Steps and slopes go in two beats, like a real horse: the forehand goes up (or down) first as the front hooves
-	 * reach the step, then the hindquarters follow with a push as the hind hooves get there. The front and the back of
-	 * the body each follow the ground under their own hooves on a spring: STEP_SPRING_WALK stiffness at a walk, up to
-	 * STEP_SPRING_FAST at STEP_SPRING_SPEED (blocks/tick), with STEP_DAMPING leaving a hint of overshoot so the push
-	 * lands. A step up is reached for a little early (STEP_LEAD_TICKS of travel, up to STEP_LEAD_MAX blocks); a step
-	 * down only once the hooves are past the edge.
+	 * reach the step, then the hindquarters follow as the hind hooves get there. The front and the back of the body
+	 * each ease toward the ground under their own hooves (averaged over a STEP_FOOTPRINT-long stretch) in two stages,
+	 * so every change eases in and out with no overshoot: STEP_EASE of the way per stage per tick standing, plus
+	 * STEP_EASE_PER_SPEED per block/tick of speed, up to STEP_EASE_MAX. The ground is read as far ahead as the easing
+	 * lags (up to STEP_LEAD_MAX blocks), so each end moves as its hooves reach the step and slopes are followed without
+	 * falling behind.
 	 */
-	static final float STEP_SPRING_WALK = 0.22F;
-	static final float STEP_SPRING_FAST = 0.5F;
-	static final float STEP_SPRING_SPEED = 0.55F;
-	static final float STEP_DAMPING = 0.7F;
-	static final float STEP_LEAD_TICKS = 2.0F;
-	static final float STEP_LEAD_MAX = 0.5F;
+	static final float STEP_EASE = 0.22F;
+	static final float STEP_EASE_PER_SPEED = 0.5F;
+	static final float STEP_EASE_MAX = 0.45F;
+	static final double STEP_FOOTPRINT = 0.5;
+	static final double STEP_LEAD_MAX = 1.5;
 	/** The body follows the ground down a step of up to this many blocks; past a bigger drop the hooves stay level. */
 	static final double STEP_REACH = 1.25;
 	/**
-	 * A real horse doesn't lean far on a step: the body tilts at most PITCH_MAX degrees and the hindquarters keep the
-	 * weight, the body sitting BODY_RISE_UP of the way from the hind support's height toward the front's going up
-	 * (BODY_RISE_DOWN going down). The front legs fold up onto a step to make up the rest, and reach down for one.
+	 * A real horse doesn't lean far on a step: the body tilts toward PITCH_MAX degrees (about three quarters of it once
+	 * the front is PITCH_RISE blocks above the back, levelling off beyond) and the hindquarters keep the weight, the body
+	 * sitting BODY_RISE_UP of the way from the hind support's height toward the front's going up (BODY_RISE_DOWN going
+	 * down). The front legs fold up onto a step to make up the rest, and reach down for one.
 	 */
-	static final float PITCH_MAX = 11.0F;
-	static final float BODY_RISE_UP = 0.2F;
-	static final float BODY_RISE_DOWN = 0.1F;
+	static final float PITCH_MAX = 10.0F;
+	static final float PITCH_RISE = 0.7F;
+	/** The tilt then eases this much of the way per tick, so quick bumps at speed rock the body gently. */
+	static final float TILT_EASE = 0.4F;
+	static final float BODY_RISE_UP = 0.3F;
+	static final float BODY_RISE_DOWN = 0.2F;
 	/**
 	 * Leg poses on a step, radians (and model pixels): the front legs fold up and forward onto a step (FORE_TUCK) or
 	 * reach forward and down for one (FORE_REACH); the hind legs drive back as the hindquarters push up (HIND_DRIVE) or
@@ -313,6 +317,8 @@ public final class RideTuning {
 	/** Swimming out of the water, the body follows its path, scaled down. */
 	static final float AIR_PITCH_SCALE = 0.4F;
 	static final float AIR_PITCH_MAX = 12.0F;
+	/** ...eased this much of the way per tick, so bobbing and climbing out of the water tilt the body gently. */
+	static final float WATER_PITCH_EASE = 0.12F;
 	/**
 	 * Jumping (and any time in the air), the body tilts with its flight like a real horse's: nose up on takeoff as the
 	 * front legs lift and the hind legs push (pivoting on the hind hooves), level over the top, nose down to land front

@@ -116,14 +116,15 @@ public final class RideState {
 	float inertiaVelocity;
 	float lastGroundSpeed;
 	/**
-	 * Steps in two beats: world height of the ground carrying the front and the back of the body (on springs), their
-	 * rates, and the ground under each pair of hooves (reused while the horse stands still, so probes only run when it
-	 * moves). NaN until first placed.
+	 * Steps in two beats: world height of the ground carrying the front and the back of the body, eased in two stages
+	 * (the first stage in the *Ease fields), how far the back rose last tick, and the ground under each pair of hooves
+	 * (reused while the horse stands still, so probes only run when it moves). NaN until first placed.
 	 */
 	double fore = Double.NaN;
 	double hind = Double.NaN;
-	float foreVelocity;
-	float hindVelocity;
+	double foreEase;
+	double hindEase;
+	float hindRise;
 	double foreGround;
 	double hindGround;
 	/** In the air from a jump or a fall bigger than a step: the body follows its flight instead of the ground. */

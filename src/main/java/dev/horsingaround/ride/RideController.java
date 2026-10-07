@@ -491,7 +491,7 @@ public final class RideController {
 			// Afloat or wading: ease height changes (climbing out, bobbing) in world space, and raise the nose as the
 			// horse climbs.
 			final float climb = (float) Math.toDegrees(Math.atan2(dy, Math.sqrt(horizontalSq) + 1.0E-3)) * AIR_PITCH_SCALE;
-			s.pitch += (Mth.clamp(climb, -AIR_PITCH_MAX, AIR_PITCH_MAX) - s.pitch) * PITCH_SMOOTHING;
+			s.pitch += (Mth.clamp(climb, -AIR_PITCH_MAX, AIR_PITCH_MAX) - s.pitch) * WATER_PITCH_EASE;
 			final double previous = horse.yo + s.heightOffset;
 			s.heightOffset = (float) (previous + (y - previous) * WATER_HEIGHT_SMOOTHING - y);
 			s.flying = true;
@@ -500,7 +500,7 @@ public final class RideController {
 			// flight, until the horse lands.
 			if (onGround) {
 				s.flying = false;
-			} else if (!s.flying && (dy > 0.0 || s.leapt || groundHeight(horse, horse.getX(), y, horse.getZ()) < y - STEP_REACH)) {
+			} else if (!s.flying && (dy > 0.0 || s.leapt || groundHeight(horse, horse.getX(), y, horse.getZ(), y) < y - STEP_REACH)) {
 				s.flying = true;
 			}
 			if (!s.flying) {
@@ -526,61 +526,67 @@ public final class RideController {
 	}
 
 	/**
-	 * Steps and slopes in two beats: the front and the back of the body each follow the ground under their own hooves
-	 * on a spring, so the forehand goes up (or down) a step first and the hindquarters follow with a push. The body
-	 * keeps its weight on the hindquarters and tilts only a little; the legs make up the rest, folding up onto a step
-	 * or reaching down for one.
+	 * Steps and slopes in two beats: the front and the back of the body each ease toward the ground under their own
+	 * hooves, so the forehand goes up (or down) a step first and the hindquarters follow. Each eases in two stages, so
+	 * the motion starts and stops softly and never overshoots. The body keeps its weight on the hindquarters and tilts
+	 * only a little; the legs make up the rest, folding up onto a step or reaching down for one.
 	 *
 	 * @param landing fall speed when touching down from a jump or a drop (blocks/tick), else 0
 	 */
 	private static void steps(final AbstractHorse horse, final RideState s, final float bodyYaw, final float groundSpeed, final boolean probe, final float landing) {
 		final double y = horse.getY();
+		final float ease = Math.min(STEP_EASE + groundSpeed * STEP_EASE_PER_SPEED, STEP_EASE_MAX);
 		if (probe) {
 			final float yaw = bodyYaw * Mth.DEG_TO_RAD;
 			final double fx = -Mth.sin(yaw);
 			final double fz = Mth.cos(yaw);
-			final double lead = Math.min(groundSpeed * STEP_LEAD_TICKS, STEP_LEAD_MAX);
-			s.foreGround = support(horse, fx, fz, FORE_HOOVES, lead, y);
-			s.hindGround = support(horse, fx, fz, -HIND_HOOVES, lead, y);
+			// Read the ground as far ahead as the easing lags (two stages: 2(1 - e)/e ticks), so each end of the body
+			// moves as its own hooves get to a step, and keeps up on a slope.
+			final double lead = Math.min(groundSpeed * 2.0 * (1.0 - ease) / ease, STEP_LEAD_MAX);
+			s.foreGround = support(horse, fx, fz, FORE_HOOVES + lead, y);
+			s.hindGround = support(horse, fx, fz, lead - HIND_HOOVES, y);
 		}
 		if (landing > 0.0F) {
-			// Touchdown: the body sinks with the impact, then the hooves' springs lift it back.
-			final float dip = Math.min(landing * LANDING_DIP, LANDING_DIP_MAX);
-			s.fore -= dip;
-			s.hind -= dip;
+			// Touchdown: the body sinks with the impact, then eases back up.
+			final float dip = Math.min(landing * LANDING_DIP, LANDING_DIP_MAX) * 2.0F;
+			s.foreEase -= dip;
+			s.hindEase -= dip;
 		}
-		final float stiffness = Mth.lerp(Math.min(groundSpeed / STEP_SPRING_SPEED, 1.0F), STEP_SPRING_WALK, STEP_SPRING_FAST);
-		s.foreVelocity = s.foreVelocity * (1.0F - STEP_DAMPING) + (float) (s.foreGround - s.fore) * stiffness;
-		s.hindVelocity = s.hindVelocity * (1.0F - STEP_DAMPING) + (float) (s.hindGround - s.hind) * stiffness;
-		s.fore += s.foreVelocity;
-		s.hind += s.hindVelocity;
+		s.foreEase += (s.foreGround - s.foreEase) * ease;
+		s.fore += (s.foreEase - s.fore) * ease;
+		s.hindEase += (s.hindGround - s.hindEase) * ease;
+		final double hindBefore = s.hind;
+		s.hind += (s.hindEase - s.hind) * ease;
+		s.hindRise = (float) (s.hind - hindBefore);
 
 		final double rise = s.fore - s.hind;
-		final float tilt = Mth.clamp((float) Math.toDegrees(Math.atan2(rise, FORE_HOOVES + HIND_HOOVES)), -PITCH_MAX, PITCH_MAX);
+		final float tilt = PITCH_MAX * (float) Math.tanh(rise / PITCH_RISE);
 		final double body = s.hind + rise * (rise > 0.0 ? BODY_RISE_UP : BODY_RISE_DOWN);
 		// Crouching for a ledge jump: haunches down, nose up.
 		final float crouch = s.ledgeCrouch;
-		s.pitch = tilt + crouch * LEDGE_CROUCH_PITCH;
+		// The tilt eases once more on its own, so quick bumps at speed rock the body gently instead of jolting it.
+		s.pitch += (tilt + crouch * LEDGE_CROUCH_PITCH - s.pitch) * TILT_EASE;
 		s.heightOffset = (float) (body - y) - crouch * LEDGE_CROUCH;
 		// The legs make up what the tilt doesn't: the front end of the body is below the ground its hooves are going to
 		// (fold up onto it) or above it (reach down for it); the hind legs drive while the hindquarters rise.
-		final double slope = Math.tan(tilt * Mth.DEG_TO_RAD);
+		final double slope = Math.tan((s.pitch - crouch * LEDGE_CROUCH_PITCH) * Mth.DEG_TO_RAD);
 		s.foreLeg = Mth.clamp((float) (s.fore - body - FORE_HOOVES * slope) / LEG_POSE_REACH, -1.0F, 1.0F);
-		s.hindLeg = Mth.clamp((float) (body - HIND_HOOVES * slope - s.hind) / LEG_POSE_REACH + Math.max(s.hindVelocity, 0.0F) / HIND_DRIVE_SPEED, -1.0F, 1.0F);
+		s.hindLeg = Mth.clamp((float) (body - HIND_HOOVES * slope - s.hind) / LEG_POSE_REACH + Math.max(s.hindRise, 0.0F) / HIND_DRIVE_SPEED, -1.0F, 1.0F);
 	}
 
 	/**
-	 * Height of the ground carrying the hooves {@code reach} blocks along the heading (negative behind): the higher of
-	 * where they stand and where they are reaching to, so a step up is reached for early but a step down only taken
-	 * once past the edge. Over anything deeper than a step the hooves stay level with the body.
+	 * Height of the ground carrying a pair of hooves {@code reach} blocks along the heading (negative behind), averaged
+	 * over STEP_FOOTPRINT so a step comes in over a stretch rather than at a point. Ahead of the body the ground may rise
+	 * a step for every block (a slope it will climb); over anything deeper than a step the hooves stay level with it.
 	 */
-	private static double support(final AbstractHorse horse, final double fx, final double fz, final float reach, final double lead, final double y) {
-		final double x = horse.getX() + fx * reach;
-		final double z = horse.getZ() + fz * reach;
-		double ground = groundHeight(horse, x, y, z);
-		if (lead > 0.05) {
-			ground = Math.max(ground, groundHeight(horse, x + fx * lead, y, z + fz * lead));
-		}
+	private static double support(final AbstractHorse horse, final double fx, final double fz, final double reach, final double y) {
+		final double half = STEP_FOOTPRINT * 0.5;
+		final double climb = Math.max(reach - FORE_HOOVES, 0.0);
+		return (supportAt(horse, fx, fz, reach - half, y, climb) + supportAt(horse, fx, fz, reach + half, y, climb)) * 0.5;
+	}
+
+	private static double supportAt(final AbstractHorse horse, final double fx, final double fz, final double reach, final double y, final double climb) {
+		final double ground = groundHeight(horse, horse.getX() + fx * reach, y + climb, horse.getZ() + fz * reach, y);
 		return ground < y - STEP_REACH ? y : ground;
 	}
 
@@ -588,21 +594,22 @@ public final class RideController {
 	private static void carry(final RideState s, final double y) {
 		s.fore = y + s.heightOffset;
 		s.hind = s.fore;
-		s.foreVelocity = 0.0F;
-		s.hindVelocity = 0.0F;
+		s.foreEase = s.fore;
+		s.hindEase = s.fore;
+		s.hindRise = 0.0F;
 	}
 
 	/**
-	 * Top of the ground under (x, z), searching from a step above the hooves to 1.5 below. A wall taller than a step
-	 * reads as flat ground, so the horse does not rear up against it.
+	 * Top of the ground under (x, z), searching from a step above {@code y} down to 1.5 below the hooves (at
+	 * {@code feet}). A wall taller than that reads as level with the hooves, so the horse does not rear up against it.
 	 */
-	private static double groundHeight(final AbstractHorse horse, final double x, final double y, final double z) {
+	private static double groundHeight(final AbstractHorse horse, final double x, final double y, final double z, final double feet) {
 		final BlockPos.MutableBlockPos pos = PROBE;
 		final int bx = Mth.floor(x);
 		final int bz = Mth.floor(z);
 		final double step = y + RIDDEN_STEP_HEIGHT + 0.01;
 		final int top = Mth.floor(step);
-		final int bottom = Mth.floor(y - 1.5);
+		final int bottom = Mth.floor(feet - 1.5);
 		for (int by = top; by >= bottom; by--) {
 			final BlockState state = horse.level().getBlockState(pos.set(bx, by, bz));
 			if (state.isAir()) {
@@ -613,9 +620,9 @@ public final class RideController {
 				continue;
 			}
 			final double surface = by + shape.max(Direction.Axis.Y);
-			return surface > step ? y : surface;
+			return surface > step ? feet : surface;
 		}
-		return y - 1.5;
+		return feet - 1.5;
 	}
 
 	private static void spend(final RideState s, final float amount) {
