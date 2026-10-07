@@ -405,21 +405,26 @@ public final class RideTuning {
 	/**
 	 * Legs in the air (a jump, or a fall bigger than a step): the run cycle eases to a stop (AIR_STRIDE_STOP of the way a
 	 * tick) and the legs take the shape of a jump, blended in by AIR_LEGS_IN and out by AIR_LEGS_OUT a tick. Rising, the
-	 * front legs fold up under the chest (FORE_AIR_TUCK radians forward, lifted FORE_AIR_LIFT model pixels) and the hind
-	 * legs push back (HIND_AIR_PUSH); coming down, the front legs reach forward and down for the ground (FORE_AIR_REACH,
-	 * the leading one FORE_AIR_STAGGER ahead of the other) and the hind legs gather under the body (HIND_AIR_TUCK, lifted
-	 * HIND_AIR_LIFT). Rising or falling is the climb rate over AIR_LEG_RISE blocks/tick, eased by AIR_LEG_PHASE_EASE.
+	 * front legs fold up under the chest (FORE_AIR_TUCK radians forward, drawn up FORE_AIR_LIFT and back FORE_AIR_BACK
+	 * model pixels into it, as vanilla does for rearing) and the hind legs push back (HIND_AIR_PUSH); coming down, the
+	 * front legs reach forward and down for the ground (FORE_AIR_REACH, the leading one FORE_AIR_STAGGER ahead of the
+	 * other) and the hind legs gather under the body (HIND_AIR_TUCK, drawn up HIND_AIR_LIFT). A Minecraft leg is one
+	 * block hung from its top, so every leg is also drawn up by AIR_LEG_HALF_DEPTH x sin of its swing: its top stays
+	 * inside the body instead of a corner showing a gap. Rising or falling is the climb rate over AIR_LEG_RISE
+	 * blocks/tick, eased by AIR_LEG_PHASE_EASE.
 	 */
 	public static final float AIR_STRIDE_STOP = 0.5F;
 	static final float AIR_LEGS_IN = 0.35F;
 	static final float AIR_LEGS_OUT = 0.25F;
-	public static final float FORE_AIR_TUCK = 1.3F;
-	public static final float FORE_AIR_LIFT = 2.0F;
-	public static final float FORE_AIR_REACH = 0.5F;
-	public static final float FORE_AIR_STAGGER = 0.3F;
-	public static final float HIND_AIR_PUSH = 0.7F;
-	public static final float HIND_AIR_TUCK = 0.55F;
-	public static final float HIND_AIR_LIFT = 1.5F;
+	public static final float FORE_AIR_TUCK = 1.0F;
+	public static final float FORE_AIR_LIFT = 4.0F;
+	public static final float FORE_AIR_BACK = 2.0F;
+	public static final float FORE_AIR_REACH = 0.45F;
+	public static final float FORE_AIR_STAGGER = 0.25F;
+	public static final float HIND_AIR_PUSH = 0.55F;
+	public static final float HIND_AIR_TUCK = 0.5F;
+	public static final float HIND_AIR_LIFT = 1.0F;
+	public static final float AIR_LEG_HALF_DEPTH = 2.0F;
 	static final float AIR_LEG_RISE = 0.3F;
 	static final float AIR_LEG_PHASE_EASE = 0.5F;
 	/** Touching down, the body sinks this many blocks per block/tick of fall speed (max LANDING_DIP_MAX), then recovers. */

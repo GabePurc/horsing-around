@@ -1407,7 +1407,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		int frames = 0;
 		int takeoffTick = -1;
 		int landTick = -1;
-		sideCamera(world, 409.5, -59.0, -18.0, 90.0F);
+		sideCamera(world, 405.5, -59.5, -17.5, 90.0F);
 		for (int i = 0; i < 300 && horseZ(ctx) > -26.0; i++) {
 			ctx.waitTick();
 			final Sample s = sample(ctx);

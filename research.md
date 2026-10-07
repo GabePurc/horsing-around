@@ -258,7 +258,10 @@ Translation:
 - In the air (a jump or a fall bigger than a step) the stride eases to a stop and the legs take the jump's shape,
   blended in and out over a few ticks: climbing, front legs folded up and forward, hind legs pushing back; coming
   down, front legs reaching forward and down (one a little ahead) and hind legs gathered under the body. The stride
-  picks up again on landing. Vanilla model and Fresh Animations alike; everyone sees it.
+  picks up again on landing. Vanilla model and Fresh Animations alike; everyone sees it. A Minecraft leg is one block
+  hung from its top, so a leg swung far shows its top corner out of the body, as if detached (play-test, same day):
+  each leg is drawn up into the body as far as its swing tips that corner out, and folded front legs are drawn up and
+  back into the chest (as vanilla does for rearing) rather than swung out level.
 - A 2-block ledge is bounded up: at least ~0.26 blocks a tick forward through the air, taking off about 1.5 blocks
   out so the chest reaches the face near the top of the arc, sailing over the lip and landing a stride onto the top.
 - The rider folds forward in the air (12 degrees, plus following 60% of the horse's nose-up rise) and sits up again

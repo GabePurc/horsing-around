@@ -31,19 +31,23 @@ public final class AirLegs {
 		final float push = smoothstep((rise - 0.1F) / 0.6F);
 		final float fore = -Mth.lerp(tuck, FORE_AIR_REACH, FORE_AIR_TUCK);
 		final float stagger = FORE_AIR_STAGGER * (1.0F - tuck) * 0.5F;
-		final float foreLift = FORE_AIR_LIFT * tuck;
 		final float hind = Mth.lerp(push, -HIND_AIR_TUCK, HIND_AIR_PUSH);
 		final float hindLift = HIND_AIR_LIFT * (1.0F - push);
-		leg(leftFront, air, fore - stagger, foreLift);
-		leg(rightFront, air, fore + stagger, foreLift);
-		leg(leftHind, air, hind, hindLift);
-		leg(rightHind, air, hind, hindLift);
+		leg(leftFront, air, fore - stagger, FORE_AIR_LIFT * tuck, FORE_AIR_BACK * tuck);
+		leg(rightFront, air, fore + stagger, FORE_AIR_LIFT * tuck, FORE_AIR_BACK * tuck);
+		leg(leftHind, air, hind, hindLift, 0.0F);
+		leg(rightHind, air, hind, hindLift, 0.0F);
 	}
 
-	private static void leg(final @Nullable ModelPart leg, final float air, final float xRot, final float lift) {
+	/**
+	 * Swings a leg to {@code xRot} and draws it {@code lift} up and {@code back} toward the tail into the body (model
+	 * pixels), plus as far up as the swing tips its top's corner out of the body, so no gap shows where it hangs.
+	 */
+	private static void leg(final @Nullable ModelPart leg, final float air, final float xRot, final float lift, final float back) {
 		if (leg != null) {
 			leg.xRot = Mth.lerp(air, leg.xRot, xRot);
-			leg.y -= lift * air;
+			leg.y -= (lift + AIR_LEG_HALF_DEPTH * Math.abs(Mth.sin(xRot))) * air;
+			leg.z += back * air;
 		}
 	}
 

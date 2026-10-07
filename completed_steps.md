@@ -133,7 +133,7 @@
 
 ## Phase 1l: jumps that look like jumps (user request, 2026-10-07)
 
-- [x] Legs in the air: the stride eases to a stop in a jump or a bigger fall and the legs take the jump's shape (front legs folded up climbing and reaching forward and down for the ground coming down, hind legs pushing off then gathered under), then the stride picks up on landing; vanilla model and Fresh Animations
+- [x] Legs in the air: the stride eases to a stop in a jump or a bigger fall and the legs take the jump's shape (front legs folded up climbing and reaching forward and down for the ground coming down, hind legs pushing off then gathered under), then the stride picks up on landing; vanilla model and Fresh Animations; legs drawn up into the body as far as their swing would show a gap at the hip or shoulder, folded front legs drawn up and back into the chest (play-test fix: they looked detached)
 - [x] 2-block ledges bounded up in an arc: at least ~0.26 blocks/tick forward in the air, taking off ~1.4 blocks out (was 0.5) so the chest meets the edge near the top of the arc, carrying 1.4 blocks forward on the way up (was 0.6) and landing a stride onto the top
 - [x] Rider jumping position: folds forward over the neck in the air (with the horse's rise), sits up for the landing
 
