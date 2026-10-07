@@ -403,30 +403,34 @@ public final class RideTuning {
 	/** ...but by no more than this per tick, so a lag built up climbing out of water eases out instead of snapping. */
 	static final float AIR_OFFSET_MAX_STEP = 0.05F;
 	/**
-	 * Legs in the air (a jump, or a fall bigger than a step): the run cycle eases to a stop (AIR_STRIDE_STOP of the way a
-	 * tick) and the legs take the shape of a jump, blended in by AIR_LEGS_IN and out by AIR_LEGS_OUT a tick. Rising, the
-	 * front legs fold up under the chest (FORE_AIR_TUCK radians forward, drawn up FORE_AIR_LIFT and back FORE_AIR_BACK
-	 * model pixels into it, as vanilla does for rearing) and the hind legs push back (HIND_AIR_PUSH); coming down, the
-	 * front legs reach forward and down for the ground (FORE_AIR_REACH, the leading one FORE_AIR_STAGGER ahead of the
-	 * other) and the hind legs gather under the body (HIND_AIR_TUCK, drawn up HIND_AIR_LIFT). A Minecraft leg is one
-	 * block hung from its top, so every leg is also drawn up by AIR_LEG_HALF_DEPTH x sin of its swing: its top stays
+	 * Legs in the air (a jump, or a fall bigger than a step): the run cycle winds down (AIR_STRIDE_STOP of the way a tick)
+	 * and the legs ease into the shape of a jump (AIR_LEGS_IN a tick, eased in and out) and back into the stride on landing
+	 * (AIR_LEGS_OUT a tick). Through the air they move in one floaty sweep: rising, the
+	 * front legs fold up under the chest (FORE_AIR_TUCK radians forward, drawn up FORE_AIR_LIFT model pixels) and the
+	 * hind legs push off behind (HIND_AIR_PUSH); coming down, the front legs reach forward and down for the ground
+	 * (FORE_AIR_REACH) and the hind legs gather under the hindquarters (HIND_AIR_TUCK). Each pair is staggered
+	 * (FORE_AIR_STAGGER, HIND_AIR_STAGGER: one leg ahead of the other) so both legs read, and kept under the chest and
+	 * the hindquarters, nudged forward FORE_AIR_FORWARD and HIND_AIR_FORWARD pixels against the swing. A Minecraft leg is
+	 * one block hung from its top, so every leg is also drawn up by AIR_LEG_HALF_DEPTH x sin of its swing: its top stays
 	 * inside the body instead of a corner showing a gap. Rising or falling is the climb rate over AIR_LEG_RISE
-	 * blocks/tick, eased by AIR_LEG_PHASE_EASE.
+	 * blocks/tick, eased in two stages by AIR_LEG_PHASE_EASE so the legs move smoothly from one shape to the next over the
+	 * whole flight rather than snapping over at the top.
 	 */
-	public static final float AIR_STRIDE_STOP = 0.5F;
-	static final float AIR_LEGS_IN = 0.35F;
+	public static final float AIR_STRIDE_STOP = 0.3F;
+	static final float AIR_LEGS_IN = 0.2F;
 	static final float AIR_LEGS_OUT = 0.25F;
-	public static final float FORE_AIR_TUCK = 1.0F;
-	public static final float FORE_AIR_LIFT = 4.0F;
-	public static final float FORE_AIR_BACK = 2.0F;
-	public static final float FORE_AIR_REACH = 0.45F;
-	public static final float FORE_AIR_STAGGER = 0.25F;
-	public static final float HIND_AIR_PUSH = 0.55F;
-	public static final float HIND_AIR_TUCK = 0.5F;
-	public static final float HIND_AIR_LIFT = 1.0F;
+	public static final float FORE_AIR_TUCK = 0.75F;
+	public static final float FORE_AIR_LIFT = 2.5F;
+	public static final float FORE_AIR_REACH = 0.4F;
+	public static final float FORE_AIR_STAGGER = 0.3F;
+	public static final float FORE_AIR_FORWARD = 1.0F;
+	public static final float HIND_AIR_PUSH = 0.3F;
+	public static final float HIND_AIR_TUCK = 0.25F;
+	public static final float HIND_AIR_STAGGER = 0.25F;
+	public static final float HIND_AIR_FORWARD = 1.5F;
 	public static final float AIR_LEG_HALF_DEPTH = 2.0F;
-	static final float AIR_LEG_RISE = 0.3F;
-	static final float AIR_LEG_PHASE_EASE = 0.5F;
+	static final float AIR_LEG_RISE = 0.45F;
+	static final float AIR_LEG_PHASE_EASE = 0.35F;
 	/** Touching down, the body sinks this many blocks per block/tick of fall speed (max LANDING_DIP_MAX), then recovers. */
 	static final float LANDING_DIP = 0.18F;
 	static final float LANDING_DIP_MAX = 0.2F;

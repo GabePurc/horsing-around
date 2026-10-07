@@ -98,6 +98,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 				standingJump(ctx);
 				dismount(ctx, input);
 			}
+			if (sections.contains("legs")) {
+				// Only on request: close side shots of the legs in a jump, for judging the pose.
+				jumpLegShots(ctx, input, world);
+			}
 			if (sections.isEmpty() || sections.contains("cuts")) {
 				hardCuts(ctx, input, world);
 			}
@@ -280,6 +284,11 @@ public final class RideFeelTest implements FabricClientGameTest {
 		float noseDown = 0.0F;
 		float airLegs = 0.0F;
 		float slowestStride = Float.MAX_VALUE;
+		float previousFore = Float.NaN;
+		float previousHind = Float.NaN;
+		float foreStep = 0.0F;
+		float hindStep = 0.0F;
+		int previousTick = horseTick(ctx);
 		boolean tucked = false;
 		boolean reaching = false;
 		boolean risingShot = false;
@@ -292,6 +301,17 @@ public final class RideFeelTest implements FabricClientGameTest {
 			final float legs = ride(ctx, r -> r.airLegs(1.0F));
 			final float rise = ride(ctx, r -> r.airRise(1.0F));
 			airLegs = Math.max(airLegs, legs);
+			// How far the legs' jump shape moves a game tick while they are in it (screenshots can skip ticks).
+			final int tick = horseTick(ctx);
+			final float fore = dev.horsingaround.client.render.AirLegs.fore(rise);
+			final float hind = dev.horsingaround.client.render.AirLegs.hind(rise);
+			if (legs > 0.9F && !Float.isNaN(previousFore)) {
+				foreStep = Math.max(foreStep, Math.abs(fore - previousFore) / Math.max(tick - previousTick, 1));
+				hindStep = Math.max(hindStep, Math.abs(hind - previousHind) / Math.max(tick - previousTick, 1));
+			}
+			previousFore = legs > 0.9F ? fore : Float.NaN;
+			previousHind = hind;
+			previousTick = tick;
 			if (legs > 0.9F) {
 				slowestStride = Math.min(slowestStride, s.limbSpeed);
 				tucked |= rise > 0.4F;
@@ -326,6 +346,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("in the air the legs take the jump's shape (0..1)", airLegs, 0.95, 1.0);
 		check("the gallop stride stops in the air (leg-animation speed)", slowestStride, 0.0, 0.3);
 		check("front legs fold up rising, then reach for the ground coming down", tucked && reaching);
+		check("smooth and floaty in the air: front legs move at most (radians a tick)", foreStep, 0.0, 0.1);
+		check("...and the hind legs (radians a tick)", hindStep, 0.0, 0.1);
 		double landing = 0.0;
 		for (int i = 0; i < 6; i++) {
 			ctx.waitTick();
@@ -1568,6 +1590,41 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("never touches any of them", !touched);
 		check("threads them without swinging wide (blocks off the line)", maxSide, 0.5, 2.5);
 		check("keeps its pace (slowest / gallop)", slowest / GALLOP_SPEED, 0.6, 1.1);
+		stop(ctx, input);
+	}
+
+	/**
+	 * Close side shots of the legs through a jump up a 2-block ledge and a running jump on the flat, from a fixed camera
+	 * (horse only: the game never draws the local player for another camera). For judging the pose; no checks.
+	 */
+	private void jumpLegShots(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Jump leg shots");
+		lane(ctx, input, world, 1600.5, -60, "leg_shots_ledge", "fill 1595 -60 -40 1605 -59 -20 minecraft:stone");
+		sideCamera(world, 1605.5, -58.5, -19.0, 90.0F);
+		input.holdKey(o -> o.keyUp);
+		int frames = 0;
+		for (int i = 0; i < 300 && horseZ(ctx) > -22.0; i++) {
+			ctx.waitTick();
+			if (ride(ctx, r -> r.airLegs(1.0F)) > 0.3F && frames < 10) {
+				cameraShot(ctx, String.format(Locale.ROOT, "20_legs_ledge_%02d", frames++));
+			}
+		}
+		stop(ctx, input);
+		lane(ctx, input, world, 1640.5, -60, "leg_shots_run");
+		sideCamera(world, 1645.5, -58.8, -25.0, 90.0F);
+		gallopNorth(ctx, input);
+		frames = 0;
+		boolean jumped = false;
+		for (int i = 0; i < 300 && horseZ(ctx) > -40.0; i++) {
+			ctx.waitTick();
+			if (!jumped && horseZ(ctx) < -20.5) {
+				input.pressKey(o -> o.keyJump);
+				jumped = true;
+			}
+			if (ride(ctx, r -> r.airLegs(1.0F)) > 0.3F && frames < 10) {
+				cameraShot(ctx, String.format(Locale.ROOT, "20_legs_run_%02d", frames++));
+			}
+		}
 		stop(ctx, input);
 	}
 

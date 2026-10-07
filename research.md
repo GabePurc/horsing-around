@@ -260,8 +260,12 @@ Translation:
   down, front legs reaching forward and down (one a little ahead) and hind legs gathered under the body. The stride
   picks up again on landing. Vanilla model and Fresh Animations alike; everyone sees it. A Minecraft leg is one block
   hung from its top, so a leg swung far shows its top corner out of the body, as if detached (play-test, same day):
-  each leg is drawn up into the body as far as its swing tips that corner out, and folded front legs are drawn up and
-  back into the chest (as vanilla does for rearing) rather than swung out level.
+  each leg is drawn up into the body as far as its swing tips that corner out, and the swings are kept modest. Then
+  (same day): legs sat too far back and too close together, and the pose jerked in and out: the front legs are kept
+  under the chest and the hind legs under the hindquarters (nudged forward against the swing), each pair is staggered
+  so both legs read, and in the air the legs move in one slow sweep across the whole flight (folded just after takeoff,
+  reaching by the landing; at most ~4-5 degrees a tick), eased into from the stride over ~5 ticks with the stride winding
+  down gently; landing hands back to the stride a little quicker.
 - A 2-block ledge is bounded up: at least ~0.26 blocks a tick forward through the air, taking off about 1.5 blocks
   out so the chest reaches the face near the top of the arc, sailing over the lip and landing a stride onto the top.
 - The rider folds forward in the air (12 degrees, plus following 60% of the horse's nose-up rise) and sits up again

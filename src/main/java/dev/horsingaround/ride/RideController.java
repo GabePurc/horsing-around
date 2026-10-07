@@ -678,7 +678,8 @@ public final class RideController {
 		s.airLegsO = s.airLegs;
 		s.airRiseO = s.airRise;
 		s.airLegs += Mth.clamp((s.inAir ? 1.0F : 0.0F) - s.airLegs, -AIR_LEGS_OUT, AIR_LEGS_IN);
-		s.airRise += (Mth.clamp((float) dy / AIR_LEG_RISE, -1.0F, 1.0F) - s.airRise) * AIR_LEG_PHASE_EASE;
+		s.airRiseEase += (Mth.clamp((float) dy / AIR_LEG_RISE, -1.0F, 1.0F) - s.airRiseEase) * AIR_LEG_PHASE_EASE;
+		s.airRise += (s.airRiseEase - s.airRise) * AIR_LEG_PHASE_EASE;
 		s.wasOnGround = onGround;
 	}
 

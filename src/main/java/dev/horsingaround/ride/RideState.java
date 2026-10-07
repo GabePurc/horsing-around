@@ -169,6 +169,7 @@ public final class RideState {
 	float airLegsO;
 	float airRise;
 	float airRiseO;
+	float airRiseEase;
 	/** Leg poses for steps, -1..1: front legs folded up (+) or reaching down (-); hind legs driving (+) or gathered (-). */
 	float foreLeg;
 	float foreLegO;
