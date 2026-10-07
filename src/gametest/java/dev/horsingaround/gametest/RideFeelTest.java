@@ -20,11 +20,14 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
+import net.minecraft.client.gui.components.debug.DebugScreenEntries;
+import net.minecraft.client.gui.components.debug.DebugScreenEntryStatus;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.server.packs.repository.PackRepository;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
@@ -79,25 +82,38 @@ public final class RideFeelTest implements FabricClientGameTest {
 			ctx.waitTicks(10);
 			ctx.runOnClient(mc -> mc.gui.hud.getChat().clearMessages(false));
 
-			mounting(ctx);
-			freeLook(ctx, input);
-			walk(ctx, input);
-			gallop(ctx, input);
-			turn(ctx, input);
-			runningJump(ctx, input);
-			exhaustion(ctx, input);
-			coastStop(ctx, input);
-			brakeAndReverse(ctx, input);
-			freeAim(ctx, input);
-			standingJump(ctx);
-			dismount(ctx, input);
-			stairs(ctx, input, world);
-			forest(ctx, input, world);
-			downhill(ctx, input, world);
-			trample(ctx, input, world);
-			water(ctx, input, world);
-			pickingItsWay(ctx, input, world);
-			horseSettings(ctx);
+			// -Psections=<names> runs only some sections (core, stairs, picking, steps); all of them by default.
+			final String sections = System.getProperty("horsingaround.sections", "");
+			if (sections.isEmpty() || sections.contains("core")) {
+				mounting(ctx);
+				freeLook(ctx, input);
+				walk(ctx, input);
+				gallop(ctx, input);
+				turn(ctx, input);
+				runningJump(ctx, input);
+				exhaustion(ctx, input);
+				coastStop(ctx, input);
+				brakeAndReverse(ctx, input);
+				freeAim(ctx, input);
+				standingJump(ctx);
+				dismount(ctx, input);
+			}
+			if (sections.isEmpty() || sections.contains("stairs")) {
+				stairs(ctx, input, world);
+				forest(ctx, input, world);
+				downhill(ctx, input, world);
+				trample(ctx, input, world);
+				water(ctx, input, world);
+			}
+			if (sections.isEmpty() || sections.contains("picking")) {
+				pickingItsWay(ctx, input, world);
+			}
+			if (sections.isEmpty() || sections.contains("steps")) {
+				stepsAndFooting(ctx, input, world);
+			}
+			if (sections.isEmpty() || sections.contains("core")) {
+				horseSettings(ctx);
+			}
 		} finally {
 			writeReport();
 		}
@@ -495,7 +511,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("climbed the staircase (blocks)", sample(ctx).y - startY, 3.9, 4.1);
 		check("physics still steps a block in one tick", maxPhysicsStep, 0.9, 1.1);
 		check("rendered horse climbs smoothly (max rise per tick)", maxVisualStep, 0.05, 0.4);
-		check("nose pitches up while climbing (deg)", maxPitch, 8.0, 15.5);
+		check("nose pitches up while climbing, but not far (deg)", maxPitch, 6.0, 11.5);
 		ticksUntilStopped(ctx, 60);
 		ctx.waitTicks(10);
 		check("level again on the plateau (pitch deg)", Math.abs(sample(ctx).pitch), 0.0, 2.0);
@@ -1181,6 +1197,263 @@ public final class RideFeelTest implements FabricClientGameTest {
 		stop(ctx, input);
 	}
 
+	private void stepsAndFooting(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		stepInTwoBeats(ctx, input, world, 800, true, false);
+		stepInTwoBeats(ctx, input, world, 810, true, true);
+		stepInTwoBeats(ctx, input, world, 820, false, false);
+		ditch(ctx, input, world, 840, true);
+		ditch(ctx, input, world, 850, false);
+		trunkCorner(ctx, input, world, 860, false);
+		trunkCorner(ctx, input, world, 870, true);
+		leafyLedge(ctx, input, world);
+	}
+
+	/**
+	 * A single 1-block step up (or down) at a walk or trot: the forehand goes first with the front legs folding up onto
+	 * it (or reaching down), the body tilts only a little, then the hindquarters follow with a push. Side shots with
+	 * hitboxes and the steering overlay on, every tick or two through the step.
+	 */
+	private void stepInTwoBeats(
+		final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final int x, final boolean up, final boolean trot
+	) {
+		final String name = (up ? "up" : "down") + "_" + (trot ? "trot" : "walk");
+		section((up ? "Up" : "Down") + " a 1-block step at a " + (trot ? "trot" : "walk") + ", in two beats");
+		// Riding north from z=0.5, the step's edge is at z=-9.
+		final double low = up ? -60.0 : -59.0;
+		final double step = up ? 1.0 : -1.0;
+		lane(ctx, input, world, x + 0.5, low, "step_test_" + x,
+			up ? String.format(Locale.ROOT, "fill %d -60 -30 %d -60 -10 minecraft:stone", x - 3, x + 3)
+				: String.format(Locale.ROOT, "fill %d -60 -9 %d -60 12 minecraft:stone", x - 3, x + 3));
+		sideCamera(world, x + 4.0, low - 0.6, -9.0, 90.0F);
+		input.holdKey(o -> o.keyUp);
+		if (trot) {
+			ctx.waitTicks(2);
+			input.pressKey(o -> o.keySprint);
+		}
+		hitboxes(ctx, true);
+		int foreHalf = -1;
+		int hindHalf = -1;
+		float maxTilt = 0.0F;
+		double maxFore = 0.0;
+		double maxHind = 0.0;
+		double forehandFirst = Double.NaN;
+		double maxVisualStep = 0.0;
+		int shots = 0;
+		Sample previous = sample(ctx);
+		int previousTick = ctx.computeOnClient(mc -> mc.player.getVehicle().tickCount);
+		for (int i = 0; i < 300 && horseZ(ctx) > -14.0; i++) {
+			ctx.waitTick();
+			final int tick = ctx.computeOnClient(mc -> mc.player.getVehicle().tickCount);
+			final double[] legs = ctx.computeOnClient(mc -> {
+				final RideState r = ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride();
+				return new double[] {r.debugFore(), r.debugHind(), r.foreLeg(1.0F), r.hindLeg(1.0F)};
+			});
+			final Sample s = sample(ctx);
+			// Share of the step the front and the back of the body have made.
+			final double fore = (legs[0] - low) / step;
+			final double hind = (legs[1] - low) / step;
+			if (foreHalf < 0 && fore >= 0.5) {
+				foreHalf = tick;
+			}
+			if (hindHalf < 0 && hind >= 0.5) {
+				hindHalf = tick;
+			}
+			if (Double.isNaN(forehandFirst) && fore > 0.9 && hind < 0.1) {
+				forehandFirst = (s.visualY - low) / step;
+			}
+			if (fore > 0.02 && (hindHalf < 0 || tick <= hindHalf + 8)) {
+				log("    tick %d: physics %.2f body %.3f front %.3f back %.3f tilt %.1f legs %.2f / %.2f",
+					tick, (s.y - low) / step, (s.visualY - low) / step, fore, hind, s.pitch, legs[2], legs[3]);
+			}
+			maxTilt = Math.max(maxTilt, (float) (s.pitch * step));
+			maxFore = Math.max(maxFore, legs[2] * step);
+			maxHind = Math.max(maxHind, legs[3]);
+			// (The test thread now and then sees two ticks at once.)
+			if (tick > previousTick) {
+				maxVisualStep = Math.max(maxVisualStep, Math.abs(s.visualY - previous.visualY) / (tick - previousTick));
+			}
+			previous = s;
+			previousTick = tick;
+			if (fore > 0.02 && (hindHalf < 0 || tick <= hindHalf + 4) && shots < 14) {
+				cameraShot(ctx, String.format(Locale.ROOT, "15_%s_%02d", name, shots++));
+			}
+		}
+		hitboxes(ctx, false);
+		input.releaseKey(o -> o.keyUp);
+		final String ended = ctx.computeOnClient(mc -> String.format(Locale.ROOT, "%.2f %.2f %.2f, camera %s, gait %d",
+			mc.player.getVehicle().getX(), mc.player.getVehicle().getY(), mc.player.getVehicle().getZ(), mc.getCameraEntity().getType().toShortString(),
+			((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().gait));
+		log("  ended at %s", ended);
+		ticksUntilStopped(ctx, 60);
+		ctx.waitTicks(10);
+		check("on the other level (blocks)", (sample(ctx).y - low) * step, 0.95, 1.05);
+		check("the forehand goes first (ticks before the hindquarters)", hindHalf - foreHalf, trot ? 2 : 4, trot ? 8 : 12);
+		check("leans no more than a real horse (max tilt, deg)", maxTilt, 6.0, 11.5);
+		if (!trot) {
+			check("forehand " + (up ? "up" : "down") + ", hindquarters not yet: body part way (share of the step)", forehandFirst, 0.05, 0.4);
+		}
+		check(up ? "front legs fold up onto the step" : "front legs reach down for it", maxFore, 0.6, 1.0);
+		if (up) {
+			check("hind legs drive the hindquarters up", maxHind, 0.6, 1.0);
+		}
+		check("smooth (max rendered height change per tick, blocks)", maxVisualStep, 0.03, 0.4);
+		check("level again after (pitch deg)", Math.abs(sample(ctx).pitch), 0.0, 1.5);
+	}
+
+	/**
+	 * Across a 1-block-deep ditch two blocks wide: off the near edge the horse is in the air when it meets the far side
+	 * (a 1-block rise). It gets a hoof on it and carries on, instead of stopping dead.
+	 */
+	private void ditch(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final int x, final boolean gallop) {
+		section((gallop ? "Galloping" : "Trotting") + " across a 1-block-deep ditch");
+		lane(ctx, input, world, x + 0.5, -60, "ditch_test_" + x, String.format(Locale.ROOT, "fill %d -61 -40 %d -61 -39 minecraft:air", x - 3, x + 3));
+		if (gallop) {
+			gallopNorth(ctx, input);
+		} else {
+			input.holdKey(o -> o.keyUp);
+			ctx.waitTicks(2);
+			input.pressKey(o -> o.keySprint);
+		}
+		sideCamera(world, x + 6.5, -60, -40.0, 90.0F);
+		hitboxes(ctx, true);
+		final int gait = gallop ? RideTuning.GALLOP : RideTuning.TROT;
+		double paceBefore = 0.0;
+		double slowest = Double.MAX_VALUE;
+		double ridePaceBefore = 0.0;
+		double slowestRide = Double.MAX_VALUE;
+		int shots = 0;
+		for (int i = 0; i < 400 && horseZ(ctx) > -48.0; i++) {
+			ctx.waitTick();
+			final double z = horseZ(ctx);
+			final Sample s = sample(ctx);
+			final double ridePace = ride(ctx, r -> (double) r.speed);
+			if (z > -37.5) {
+				paceBefore = s.speed;
+				ridePaceBefore = ridePace;
+			} else if (z > -44.0) {
+				slowest = Math.min(slowest, s.speed);
+				slowestRide = Math.min(slowestRide, ridePace);
+				if (shots < 6) {
+					cameraShot(ctx, String.format(Locale.ROOT, "16_ditch_%s_%02d", gallop ? "gallop" : "trot", shots++));
+				}
+			}
+		}
+		hitboxes(ctx, false);
+		check("out the far side (z beyond -47)", horseZ(ctx) < -47.0);
+		check("on the far side's level, not in the ditch (y)", sample(ctx).y, -60.05, -59.95);
+		check("no crash: still at the same gait", sample(ctx).gait == gait);
+		check("keeps its pace (lowest ride speed / before)", slowestRide / ridePaceBefore, 0.9, 1.01);
+		check("never stopped against the far side (slowest ground speed / before)", slowest / paceBefore, 0.6, 1.2);
+		stop(ctx, input);
+	}
+
+	/**
+	 * A tree trunk catching the edge of the body. At a walk (where the horse leaves the steering to the rider) it slips
+	 * past the corner instead of stopping dead; at a gallop it goes round, or slips past, but never crashes.
+	 */
+	private void trunkCorner(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final int x, final boolean gallop) {
+		section((gallop ? "Galloping" : "Walking") + " past a trunk that catches the shoulder");
+		// The box (0.9 wide, centred 0.35 short of the trunk's side) overlaps the trunk by 0.1: too little for the
+		// look-ahead's flank lines (just inside the body's edge) to see.
+		final double lane = x + 0.65;
+		lane(ctx, input, world, lane, -60, "corner_test_" + x, String.format(Locale.ROOT, "fill %d -60 -30 %d -56 -30 minecraft:oak_log", x + 1, x + 1));
+		final int slips = ride(ctx, r -> r.slips);
+		if (gallop) {
+			gallopNorth(ctx, input);
+		} else {
+			input.holdKey(o -> o.keyUp);
+		}
+		sideCamera(world, x - 4.5, -60, -30.0, -90.0F);
+		hitboxes(ctx, true);
+		double slowestRide = Double.MAX_VALUE;
+		double ridePaceBefore = 0.0;
+		int shots = 0;
+		for (int i = 0; i < 400 && horseZ(ctx) > -36.0; i++) {
+			ctx.waitTick();
+			final double z = horseZ(ctx);
+			final double ridePace = ride(ctx, r -> (double) r.speed);
+			if (z > -28.0) {
+				ridePaceBefore = ridePace;
+			} else {
+				slowestRide = Math.min(slowestRide, ridePace);
+			}
+			if (z < -28.3 && shots < 4) {
+				cameraShot(ctx, String.format(Locale.ROOT, "17_trunk_%s_%d", gallop ? "gallop" : "walk", shots++));
+			}
+		}
+		hitboxes(ctx, false);
+		check("got past the trunk (z beyond -35)", horseZ(ctx) < -35.0);
+		if (!gallop) {
+			check("slipped past its corner", ride(ctx, r -> r.slips) - slips, 1, 3);
+			check("still on its line (blocks off it)", Math.abs(horseX(ctx) - lane), 0.0, 0.4);
+		}
+		check("no crash: keeps its pace (lowest ride speed / before)", slowestRide / ridePaceBefore, 0.9, 1.2);
+		check("no crash: still at the same gait", sample(ctx).gait == (gallop ? RideTuning.GALLOP : RideTuning.WALK));
+		stop(ctx, input);
+	}
+
+	/** A 2-block ledge with leaves on top of it (a bush on the bank): the horse still jumps up, through the leaves. */
+	private void leafyLedge(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Walking at a 2-block ledge with leaves on top");
+		lane(ctx, input, world, 890.5, -60, "leafy_ledge_test",
+			"fill 885 -60 -40 895 -59 -20 minecraft:stone",
+			"fill 885 -58 -40 895 -57 -20 minecraft:oak_leaves[persistent=true]");
+		final int climbs = ride(ctx, s -> s.ledgeClimbs);
+		sideCamera(world, 896.5, -60, -19.5, 90.0F);
+		input.holdKey(o -> o.keyUp);
+		hitboxes(ctx, true);
+		boolean shot = false;
+		for (int i = 0; i < 300 && horseZ(ctx) > -25.0; i++) {
+			ctx.waitTick();
+			if (!shot && sample(ctx).y > -59.0) {
+				cameraShot(ctx, "18_leafy_ledge");
+				shot = true;
+			}
+		}
+		hitboxes(ctx, false);
+		check("jumps up through the leaves (blocks gained)", sample(ctx).y - -60.0, 1.95, 2.05);
+		check("one ledge jump", ride(ctx, r -> r.ledgeClimbs) - climbs, 1, 1);
+		stop(ctx, input);
+	}
+
+	/** Entity hitboxes (F3+B), which also turn on the steering overlay. */
+	private static void hitboxes(final ClientGameTestContext ctx, final boolean on) {
+		ctx.runOnClient(mc -> mc.debugEntries.setStatus(DebugScreenEntries.ENTITY_HITBOXES, on ? DebugScreenEntryStatus.ALWAYS_ON : DebugScreenEntryStatus.NEVER));
+	}
+
+	/**
+	 * Puts a fixed camera (an invisible armour stand) beside a lane, at (x, y, z) looking along yaw and a little down,
+	 * for {@link #cameraShot}.
+	 */
+	private static void sideCamera(final TestSingleplayerContext world, final double x, final double y, final double z, final float yaw) {
+		final TestServerContext server = world.getServer();
+		server.runCommand("kill @e[type=minecraft:armor_stand,tag=test_camera]");
+		server.runCommand(String.format(Locale.ROOT,
+			"summon minecraft:armor_stand %.2f %.2f %.2f {Invisible:1b,NoGravity:1b,Invulnerable:1b,Tags:[\"test_camera\"],Rotation:[%.1ff,6f]}", x, y, z, yaw));
+	}
+
+	/** A shot from the lane's fixed side camera, without the HUD; no tick passes. */
+	private void cameraShot(final ClientGameTestContext ctx, final String name) {
+		final boolean found = ctx.computeOnClient(mc -> {
+			final var stands = mc.level.getEntitiesOfClass(ArmorStand.class, mc.player.getBoundingBox().inflate(16.0), ArmorStand::isInvisible);
+			if (stands.isEmpty()) {
+				return false;
+			}
+			mc.setCameraEntity(stands.get(0));
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.gui.hud.toggle();
+			return true;
+		});
+		screenshot(ctx, name);
+		if (found) {
+			ctx.runOnClient(mc -> {
+				mc.gui.hud.toggle();
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				mc.setCameraEntity(mc.player);
+			});
+		}
+	}
+
 	/** Builds a lane with the given commands, then seats the player on a fresh horse at (x, y, 0.5) facing north. */
 	private void lane(
 		final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final double x, final double y, final String tag,
@@ -1195,6 +1468,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 		for (final String command : build) {
 			server.runCommand(command);
 		}
+		// Let the client have the new blocks before riding at them.
+		ctx.waitTicks(2);
+		world.getConnection().waitForChunksRender();
 		server.runCommand(String.format(Locale.ROOT, "tp @p %.2f %.2f 0.5 180 10", x, y));
 		server.runCommand(String.format(Locale.ROOT, "summon minecraft:horse %.2f %.2f 0.5 {Tame:1b,Variant:1,Rotation:[180f,0f],"
 			+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
@@ -1331,9 +1607,13 @@ public final class RideFeelTest implements FabricClientGameTest {
 	 * reacts to the camera move.
 	 */
 	private void sideScreenshot(final ClientGameTestContext ctx, final String name) {
+		sideScreenshot(ctx, name, 5.0F);
+	}
+
+	private void sideScreenshot(final ClientGameTestContext ctx, final String name, final float viewPitch) {
 		final float yaw = ctx.computeOnClient(mc -> mc.player.getYRot());
 		final float pitch = ctx.computeOnClient(mc -> mc.player.getXRot());
-		ctx.runOnClient(mc -> setView(mc.player, yaw + 90.0F, 5.0F));
+		ctx.runOnClient(mc -> setView(mc.player, yaw + 90.0F, viewPitch));
 		screenshot(ctx, name);
 		ctx.runOnClient(mc -> setView(mc.player, yaw, pitch));
 	}

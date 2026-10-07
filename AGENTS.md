@@ -28,12 +28,14 @@ Builds must work on any machine: never commit machine-specific paths. Gradle pic
 Release-readiness work (Modrinth, compatibility with other mods) is planned in `development_plan.md`, Release.
 
 Verify every gameplay change with `./gradlew runClientGameTest`, which runs two client tests (pick one with
-`-Ptests=ride` or `-Ptests=terrain`, one terrain scenario with `-Pscenario=<part of its name>`):
+`-Ptests=ride` or `-Ptests=terrain`, one terrain scenario with `-Pscenario=<part of its name>`, some ride sections with
+`-Psections=core,stairs,picking,steps`):
 `RideFeelTest` rides a horse with simulated keys through every mechanic in hand-built lanes and writes
 `build/run/clientGameTest/horsingaround-ride-report.txt`; `TerrainRideTest` rides procedurally built natural terrain
 (forests, mountains, hills, hazards, river, badlands) like a player would and writes
 `horsingaround-terrain-report.txt` with traces of any crash, hurt or dead end. Screenshots land in
-`build/run/clientGameTest/screenshots/` (view them). Don't test only perfect cases: generated worlds are messy. When
+`build/run/clientGameTest/screenshots/` (view them; with hitboxes on, F3+B, the ridden horse also draws its steering
+and step state). Don't test only perfect cases: generated worlds are messy. When
 feel numbers change on purpose, update the test targets too.
 Dev runs load Entity Model Features, Entity Texture Features and the Fresh Animations pack (the user's target setup).
 

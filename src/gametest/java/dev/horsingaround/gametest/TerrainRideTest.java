@@ -54,7 +54,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 	private static final int SIZE = 64;
 	private static final double SPEED_ATTRIBUTE = 0.225;
 	private static final double GALLOP_SPEED = SPEED_ATTRIBUTE * RideTuning.TERMINAL_VELOCITY_FACTOR * RideTuning.GAIT_SPEED[RideTuning.GALLOP];
-	/** Running into something faster than this (a slow trot) counts as a crash. */
+	/** Running head-on into something (more than CRASH_BLOCKED of the travel stopped) faster than this (a slow trot) is a crash. */
 	private static final double CRASH_SPEED = SPEED_ATTRIBUTE * RideTuning.TERMINAL_VELOCITY_FACTOR * 0.45;
 	private static final int MAX_TICKS = 600;
 	/** Damage a horse or rider must never take on a ride. */
@@ -250,7 +250,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 				final RideState s = ((RideStateHolder) horse).horsingaround$ride();
 				return new double[] {
 					Math.hypot(horse.getX() - horse.xo, horse.getZ() - horse.zo),
-					horse.horizontalCollision && !horse.minorHorizontalCollision ? 1 : 0,
+					s.blocked > RideTuning.CRASH_BLOCKED ? 1 : 0,
 					horse.fallDistance,
 					horse.isInLava() ? 1 : 0,
 					s.avoidOffset,

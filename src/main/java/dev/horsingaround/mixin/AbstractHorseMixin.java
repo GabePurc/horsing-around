@@ -3,6 +3,7 @@ package dev.horsingaround.mixin;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import dev.horsingaround.HorsingAround;
 import dev.horsingaround.RiderBridge;
+import dev.horsingaround.ride.Footing;
 import dev.horsingaround.ride.RideController;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
@@ -15,6 +16,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.animal.camel.Camel;
@@ -204,6 +206,35 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 			return false;
 		}
 		return super.shouldTravelInFluid(fluidState);
+	}
+
+	/**
+	 * Footing: a ridden horse in the air (off a drop, or a jump a little short) moves as if it had a hoof down, so
+	 * vanilla's step-up puts it onto anything within a step of its hooves that it clips, instead of the collision
+	 * stopping it dead. The move itself works out the real ground contact again. Then {@link Footing} slips a shoulder
+	 * caught on a corner past it, and records how much of the move a collision took.
+	 */
+	@Override
+	public void move(final MoverType type, final Vec3 delta) {
+		final RideState s = this.horsingaround$ride;
+		if (type != MoverType.SELF || !s.narrow || !this.isLocalInstanceAuthoritative()) {
+			super.move(type, delta);
+			return;
+		}
+		if (!this.onGround() && !this.isInWater()) {
+			((EntityAccessor) (Object) this).horsingaround$setOnGroundFlag(true);
+		}
+		final double x = this.getX();
+		final double z = this.getZ();
+		super.move(type, delta);
+		Footing.afterMove((AbstractHorse) (Object) this, s, delta, x, z);
+	}
+
+	/** Ridden, a full block is a step even from a path, farmland or mud, or onto snow. */
+	@Override
+	public float maxUpStep() {
+		final float step = super.maxUpStep();
+		return this.horsingaround$ride.narrow ? Math.max(step, RideTuning.RIDDEN_STEP_HEIGHT) : step;
 	}
 
 	/** Vanilla air control is half of what is needed to hold ground speed, so every jump bled momentum. */

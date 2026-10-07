@@ -58,9 +58,28 @@ public final class RideTuning {
 	/** Volume of the rustle while pushing through leaves (the rabbit hop sound). */
 	static float LEAVES_RUSTLE_VOLUME = 0.6F;
 
-	/** Hitting a wall above this speed sheds momentum and drops the horse to a trot. */
+	/**
+	 * Hitting a wall above this speed sheds momentum and drops the horse to a trot, when the hit takes more than
+	 * CRASH_BLOCKED of the tick's travel (head-on, not a scrape along a trunk or the corner of a block).
+	 */
 	static final float CRASH_SPEED = 0.45F;
 	static final float CRASH_KEEP = 0.5F;
+	public static final float CRASH_BLOCKED = 0.65F;
+	/**
+	 * Ridden, the horse steps up anything this high (vanilla 1.0), so a full block is a step from a path, farmland,
+	 * mud or soul sand, and onto a block with snow on it. In the air (off a drop, or a jump a little short) it gets a
+	 * hoof on anything within a step of its hooves and carries on, instead of stopping dead against it.
+	 */
+	public static final float RIDDEN_STEP_HEIGHT = 1.125F;
+	/**
+	 * Running nearly straight (more than CORNER_SLIP_BLOCKED of the travel stopped) into the corner of something that
+	 * only catches the edge of its body, at more than CORNER_SLIP_MIN_SPEED blocks/tick, the horse slips sideways past
+	 * it, by up to CORNER_SLIP blocks in CORNER_SLIP_STEP steps, and keeps its pace.
+	 */
+	static final float CORNER_SLIP_BLOCKED = 0.9F;
+	static final float CORNER_SLIP_MIN_SPEED = 0.05F;
+	static final double CORNER_SLIP = 0.3;
+	static final double CORNER_SLIP_STEP = 0.1;
 
 	// ---- Steering: the horse shifts its weight first, then turns ----
 
@@ -245,9 +264,46 @@ public final class RideTuning {
 	static float LEAN_GAIN = 16.0F;
 	static float LEAN_MAX = 15.0F;
 	static final float LEAN_SMOOTHING = 0.4F;
-	/** Ground is probed this far ahead of and behind the horse's centre, roughly where the hooves are. */
-	public static final float HOOF_REACH = 0.65F;
-	static final float PITCH_MAX = 15.0F;
+	/** Where the front and hind hooves stand, blocks ahead of and behind the horse's centre. */
+	public static final float FORE_HOOVES = 0.65F;
+	public static final float HIND_HOOVES = 0.5F;
+	/**
+	 * Steps and slopes go in two beats, like a real horse: the forehand goes up (or down) first as the front hooves
+	 * reach the step, then the hindquarters follow with a push as the hind hooves get there. The front and the back of
+	 * the body each follow the ground under their own hooves on a spring: STEP_SPRING_WALK stiffness at a walk, up to
+	 * STEP_SPRING_FAST at STEP_SPRING_SPEED (blocks/tick), with STEP_DAMPING leaving a hint of overshoot so the push
+	 * lands. A step up is reached for a little early (STEP_LEAD_TICKS of travel, up to STEP_LEAD_MAX blocks); a step
+	 * down only once the hooves are past the edge.
+	 */
+	static final float STEP_SPRING_WALK = 0.22F;
+	static final float STEP_SPRING_FAST = 0.5F;
+	static final float STEP_SPRING_SPEED = 0.55F;
+	static final float STEP_DAMPING = 0.7F;
+	static final float STEP_LEAD_TICKS = 2.0F;
+	static final float STEP_LEAD_MAX = 0.5F;
+	/** The body follows the ground down a step of up to this many blocks; past a bigger drop the hooves stay level. */
+	static final double STEP_REACH = 1.25;
+	/**
+	 * A real horse doesn't lean far on a step: the body tilts at most PITCH_MAX degrees and the hindquarters keep the
+	 * weight, the body sitting BODY_RISE_UP of the way from the hind support's height toward the front's going up
+	 * (BODY_RISE_DOWN going down). The front legs fold up onto a step to make up the rest, and reach down for one.
+	 */
+	static final float PITCH_MAX = 11.0F;
+	static final float BODY_RISE_UP = 0.2F;
+	static final float BODY_RISE_DOWN = 0.1F;
+	/**
+	 * Leg poses on a step, radians (and model pixels): the front legs fold up and forward onto a step (FORE_TUCK) or
+	 * reach forward and down for one (FORE_REACH); the hind legs drive back as the hindquarters push up (HIND_DRIVE) or
+	 * gather under the body going down (HIND_GATHER). Full pose when the front of the body is LEG_POSE_REACH blocks off
+	 * the ground its hooves are going to, or the hindquarters rise at HIND_DRIVE_SPEED blocks/tick.
+	 */
+	public static final float FORE_TUCK_ANGLE = 0.85F;
+	public static final float FORE_TUCK_LIFT = 3.0F;
+	public static final float FORE_REACH_ANGLE = 0.35F;
+	public static final float HIND_DRIVE_ANGLE = 0.5F;
+	public static final float HIND_GATHER_ANGLE = 0.3F;
+	static final float LEG_POSE_REACH = 0.5F;
+	static final float HIND_DRIVE_SPEED = 0.12F;
 	/**
 	 * Climbing, the neck reaches forward/down by this share of the body's nose-up pitch (and the reverse downhill),
 	 * keeping the head out of the rider's way, as real horses do.
@@ -266,10 +322,8 @@ public final class RideTuning {
 	static final float JUMP_PITCH_UP = 25.0F;
 	static final float JUMP_PITCH_DOWN = 15.0F;
 	static final float JUMP_PITCH_SMOOTHING = 0.5F;
-	/** How much the body rises (or dips) early as the front hooves reach higher (or lower) ground. */
-	static final float STEP_ANTICIPATION = 0.5F;
-	/** World-space follow rate for the body height on the ground: turns block step-ups into a climb. */
-	static final float STEP_SMOOTHING = 0.35F;
+	/** World-space follow rate for the body height afloat: turns climbing out of the water into a smooth rise. */
+	static final float WATER_HEIGHT_SMOOTHING = 0.35F;
 	/** Airborne, any leftover height offset fades this fast relative to the physics body (no lag in flight). */
 	static final float AIR_OFFSET_DECAY = 0.5F;
 	/** ...but by no more than this per tick, so a lag built up climbing out of water eases out instead of snapping. */

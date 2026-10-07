@@ -4,6 +4,7 @@ import dev.horsingaround.HorsingAround;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.horsingaround.client.compat.EmfSaddleTracker;
 import dev.horsingaround.client.config.HorseSettingsScreen;
+import dev.horsingaround.client.debug.SteeringOverlay;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.resources.Identifier;
@@ -31,6 +32,7 @@ public final class HorsingAroundClient implements ClientModInitializer {
 			while (settings.consumeClick()) {
 				minecraft.gui.setScreen(new HorseSettingsScreen(minecraft.gui.screen()));
 			}
+			SteeringOverlay.tick(minecraft);
 		});
 	}
 }

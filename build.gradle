@@ -95,12 +95,15 @@ def installFreshAnimations = tasks.register("installFreshAnimations") {
 installFreshAnimations.configure { mustRunAfter "deleteGameTestRunDir" }
 
 // Client tests: ./gradlew runClientGameTest runs both the ride test and the natural-terrain test; pick one with
-// -Ptests=ride or -Ptests=terrain, and one terrain scenario with -Pscenario=<part of its name>.
+// -Ptests=ride or -Ptests=terrain, one terrain scenario with -Pscenario=<part of its name>, and only some sections of
+// the ride test with -Psections=<names> (core, stairs, picking, steps).
 def clientTests = project.findProperty("tests") ?: "ride,terrain"
 def terrainScenario = project.findProperty("scenario") ?: ""
+def rideSections = project.findProperty("sections") ?: ""
 tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	systemProperty "horsingaround.tests", clientTests
 	systemProperty "horsingaround.scenario", terrainScenario
+	systemProperty "horsingaround.sections", rideSections
 }
 tasks.matching { it.name in ["runClient", "runClientGameTest"] }.configureEach { dependsOn installFreshAnimations }
 
