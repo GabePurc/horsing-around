@@ -98,6 +98,13 @@ public final class RideFeelTest implements FabricClientGameTest {
 				standingJump(ctx);
 				dismount(ctx, input);
 			}
+			if (sections.isEmpty() || sections.contains("ledges")) {
+				messyLedges(ctx, input, world);
+			}
+			if (sections.contains("legs")) {
+				// Only on request: close side shots of the legs in a jump, for judging the pose.
+				jumpLegShots(ctx, input, world);
+			}
 			if (sections.isEmpty() || sections.contains("cuts")) {
 				hardCuts(ctx, input, world);
 			}
@@ -278,11 +285,48 @@ public final class RideFeelTest implements FabricClientGameTest {
 		int airborne = 0;
 		float noseUp = 0.0F;
 		float noseDown = 0.0F;
+		float airLegs = 0.0F;
+		float slowestStride = Float.MAX_VALUE;
+		float previousFore = Float.NaN;
+		float previousHind = Float.NaN;
+		float foreStep = 0.0F;
+		float hindStep = 0.0F;
+		int previousTick = horseTick(ctx);
+		boolean tucked = false;
+		boolean reaching = false;
+		boolean risingShot = false;
+		boolean fallingShot = false;
 		for (int i = 1; i <= 40; i++) {
 			ctx.waitTick();
 			elapsed++;
 			final Sample s = sample(ctx);
 			peak = Math.max(peak, s.y);
+			final float legs = ride(ctx, r -> r.airLegs(1.0F));
+			final float rise = ride(ctx, r -> r.airRise(1.0F));
+			airLegs = Math.max(airLegs, legs);
+			// How far the legs' jump shape moves a game tick while they are in it (screenshots can skip ticks).
+			final int tick = horseTick(ctx);
+			final float fore = dev.horsingaround.client.render.AirLegs.fore(rise);
+			final float hind = dev.horsingaround.client.render.AirLegs.hind(rise);
+			if (legs > 0.9F && !Float.isNaN(previousFore)) {
+				foreStep = Math.max(foreStep, Math.abs(fore - previousFore) / Math.max(tick - previousTick, 1));
+				hindStep = Math.max(hindStep, Math.abs(hind - previousHind) / Math.max(tick - previousTick, 1));
+			}
+			previousFore = legs > 0.9F ? fore : Float.NaN;
+			previousHind = hind;
+			previousTick = tick;
+			if (legs > 0.9F) {
+				slowestStride = Math.min(slowestStride, s.limbSpeed);
+				tucked |= rise > 0.4F;
+				reaching |= rise < -0.4F;
+				if (!risingShot && rise > 0.4F) {
+					sideScreenshot(ctx, "05c_jump_legs_rising");
+					risingShot = true;
+				} else if (!fallingShot && rise < -0.4F) {
+					sideScreenshot(ctx, "05d_jump_legs_landing");
+					fallingShot = true;
+				}
+			}
 			final float tilt = ride(ctx, r -> r.jumpPitch(1.0F));
 			noseUp = Math.max(noseUp, tilt);
 			noseDown = Math.min(noseDown, tilt);
@@ -302,12 +346,19 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("takes off front first: nose up (deg)", noseUp, 12.0, 26.0);
 		check("lands front first: nose down (deg)", -noseDown, 6.0, 16.0);
 		check("speed kept in the air (fraction)", slowest / before, 0.85, 1.3);
+		check("in the air the legs take the jump's shape (0..1)", airLegs, 0.95, 1.0);
+		check("the gallop stride stops in the air (leg-animation speed)", slowestStride, 0.0, 0.3);
+		check("front legs fold up rising, then reach for the ground coming down", tucked && reaching);
+		check("smooth and floaty in the air: front legs move at most (radians a tick)", foreStep, 0.0, 0.1);
+		check("...and the hind legs (radians a tick)", hindStep, 0.0, 0.1);
 		double landing = 0.0;
 		for (int i = 0; i < 6; i++) {
 			ctx.waitTick();
 			landing = Math.max(landing, sample(ctx).speed);
 		}
 		check("no surge after landing (fastest tick / before)", landing / before, 0.9, 1.12);
+		check("the stride picks up again after landing (leg-animation speed)", sample(ctx).limbSpeed, 0.85, 1.0);
+		check("legs back in the stride (jump shape, 0..1)", ride(ctx, r -> r.airLegs(1.0F)), 0.0, 0.01);
 		final float gallopDrain = elapsed * RideTuning.STAMINA_DRAIN_GALLOP;
 		check("jump stamina cost beyond gallop drain", staminaBefore - sample(ctx).stamina - gallopDrain, RideTuning.JUMP_STAMINA_COST - 0.02, RideTuning.JUMP_STAMINA_COST + 0.03);
 		ctx.waitTicks(10);
@@ -1083,10 +1134,18 @@ public final class RideFeelTest implements FabricClientGameTest {
 		// Two rows of trunks across the path with one 1-block gap, straight ahead.
 		lane(ctx, input, world, 620.5, -60, "tree_gap_test", "fill 610 -60 -20 630 -56 -20 minecraft:oak_log", "fill 620 -60 -20 620 -56 -20 minecraft:air");
 		input.holdKey(o -> o.keyUp);
+		final StringBuilder trace = new StringBuilder();
 		for (int i = 0; i < 300 && horseZ(ctx) > -26.0; i++) {
 			ctx.waitTick();
+			if (horseZ(ctx) < -15.0 && i % 3 == 0) {
+				trace.append(String.format(Locale.ROOT, "z%.2f x%.2f y%.2f v%.2f ledge%d | ", horseZ(ctx), horseX(ctx), sample(ctx).y, sample(ctx).speed,
+					ride(ctx, r -> r.ledgeTicks)));
+			}
 		}
 		check("fits through the gap", horseZ(ctx) < -25.9);
+		if (horseZ(ctx) >= -25.9) {
+			log("  path: %s", trace);
+		}
 		stop(ctx, input);
 	}
 
@@ -1369,22 +1428,42 @@ public final class RideFeelTest implements FabricClientGameTest {
 		double after = -1.0;
 		int landedAt = -1;
 		boolean shot = false;
+		final StringBuilder ledgeTrace = new StringBuilder();
+		int frames = 0;
+		int takeoffTick = -1;
+		int landTick = -1;
+		sideCamera(world, 405.5, -59.5, -17.5, 90.0F);
 		for (int i = 0; i < 300 && horseZ(ctx) > -26.0; i++) {
 			ctx.waitTick();
 			final Sample s = sample(ctx);
 			final double z = horseZ(ctx);
+			final int tick = horseTick(ctx);
+			// From the side, from the crouch to walking on from the top (a fixed camera: the horse alone, as the game never
+			// draws the local player for another camera), and its trace.
+			if (z < -15.0 && frames < 16) {
+				ledgeTrace.append(String.format(Locale.ROOT, "t%d z%.2f y%.2f vis%.2f tilt%.1f jump%.1f air%.2f | ",
+					tick, z, s.y, s.visualY, s.pitch, ride(ctx, r -> r.jumpPitch(1.0F)), ride(ctx, r -> r.airLegs(1.0F))));
+				cameraShot(ctx, String.format(Locale.ROOT, "14s_ledge_seq_%02d", frames));
+				if (z < -16.5 && frames % 2 == 0) {
+					// And from the riding camera swung to the side, to see the rider.
+					sideScreenshot(ctx, String.format(Locale.ROOT, "14r_ledge_rider_%02d", frames), 0.0F);
+				}
+				frames++;
+			}
 			if (Double.isNaN(takeoffZ)) {
 				if (ride(ctx, r -> r.ledgeClimbs) > climbs) {
 					takeoffZ = z;
+					takeoffTick = tick;
 				} else {
 					approach = s.speed;
 				}
 				continue;
 			}
 			peak = Math.max(peak, s.y);
-			if (!s.onGround) {
-				airborne++;
-			} else if (landedAt < 0 && s.y > -58.05) {
+			if (landTick < 0 && s.onGround && s.y > -58.05) {
+				landTick = tick;
+			}
+			if (landedAt < 0 && s.onGround && s.y > -58.05) {
 				landedAt = i;
 			}
 			if (landedAt >= 0 && i == landedAt + 10) {
@@ -1398,11 +1477,13 @@ public final class RideFeelTest implements FabricClientGameTest {
 				shot = true;
 			}
 		}
+		airborne = landTick - takeoffTick;
+		log("  jump: %s", ledgeTrace);
 		check("jumps up a 2-block ledge (blocks gained)", sample(ctx).y - -60.0, 1.95, 2.05);
 		check("one ledge jump", ride(ctx, r -> r.ledgeClimbs) - climbs, 1, 1);
-		check("takes off in its stride, before the wall (front to face, blocks)", takeoffZ - half(ctx) - -19.0, 0.4, 1.8);
+		check("bounds up it: takes off well before the wall (front to face, blocks)", takeoffZ - half(ctx) - -19.0, 1.2, 2.8);
 		check("no stop before it (walking speed at takeoff, blocks/tick)", approach / WALK_SPEED, 0.6, 1.2);
-		check("an arc, not a climb: forward travel on the way up (blocks)", risingTravel, 0.5, 2.5);
+		check("an arc, not a pop straight up: forward travel on the way up (blocks)", risingTravel, 1.2, 3.0);
 		check("in the air like a jump (ticks)", airborne, 5, 16);
 		check("clears the lip without launching (peak above the top, blocks)", peak - -58.0, 0.05, 0.6);
 		check("walks on from the top (speed after landing / walk)", after / WALK_SPEED, 0.6, 1.2);
@@ -1512,6 +1593,124 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("never touches any of them", !touched);
 		check("threads them without swinging wide (blocks off the line)", maxSide, 0.5, 2.5);
 		check("keeps its pace (slowest / gallop)", slowest / GALLOP_SPEED, 0.6, 1.1);
+		stop(ctx, input);
+	}
+
+	/** A 2-block ledge like the ones in generated worlds: what it is, how it's built, how it's ridden at, and whether it should be jumped. */
+	private record Ledge(String name, String[] build, float look, int spurs, double faceZ, boolean jump) {
+	}
+
+	/**
+	 * 2-block ledges as generated worlds make them: met at an angle, with snow or grass or a bump on top, leaves or a
+	 * branch overhead, from a step up, on slabs, from a standstill, at a canter. Each is walked (or cantered) at; the
+	 * report says whether the horse jumped and, if it didn't, why the last look at the ledge turned it down.
+	 */
+	private void messyLedges(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		final List<Ledge> ledges = List.of(
+			new Ledge("straight on", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone"}, 0.0F, 0, -10.0, true),
+			new Ledge("at 30 degrees", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone"}, 30.0F, 0, -10.0, true),
+			new Ledge("at 45 degrees", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone"}, 45.0F, 0, -10.0, true),
+			new Ledge("snow on top", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-15 -58 -30 ~15 -58 -11 minecraft:snow[layers=2]"}, 0.0F, 0, -10.0, true),
+			new Ledge("grass and flowers on top", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:grass_block", "fill ~-15 -58 -30 ~15 -58 -11 minecraft:short_grass",
+				"fill ~-1 -58 -12 ~1 -58 -12 minecraft:poppy"}, 0.0F, 0, -10.0, true),
+			new Ledge("a bump two blocks in", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-15 -58 -13 ~15 -58 -13 minecraft:stone"}, 0.0F, 0, -10.0, true),
+			new Ledge("leaves overhead", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-4 -56 -14 ~4 -55 -5 minecraft:oak_leaves[persistent=true]"}, 0.0F, 0, -10.0, true),
+			new Ledge("a branch four blocks up (just room)", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-4 -56 -12 ~4 -56 -6 minecraft:oak_log"}, 0.0F, 0, -10.0, true),
+			new Ledge("a branch three blocks up (no room)", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-4 -57 -12 ~4 -57 -6 minecraft:oak_log"}, 0.0F, 0, -10.0, false),
+			new Ledge("snow on top, at a canter at 30 degrees", new String[] {"fill ~-25 -60 -40 ~25 -59 -21 minecraft:stone", "fill ~-25 -58 -40 ~25 -58 -21 minecraft:snow[layers=3]"}, 30.0F, 2, -20.0, true),
+			new Ledge("from a step up", new String[] {"fill ~-15 -60 -30 ~15 -58 -11 minecraft:stone", "fill ~-15 -60 -10 ~15 -60 -6 minecraft:stone"}, 0.0F, 0, -10.0, true),
+			new Ledge("slabs on top (1.5 up)", new String[] {"fill ~-15 -60 -30 ~15 -60 -11 minecraft:stone", "fill ~-15 -59 -30 ~15 -59 -11 minecraft:smooth_stone_slab"}, 0.0F, 0, -10.0, true),
+			new Ledge("rough grass ground", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:dirt", "fill ~-15 -61 -10 ~15 -61 0 minecraft:dirt_path"}, 0.0F, 0, -10.0, true),
+			new Ledge("at a canter", new String[] {"fill ~-15 -60 -40 ~15 -59 -21 minecraft:stone"}, 0.0F, 2, -20.0, true),
+			new Ledge("at a canter, at 30 degrees", new String[] {"fill ~-25 -60 -40 ~25 -59 -21 minecraft:stone"}, 30.0F, 2, -20.0, true),
+			new Ledge("from a standstill at the face", new String[] {"fill ~-15 -60 -30 ~15 -59 -2 minecraft:stone"}, 0.0F, 0, -1.0, true)
+		);
+		for (int i = 0; i < ledges.size(); i++) {
+			final Ledge ledge = ledges.get(i);
+			section("2-block ledge: " + ledge.name());
+			final int x = 1700 + i * 40;
+			final String[] build = new String[ledge.build().length];
+			for (int b = 0; b < build.length; b++) {
+				build[b] = ledge.build()[b].replace("~-25", String.valueOf(x - 25)).replace("~25", String.valueOf(x + 25))
+					.replace("~-15", String.valueOf(x - 15)).replace("~15", String.valueOf(x + 15))
+					.replace("~-4", String.valueOf(x - 4)).replace("~4", String.valueOf(x + 4))
+					.replace("~-1", String.valueOf(x - 1)).replace("~1", String.valueOf(x + 1));
+			}
+			lane(ctx, input, world, x + 0.5, -60, "messy_ledge_" + i, build);
+			final int climbs = ride(ctx, r -> r.ledgeClimbs);
+			final double startY = sample(ctx).y;
+			input.lookAt(180.0F + ledge.look(), 10.0F);
+			input.holdKey(o -> o.keyUp);
+			ctx.waitTicks(2);
+			for (int sp = 0; sp < ledge.spurs(); sp++) {
+				input.pressKey(o -> o.keySprint);
+				ctx.waitTicks(4);
+			}
+			int lastReason = -1;
+			double closest = Double.MAX_VALUE;
+			final StringBuilder trace = new StringBuilder();
+			for (int t = 0; t < 240 && ride(ctx, r -> r.ledgeClimbs) == climbs; t++) {
+				ctx.waitTick();
+				final double gap = horseZ(ctx) - half(ctx) - ledge.faceZ();
+				closest = Math.min(closest, gap);
+				if (gap < 3.5) {
+					lastReason = dev.horsingaround.ride.Awareness.ledgeRejection;
+					if (t % 4 == 0) {
+						trace.append(String.format(Locale.ROOT, "gap%.2f v%.2f yaw%.0f %s | ", gap, sample(ctx).speed, sample(ctx).horseYaw,
+							dev.horsingaround.ride.Awareness.LEDGE_REASONS[Math.max(lastReason, 0)]));
+					}
+				}
+			}
+			ctx.waitTicks(20);
+			final boolean jumped = ride(ctx, r -> r.ledgeClimbs) > climbs;
+			log("  %s; closest to the face %s; last look: %s", jumped ? "jumped" : "did not jump",
+				closest == Double.MAX_VALUE ? "n/a" : String.format(Locale.ROOT, "%.2f", closest),
+				lastReason < 0 ? "never looked" : dev.horsingaround.ride.Awareness.LEDGE_REASONS[lastReason]);
+			if (!jumped) {
+				log("  approach: %s", trace);
+			}
+			if (ledge.jump()) {
+				check("jumps it", jumped);
+				check("up on top (blocks gained)", sample(ctx).y - startY, 1.4, 3.1);
+			} else {
+				check("doesn't try (no room to jump)", !jumped);
+			}
+			stop(ctx, input);
+		}
+	}
+
+	/**
+	 * Close side shots of the legs through a jump up a 2-block ledge and a running jump on the flat, from a fixed camera
+	 * (horse only: the game never draws the local player for another camera). For judging the pose; no checks.
+	 */
+	private void jumpLegShots(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Jump leg shots");
+		lane(ctx, input, world, 1600.5, -60, "leg_shots_ledge", "fill 1595 -60 -40 1605 -59 -20 minecraft:stone");
+		sideCamera(world, 1605.5, -58.5, -19.0, 90.0F);
+		input.holdKey(o -> o.keyUp);
+		int frames = 0;
+		for (int i = 0; i < 300 && horseZ(ctx) > -22.0; i++) {
+			ctx.waitTick();
+			if (ride(ctx, r -> r.airLegs(1.0F)) > 0.3F && frames < 10) {
+				cameraShot(ctx, String.format(Locale.ROOT, "20_legs_ledge_%02d", frames++));
+			}
+		}
+		stop(ctx, input);
+		lane(ctx, input, world, 1640.5, -60, "leg_shots_run");
+		sideCamera(world, 1645.5, -58.8, -25.0, 90.0F);
+		gallopNorth(ctx, input);
+		frames = 0;
+		boolean jumped = false;
+		for (int i = 0; i < 300 && horseZ(ctx) > -40.0; i++) {
+			ctx.waitTick();
+			if (!jumped && horseZ(ctx) < -20.5) {
+				input.pressKey(o -> o.keyJump);
+				jumped = true;
+			}
+			if (ride(ctx, r -> r.airLegs(1.0F)) > 0.3F && frames < 10) {
+				cameraShot(ctx, String.format(Locale.ROOT, "20_legs_run_%02d", frames++));
+			}
+		}
 		stop(ctx, input);
 	}
 

@@ -201,6 +201,14 @@ public final class TerrainRideTest implements FabricClientGameTest {
 		double previousPitch = 0.0;
 		double previousTick = -1.0;
 		double maxTiltRate = 0.0;
+		// How far the drawn horse and the riding camera move up or down in a game tick: a step should be a climb, not a pop.
+		double previousVisual = Double.NaN;
+		double previousEye = Double.NaN;
+		double maxVisualStep = 0.0;
+		double maxEyeStep = 0.0;
+		double previousVisualStep = Double.NaN;
+		double previousEyeStep = Double.NaN;
+		String worstStep = "";
 		final java.util.ArrayList<Double> tiltRates = new java.util.ArrayList<>();
 		for (; ticks < MAX_TICKS; ticks++) {
 			ctx.waitTick();
@@ -231,8 +239,8 @@ public final class TerrainRideTest implements FabricClientGameTest {
 					final BlockPos front = BlockPos.containing(horse.getX() + fx * (horse.getBbWidth() * 0.5 + 0.3), horse.getY() + dy + 0.1, horse.getZ() + fz * (horse.getBbWidth() * 0.5 + 0.3));
 					ahead.append(mc.level.getBlockState(front).getBlock().getDescriptionId().replace("block.minecraft.", "")).append(dy == 0 ? "/" : "");
 				}
-				return String.format(Locale.ROOT, "pos %.2f %.2f %.2f v(%.3f %.3f %.3f) ground %s speed %.2f side %.2f yaw %.0f ledge %d%s guard %d/%d danger %.1f wall %.1f detour %.0f in [%s] ahead %s",
-					horse.getX(), horse.getY(), horse.getZ(), horse.getDeltaMovement().x, horse.getDeltaMovement().y, horse.getDeltaMovement().z,
+				return String.format(Locale.ROOT, "pos %.2f %.2f %.2f drawn %+.2f%s v(%.3f %.3f %.3f) ground %s speed %.2f side %.2f yaw %.0f ledge %d%s guard %d/%d danger %.1f wall %.1f detour %.0f in [%s] ahead %s",
+					horse.getX(), horse.getY(), horse.getZ(), r.heightOffset(1.0F), r.inAir ? " air" : "", horse.getDeltaMovement().x, horse.getDeltaMovement().y, horse.getDeltaMovement().z,
 					horse.onGround(), r.speed, r.sidestep(), horse.getYRot(), r.ledgeTicks, r.ledgeAir ? "air" : "", r.guardStops, r.guardChecks, Math.min(r.debugDanger(), 99.0F), Math.min(r.debugWall(), 99.0F), r.avoidOffset, inside.toString().trim(), ahead);
 			});
 			final float health = ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse h ? h.getHealth() : 0.0F);
@@ -264,7 +272,10 @@ public final class TerrainRideTest implements FabricClientGameTest {
 					RideController.lastTickNanos,
 					horse.isInWater() ? 1 : 0,
 					s.pitch(1.0F),
-					horse.tickCount
+					horse.tickCount,
+					horse.getY() + s.heightOffset(1.0F),
+					dev.horsingaround.client.RideCamera.eyeY(1.0F),
+					horse.onGround() ? 1 : 0
 				};
 			});
 			if (now == null) {
@@ -278,6 +289,28 @@ public final class TerrainRideTest implements FabricClientGameTest {
 				maxTiltRate = Math.max(maxTiltRate, rate);
 				tiltRates.add(rate);
 			}
+			if (now[11] > previousTick && previousTick >= 0 && !Double.isNaN(previousVisual)) {
+				final double elapsed = now[11] - previousTick;
+				// A pop is a sudden jump in how fast the drawn horse rises from one tick to the next, on the ground (a steady
+				// climb up a steep staircase rises fast but evenly; jumps and falls are real flights).
+				final double visualRise = (now[12] - previousVisual) / elapsed;
+				final double eyeRise = (now[13] - previousEye) / elapsed;
+				if (now[9] == 0 && now[14] > 0 && !Double.isNaN(previousVisualStep)) {
+					final double visualJerk = visualRise - previousVisualStep;
+					if (visualJerk > maxVisualStep) {
+						maxVisualStep = visualJerk;
+						final StringBuilder lines = new StringBuilder();
+						recent.forEach(line -> lines.append("\n      ").append(line));
+						worstStep = String.format(Locale.ROOT, "tick %d: rising %.2f a tick after %.2f, physics y %.2f; the last ticks:%s", ticks, visualRise,
+							previousVisualStep, now[6], lines);
+					}
+					maxEyeStep = Math.max(maxEyeStep, eyeRise - previousEyeStep);
+				}
+				previousVisualStep = now[14] > 0 ? visualRise : Double.NaN;
+				previousEyeStep = eyeRise;
+			}
+			previousVisual = now[12];
+			previousEye = now[13];
 			previousPitch = now[10];
 			previousTick = now[11];
 			travelled += speed;
@@ -356,6 +389,9 @@ public final class TerrainRideTest implements FabricClientGameTest {
 		log("  body tilt change per tick: 99th percentile %.2f deg, most %.2f deg",
 			tiltRates.isEmpty() ? 0.0 : tiltRates.get((int) (tiltRates.size() * 0.99)), maxTiltRate);
 		check("smooth: the body never snaps into a tilt (max change per tick, deg)", maxTiltRate, 0.0, 3.5);
+		log("  sharpest pick-up in the drawn horse's rise: %s", worstStep);
+		check("smooth: the drawn horse climbs steps, never pops up them (sharpest pick-up in rise, blocks/tick a tick)", maxVisualStep, 0.0, 0.3);
+		check("smooth: the riding camera too (sharpest pick-up in rise, blocks/tick a tick)", maxEyeStep, 0.0, 0.3);
 		server.runCommand("ride @p dismount");
 		server.runCommand("kill @e[tag=" + TAG + "]");
 		return crashes;

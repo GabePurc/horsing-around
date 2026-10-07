@@ -160,6 +160,16 @@ public final class RideState {
 	double hindGround;
 	/** In the air from a jump or a fall bigger than a step: the body follows its flight instead of the ground. */
 	boolean flying;
+	/**
+	 * In the air from a jump or a bigger fall (not swimming or climbing out): the run cycle stops and the legs take the
+	 * shape of the jump, by airLegs (0..1); airRise is climbing (1) to falling (-1), for which shape.
+	 */
+	public boolean inAir;
+	float airLegs;
+	float airLegsO;
+	float airRise;
+	float airRiseO;
+	float airRiseEase;
 	/** Leg poses for steps, -1..1: front legs folded up (+) or reaching down (-); hind legs driving (+) or gathered (-). */
 	float foreLeg;
 	float foreLegO;
@@ -244,6 +254,16 @@ public final class RideState {
 
 	public float heightOffset(final float partialTicks) {
 		return this.heightOffsetO + (this.heightOffset - this.heightOffsetO) * partialTicks;
+	}
+
+	/** How far the legs are in the shape of a jump, 0..1. */
+	public float airLegs(final float partialTicks) {
+		return this.airLegsO + (this.airLegs - this.airLegsO) * partialTicks;
+	}
+
+	/** In a jump: climbing (1) to falling (-1). */
+	public float airRise(final float partialTicks) {
+		return this.airRiseO + (this.airRise - this.airRiseO) * partialTicks;
 	}
 
 	/** Front legs on a step, -1..1: folded up onto it (+) or reaching down for it (-). */

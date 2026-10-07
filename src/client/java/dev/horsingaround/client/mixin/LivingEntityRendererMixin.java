@@ -46,6 +46,7 @@ public abstract class LivingEntityRendererMixin {
 		if (!((isHorse ? entity : entity.getVehicle()) instanceof RideStateHolder holder) || !holder.horsingaround$managed()) {
 			pose.horsingaround$clearPose();
 			pose.horsingaround$setLegs(0.0F, 0.0F);
+			pose.horsingaround$setAirLegs(0.0F, 0.0F);
 			return;
 		}
 		final LivingEntity horse = (LivingEntity) holder;
@@ -82,6 +83,7 @@ public abstract class LivingEntityRendererMixin {
 			pose.horsingaround$setNeck(packAnimated ? 0.0F : pitch * NECK_COUNTER_PITCH);
 			// Legs on a step; a pack-animated model gets them in the Entity Model Features hook too.
 			pose.horsingaround$setLegs(packAnimated ? 0.0F : s.foreLeg(partialTicks), packAnimated ? 0.0F : s.hindLeg(partialTicks));
+			pose.horsingaround$setAirLegs(packAnimated ? 0.0F : s.airLegs(partialTicks), s.airRise(partialTicks));
 			if (bank == 0.0F && bodyPitch == 0.0F && bodyLift == 0.0F) {
 				pose.horsingaround$clearPose();
 			} else {
@@ -105,11 +107,13 @@ public abstract class LivingEntityRendererMixin {
 		final float tz = hz + OFFSET.z + fz * measuredForward + rz * measuredSide + shiftZ;
 		// The torso stays closer to upright: resists the bank, leans forward uphill, stays vertical downhill, takes
 		// part of the saddle's rocking, sways against the horse's surges and the push of leaves, and folds forward with
-		// speed.
+		// speed and in jumps.
 		final float forwardLean = FORWARD_LEAN_STILL + (FORWARD_LEAN_MOVING - FORWARD_LEAN_STILL) * saddle.moving
 			+ (FORWARD_LEAN_GALLOP - FORWARD_LEAN_MOVING) * saddle.gallop;
 		final float riderBank = bank * RIDER_BANK_FOLLOW + saddle.roll * RIDER_BANK_FOLLOW * Mth.DEG_TO_RAD;
-		final float riderPitch = -Math.max(pitch, 0.0F) * RIDER_UPHILL_LEAN
+		// Jumping, they fold forward over the neck with the horse's rise, and sit up again coming down.
+		final float jumpFold = s.airLegs(partialTicks) * RIDER_JUMP_FOLD * Mth.DEG_TO_RAD + Math.max(jump, 0.0F) * (RIDER_JUMP_FOLLOW - RIDER_UPHILL_LEAN);
+		final float riderPitch = -Math.max(pitch, 0.0F) * RIDER_UPHILL_LEAN - jumpFold
 			+ (saddle.pitch * RIDER_SADDLE_PITCH_FOLLOW - forwardLean + s.inertia(partialTicks) + s.leafPush(partialTicks)) * Mth.DEG_TO_RAD;
 		RIDER_ROTATION.rotationAxis(riderBank, fx, 0.0F, fz).rotateAxis(riderPitch, rx, 0.0F, rz);
 		pose.horsingaround$setPose(tx, ty, tz, RIDER_ROTATION.x, RIDER_ROTATION.y, RIDER_ROTATION.z, RIDER_ROTATION.w, 0.0F, RIDER_SEAT_HEIGHT, 0.0F);

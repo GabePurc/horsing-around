@@ -241,6 +241,45 @@ Translation:
   hand if the off hand is busy), head tucked and turned a little away; the hand comes up in about 3 ticks and down
   about 0.8s after they are clear.
 
+## Jumps that look like jumps (user direction, 2026-10-07)
+
+Play-test feedback: in a jump the run animation kept going; a jumping horse extends its front legs to meet the ground.
+And jumping up 2 blocks looked physically wrong; it should look accurate and Minecrafty at once.
+
+Reference: a jumping horse folds its front legs up under its chest as it takes off while the hind legs push, gathers
+its hind legs under it over the top, and unfolds its front legs forward and down to land on them one after the other.
+Up a bank it takes off a good stride out and carries forward over the edge; riders fold forward over the neck in the
+air (the jumping position) and sit up for the landing. A 2-block ledge here (taller than a Minecraft horse's back) was
+jumped from half a block off the face, nearly straight up: with Minecraft's strong gravity the launch reaches the lip
+in about 4 ticks, so it popped up beside the wall and hung.
+
+Translation:
+
+- In the air (a jump or a fall bigger than a step) the stride eases to a stop and the legs take the jump's shape,
+  blended in and out over a few ticks: climbing, front legs folded up and forward, hind legs pushing back; coming
+  down, front legs reaching forward and down (one a little ahead) and hind legs gathered under the body. The stride
+  picks up again on landing. Vanilla model and Fresh Animations alike; everyone sees it. A Minecraft leg is one block
+  hung from its top, so a leg swung far shows its top corner out of the body, as if detached (play-test, same day):
+  each leg is drawn up into the body as far as its swing tips that corner out, and the swings are kept modest. Then
+  (same day): legs sat too far back and too close together, and the pose jerked in and out: the front legs are kept
+  under the chest and the hind legs under the hindquarters (nudged forward against the swing), each pair is staggered
+  so both legs read, and in the air the legs move in one slow sweep across the whole flight (folded just after takeoff,
+  reaching by the landing; at most ~4-5 degrees a tick), eased into from the stride over ~5 ticks with the stride winding
+  down gently; landing hands back to the stride a little quicker.
+- A 2-block ledge is bounded up: at least ~0.26 blocks a tick forward through the air, taking off about 1.5 blocks
+  out so the chest reaches the face near the top of the arc, sailing over the lip and landing a stride onto the top.
+- The rider folds forward in the air (12 degrees, plus following 60% of the horse's nose-up rise) and sits up again
+  coming down.
+
+Follow-up (play-test, same day): the horse sometimes refused 2-block ledges, and going up a block sometimes teleported
+the view up it. Ledges built like generated worlds' (met at an angle, snow on top, bumps, leaves or a branch overhead,
+from a step, slabs, at a canter) showed two causes: a layer of snow on top made "no room to land", and from a trot up
+a ledge met at an angle was taken for a wall to go round, because a flank of the look-ahead met it before the centre
+line did. Both fixed: a thin layer on top (up to a quarter block) counts as the ledge's top, and a wall is a ledge on
+the rider's line if every line that met it met a ledge. The teleport came from runs of steps (up a mountainside): the
+drawn body fell further behind each step until a reset meant for teleports snapped it 1.5 blocks; now past 0.8 blocks
+behind it catches up smoothly (up to 0.12 blocks a tick extra) and only a real teleport (3+ blocks) snaps.
+
 ## Staying vanilla
 
 - No new HUD panels. Stamina lives in the vanilla horse jump bar, which charged jumping no longer needs.
