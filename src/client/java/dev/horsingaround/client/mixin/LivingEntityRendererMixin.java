@@ -47,6 +47,7 @@ public abstract class LivingEntityRendererMixin {
 			pose.horsingaround$clearPose();
 			pose.horsingaround$setLegs(0.0F, 0.0F);
 			pose.horsingaround$setAirLegs(0.0F, 0.0F);
+			pose.horsingaround$setTail(0.0F);
 			return;
 		}
 		final LivingEntity horse = (LivingEntity) holder;
@@ -84,6 +85,7 @@ public abstract class LivingEntityRendererMixin {
 			// Legs on a step; a pack-animated model gets them in the Entity Model Features hook too.
 			pose.horsingaround$setLegs(packAnimated ? 0.0F : s.foreLeg(partialTicks), packAnimated ? 0.0F : s.hindLeg(partialTicks));
 			pose.horsingaround$setAirLegs(packAnimated ? 0.0F : s.airLegs(partialTicks), s.airRise(partialTicks));
+			pose.horsingaround$setTail(packAnimated ? 0.0F : s.tailLift(partialTicks));
 			if (bank == 0.0F && bodyPitch == 0.0F && bodyLift == 0.0F) {
 				pose.horsingaround$clearPose();
 			} else {
@@ -122,8 +124,8 @@ public abstract class LivingEntityRendererMixin {
 		final float legPitch = riderPitch - bodyPitch;
 		// The stirrups roll with the saddle's sway, so the legs do too.
 		final float legRoll = riderBank - bank - (saddle.synthetic ? 0.0F : saddle.roll * Mth.DEG_TO_RAD);
-		// At a canter or gallop the pelvis slides with the stride while the shoulders stay put.
-		final float pelvis = -saddle.run * saddle.lift * PELVIS_SLIDE;
+		// At a canter the pelvis rocks a little with the stride while the shoulders stay put; less in a gallop's half seat.
+		final float pelvis = -saddle.run * (1.0F - (1.0F - PELVIS_GALLOP_SHARE) * saddle.gallop) * saddle.lift * PELVIS_SLIDE;
 
 		// Hips stay square to the horse; the head and torso turn toward where the rider looks.
 		final float headYaw = Mth.rotLerp(partialTicks, entity.yHeadRotO, entity.yHeadRot);

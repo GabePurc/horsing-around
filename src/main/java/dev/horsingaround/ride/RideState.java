@@ -115,8 +115,10 @@ public final class RideState {
 	float ledgeYaw;
 	float ledgeForward;
 	float ledgeCrouch;
-	/** Ledge jumps made (for tests). */
+	/** Ledge jumps made, and where the last one took off (for tests). */
 	public int ledgeClimbs;
+	public double ledgeTakeoffX;
+	public double ledgeTakeoffZ;
 
 	// Visual body pose, computed on every client for every horse.
 	float lean;
@@ -254,6 +256,17 @@ public final class RideState {
 
 	public float heightOffset(final float partialTicks) {
 		return this.heightOffsetO + (this.heightOffset - this.heightOffsetO) * partialTicks;
+	}
+
+	/** Tail lifted by its swing (radians, up positive), its speed, and the drawn body's climb last tick. */
+	float tailLift;
+	float tailLiftO;
+	float tailVelocity;
+	double lastDrawnRise;
+
+	/** Tail lifted by its swing with the horse's motion, radians (up positive). */
+	public float tailLift(final float partialTicks) {
+		return this.tailLiftO + (this.tailLift - this.tailLiftO) * partialTicks;
 	}
 
 	/** How far the legs are in the shape of a jump, 0..1. */

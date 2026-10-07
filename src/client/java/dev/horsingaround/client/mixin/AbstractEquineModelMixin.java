@@ -15,8 +15,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Neck reaching forward on climbs, legs folding up onto a step (and reaching down for one, and driving the
- * hindquarters up), legs in the shape of a jump in the air, and the head toss when the horse runs out of stamina, on the neck so Fresh Animations' animated
- * head and neck (its children) carry it too. The motion matches Fresh Animations' own idle head shake.
+ * hindquarters up), legs in the shape of a jump in the air, the tail swinging with the horse's motion, and the head toss
+ * when the horse runs out of stamina, on the neck so Fresh Animations' animated head and neck (its children) carry it
+ * too. The motion matches Fresh Animations' own idle head shake.
  */
 @Mixin(AbstractEquineModel.class)
 public abstract class AbstractEquineModelMixin {
@@ -35,6 +36,9 @@ public abstract class AbstractEquineModelMixin {
 	@Shadow
 	@Final
 	protected ModelPart leftFrontLeg;
+	@Shadow
+	@Final
+	protected ModelPart tail;
 
 	@Inject(method = "setupAnim(Lnet/minecraft/client/renderer/entity/state/EquineRenderState;)V", at = @At("TAIL"))
 	private void horsingaround$headShake(final EquineRenderState state, final CallbackInfo ci) {
@@ -62,5 +66,6 @@ public abstract class AbstractEquineModelMixin {
 			this.rightHindLeg.xRot += swing;
 		}
 		AirLegs.pose(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, pose.horsingaround$airLegs(), pose.horsingaround$airRise());
+		this.tail.xRot += pose.horsingaround$tail();
 	}
 }

@@ -891,6 +891,16 @@ public final class Awareness {
 		if (face < 0.0F) {
 			return reject(LEDGE_NO_FACE);
 		}
+		// Pin the face down to a few hundredths, so where it lands and when it takes off don't jump about as it walks in.
+		float clear = Math.max(face - 0.25F, -0.05F);
+		for (int i = 0; i < 3 && face > 0.0F; i++) {
+			final float mid = (clear + face) * 0.5F;
+			if (level.noBlockCollision(horse, box.move(fx * (mid + 0.05), 0.0, fz * (mid + 0.05)))) {
+				clear = mid;
+			} else {
+				face = mid;
+			}
+		}
 		final AABB at = box.move(fx * (face + 0.05), 0.0, fz * (face + 0.05));
 		if (level.noBlockCollision(horse, at.move(0.0, STEP_UP + 0.05, 0.0))) {
 			return reject(LEDGE_ONLY_A_STEP);
@@ -938,7 +948,8 @@ public final class Awareness {
 		if (!level.noBlockCollision(horse, box.expandTowards(0.0, top - box.minY + LEDGE_CLEARANCE + 0.05, 0.0))) {
 			return reject(LEDGE_NO_HEADROOM);
 		}
-		if (support(level, context, landing.expandTowards(fx * BODY_LENGTH_EXTRA, 0.0, fz * BODY_LENGTH_EXTRA), top) < LEDGE_SUPPORT) {
+		// (Ground a step higher counts: a horse that lands with a step in front walks up it.)
+		if (support(level, context, landing.expandTowards(fx * BODY_LENGTH_EXTRA, 0.0, fz * BODY_LENGTH_EXTRA), top, STEP_UP) < LEDGE_SUPPORT) {
 			return reject(LEDGE_NOTHING_TO_LAND_ON);
 		}
 		ledgeFace = face;
@@ -1036,24 +1047,41 @@ public final class Awareness {
 
 	/** Share of the box's footprint over solid ground whose top is at {@code top}. */
 	private static double support(final Level level, final CollisionContext context, final AABB box, final double top) {
-		final int y = Mth.floor(top - 0.01);
+		return support(level, context, box, top, 0.0);
+	}
+
+	/**
+	 * Share of the box's footprint over solid ground whose top is at {@code top} or up to {@code rise} above it (a step
+	 * up it can walk on from there), and no higher.
+	 */
+	private static double support(final Level level, final CollisionContext context, final AABB box, final double top, final double rise) {
+		final int y0 = Mth.floor(top - 0.01);
+		final int y1 = Mth.floor(top + rise);
+		final double highest = top + rise + 0.01;
 		final int x1 = Mth.floor(box.maxX - 1.0E-7);
 		final int z1 = Mth.floor(box.maxZ - 1.0E-7);
 		double area = 0.0;
 		for (int x = Mth.floor(box.minX); x <= x1; x++) {
 			for (int z = Mth.floor(box.minZ); z <= z1; z++) {
-				final BlockState state = level.getBlockState(POS.set(x, y, z));
-				if (state.isAir()) {
-					continue;
+				double surface = Double.NEGATIVE_INFINITY;
+				for (int y = y0; y <= y1; y++) {
+					final BlockState state = level.getBlockState(POS.set(x, y, z));
+					if (state.isAir()) {
+						continue;
+					}
+					final VoxelShape shape = state.getCollisionShape(level, POS, context);
+					if (!shape.isEmpty()) {
+						surface = Math.max(surface, y + shape.max(Direction.Axis.Y));
+					}
 				}
-				final VoxelShape shape = state.getCollisionShape(level, POS, context);
-				if (!shape.isEmpty() && Math.abs(y + shape.max(Direction.Axis.Y) - top) < 0.05) {
+				if (surface >= top - 0.05 && surface <= highest) {
 					area += (Math.min(box.maxX, x + 1) - Math.max(box.minX, x)) * (Math.min(box.maxZ, z + 1) - Math.max(box.minZ, z));
 				}
 			}
 		}
 		return area / ((box.maxX - box.minX) * (box.maxZ - box.minZ));
 	}
+
 
 	/**
 	 * A jump now would carry the horse off a drop or into a hazard with no safe landing in reach, or (down a slope)

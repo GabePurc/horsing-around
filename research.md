@@ -280,6 +280,19 @@ the rider's line if every line that met it met a ledge. The teleport came from r
 drawn body fell further behind each step until a reset meant for teleports snapped it 1.5 blocks; now past 0.8 blocks
 behind it catches up smoothly (up to 0.12 blocks a tick extra) and only a real teleport (3+ blocks) snaps.
 
+Then (same day): jumping up 2 blocks was abrupt where a step up came right where the horse would land, or starting
+right at the face: the landing check counted only ground at the ledge's own height, so with a step just past the lip
+the ledge read as "nothing to land on" until, with the face measured in quarter blocks, it passed by chance from close
+in, and the horse popped nearly straight up from 0.4 blocks out. Ground up to a step higher now counts (it walks up it
+after landing) and the face is measured to a few hundredths, so it takes off a stride out as usual. And the tail should
+react to gravity: it now swings on a spring with the body's motion, trailing down as the horse launches, floating up and
+streaming out behind in the air (keeping the lift the stride gave it), and flicking on landing.
+
+And the rider's "hump" (the pelvis swinging forward and back at a canter) read as humping the horse; it should be what
+really happens to a rider. A rider at a canter follows the horse's back with a small rock of the pelvis while the
+upper body stays tall and quiet, and at a gallop rises into a half seat where the legs take the motion. The pelvis now
+moves about a third as much (~3cm of hip travel at a canter, from ~9) and half that again at a gallop.
+
 ## Staying vanilla
 
 - No new HUD panels. Stamina lives in the vanilla horse jump bar, which charged jumping no longer needs.

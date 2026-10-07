@@ -45,6 +45,28 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 	/** Frames the stirrups were held (for tests). */
 	public static int stirrupFrames;
 
+	/** The tail part per model: the pack's own (Fresh Animations' "tail2") or vanilla's (searched once). */
+	private final Map<ModelPart, ModelPart> tails = new WeakHashMap<>();
+
+	/** The tail swings with the horse's motion, on top of the pack's own tail animation. */
+	private void swingTail(final EMFModelPartRoot root, final RideState ride, final float partialTicks) {
+		final float lift = ride.tailLift(partialTicks);
+		if (lift == 0.0F) {
+			return;
+		}
+		ModelPart tail = this.tails.get(root);
+		if (tail == null && !this.tails.containsKey(root)) {
+			tail = find(root, "tail2");
+			if (tail == null) {
+				tail = root.getAllVanillaPartsByNameEMF().get("tail");
+			}
+			this.tails.put(root, tail);
+		}
+		if (tail != null) {
+			tail.xRot += lift;
+		}
+	}
+
 	/** Stirrup parts found per saddle model (searched once; pack reloads create new models). */
 	private final Map<ModelPart, ModelPart[]> stirrups = new WeakHashMap<>();
 	/** Leg parts per model (front left, front right, hind left, hind right; null where the model has none). */
@@ -140,6 +162,7 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		final RideState ride = holder.horsingaround$ride();
 		final float partialTicks = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
 		this.stepLegs(root, ride, partialTicks);
+		this.swingTail(root, ride, partialTicks);
 		if (!root.isMainModel) {
 			this.holdStirrups(root);
 			return;
