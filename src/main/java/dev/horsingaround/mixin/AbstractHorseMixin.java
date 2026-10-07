@@ -178,7 +178,7 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 			x -= Mth.sin(yaw) * push;
 			z += Mth.cos(yaw) * push;
 		}
-		this.setDeltaMovement(x, this.getJumpPower(amount), z);
+		this.setDeltaMovement(x, Math.max(this.getJumpPower(amount), RideTuning.JUMP_MIN_VELOCITY), z);
 		this.setOnGround(false);
 		this.horsingaround$ride.jumpedOff = true;
 		this.needsSync = true;
@@ -215,6 +215,11 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 	@Inject(method = "tick", at = @At("TAIL"))
 	private void horsingaround$tick(final CallbackInfo ci) {
 		final RideState s = this.horsingaround$ride;
+		final boolean narrow = this.horsingaround$managed && this.getControllingPassenger() instanceof Player;
+		if (narrow != s.narrow) {
+			s.narrow = narrow;
+			this.refreshDimensions();
+		}
 		if (this.getControllingPassenger() == null) {
 			RideController.tickUnridden(s);
 		}

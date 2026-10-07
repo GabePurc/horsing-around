@@ -6,7 +6,8 @@
 	"environment": "client",
 	"entrypoints": {
 		"fabric-client-gametest": [
-			"dev.horsingaround.gametest.RideFeelTest"
+			"dev.horsingaround.gametest.RideFeelTest",
+			"dev.horsingaround.gametest.TerrainRideTest"
 		]
 	},
 	"depends": {

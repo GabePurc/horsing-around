@@ -103,7 +103,8 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		// Climbing, the neck reaches forward; applied after the pack so its own neck logic isn't disturbed.
 		final ModelPart neckPart = neck(root);
 		if (neckPart != null) {
-			neckPart.xRot += ride.pitch(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true)) * Mth.DEG_TO_RAD * RideTuning.NECK_COUNTER_PITCH;
+			final float partialTicks = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
+			neckPart.xRot += (ride.pitch(partialTicks) + ride.jumpPitch(partialTicks)) * Mth.DEG_TO_RAD * RideTuning.NECK_COUNTER_PITCH;
 		}
 		final ModelPart body = root.getAllVanillaPartsByNameEMF().get("body");
 		if (body == null) {

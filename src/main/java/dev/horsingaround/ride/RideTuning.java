@@ -39,6 +39,8 @@ public final class RideTuning {
 	/** Swimming: deeper than WADE_DEPTH the horse floats with its back at the waterline and head up, and swims slowly. */
 	static final float SWIM_FLOAT_DEPTH = 1.15F;
 	static final float SWIM_SPEED = 0.22F;
+	/** Out of its depth the horse loses its way quickly (speed multiple per tick), and doesn't crash into banks. */
+	static final float SWIM_DECEL = 0.12F;
 	/** Buoyancy: how firmly the horse settles to its floating depth (vertical blocks/tick per block off, and limits). */
 	static final float SWIM_BUOYANCY = 0.3F;
 	static final float SWIM_SINK_MAX = 0.06F;
@@ -124,8 +126,13 @@ public final class RideTuning {
 	// ---- Jumping: instant on press, power from momentum ----
 
 	/** Jump strength at a standstill and at a canter or faster (vanilla full charge = 1.0). */
-	static float JUMP_POWER_STILL = 0.4F;
+	static float JUMP_POWER_STILL = 0.55F;
 	static float JUMP_POWER_RUNNING = 0.8F;
+	/**
+	 * Every jump takes off at least this fast (blocks/tick, about 1.25 blocks high, like a player's jump), so a weak
+	 * horse or a standing jump still clears a block.
+	 */
+	public static float JUMP_MIN_VELOCITY = 0.42F;
 	static final float JUMP_POWER_EXHAUSTED = 0.75F;
 	/** Extra forward push on takeoff at full power, blocks/tick (vanilla 0.4). */
 	public static final float JUMP_FORWARD_BOOST = 0.1F;
@@ -136,6 +143,12 @@ public final class RideTuning {
 	static final int JUMP_RECOVERY_TICKS = 4;
 	/** Air acceleration relative to the ridden speed (vanilla 0.1). 0.2 holds flat-ground speed through a jump. */
 	public static final float AIR_CONTROL = 0.2F;
+
+	/**
+	 * While ridden, the horse's collision box is this share of vanilla's (1.4 -> 0.9 blocks wide, about its body's real
+	 * width), so it threads 1-block gaps between trees. Unridden horses keep vanilla's box.
+	 */
+	public static final float RIDDEN_WIDTH_SCALE = 0.9F / 1.3964844F;
 
 	// ---- The horse has a say: it picks its way (see Awareness) ----
 
@@ -150,20 +163,28 @@ public final class RideTuning {
 	static final float LOOK_AHEAD_MIN = 2.0F;
 	static final float LOOK_AHEAD_MAX = 12.0F;
 	/**
-	 * Steering round obstacles starts above a walk and is full from a trot, so at a walk the rider has precise control.
-	 * The horse tries detours this many degrees apart, up to the max, and takes the first (smallest) that passes the
-	 * obstacle by DETOUR_CLEARANCE blocks; a wall it can't get round within that angle it slows for instead of veering.
+	 * Going round obstacles: when the rider asks for a trot or more (never at a walk, so the rider has precise control)
+	 * and there is a way round in reach, the horse takes it: it looks along the obstacle, up to DETOUR_REACH blocks
+	 * either side, for the nearest place the rider's line is clear past it (DETOUR_CLEARANCE beyond), heads there (no
+	 * more than AVOID_MAX_ANGLE off the rider's line), then back onto the line. A wall with no way round in reach it
+	 * slows for instead of veering along it.
 	 */
-	static final float AVOID_ANGLE_STEP = 10.0F;
-	static final float AVOID_MAX_ANGLE = 40.0F;
+	static final float DETOUR_REACH = 12.0F;
+	static final float AVOID_MAX_ANGLE = 85.0F;
 	static final float DETOUR_CLEARANCE = 2.0F;
 	/**
 	 * A detour line must be clear this much wider than the body on each side, so the horse turns early and wide enough
 	 * despite the time it takes to shift its weight and come round.
 	 */
-	static final float DETOUR_MARGIN = 0.6F;
-	/** While detouring, the horse only brakes for its current heading when the obstacle is this close (blocks). */
-	static final float DETOUR_EMERGENCY = 2.5F;
+	static final float DETOUR_MARGIN = 0.4F;
+	/**
+	 * Swinging round at speed: the horse needs ~TURN_LAG_TICKS to shift its weight, then turns at about TURN_EFFICIENCY
+	 * of its grip-limited rate; it slows as much as that takes to come round before what is ahead.
+	 */
+	static final float TURN_LAG_TICKS = 4.0F;
+	/** Turned off the rider's line going round something, it keeps a pace that can come back round within this, blocks. */
+	static final float DETOUR_RETURN_ROOM = 6.0F;
+	static final float TURN_EFFICIENCY = 0.7F;
 	/** The detour eases in and out by this many degrees per tick; detours are re-planned every few ticks. */
 	static final float AVOID_RATE = 5.0F;
 	static final int AVOID_REPLAN_TICKS = 2;
@@ -174,6 +195,22 @@ public final class RideTuning {
 	static final float BRAKE_PLAN = 0.8F;
 	static final float BRAKE_LAG_TICKS = 1.5F;
 	static final float STOP_MARGIN = 0.2F;
+	/**
+	 * Falls: the horse takes any fall that doesn't hurt it (vanilla horses: up to ~8 blocks), and beyond that one that
+	 * costs it up to FALL_HURT_ALLOWANCE health points (2 hearts) and its rider up to RIDER_FALL_HURT_ALLOWANCE (3). The
+	 * allowances are full above CONFIDENT_HEALTH and shrink to nothing at CAUTIOUS_HEALTH (fractions of max health), so
+	 * a hurt horse or rider is careful. At full health that is drops up to ~10 blocks.
+	 */
+	static final float FALL_HURT_ALLOWANCE = 4.0F;
+	/** The rider takes the fall too (at full damage from 3 blocks), so any fall that hurts the horse costs them more. */
+	static final float RIDER_FALL_HURT_ALLOWANCE = 6.0F;
+	static final float CONFIDENT_HEALTH = 0.8F;
+	static final float CAUTIOUS_HEALTH = 0.4F;
+	/**
+	 * Down slopes, momentum carries the horse past each step before it lands; it keeps to a pace that lands within the
+	 * fall it will take, less this margin for error (a plain step it can take is always fine).
+	 */
+	static final double FALL_MARGIN = 1.0;
 	/** Gaps up to this wide (with safe ground at about the same height beyond) stay jumpable: no braking, no refusal. */
 	static final float GAP_REACH = 4.0F;
 	/** Refusing (a drop or hazard from a trot or faster, or a jump off a cliff): a snort and a head toss, at most this often. */
@@ -181,17 +218,22 @@ public final class RideTuning {
 	static float REFUSAL_VOLUME = 0.5F;
 
 	/**
-	 * Ledges up to 2 blocks high: riding toward one at a walk or trot, the horse halts at it, gathers itself for a moment
-	 * (haunches down, nose up) and jumps up onto it in an arc that clears the lip by LEDGE_CLEARANCE. Not at a canter or
-	 * gallop (it slows for the wall first), and never over fences, walls or gates, so pens still hold horses.
+	 * Ledges up to 2 blocks high: riding at one at a walk or trot, the horse jumps up it without stopping. It spots the
+	 * ledge within LEDGE_REACH of its chest, sinks onto its haunches over the last LEDGE_CROUCH_TICKS, and takes off
+	 * about a stride out (where its arc brings the body above the lip just as it reaches the face), clearing the lip by
+	 * LEDGE_CLEARANCE, then walks on. Not at a canter or gallop (it slows for the wall first); never onto leaves or a
+	 * lone log (it needs solid ground under LEDGE_SUPPORT of its body), and never over fences, walls or gates.
 	 */
 	public static boolean LEDGE_CLIMB = true;
 	static final float LEDGE_HEIGHT = 2.0F;
-	/** It takes off when the ledge's face is this close to its chest, blocks. */
-	static final float LEDGE_REACH = 0.9F;
-	public static final int LEDGE_GATHER_TICKS = 5;
+	static final float LEDGE_REACH = 2.5F;
 	static final float LEDGE_CLEARANCE = 0.3F;
-	/** Gathering: the body sinks this far (blocks) and the nose lifts this much (degrees). */
+	static final double LEDGE_SUPPORT = 0.6;
+	/** Forward speed in the jump at least this, blocks/tick, and the run-up gives up after LEDGE_APPROACH_TICKS. */
+	static final float LEDGE_MIN_FORWARD = 0.1F;
+	static final int LEDGE_APPROACH_TICKS = 40;
+	static final float LEDGE_CROUCH_TICKS = 3.0F;
+	/** Crouching: the body sinks this far (blocks) and the nose lifts this much (degrees). */
 	static final float LEDGE_CROUCH = 0.12F;
 	static final float LEDGE_CROUCH_PITCH = 6.0F;
 	static final float LEDGE_STAMINA_COST = 0.04F;
@@ -204,7 +246,7 @@ public final class RideTuning {
 	static float LEAN_MAX = 15.0F;
 	static final float LEAN_SMOOTHING = 0.4F;
 	/** Ground is probed this far ahead of and behind the horse's centre, roughly where the hooves are. */
-	static final float HOOF_REACH = 0.65F;
+	public static final float HOOF_REACH = 0.65F;
 	static final float PITCH_MAX = 15.0F;
 	/**
 	 * Climbing, the neck reaches forward/down by this share of the body's nose-up pitch (and the reverse downhill),
@@ -212,9 +254,18 @@ public final class RideTuning {
 	 */
 	public static final float NECK_COUNTER_PITCH = 0.6F;
 	static final float PITCH_SMOOTHING = 0.3F;
-	/** In the air the body follows its flight path, scaled down. */
+	/** Swimming out of the water, the body follows its path, scaled down. */
 	static final float AIR_PITCH_SCALE = 0.4F;
 	static final float AIR_PITCH_MAX = 12.0F;
+	/**
+	 * Jumping (and any time in the air), the body tilts with its flight like a real horse's: nose up on takeoff as the
+	 * front legs lift and the hind legs push (pivoting on the hind hooves), level over the top, nose down to land front
+	 * feet first (pivoting on the front hooves). Degrees per degree of flight path, limits up and down, and response.
+	 */
+	static final float JUMP_PITCH_SCALE = 0.55F;
+	static final float JUMP_PITCH_UP = 25.0F;
+	static final float JUMP_PITCH_DOWN = 15.0F;
+	static final float JUMP_PITCH_SMOOTHING = 0.5F;
 	/** How much the body rises (or dips) early as the front hooves reach higher (or lower) ground. */
 	static final float STEP_ANTICIPATION = 0.5F;
 	/** World-space follow rate for the body height on the ground: turns block step-ups into a climb. */

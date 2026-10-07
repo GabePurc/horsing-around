@@ -12,6 +12,7 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.level.Level;
@@ -22,17 +23,18 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * The horse has a say in where it goes. It looks ahead along its path for what would stop it (walls, trunks, ledges)
- * and what would hurt it (drops beyond its safe fall distance, lava, fire, cactus, berry bushes...), and the ride
- * controller uses that to steer round small obstacles, slow for walls, refuse drops and hazards, and climb ledges.
+ * and what would hurt it (falls it won't take, lava, fire, cactus, berry bushes...), and the ride controller uses that
+ * to go round obstacles when there is a way, slow for walls when there isn't, take slopes at a pace it can land
+ * safely, refuse drops and hazards, and jump up ledges.
  *
- * <p>Built not to get in the way: at a walk the horse never steers itself and walks right up to walls; it only
- * detours round things it can actually pass; riding alongside walls, fences and edges reads clear; drops it can take
- * safely, water landings and jumpable gaps are left to the rider.
+ * <p>Built not to get in the way: at a walk the horse never steers itself and walks right up to walls; riding beside
+ * walls and along edges reads clear; drops it can take, water landings and jumpable gaps are left to the rider.
  *
  * <p>Runs on the instance simulating the ride (the rider's client thread) only, so it shares scratch state.
  */
@@ -46,15 +48,21 @@ public final class Awareness {
 
 	/** Spacing of the look-ahead samples, blocks. */
 	private static final float STEP = 0.5F;
-	/** Side lines run just inside the body's half-width, so riding alongside a wall or an edge reads clear. */
-	private static final float SIDE = 0.55F;
-	private static final float HALF_BODY = 0.7F;
+	/** Half the body's width, from its collision box, and the side lines just inside it (so riding alongside a wall or an edge reads clear). */
+	private static float half = 0.45F;
+	private static float side = 0.3F;
 	private static final double STEP_UP = 1.0;
 	private static final double BODY_HEIGHT = 1.6;
+	/** How much longer the horse's body is than its (square) collision box, nose to tail. */
+	private static final double BODY_LENGTH_EXTRA = 1.0;
 	/** Thin shapes (doors, panes, fence posts) only count where they are, give or take this much. */
 	private static final double SHAPE_PAD = 0.2;
 	/** The edge guard arms when danger or a gap is this close. */
 	private static final float GUARD_RANGE = 4.0F;
+	/** A way round turns back toward the rider's line this far beyond the body short of the obstacle. */
+	private static final float DOGLEG_BACKOFF = 0.5F;
+	/** A drop between samples bigger than this can put a moving horse in the air. */
+	private static final double EDGE = 0.4;
 
 	// Column classes.
 	private static final int GROUND = 0;
@@ -66,69 +74,119 @@ public final class Awareness {
 	/** What the last probe found (CLEAR, WALL or DANGER), and the first jumpable gap it passed (MAX_VALUE if none). */
 	private static int kind;
 	private static float gapAt;
-	/** Ground height of the last column read as GROUND. */
+	/** The last probe's danger was a hazard with safe ground just beyond it. */
+	private static boolean hazardJumpable;
+	/** Ground height of the last column read as GROUND, and under the centre line where the last probe ended. */
 	private static double columnGround;
+	private static double endGround;
+	/**
+	 * Ground under the body along the last probe: PROFILE[i] at (i + 1) * STEP ahead (highest of the three lines that
+	 * hold the horse up), NaN over a jumpable gap; profileOrigin at the horse.
+	 */
+	private static final double[] PROFILE = new double[(int) (LOOK_AHEAD_MAX / STEP) + 2];
+	private static int profileLength;
+	private static double profileOrigin;
+	/** Whether the ground falls away past the end of the profile (it ended at a drop) rather than carrying on. */
+	private static boolean profileFallsAway;
+	/** Distance to the face of the last ledge found, blocks. */
+	static float ledgeFace;
+	/** Distance to the first step down along the last profile looked at for slopes (MAX_VALUE if none). */
+	private static float firstEdge = Float.MAX_VALUE;
 
 	private Awareness() {
 	}
 
+	private static void body(final AbstractHorse horse) {
+		half = horse.getBbWidth() * 0.5F;
+		side = Math.max(half - 0.01F, 0.2F);
+		final AABB box = horse.getBoundingBox();
+		inMinX = Mth.floor(box.minX);
+		inMaxX = Mth.floor(box.maxX - 1.0E-7);
+		inMinZ = Mth.floor(box.minZ);
+		inMaxZ = Mth.floor(box.maxZ - 1.0E-7);
+		inMinY = Mth.floor(box.minY);
+		inMaxY = Mth.floor(box.maxY);
+	}
+
+	/** Block cells the body is in now: a hazard already there is behind it, not ahead (it can walk back out). */
+	private static int inMinX;
+	private static int inMaxX;
+	private static int inMinZ;
+	private static int inMaxZ;
+	private static int inMinY;
+	private static int inMaxY;
+
+	private static boolean occupied(final int x, final int y, final int z) {
+		return x >= inMinX && x <= inMaxX && z >= inMinZ && z <= inMaxZ && y >= inMinY && y <= inMaxY;
+	}
+
 	/**
-	 * One ridden tick on the ground: plans any detour round an obstacle on the rider's path (new ones from a trot up),
+	 * One ridden tick on the ground: finds a way round anything on the rider's path (when asked for a trot or more),
 	 * and returns the fastest the horse is willing to go given what lies on the way it is heading.
 	 */
-	static float look(final AbstractHorse horse, final RideState s, final float targetYaw) {
-		final double safeDrop = horse.getAttributeValue(Attributes.SAFE_FALL_DISTANCE);
+	static float look(final AbstractHorse horse, final RideState s, final float targetYaw, final boolean forward) {
+		body(horse);
+		final double fall = acceptableFall(horse);
 		final float blocksPerUnit = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR;
-		final float range = Mth.clamp(Math.abs(s.speed) * blocksPerUnit * LOOK_AHEAD_TICKS + HALF_BODY + STEP, LOOK_AHEAD_MIN, LOOK_AHEAD_MAX);
+		final float range = Mth.clamp(Math.abs(s.speed) * blocksPerUnit * LOOK_AHEAD_TICKS + half + STEP, LOOK_AHEAD_MIN, LOOK_AHEAD_MAX);
 
-		// Detours: started from a trot, so a walk is fully in the rider's hands; one under way is seen through.
-		final boolean detouring = s.avoidTarget != 0.0F;
-		if (s.speed < (detouring ? 0.05F : GAIT_SPEED[TROT] - 0.05F)) {
+		// Ways round: when the rider asks for a trot or more, never at a walk, so a walk is fully in their hands. Kept
+		// up while the horse slows for the obstacle, so it goes round instead of walking into it.
+		if (!forward || s.gait < TROT) {
 			s.avoidTarget = 0.0F;
 		} else if (--s.avoidReplan <= 0) {
-			s.avoidReplan = AVOID_REPLAN_TICKS;
-			s.avoidTarget = detour(horse, s, targetYaw, range, safeDrop);
+			s.avoidTarget = detour(horse, s, targetYaw, range, fall);
+			// Nothing in the way, or a way round: look again soon. Blocked with no way round: no need every tick.
+			s.avoidReplan = s.avoidTarget != 0.0F || kind == CLEAR ? AVOID_REPLAN_TICKS : AVOID_REPLAN_TICKS * 3;
 		}
 		s.avoidOffset += Mth.clamp(s.avoidTarget - s.avoidOffset, -AVOID_RATE, AVOID_RATE);
 
-		// Speed: slow to a walk before a wall, stop short of danger, judged on the way the horse is going (while it
-		// detours round something, on the detour, braking for its current heading only if the obstacle is upon it).
-		float limit = limit(horse, s, s.avoidTarget != 0.0F ? targetYaw + s.avoidTarget : horse.getYRot(), range, safeDrop, blocksPerUnit);
-		if (s.avoidTarget != 0.0F) {
-			final float dangerAhead = s.dangerAhead;
-			final float gapAhead = s.gapAhead;
-			final float wallAhead = s.wallAhead;
-			limit = Math.min(limit, limit(horse, s, horse.getYRot(), DETOUR_EMERGENCY, safeDrop, blocksPerUnit));
-			s.dangerAhead = Math.min(s.dangerAhead, dangerAhead);
-			s.gapAhead = Math.min(s.gapAhead, gapAhead);
-			s.wallAhead = Math.min(s.wallAhead, wallAhead);
+		// Speed: judged on the way the horse is going (while it goes round something, on that way, braking for its
+		// current heading only if the obstacle is upon it).
+		final boolean detouring = s.avoidTarget != 0.0F;
+		float limit = limit(horse, s, detouring ? targetYaw + s.avoidTarget : horse.getYRot(), range, fall, blocksPerUnit, true);
+		if (s.avoidOffset != 0.0F) {
+			// Turned well off the rider's line, it keeps a pace it can come back round from without swinging wide.
+			limit = Math.min(limit, Math.max(turnableSpeed(Math.abs(s.avoidOffset), DETOUR_RETURN_ROOM) / blocksPerUnit, GAIT_SPEED[TROT]));
+		}
+		if (detouring) {
+			// It must be able to swing round before it reaches what is in front of it now: at speed its turns are wide,
+			// so it slows as much as it takes to make the turn in the room it has.
+			final float ahead = probe(horse, horse.getX(), horse.getY(), horse.getZ(), horse.getYRot(), range, fall, side);
+			if (kind != CLEAR) {
+				final float turn = Math.abs(Mth.wrapDegrees(targetYaw + s.avoidTarget - horse.getYRot()));
+				final float turnable = turnableSpeed(turn, ahead - STEP - half - STOP_MARGIN) / blocksPerUnit;
+				limit = Math.min(limit, kind == WALL ? Math.max(turnable, GAIT_SPEED[WALK]) : turnable);
+				if (kind == DANGER) {
+					s.dangerAhead = Math.min(s.dangerAhead, ahead);
+				} else {
+					s.wallAhead = Math.min(s.wallAhead, ahead);
+				}
+			}
 		}
 		return limit;
 	}
 
-	/** Fastest speed (multiple of the speed attribute) that still stops short of what lies along yaw within range. */
-	private static float limit(final AbstractHorse horse, final RideState s, final float yaw, final float range, final double safeDrop, final float blocksPerUnit) {
-		final float ahead = probe(horse, yaw, range, safeDrop, SIDE);
-		s.dangerAhead = kind == DANGER ? ahead : Float.MAX_VALUE;
-		s.wallAhead = kind == WALL ? ahead : Float.MAX_VALUE;
-		s.gapAhead = gapAt;
-		if (kind == CLEAR) {
-			return Float.MAX_VALUE;
+	/**
+	 * Fastest speed (blocks/tick) at which the horse can come round {@code turn} degrees within {@code room} blocks: it
+	 * takes TURN_LAG_TICKS to shift its weight, then turns at its grip-limited rate (on average TURN_EFFICIENCY of it).
+	 */
+	private static float turnableSpeed(final float turn, final float room) {
+		if (room <= 0.0F) {
+			return 0.0F;
 		}
-		// The obstacle starts somewhere in the last sample step; keep the body clear of it.
-		final float room = ahead - STEP - HALF_BODY - STOP_MARGIN;
-		final float decel = DECEL_BRAKE * blocksPerUnit * BRAKE_PLAN;
-		final float blocksPerTick = room <= 0.0F ? 0.0F
-			: decel * (-BRAKE_LAG_TICKS + (float) Math.sqrt(BRAKE_LAG_TICKS * BRAKE_LAG_TICKS + 2.0F * room / decel));
-		final float limit = blocksPerTick / blocksPerUnit;
-		if (kind == WALL) {
-			return Math.max(limit, GAIT_SPEED[WALK]);
+		float lo = 0.0F;
+		float hi = 1.0F;
+		for (int i = 0; i < 8; i++) {
+			final float v = (lo + hi) * 0.5F;
+			final float ticks = TURN_LAG_TICKS + turn / (TURN_EFFICIENCY * RideController.maxTurnRate(v * 20.0F));
+			if (v * ticks <= room) {
+				lo = v;
+			} else {
+				hi = v;
+			}
 		}
-		if (s.speed >= GAIT_SPEED[TROT] && limit < s.speed) {
-			// It has seen the drop or the fire and starts to pull up.
-			refuse(horse, s);
-		}
-		return limit;
+		return lo;
 	}
 
 	/** Not looking this tick (walking off, swimming, jumping, climbing): let any detour ease out. */
@@ -141,106 +199,265 @@ public final class Awareness {
 	}
 
 	/**
-	 * The smallest turn off the rider's line, up to AVOID_MAX_ANGLE, that gets the horse past what blocks it; keeps to
-	 * the side it is already detouring to. A detour only counts if, measured along the rider's line, it gets
-	 * DETOUR_CLEARANCE beyond the obstacle: true of trees and rocks, never of a wall too long to get round (any line
-	 * into it makes no more progress than straight ahead). Zero when the line is clear or there is no way round (then
-	 * the horse slows instead).
+	 * A way round what blocks the rider's line, found the way a rider would: look along the obstacle for the nearest
+	 * place, either side, where the line is clear past it (DETOUR_CLEARANCE beyond it, with DETOUR_MARGIN to spare either
+	 * side of the body) and the way there is clear too, and head for it. Prefers the side it is already going round on,
+	 * and comes back to the rider's line only once that is clear with room to spare, so it doesn't cut the corner. Zero
+	 * when the line is clear or there is no way round in reach (then the horse slows instead).
 	 */
-	private static float detour(final AbstractHorse horse, final RideState s, final float targetYaw, final float range, final double safeDrop) {
-		final float blocked = probe(horse, targetYaw, range, safeDrop, SIDE);
+	private static float detour(final AbstractHorse horse, final RideState s, final float targetYaw, final float range, final double fall) {
+		final boolean going = s.avoidTarget != 0.0F;
+		final float flank = side + DETOUR_MARGIN;
+		final float blocked = probe(horse, horse.getX(), horse.getY(), horse.getZ(), targetYaw, range, fall, going ? flank : side);
 		if (kind == CLEAR) {
 			return 0.0F;
 		}
-		final float side = s.avoidOffset != 0.0F ? Math.signum(s.avoidOffset) : s.turnIntent < 0.0F ? -1.0F : 1.0F;
-		for (float angle = AVOID_ANGLE_STEP; angle <= AVOID_MAX_ANGLE; angle += AVOID_ANGLE_STEP) {
-			final float along = Mth.cos(angle * Mth.DEG_TO_RAD);
-			if (passes(probe(horse, targetYaw + angle * side, range, safeDrop, SIDE + DETOUR_MARGIN), along, blocked, range)) {
-				return angle * side;
+		final float rad = targetYaw * Mth.DEG_TO_RAD;
+		final double fx = -Mth.sin(rad);
+		final double fz = Mth.cos(rad);
+		final float ahead = Math.max(blocked - (half + DOGLEG_BACKOFF), 0.0F);
+		final float past = blocked - ahead + DETOUR_CLEARANCE + half;
+		final float preferred = s.avoidOffset != 0.0F ? Math.signum(s.avoidOffset) : s.turnIntent < 0.0F ? -1.0F : 1.0F;
+		for (float across = 1.0F; across <= DETOUR_REACH; across += 1.0F) {
+			final float angle = (float) Math.toDegrees(Math.atan2(across, ahead));
+			if (angle > AVOID_MAX_ANGLE) {
+				continue;
 			}
-			if (passes(probe(horse, targetYaw - angle * side, range, safeDrop, SIDE + DETOUR_MARGIN), along, blocked, range)) {
-				return -angle * side;
+			for (int i = 0; i < 2; i++) {
+				final float sign = i == 0 ? preferred : -preferred;
+				// The way out to the side...
+				probe(horse, horse.getX(), horse.getY(), horse.getZ(), targetYaw + angle * sign, Mth.sqrt(across * across + ahead * ahead), fall, flank);
+				if (kind != CLEAR) {
+					continue;
+				}
+				// ...and from there, past the obstacle along the rider's line.
+				// (Turning to a larger yaw heads toward (-fz, fx).)
+				final double x = horse.getX() + fx * ahead - fz * across * sign;
+				final double z = horse.getZ() + fz * ahead + fx * across * sign;
+				probe(horse, x, endGround, z, targetYaw, past, fall, flank);
+				if (kind == CLEAR) {
+					return angle * sign;
+				}
 			}
 		}
+		kind = WALL;
 		return 0.0F;
 	}
 
-	/**
-	 * Whether a line that reaches {@code reach} at {@code along} = cos(angle) off the rider's line gets past an
-	 * obstacle {@code blocked} ahead: clear to the horizon beyond the obstacle's depth, or blocked only well past it.
-	 * Lines into a wall too long to get round never do (they stop at its face, no further along than straight ahead).
-	 */
-	private static boolean passes(final float reach, final float along, final float blocked, final float range) {
-		final float progress = reach * along;
-		return progress > blocked + STEP && (reach >= range || progress >= blocked + DETOUR_CLEARANCE);
+	/** Fastest speed (multiple of the speed attribute) that still stops short of, or lands safely past, what lies along yaw. */
+	private static float limit(
+		final AbstractHorse horse, final RideState s, final float yaw, final float range, final double fall, final float blocksPerUnit, final boolean slopes
+	) {
+		final float ahead = probe(horse, horse.getX(), horse.getY(), horse.getZ(), yaw, range, fall, side);
+		s.dangerAhead = kind == DANGER ? ahead : Float.MAX_VALUE;
+		s.dangerJumpable = kind == DANGER && hazardJumpable;
+		s.wallAhead = kind == WALL ? ahead : Float.MAX_VALUE;
+		s.gapAhead = gapAt;
+		final float decel = DECEL_BRAKE * blocksPerUnit * BRAKE_PLAN;
+		firstEdge = Float.MAX_VALUE;
+		final float limit = slopes ? descent(horse, s, Math.min(fall, harmlessFall(horse)), decel, blocksPerUnit) : Float.MAX_VALUE;
+		if (kind == CLEAR) {
+			return limit;
+		}
+		// The obstacle starts somewhere in the last sample step; keep the body clear of it. Past a step down the horse
+		// may be in the air, so slowing for what lies beyond has to be done by then.
+		final float stop = brakeTo(Math.min(ahead - STEP - half - STOP_MARGIN, firstEdge), 0.0F, decel) / blocksPerUnit;
+		if (kind == WALL) {
+			return Math.min(limit, Math.max(stop, GAIT_SPEED[WALK]));
+		}
+		if (s.speed >= GAIT_SPEED[TROT] && stop < s.speed) {
+			// It has seen the drop or the fire and starts to pull up.
+			refuse(horse, s);
+		}
+		return Math.min(limit, stop);
 	}
 
 	/**
-	 * Walks three lines (centre and both flanks, {@code flank} either side) along yaw from the horse, following the ground. Returns the distance
-	 * to the first sample where something would stop the horse ({@code kind} WALL: too high to step, no headroom) or
-	 * hurt it ({@code kind} DANGER: a hazard under any line, or a drop beyond its safe fall distance under all three, so
-	 * running along an edge is fine), or {@code range} when clear. Gaps with safe ground beyond within GAP_REACH are
-	 * jumpable: passed over and noted in {@code gapAt}.
+	 * Slopes: at speed a horse going over a step down sails on before it lands, and down a steep mountainside that can
+	 * add up to a long fall. For each step down on the profile ahead, finds the fastest the horse can go over it and
+	 * still land without getting hurt ({@code fall}; or the step's own height, if that's more and the horse takes it),
+	 * and returns the speed that brakes to that in time. A slope is taken at a pace, never at a cost. Quiet: no snort.
 	 */
-	private static float probe(final AbstractHorse horse, final float yaw, final float range, final double safeDrop, final float flank) {
+	private static float descent(final AbstractHorse horse, final RideState s, final double fall, final float decel, final float blocksPerUnit) {
+		final double gravity = horse.getGravity();
+		final float speed = Math.max(s.speed, 0.0F) * blocksPerUnit;
+		float limit = Float.MAX_VALUE;
+		double previous = profileOrigin;
+		// It can only brake with its hooves down: past the first step it may be in the air, so every step down ahead
+		// has to be made safe by the time it reaches the first one.
+		for (int i = 0; i < profileLength; i++) {
+			final double next = PROFILE[i];
+			if (!Double.isNaN(previous) && !Double.isNaN(next) && previous - next > EDGE) {
+				final float edge = i * STEP + STEP * 0.5F;
+				firstEdge = Math.min(firstEdge, edge);
+				final double allowed = Math.max(fall - FALL_MARGIN, previous - next);
+				if (flight(edge + half, previous, speed, 0.0, gravity) > allowed) {
+					float safe = 0.0F;
+					float unsafe = speed;
+					for (int k = 0; k < 6; k++) {
+						final float mid = (safe + unsafe) * 0.5F;
+						if (flight(edge + half, previous, mid, 0.0, gravity) > allowed) {
+							unsafe = mid;
+						} else {
+							safe = mid;
+						}
+					}
+					limit = Math.min(limit, brakeTo(Math.min(edge, firstEdge), safe, decel) / blocksPerUnit);
+				}
+			}
+			previous = next;
+		}
+		return limit;
+	}
+
+	/**
+	 * How far the horse falls (from the top of its flight to where its body lands on the profile) when its centre is
+	 * at {@code start} ahead, at height {@code top}, moving {@code speed} blocks/tick forward and {@code vy0} up.
+	 */
+	private static double flight(final double start, final double top, final float speed, final double vy0, final double gravity) {
+		double x = start;
+		double y = top;
+		double vy = vy0;
+		double peak = top;
+		for (int tick = 0; tick < 80; tick++) {
+			x += speed;
+			y += vy;
+			vy = (vy - gravity) * 0.98;
+			peak = Math.max(peak, y);
+			final double ground = groundUnder(x);
+			if (y <= ground) {
+				return peak - ground;
+			}
+		}
+		return peak - y;
+	}
+
+	/** Highest ground under a body centred at {@code x} along the profile. */
+	private static double groundUnder(final double x) {
+		// A little narrower than the body: the profile's samples are coarse, so don't count on ground at its very edge.
+		final double reach = Math.max(half - 0.25, 0.1);
+		final double end = profileLength * STEP;
+		if (x - reach > end) {
+			return profileFallsAway || profileLength == 0 ? Double.NEGATIVE_INFINITY : PROFILE[profileLength - 1];
+		}
+		double ground = x - reach <= 0.0 ? profileOrigin : Double.NEGATIVE_INFINITY;
+		final int first = Math.max(Mth.ceil((x - reach) / STEP) - 1, 0);
+		final int last = Math.min(Mth.floor((x + reach) / STEP) - 1, profileLength - 1);
+		for (int i = first; i <= last; i++) {
+			if (!Double.isNaN(PROFILE[i])) {
+				ground = Math.max(ground, PROFILE[i]);
+			}
+		}
+		return ground;
+	}
+
+	/** Speed (blocks/tick) from which braking at {@code decel} (with the body's lag) gets down to {@code end} within {@code room} blocks. */
+	private static float brakeTo(final float room, final float end, final float decel) {
+		if (room <= 0.0F) {
+			return end;
+		}
+		return decel * (-BRAKE_LAG_TICKS + (float) Math.sqrt(BRAKE_LAG_TICKS * BRAKE_LAG_TICKS + 2.0F * room / decel + end * end / (decel * decel)));
+	}
+
+	/**
+	 * Walks three lines (centre and both flanks, {@code flank} either side) along yaw from (x0, y0, z0), following the
+	 * ground. Returns the distance to the first sample where something would stop the horse ({@code kind} WALL: too
+	 * high to step, no headroom) or hurt it ({@code kind} DANGER: a hazard under any line, or a fall it won't take under
+	 * all three, so running along an edge is fine), or {@code range} when clear. Gaps with safe ground beyond within
+	 * GAP_REACH are jumpable: passed over and noted in {@code gapAt}. Records the ground profile.
+	 */
+	private static float probe(
+		final AbstractHorse horse, final double x0, final double y0, final double z0, final float yaw, final float range, final double fall, final float flank
+	) {
 		final Level level = horse.level();
 		final float rad = yaw * Mth.DEG_TO_RAD;
 		final double fx = -Mth.sin(rad);
 		final double fz = Mth.cos(rad);
-		final double sx = fz * flank;
-		final double sz = -fx * flank;
-		final double x0 = horse.getX();
-		final double z0 = horse.getZ();
-		double centre = horse.getY();
-		double left = centre;
-		double right = centre;
+		// The collision box doesn't turn with the horse: across a diagonal heading it reaches up to 1.41x as far out.
+		final double spread = flank * (Math.abs(fx) + Math.abs(fz));
+		final double sx = fz * spread;
+		final double sz = -fx * spread;
+		double centre = y0;
+		double left = y0;
+		double right = y0;
 		gapAt = Float.MAX_VALUE;
+		profileOrigin = y0;
+		profileLength = 0;
+		profileFallsAway = false;
 		for (float d = STEP; d <= range; d += STEP) {
 			final double x = x0 + fx * d;
 			final double z = z0 + fz * d;
-			final int c = column(level, x, z, centre, safeDrop);
+			final int c = column(level, x, z, centre, fall);
 			final double cGround = columnGround;
-			final int l = column(level, x - sx, z - sz, left, safeDrop);
+			final int l = column(level, x - sx, z - sz, left, fall);
 			final double lGround = columnGround;
-			final int r = column(level, x + sx, z + sz, right, safeDrop);
+			final int r = column(level, x + sx, z + sz, right, fall);
+			final double rGround = columnGround;
 			if (c == BLOCKED || l == BLOCKED || r == BLOCKED) {
 				kind = WALL;
+				endGround = centre;
 				return d;
 			}
-			if (c == HAZARD || l == HAZARD || r == HAZARD || c == DROP && l == DROP && r == DROP) {
-				final float landing = landing(level, x0, z0, fx, fz, d, centre, safeDrop);
+			if (c == HAZARD || l == HAZARD || r == HAZARD) {
+				// Something to go round or stop for; the rider may still jump it if there is ground just beyond.
+				hazardJumpable = landing(level, x0, z0, fx, fz, d, centre, fall) >= 0.0F;
+				kind = DANGER;
+				endGround = centre;
+				return d;
+			}
+			if (c == DROP && l == DROP && r == DROP) {
+				final float landing = landing(level, x0, z0, fx, fz, d, centre, fall);
+				hazardJumpable = false;
 				if (landing < 0.0F) {
 					kind = DANGER;
+					endGround = centre;
+					profileFallsAway = true;
 					return d;
 				}
 				if (gapAt == Float.MAX_VALUE) {
 					gapAt = d;
 				}
 				centre = left = right = columnGround;
+				while (profileLength < PROFILE.length && (profileLength + 1) * STEP < landing - 0.01F) {
+					PROFILE[profileLength++] = Double.NaN;
+				}
+				record(centre);
 				d = landing;
 				continue;
 			}
 			// A line over a drop while the others hold the horse up keeps the edge height.
+			double support = Double.NEGATIVE_INFINITY;
 			if (c == GROUND) {
 				centre = cGround;
+				support = cGround;
 			}
 			if (l == GROUND) {
 				left = lGround;
+				support = Math.max(support, lGround);
 			}
 			if (r == GROUND) {
-				right = columnGround;
+				right = rGround;
+				support = Math.max(support, rGround);
 			}
+			record(support);
 		}
 		kind = CLEAR;
+		endGround = centre;
 		return range;
+	}
+
+	private static void record(final double ground) {
+		if (profileLength < PROFILE.length) {
+			PROFILE[profileLength++] = ground;
+		}
 	}
 
 	/** Where safe ground resumes at about the edge's height within GAP_REACH past {@code from}, or -1. */
 	private static float landing(
-		final Level level, final double x0, final double z0, final double fx, final double fz, final float from, final double edge, final double safeDrop
+		final Level level, final double x0, final double z0, final double fx, final double fz, final float from, final double edge, final double fall
 	) {
 		for (float d = from + STEP; d <= from + GAP_REACH; d += STEP) {
-			if (column(level, x0 + fx * d, z0 + fz * d, edge, safeDrop) == GROUND && columnGround >= edge - 1.5) {
+			if (column(level, x0 + fx * d, z0 + fz * d, edge, fall) == GROUND && columnGround >= edge - 1.5) {
 				return d;
 			}
 		}
@@ -249,16 +466,16 @@ public final class Awareness {
 
 	/**
 	 * Reads one block column for a body arriving at ground height {@code ground}: GROUND (a surface within a step up,
-	 * or a safe drop down, with headroom; sets {@link #columnGround}), BLOCKED (nothing the body fits on), DROP (deeper
-	 * than the safe fall) or HAZARD. Water anywhere below breaks a fall. Scans down from head height after a step up.
+	 * or a fall it will take down, with headroom; sets {@link #columnGround}), BLOCKED (nothing the body fits on), DROP
+	 * (a longer fall) or HAZARD. Water anywhere below breaks a fall. Scans down from head height after a step up.
 	 */
-	private static int column(final Level level, final double x, final double z, final double ground, final double safeDrop) {
+	private static int column(final Level level, final double x, final double z, final double ground, final double fall) {
 		final int bx = Mth.floor(x);
 		final int bz = Mth.floor(z);
 		final double inX = x - bx;
 		final double inZ = z - bz;
 		final int top = Mth.floor(ground + STEP_UP + BODY_HEIGHT);
-		final int bottom = Mth.floor(ground - safeDrop) - 1;
+		final int bottom = Mth.floor(ground - fall) - 1;
 		final double bodyTop = ground + BODY_HEIGHT;
 		double ceiling = Double.MAX_VALUE;
 		for (int by = top; by >= bottom; by--) {
@@ -270,7 +487,7 @@ public final class Awareness {
 			if (!fluid.isEmpty() && fluid.is(FluidTags.LAVA)) {
 				return HAZARD;
 			}
-			if (by <= bodyTop && isHazard(state)) {
+			if (by <= bodyTop && isHazard(state) && !occupied(bx, by, bz)) {
 				return HAZARD;
 			}
 			final VoxelShape shape = RIDE_THROUGH_LEAVES && state.is(BlockTags.LEAVES) ? Shapes.empty() : state.getCollisionShape(level, POS);
@@ -284,7 +501,7 @@ public final class Awareness {
 			}
 			final double surface = by + shape.max(Direction.Axis.Y);
 			if (surface <= ground + STEP_UP + 0.01 && ceiling - surface >= BODY_HEIGHT) {
-				if (ground - surface > safeDrop) {
+				if (ground - surface > fall) {
 					return DROP;
 				}
 				columnGround = surface;
@@ -301,47 +518,120 @@ public final class Awareness {
 	}
 
 	/** Blocks that hurt or trap a horse walking into or onto them (lava is checked as a fluid). */
-	static boolean isHazard(final BlockState state) {
+	public static boolean isHazard(final BlockState state) {
 		return state.is(BlockTags.FIRE) || state.is(Blocks.MAGMA_BLOCK) || state.is(Blocks.CACTUS) || state.is(Blocks.SWEET_BERRY_BUSH)
 			|| state.is(Blocks.POWDER_SNOW) || state.is(Blocks.WITHER_ROSE) || state.is(Blocks.COBWEB) || CampfireBlock.isLitCampfire(state)
 			|| state.is(AVOIDS);
 	}
 
 	/**
-	 * Last resort, after steering and speed are settled: if this tick's travel would carry the horse off a drop that
-	 * would hurt it or into a hazard (an edge it reached too fast, the lip of a gap without a jump, backing up), it
-	 * plants its feet. Only checks when danger is close or backing up.
+	 * The longest fall the horse will take. Anything that doesn't hurt it (horses take half damage past 6 blocks, so up to
+	 * about 8), and beyond that only while the hurt stays small: up to FALL_HURT_ALLOWANCE for the horse and
+	 * RIDER_FALL_HURT_ALLOWANCE for its rider, who takes the fall with it (vanilla passes a hurting fall on to riders,
+	 * at full damage from 3 blocks). The less health either has left, the more careful it is: the allowances shrink to
+	 * nothing at CAUTIOUS_HEALTH.
+	 */
+	public static double acceptableFall(final AbstractHorse horse) {
+		final double safe = horse.getAttributeValue(Attributes.SAFE_FALL_DISTANCE);
+		final double multiplier = Math.max(horse.getAttributeValue(Attributes.FALL_DAMAGE_MULTIPLIER), 1.0E-3);
+		final double horseAllowance = allowance(horse);
+		final LivingEntity rider = horse.getControllingPassenger();
+		final double riderAllowance = rider == null ? 0.0 : allowance(rider) * RIDER_FALL_HURT_ALLOWANCE / FALL_HURT_ALLOWANCE;
+		double fall = safe;
+		for (int hurt = 0; hurt <= 20 && hurt <= horseAllowance; hurt++) {
+			// The longest fall that hurts the horse this much (damage is rounded down).
+			final double candidate = safe + (hurt + 1) / multiplier - 0.05;
+			if (hurt > 0 && rider != null && riderHurt(rider, candidate) > riderAllowance) {
+				break;
+			}
+			fall = candidate;
+		}
+		return fall;
+	}
+
+	/** The longest fall that doesn't hurt the horse at all (damage is rounded down), so a rider isn't hurt either. */
+	static double harmlessFall(final AbstractHorse horse) {
+		return horse.getAttributeValue(Attributes.SAFE_FALL_DISTANCE) + 1.0 / Math.max(horse.getAttributeValue(Attributes.FALL_DAMAGE_MULTIPLIER), 1.0E-3) - 0.05;
+	}
+
+	private static double riderHurt(final LivingEntity rider, final double fall) {
+		return Math.floor(Math.max(fall - rider.getAttributeValue(Attributes.SAFE_FALL_DISTANCE), 0.0) * rider.getAttributeValue(Attributes.FALL_DAMAGE_MULTIPLIER));
+	}
+
+	/** Hurt (health points) a fall may cost: all of FALL_HURT_ALLOWANCE when healthy, shrinking to none when low. */
+	private static double allowance(final LivingEntity entity) {
+		final float health = entity.getHealth() / Math.max(entity.getMaxHealth(), 1.0F);
+		return FALL_HURT_ALLOWANCE * Mth.clamp((health - CAUTIOUS_HEALTH) / (CONFIDENT_HEALTH - CAUTIOUS_HEALTH), 0.0F, 1.0F);
+	}
+
+	/**
+	 * Last resort, after steering and speed are settled, on where this tick's travel (carried velocity, push and any
+	 * side-step) would take the body: if that steps into a hazard it isn't already in (from any side, turning in a tight
+	 * spot included), or off a drop it won't take (an edge reached too fast, the lip of a gap without a jump, backing
+	 * up), it plants its feet. The hazard look is a handful of block reads; the drop look only runs when danger is close.
 	 */
 	static void guard(final AbstractHorse horse, final RideState s) {
-		if (s.speed >= 0.0F && s.dangerAhead > GUARD_RANGE && s.gapAhead > GUARD_RANGE || s.jumpBuffer > 0 || s.pendingJump > 0.0F) {
+		body(horse);
+		s.guardChecks++;
+		if (s.jumpBuffer > 0 || s.pendingJump > 0.0F || s.speed == 0.0F && horse.getDeltaMovement().horizontalDistanceSqr() < 1.0E-6) {
 			return;
 		}
 		final float rad = s.heading * Mth.DEG_TO_RAD;
-		final double push = horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * s.speed;
+		final float sin = Mth.sin(rad);
+		final float cos = Mth.cos(rad);
+		// The ridden input: forward (or back), with the side-step to the left as positive x, normalised like vanilla.
+		final float sideways = s.speed > 0.0F ? -s.sidestep() : 0.0F;
+		final float length = Math.max(Mth.sqrt(sideways * sideways + 1.0F), 1.0F);
+		final double push = horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * s.speed / length;
 		final Vec3 movement = horse.getDeltaMovement();
-		final double dx = movement.x - Mth.sin(rad) * push;
-		final double dz = movement.z + Mth.cos(rad) * push;
-		if (!unsafe(horse, dx, dz, horse.getAttributeValue(Attributes.SAFE_FALL_DISTANCE))) {
+		final double dx = movement.x + (sideways * cos - sin) * push;
+		final double dz = movement.z + (cos + sideways * sin) * push;
+		final boolean intoHazard = entersHazard(horse, dx, dz);
+		final boolean overEdge = !intoHazard && horse.onGround() && (s.speed < 0.0F || s.dangerAhead <= GUARD_RANGE || s.gapAhead <= GUARD_RANGE)
+			&& fallsOff(horse, dx, dz, acceptableFall(horse));
+		if (!intoHazard && !overEdge) {
 			return;
 		}
+		s.guardStops++;
 		if (s.speed >= GAIT_SPEED[TROT]) {
 			refuse(horse, s);
 		}
 		s.speed = 0.0F;
-		horse.setDeltaMovement(0.0, movement.y, 0.0);
+		s.sidestep = 0.0F;
+		// Brushing past a hazard, it slides along it on whichever axis stays clear (as vanilla does at an edge).
+		if (intoHazard && !entersHazard(horse, dx, 0.0)) {
+			horse.setDeltaMovement(dx, movement.y, 0.0);
+		} else if (intoHazard && !entersHazard(horse, 0.0, dz)) {
+			horse.setDeltaMovement(0.0, movement.y, dz);
+		} else {
+			horse.setDeltaMovement(0.0, movement.y, 0.0);
+		}
 	}
 
-	/** Whether the horse's body moved by (dx, dz) would fall further than safeDrop (with no water below) or meet a hazard. */
-	private static boolean unsafe(final AbstractHorse horse, final double dx, final double dz, final double safeDrop) {
+	/** Whether the body moved by (dx, dz) would overlap a hazard block (or lava) it doesn't overlap now. */
+	private static boolean entersHazard(final AbstractHorse horse, final double dx, final double dz) {
 		final Level level = horse.level();
 		final AABB box = horse.getBoundingBox();
-		final int x1 = Mth.floor(box.maxX + dx - 1.0E-7);
-		final int z1 = Mth.floor(box.maxZ + dz - 1.0E-7);
-		final int y0 = Mth.floor(box.minY - 0.5);
+		final int x0 = Mth.floor(box.minX + Math.min(dx, 0.0));
+		final int x1 = Mth.floor(box.maxX + Math.max(dx, 0.0) - 1.0E-7);
+		final int z0 = Mth.floor(box.minZ + Math.min(dz, 0.0));
+		final int z1 = Mth.floor(box.maxZ + Math.max(dz, 0.0) - 1.0E-7);
+		// From the layer under the hooves (stepping down into it) to the body.
+		final int y0 = Mth.floor(box.minY - 1.0);
 		final int y1 = Mth.floor(box.minY + 1.0);
-		for (int x = Mth.floor(box.minX + dx); x <= x1; x++) {
-			for (int z = Mth.floor(box.minZ + dz); z <= z1; z++) {
+		for (int x = x0; x <= x1; x++) {
+			for (int z = z0; z <= z1; z++) {
+				final boolean overNow = x >= Mth.floor(box.minX) && x <= Mth.floor(box.maxX - 1.0E-7) && z >= Mth.floor(box.minZ) && z <= Mth.floor(box.maxZ - 1.0E-7);
+				final boolean overNext = x >= Mth.floor(box.minX + dx) && x <= Mth.floor(box.maxX + dx - 1.0E-7)
+					&& z >= Mth.floor(box.minZ + dz) && z <= Mth.floor(box.maxZ + dz - 1.0E-7);
+				if (!overNext) {
+					continue;
+				}
 				for (int y = y0; y <= y1; y++) {
+					// Already in this cell (not just above it): moving on in it is how it gets back out.
+					if (overNow && y >= Mth.floor(box.minY)) {
+						continue;
+					}
 					final BlockState state = level.getBlockState(POS.set(x, y, z));
 					if (!state.isAir() && (isHazard(state) || state.getFluidState().is(FluidTags.LAVA))) {
 						return true;
@@ -349,16 +639,22 @@ public final class Awareness {
 				}
 			}
 		}
+		return false;
+	}
+
+	/** Whether the body moved by (dx, dz) would fall further than {@code fall}, with no water below to land in. */
+	private static boolean fallsOff(final AbstractHorse horse, final double dx, final double dz, final double fall) {
+		final Level level = horse.level();
+		final AABB box = horse.getBoundingBox();
 		final AABB below = new AABB(
-			box.minX + dx + 1.0E-7, box.minY - safeDrop - 1.0E-7, box.minZ + dz + 1.0E-7, box.maxX + dx - 1.0E-7, box.minY, box.maxZ + dz - 1.0E-7
+			box.minX + dx + 1.0E-7, box.minY - fall - 1.0E-7, box.minZ + dz + 1.0E-7, box.maxX + dx - 1.0E-7, box.minY, box.maxZ + dz - 1.0E-7
 		);
 		if (!level.noBlockCollision(horse, below)) {
 			return false;
 		}
-		// Nothing to land on within the safe fall: fine only if there is water to land in.
 		final int cx = Mth.floor((box.minX + box.maxX) * 0.5 + dx);
 		final int cz = Mth.floor((box.minZ + box.maxZ) * 0.5 + dz);
-		for (int y = Mth.floor(box.minY); y >= Mth.floor(box.minY - safeDrop) - 1; y--) {
+		for (int y = Mth.floor(box.minY); y >= Mth.floor(box.minY - fall) - 1; y--) {
 			final FluidState fluid = level.getFluidState(POS.set(cx, y, cz));
 			if (!fluid.isEmpty()) {
 				return !fluid.is(FluidTags.WATER);
@@ -368,20 +664,41 @@ public final class Awareness {
 	}
 
 	/**
-	 * A ledge the horse could jump up, its face within {@code reach} straight ahead along yaw: too high to step, no
-	 * higher than LEDGE_HEIGHT, with headroom for the jump and room on top. Never a fence, wall or gate (or anything
-	 * taller than a block), so pens still hold horses. Returns the top of the ledge, or NaN; the distance to its face is
-	 * left in {@link #ledgeFace}.
+	 * Cheap look for a ledge's face ahead: something solid at the second block up, within LEDGE_REACH of the chest. No
+	 * allocation; {@link #ledge} then checks properly.
+	 */
+	static boolean ledgeAhead(final AbstractHorse horse) {
+		body(horse);
+		final Level level = horse.level();
+		final float rad = horse.getYRot() * Mth.DEG_TO_RAD;
+		final double fx = -Mth.sin(rad);
+		final double fz = Mth.cos(rad);
+		final int y = Mth.floor(horse.getY() + 1.5);
+		for (float d = half + 0.25F; d <= half + LEDGE_REACH; d += 0.5F) {
+			final BlockState state = level.getBlockState(POS.set(Mth.floor(horse.getX() + fx * d), y, Mth.floor(horse.getZ() + fz * d)));
+			if (!state.isAir() && !(RIDE_THROUGH_LEAVES && state.is(BlockTags.LEAVES)) && !state.getCollisionShape(level, POS).isEmpty()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * A ledge the horse could jump up, its face within {@code reach} of the chest straight ahead along yaw: too high to
+	 * step, no higher than LEDGE_HEIGHT, with headroom for the jump, and a solid top under most of where it would land
+	 * (not leaves it falls through, not a lone log in a bush). Never a fence, wall or gate (or anything taller than a
+	 * block), so pens still hold horses. Returns the top of the ledge, or NaN; the face's distance goes in {@link #ledgeFace}.
 	 */
 	static double ledge(final AbstractHorse horse, final float yaw, final float reach) {
 		final Level level = horse.level();
+		final CollisionContext context = CollisionContext.of(horse);
 		final float rad = yaw * Mth.DEG_TO_RAD;
 		final double fx = -Mth.sin(rad);
 		final double fz = Mth.cos(rad);
 		final AABB box = horse.getBoundingBox();
 		float face = -1.0F;
-		for (float m = 0.15F; m <= reach + 1.0E-3F; m += 0.15F) {
-			if (!level.noBlockCollision(horse, box.move(fx * m, 0.0, fz * m))) {
+		for (float m = 0.0F; m <= reach + 1.0E-3F; m += 0.25F) {
+			if (!level.noBlockCollision(horse, box.move(fx * (m + 0.05), 0.0, fz * (m + 0.05)))) {
 				face = m;
 				break;
 			}
@@ -389,10 +706,8 @@ public final class Awareness {
 		if (face < 0.0F) {
 			return Double.NaN;
 		}
-		final AABB at = box.move(fx * face, 0.0, fz * face);
-		if (level.noBlockCollision(horse, at.move(0.0, STEP_UP + 0.05, 0.0))
-			|| !level.noBlockCollision(horse, box.move(fx * (face + 0.3), LEDGE_HEIGHT + 0.05, fz * (face + 0.3)))
-			|| !level.noBlockCollision(horse, box.expandTowards(0.0, LEDGE_HEIGHT + LEDGE_CLEARANCE + 0.05, 0.0))) {
+		final AABB at = box.move(fx * (face + 0.05), 0.0, fz * (face + 0.05));
+		if (level.noBlockCollision(horse, at.move(0.0, STEP_UP + 0.05, 0.0))) {
 			return Double.NaN;
 		}
 		double top = Double.NEGATIVE_INFINITY;
@@ -410,7 +725,7 @@ public final class Awareness {
 					if (state.is(BlockTags.FENCES) || state.is(BlockTags.WALLS) || state.is(BlockTags.FENCE_GATES)) {
 						return Double.NaN;
 					}
-					final VoxelShape shape = state.getCollisionShape(level, POS);
+					final VoxelShape shape = state.getCollisionShape(level, POS, context);
 					if (shape.isEmpty()) {
 						continue;
 					}
@@ -422,21 +737,57 @@ public final class Awareness {
 				}
 			}
 		}
+		if (!(top > box.minY + STEP_UP)) {
+			return Double.NaN;
+		}
+		// Room to jump and to land, and solid ground to land on.
+		final AABB landing = box.move(fx * (face + 1.0), top - box.minY + 0.01, fz * (face + 1.0));
+		// The body is about two blocks long whatever its collision box: it needs that much ledge to land on.
+		if (!level.noBlockCollision(horse, landing) || !level.noBlockCollision(horse, box.expandTowards(0.0, top - box.minY + LEDGE_CLEARANCE + 0.05, 0.0))
+			|| support(level, context, landing.expandTowards(fx * BODY_LENGTH_EXTRA, 0.0, fz * BODY_LENGTH_EXTRA), top) < LEDGE_SUPPORT) {
+			return Double.NaN;
+		}
 		ledgeFace = face;
-		return top > box.minY + STEP_UP ? top : Double.NaN;
+		return top;
 	}
 
-	/** Distance to the face of the last ledge found, blocks. */
-	static float ledgeFace;
-
-	/** Whether a wall is close enough ahead that it could be a ledge to jump up. */
-	static boolean nearWall(final RideState s) {
-		return s.wallAhead <= LEDGE_REACH + HALF_BODY + STEP;
+	/** Share of the box's footprint over solid ground whose top is at {@code top}. */
+	private static double support(final Level level, final CollisionContext context, final AABB box, final double top) {
+		final int y = Mth.floor(top - 0.01);
+		final int x1 = Mth.floor(box.maxX - 1.0E-7);
+		final int z1 = Mth.floor(box.maxZ - 1.0E-7);
+		double area = 0.0;
+		for (int x = Mth.floor(box.minX); x <= x1; x++) {
+			for (int z = Mth.floor(box.minZ); z <= z1; z++) {
+				final BlockState state = level.getBlockState(POS.set(x, y, z));
+				if (state.isAir()) {
+					continue;
+				}
+				final VoxelShape shape = state.getCollisionShape(level, POS, context);
+				if (!shape.isEmpty() && Math.abs(y + shape.max(Direction.Axis.Y) - top) < 0.05) {
+					area += (Math.min(box.maxX, x + 1) - Math.max(box.minX, x)) * (Math.min(box.maxZ, z + 1) - Math.max(box.minZ, z));
+				}
+			}
+		}
+		return area / ((box.maxX - box.minX) * (box.maxZ - box.minZ));
 	}
 
-	/** A jump now would carry the horse off a drop or into a hazard with no safe landing in reach. */
-	static boolean refusesJump(final RideState s) {
-		return s.dangerAhead <= GAP_REACH;
+	/**
+	 * A jump now would carry the horse off a drop or into a hazard with no safe landing in reach, or (down a slope)
+	 * land it further down than it will fall.
+	 */
+	static boolean refusesJump(final AbstractHorse horse, final RideState s, final float power) {
+		body(horse);
+		if (s.dangerAhead <= GAP_REACH && !s.dangerJumpable) {
+			return true;
+		}
+		final double fall = acceptableFall(horse);
+		final float blocksPerUnit = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR;
+		final float speed = Math.max(s.speed, 0.0F) * blocksPerUnit;
+		probe(horse, horse.getX(), horse.getY(), horse.getZ(), horse.getYRot(), LOOK_AHEAD_MAX, fall, side);
+		final float forward = speed > 0.0F ? speed + JUMP_FORWARD_BOOST * power : 0.0F;
+		final double launch = Math.max(horse.getAttributeValue(Attributes.JUMP_STRENGTH) * power, JUMP_MIN_VELOCITY);
+		return flight(0.0, horse.getY(), forward, launch, horse.getGravity()) > fall;
 	}
 
 	/** The horse plants its feet: a snort and a toss of the head, not too often. */

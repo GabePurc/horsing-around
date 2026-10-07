@@ -27,9 +27,14 @@ Builds must work on any machine: never commit machine-specific paths. Gradle pic
 `gradle/gradle-daemon-jvm.properties` (downloads one if needed); local JDK locations go in `~/.gradle/gradle.properties`.
 Release-readiness work (Modrinth, compatibility with other mods) is planned in `development_plan.md`, Release.
 
-Verify every gameplay change with `./gradlew runClientGameTest` (`src/gametest/.../RideFeelTest.java`). It rides a
-horse with simulated keys and writes `build/run/clientGameTest/horsingaround-ride-report.txt` plus screenshots in
-`build/run/clientGameTest/screenshots/` (view them). When feel numbers change on purpose, update the test targets too.
+Verify every gameplay change with `./gradlew runClientGameTest`, which runs two client tests (pick one with
+`-Ptests=ride` or `-Ptests=terrain`, one terrain scenario with `-Pscenario=<part of its name>`):
+`RideFeelTest` rides a horse with simulated keys through every mechanic in hand-built lanes and writes
+`build/run/clientGameTest/horsingaround-ride-report.txt`; `TerrainRideTest` rides procedurally built natural terrain
+(forests, mountains, hills, hazards, river, badlands) like a player would and writes
+`horsingaround-terrain-report.txt` with traces of any crash, hurt or dead end. Screenshots land in
+`build/run/clientGameTest/screenshots/` (view them). Don't test only perfect cases: generated worlds are messy. When
+feel numbers change on purpose, update the test targets too.
 Dev runs load Entity Model Features, Entity Texture Features and the Fresh Animations pack (the user's target setup).
 
 Code rules: per-tick paths must not allocate beyond what vanilla already does, and must not do work for horses that

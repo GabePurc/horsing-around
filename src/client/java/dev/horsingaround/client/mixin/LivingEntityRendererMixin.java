@@ -57,11 +57,16 @@ public abstract class LivingEntityRendererMixin {
 		final float fz = Mth.cos(yaw);
 		final float rx = -fz;
 		final float rz = fx;
-		final float pitch = s.pitch(partialTicks) * Mth.DEG_TO_RAD;
+		final float jump = s.jumpPitch(partialTicks) * Mth.DEG_TO_RAD;
+		final float pitch = s.pitch(partialTicks) * Mth.DEG_TO_RAD + jump;
 		final float bank = s.lean(partialTicks) * Mth.DEG_TO_RAD;
 		// A generated gait motion moves the horse model too; a measured one is already in the animated model.
 		final float bodyPitch = saddle.synthetic ? pitch + saddle.pitch * Mth.DEG_TO_RAD : pitch;
-		final float bodyLift = s.heightOffset(partialTicks) + (saddle.synthetic ? saddle.lift : 0.0F);
+		// The jump tilt pivots on the hooves: the hind ones as it lifts its front to take off, the front ones as it lands.
+		final float pivotForward = (jump > 0.0F ? -HOOF_REACH : HOOF_REACH) * (1.0F - Mth.cos(jump));
+		final float bodyLift = s.heightOffset(partialTicks) + (saddle.synthetic ? saddle.lift : 0.0F) + HOOF_REACH * Mth.sin(Math.abs(jump));
+		final float shiftX = fx * pivotForward;
+		final float shiftZ = fz * pivotForward;
 		HORSE_ROTATION.rotationAxis(bank, fx, 0.0F, fz).rotateAxis(bodyPitch, rx, 0.0F, rz);
 
 		if (isHorse) {
@@ -76,7 +81,7 @@ public abstract class LivingEntityRendererMixin {
 			if (bank == 0.0F && bodyPitch == 0.0F && bodyLift == 0.0F) {
 				pose.horsingaround$clearPose();
 			} else {
-				pose.horsingaround$setPose(0.0F, bodyLift, 0.0F, HORSE_ROTATION.x, HORSE_ROTATION.y, HORSE_ROTATION.z, HORSE_ROTATION.w, 0.0F, 0.0F, 0.0F);
+				pose.horsingaround$setPose(shiftX, bodyLift, shiftZ, HORSE_ROTATION.x, HORSE_ROTATION.y, HORSE_ROTATION.z, HORSE_ROTATION.w, 0.0F, 0.0F, 0.0F);
 			}
 			return;
 		}
@@ -91,9 +96,9 @@ public abstract class LivingEntityRendererMixin {
 		final float measuredLift = saddle.synthetic ? 0.0F : saddle.lift;
 		final float measuredForward = saddle.synthetic ? 0.0F : saddle.forward;
 		final float measuredSide = saddle.synthetic ? 0.0F : saddle.side;
-		final float tx = hx + OFFSET.x + fx * measuredForward + rx * measuredSide;
+		final float tx = hx + OFFSET.x + fx * measuredForward + rx * measuredSide + shiftX;
 		final float ty = hy + OFFSET.y - RIDER_SEAT_HEIGHT + bodyLift + measuredLift - RIDER_SEAT_DROP;
-		final float tz = hz + OFFSET.z + fz * measuredForward + rz * measuredSide;
+		final float tz = hz + OFFSET.z + fz * measuredForward + rz * measuredSide + shiftZ;
 		// The torso stays closer to upright: resists the bank, leans forward uphill, stays vertical downhill, takes
 		// part of the saddle's rocking, sways against the horse's surges, and folds forward with speed.
 		final float forwardLean = FORWARD_LEAN_STILL + (FORWARD_LEAN_MOVING - FORWARD_LEAN_STILL) * saddle.moving
