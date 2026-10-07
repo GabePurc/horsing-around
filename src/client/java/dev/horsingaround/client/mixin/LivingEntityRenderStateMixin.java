@@ -30,6 +30,8 @@ public class LivingEntityRenderStateMixin implements RidePoseState {
 	@Unique
 	private float horsingaround$hindLeg;
 	@Unique
+	private float horsingaround$tail;
+	@Unique
 	private float horsingaround$airLegs;
 	@Unique
 	private float horsingaround$airRise;
@@ -132,6 +134,16 @@ public class LivingEntityRenderStateMixin implements RidePoseState {
 	@Override
 	public float horsingaround$shield() {
 		return this.horsingaround$shield;
+	}
+
+	@Override
+	public void horsingaround$setTail(final float lift) {
+		this.horsingaround$tail = lift;
+	}
+
+	@Override
+	public float horsingaround$tail() {
+		return this.horsingaround$tail;
 	}
 
 	@Override

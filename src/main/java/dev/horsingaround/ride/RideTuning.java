@@ -441,6 +441,20 @@ public final class RideTuning {
 	public static final float AIR_LEG_HALF_DEPTH = 2.0F;
 	static final float AIR_LEG_RISE = 0.45F;
 	static final float AIR_LEG_PHASE_EASE = 0.35F;
+	/**
+	 * The tail hangs off the rump on its own weight, on a spring (TAIL_SPRING, TAIL_DAMPING a tick; a little bouncy): it
+	 * trails down as the horse rises and floats up as it falls (TAIL_DRAG radians per block/tick of climb), goes light
+	 * when the horse is weightless and heavy when it is thrown up or caught (TAIL_WEIGHT radians at most), and flicks on
+	 * landing. In the air it also keeps the lift the stride gave it (TAIL_STREAM at full speed), as the stride stops.
+	 * Limits TAIL_MAX_UP and TAIL_MAX_DOWN.
+	 */
+	public static final float TAIL_DRAG = 1.2F;
+	public static final float TAIL_WEIGHT = 0.3F;
+	public static final float TAIL_STREAM = 0.7F;
+	static final float TAIL_SPRING = 0.25F;
+	static final float TAIL_DAMPING = 0.3F;
+	static final float TAIL_MAX_UP = 0.9F;
+	static final float TAIL_MAX_DOWN = 0.6F;
 	/** Touching down, the body sinks this many blocks per block/tick of fall speed (max LANDING_DIP_MAX), then recovers. */
 	static final float LANDING_DIP = 0.18F;
 	static final float LANDING_DIP_MAX = 0.2F;
@@ -498,10 +512,13 @@ public final class RideTuning {
 	 */
 	public static final float HAND_BOB = 2.0F;
 	/**
-	 * At a canter or gallop the rider's pelvis slides forward and back with the stride (the "hump" of following the
-	 * horse's back) while the shoulders stay put: torso swing from the shoulders, radians per block of saddle lift.
+	 * At a canter the rider's seat follows the horse's back: the pelvis rocks a little forward and back with the stride
+	 * while the shoulders stay quiet (torso swing from the shoulders, radians per block of saddle lift; ~3cm of hip travel
+	 * at a canter). At a gallop riders rise into a half seat and the legs take the motion, so the hips move less still
+	 * (PELVIS_GALLOP_SHARE of it). (Play-test: 1.7 with no gallop easing read as humping the horse.)
 	 */
-	public static final float PELVIS_SLIDE = 1.7F;
+	public static final float PELVIS_SLIDE = 0.6F;
+	public static final float PELVIS_GALLOP_SHARE = 0.5F;
 	/**
 	 * The rider's body answers the horse's surges: leaning back as it speeds up and forward as it slows, on a spring
 	 * so it settles naturally. Degrees per block/tick^2 of acceleration, spring stiffness and damping per tick, limit.

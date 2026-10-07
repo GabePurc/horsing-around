@@ -303,6 +303,8 @@ public final class RideController {
 		// No faster than gets the chest to the face just as the body clears the lip, so it never meets the face rising.
 		s.ledgeForward = Mth.clamp(Math.min(bound, face / (rise + 1.0F)), LEDGE_MIN_FORWARD, LEDGE_MAX_FORWARD);
 		s.ledgeClimbs++;
+		s.ledgeTakeoffX = horse.getX();
+		s.ledgeTakeoffZ = horse.getZ();
 		// The push isn't folded into the velocity on leaving the ground; the jump sets the motion itself.
 		s.jumpedOff = true;
 		final boolean exhaustedBefore = s.exhausted;
@@ -680,6 +682,7 @@ public final class RideController {
 		s.airLegs += Mth.clamp((s.inAir ? 1.0F : 0.0F) - s.airLegs, -AIR_LEGS_OUT, AIR_LEGS_IN);
 		s.airRiseEase += (Mth.clamp((float) dy / AIR_LEG_RISE, -1.0F, 1.0F) - s.airRiseEase) * AIR_LEG_PHASE_EASE;
 		s.airRise += (s.airRiseEase - s.airRise) * AIR_LEG_PHASE_EASE;
+		tail(horse, s, groundSpeed);
 		s.wasOnGround = onGround;
 	}
 
@@ -727,6 +730,24 @@ public final class RideController {
 		final float push = face || chest ? LEAF_PUSH_MAX * pace : 0.0F;
 		s.leafPushVelocity += (push - s.leafPush) * LEAF_PUSH_STIFFNESS - s.leafPushVelocity * LEAF_PUSH_DAMPING;
 		s.leafPush = Mth.clamp(s.leafPush + s.leafPushVelocity, -LEAF_PUSH_LIMIT * 0.25F, LEAF_PUSH_LIMIT);
+	}
+
+	/**
+	 * The tail swings on its own weight with the drawn body's motion: it trails down as the body rises and floats up as
+	 * it falls, goes light when the horse is weightless and heavy when it is thrown up or caught, and flicks on landing,
+	 * on a spring. In the air it keeps the lift the stride gave it.
+	 */
+	private static void tail(final AbstractHorse horse, final RideState s, final float groundSpeed) {
+		s.tailLiftO = s.tailLift;
+		final double rise = horse.getY() + s.heightOffset - horse.yo - s.heightOffsetO;
+		final double gravity = Math.max(horse.getGravity(), 1.0E-3);
+		final double weightless = Mth.clamp(-(rise - s.lastDrawnRise) / gravity, -1.0, 1.0);
+		s.lastDrawnRise = rise;
+		final float topSpeed = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR;
+		final float pace = Math.min(groundSpeed / Math.max(topSpeed, 1.0E-3F), 1.0F);
+		final float target = Mth.clamp((float) (TAIL_WEIGHT * weightless - TAIL_DRAG * rise) + s.airLegs * TAIL_STREAM * pace * pace, -TAIL_MAX_DOWN, TAIL_MAX_UP);
+		s.tailVelocity += (target - s.tailLift) * TAIL_SPRING - s.tailVelocity * TAIL_DAMPING;
+		s.tailLift = Mth.clamp(s.tailLift + s.tailVelocity, -TAIL_MAX_DOWN, TAIL_MAX_UP);
 	}
 
 	/**

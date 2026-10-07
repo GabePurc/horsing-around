@@ -296,6 +296,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		boolean reaching = false;
 		boolean risingShot = false;
 		boolean fallingShot = false;
+		float tailDown = 0.0F;
+		float tailUp = 0.0F;
 		for (int i = 1; i <= 40; i++) {
 			ctx.waitTick();
 			elapsed++;
@@ -304,6 +306,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 			final float legs = ride(ctx, r -> r.airLegs(1.0F));
 			final float rise = ride(ctx, r -> r.airRise(1.0F));
 			airLegs = Math.max(airLegs, legs);
+			final float tail = ride(ctx, r -> r.tailLift(1.0F));
+			tailDown = Math.min(tailDown, tail);
+			tailUp = Math.max(tailUp, tail);
 			// How far the legs' jump shape moves a game tick while they are in it (screenshots can skip ticks).
 			final int tick = horseTick(ctx);
 			final float fore = dev.horsingaround.client.render.AirLegs.fore(rise);
@@ -350,6 +355,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("the gallop stride stops in the air (leg-animation speed)", slowestStride, 0.0, 0.3);
 		check("front legs fold up rising, then reach for the ground coming down", tucked && reaching);
 		check("smooth and floaty in the air: front legs move at most (radians a tick)", foreStep, 0.0, 0.1);
+		check("the tail trails down as the horse launches (radians)", tailDown, -0.6, -0.1);
+		check("...and floats up coming down (radians)", tailUp, 0.3, 0.9);
 		check("...and the hind legs (radians a tick)", hindStep, 0.0, 0.1);
 		double landing = 0.0;
 		for (int i = 0; i < 6; i++) {
@@ -359,6 +366,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("no surge after landing (fastest tick / before)", landing / before, 0.9, 1.12);
 		check("the stride picks up again after landing (leg-animation speed)", sample(ctx).limbSpeed, 0.85, 1.0);
 		check("legs back in the stride (jump shape, 0..1)", ride(ctx, r -> r.airLegs(1.0F)), 0.0, 0.01);
+		ctx.waitTicks(20);
+		elapsed += 20;
+		check("tail settles after landing (radians)", Math.abs((double) ride(ctx, r -> r.tailLift(1.0F))), 0.0, 0.1);
 		final float gallopDrain = elapsed * RideTuning.STAMINA_DRAIN_GALLOP;
 		check("jump stamina cost beyond gallop drain", staminaBefore - sample(ctx).stamina - gallopDrain, RideTuning.JUMP_STAMINA_COST - 0.02, RideTuning.JUMP_STAMINA_COST + 0.03);
 		ctx.waitTicks(10);
@@ -1210,7 +1220,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 			check("a hurt horse won't take a fall that hurts (still on top)", sample(ctx).y > -51.05);
 		} else {
 			check("a healthy horse takes a fall that costs half a heart (landed below)", sample(ctx).y < -59.9);
-			check("and it costs no more than that (health lost)", before - ctx.computeOnClient(mc -> ((AbstractHorse) mc.player.getVehicle()).getHealth()), 0.5, 1.0);
+			// Read on the server, where the damage is done (the client's copy can lag a busy machine).
+			final float after = server.computeOnServer(sv -> sv.overworld().getEntities(net.minecraft.world.level.entity.EntityTypeTest.forClass(AbstractHorse.class),
+				e -> e.entityTags().contains(tag)).stream().findFirst().map(AbstractHorse::getHealth).orElse(before));
+			check("and it costs no more than that (health lost)", before - after, 0.5, 1.0);
 		}
 		stop(ctx, input);
 	}
@@ -1432,6 +1445,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		int frames = 0;
 		int takeoffTick = -1;
 		int landTick = -1;
+		double previousY = -60.0;
+		double previousZ = 0.0;
 		sideCamera(world, 405.5, -59.5, -17.5, 90.0F);
 		for (int i = 0; i < 300 && horseZ(ctx) > -26.0; i++) {
 			ctx.waitTick();
@@ -1452,8 +1467,11 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 			if (Double.isNaN(takeoffZ)) {
 				if (ride(ctx, r -> r.ledgeClimbs) > climbs) {
-					takeoffZ = z;
+					// Where it really took off (samples can skip a tick while screenshots are taken).
+					takeoffZ = ride(ctx, r -> r.ledgeTakeoffZ);
 					takeoffTick = tick;
+					previousY = s.y;
+					previousZ = z;
 				} else {
 					approach = s.speed;
 				}
@@ -1470,8 +1488,12 @@ public final class RideFeelTest implements FabricClientGameTest {
 				after = s.speed;
 			}
 			if (risingTravel < 0.0 && s.y >= -58.05) {
-				risingTravel = takeoffZ - z;
+				// Where the body crossed the lip's height, between this sample and the last.
+				final double t = (-58.05 - previousY) / Math.max(s.y - previousY, 1.0E-6);
+				risingTravel = takeoffZ - (previousZ + (z - previousZ) * Mth.clamp(t, 0.0, 1.0));
 			}
+			previousY = s.y;
+			previousZ = z;
 			if (!shot && s.y > -59.0) {
 				sideScreenshot(ctx, "14_ledge_jump_side");
 				shot = true;
@@ -1623,6 +1645,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 			new Ledge("rough grass ground", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:dirt", "fill ~-15 -61 -10 ~15 -61 0 minecraft:dirt_path"}, 0.0F, 0, -10.0, true),
 			new Ledge("at a canter", new String[] {"fill ~-15 -60 -40 ~15 -59 -21 minecraft:stone"}, 0.0F, 2, -20.0, true),
 			new Ledge("at a canter, at 30 degrees", new String[] {"fill ~-25 -60 -40 ~25 -59 -21 minecraft:stone"}, 30.0F, 2, -20.0, true),
+			new Ledge("a step up right where it lands", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:red_concrete", "fill ~-15 -58 -30 ~15 -58 -12 minecraft:red_concrete"}, 0.0F, 0, -10.0, true),
+			new Ledge("a staircase of 2-block steps", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:red_concrete", "fill ~-15 -58 -30 ~15 -58 -12 minecraft:red_concrete",
+				"fill ~-15 -57 -30 ~15 -57 -13 minecraft:red_concrete"}, 0.0F, 0, -10.0, true),
+			new Ledge("a step up right where it lands, at a trot", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:red_concrete", "fill ~-15 -58 -30 ~15 -58 -12 minecraft:red_concrete"}, 0.0F, 1, -10.0, true),
 			new Ledge("from a standstill at the face", new String[] {"fill ~-15 -60 -30 ~15 -59 -2 minecraft:stone"}, 0.0F, 0, -1.0, true)
 		);
 		for (int i = 0; i < ledges.size(); i++) {
@@ -1661,8 +1687,32 @@ public final class RideFeelTest implements FabricClientGameTest {
 					}
 				}
 			}
-			ctx.waitTicks(20);
+			final StringBuilder flight = new StringBuilder();
+			double previousDrawn = Double.NaN;
+			double previousRise = Double.NaN;
+			int previousTick = horseTick(ctx);
+			double sharpest = 0.0;
+			for (int t = 0; t < 20; t++) {
+				ctx.waitTick();
+				final Sample s = sample(ctx);
+				final int tick = horseTick(ctx);
+				final int elapsed = Math.max(tick - previousTick, 1);
+				previousTick = tick;
+				if (!Double.isNaN(previousDrawn)) {
+					final double rise = (s.visualY - previousDrawn) / elapsed;
+					if (!Double.isNaN(previousRise) && t > 2) {
+						sharpest = Math.max(sharpest, rise - previousRise);
+					}
+					previousRise = rise;
+				}
+				previousDrawn = s.visualY;
+				flight.append(String.format(Locale.ROOT, "y%.2f drawn%.2f %s | ", s.y - startY, s.visualY - startY, s.onGround ? "g" : "a"));
+			}
 			final boolean jumped = ride(ctx, r -> r.ledgeClimbs) > climbs;
+			if (jumped) {
+				log("  flight: %s", flight);
+				check("no pop in the air or onto the top (sharpest pick-up of the drawn rise, blocks/tick a tick)", sharpest, 0.0, 0.3);
+			}
 			log("  %s; closest to the face %s; last look: %s", jumped ? "jumped" : "did not jump",
 				closest == Double.MAX_VALUE ? "n/a" : String.format(Locale.ROOT, "%.2f", closest),
 				lastReason < 0 ? "never looked" : dev.horsingaround.ride.Awareness.LEDGE_REASONS[lastReason]);
@@ -1671,7 +1721,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 			if (ledge.jump()) {
 				check("jumps it", jumped);
-				check("up on top (blocks gained)", sample(ctx).y - startY, 1.4, 3.1);
+				check("up on top (blocks gained)", sample(ctx).y - startY, 1.4, ledge.name().contains("staircase") ? 4.1 : 3.1);
 			} else {
 				check("doesn't try (no room to jump)", !jumped);
 			}
@@ -1924,9 +1974,15 @@ public final class RideFeelTest implements FabricClientGameTest {
 		double slowestRide = Double.MAX_VALUE;
 		double ridePaceBefore = 0.0;
 		int shots = 0;
+		final StringBuilder trace = new StringBuilder();
 		for (int i = 0; i < 400 && horseZ(ctx) > -36.0; i++) {
 			ctx.waitTick();
 			final double z = horseZ(ctx);
+			if (i % 5 == 0 || z < -27.0 && z > -31.0) {
+				trace.append(String.format(Locale.ROOT, "z%.2f x%.3f yaw%.1f view%.1f side%.2f blocked%.2f slips%d keys%s | ", z, horseX(ctx), sample(ctx).horseYaw,
+					sample(ctx).playerYaw, ride(ctx, r -> r.sidestep()), ride(ctx, r -> r.blocked), ride(ctx, r -> r.slips),
+					ctx.computeOnClient(mc -> (mc.options.keyLeft.isDown() ? "A" : "") + (mc.options.keyRight.isDown() ? "D" : "") + (mc.options.keyUp.isDown() ? "W" : ""))));
+			}
 			final double ridePace = ride(ctx, r -> (double) r.speed);
 			if (z > -28.0) {
 				ridePaceBefore = ridePace;
@@ -1938,6 +1994,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 		}
 		hitboxes(ctx, false);
+		if (horseZ(ctx) >= -35.0 || Math.abs(horseX(ctx) - lane) > 0.4) {
+			log("  path: %s", trace);
+		}
 		check("got past the trunk (z beyond -35)", horseZ(ctx) < -35.0);
 		if (!gallop) {
 			check("slipped past its corner", ride(ctx, r -> r.slips) - slips, 1, 3);

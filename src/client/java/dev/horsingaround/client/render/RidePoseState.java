@@ -56,6 +56,11 @@ public interface RidePoseState {
 
 	float horsingaround$hindLeg();
 
+	/** Tail lift from its swing, radians (up positive); vanilla model only. */
+	void horsingaround$setTail(float lift);
+
+	float horsingaround$tail();
+
 	/** Legs in a jump: how far in its shape (0..1), and climbing (1) to falling (-1); vanilla model only. */
 	void horsingaround$setAirLegs(float air, float rise);
 
