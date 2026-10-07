@@ -105,6 +105,29 @@ Implementation notes:
 - Third person should be RDR2-style over the shoulder, shipped as a separate add-on mod that plugs into this one.
 - The rider must never look detached: hips ride the horse's actual animated body, feet in stirrups, hands on reins.
 
+## The horse has a say (user direction, 2026-10-06)
+
+The horse should feel alive and help the rider, not run blindly into trees or off cliffs, and it must never become an
+annoyance ("super important"). RDR2 horses steer round trees and rocks on their own at speed, pull up and refuse at
+cliff edges, and won't leap off a drop. Two-block ledges: the user wants the horse to get up them on its own at a walk
+or trot (not at full speed), and it should look like a jump, not climbing a ladder.
+
+Translation (`Awareness`, tuning in `RideTuning`):
+
+- Look-ahead: three lines (centre and flanks just inside the body) follow the ground along the path, ~1s of travel
+  (2-12 blocks). Walls = too high to step or no headroom; danger = a drop beyond the horse's own safe fall distance
+  (6 blocks for vanilla horses, so it never gets hurt) under all three lines, or a hazard (lava, fire, magma, cactus,
+  berry bushes, powder snow, cobwebs, lit campfires, plus the `horsingaround:horse_avoids` block tag).
+- Detours only from a trot, only round things the horse can actually pass (a detour must get past the obstacle along
+  the rider's line), up to 40 degrees, eased in and out; then it heads where the rider looks again. A long wall it
+  can't get round makes it slow to a walk instead of veering.
+- Speed: slows to a walk before walls (then walks right up to them), stops short of danger with a snort and head toss
+  from a trot or faster, refuses to jump off a cliff, plants its feet at the lip of a gap if the rider doesn't jump.
+- Not annoying: no steering at a walk; riding beside walls and along cliff edges is untouched; safe drops, water
+  landings and jumpable gaps (up to 4 blocks) are the rider's call; both behaviours can be switched off in settings.
+- Ledges up to 2 blocks (never fences, walls or gates, so pens hold horses): the horse halts, gathers itself (~0.25s,
+  haunches down) and jumps up in an arc that clears the lip by ~0.3 blocks. At a canter or gallop it slows first.
+
 ## Staying vanilla
 
 - No new HUD panels. Stamina lives in the vanilla horse jump bar, which charged jumping no longer needs.

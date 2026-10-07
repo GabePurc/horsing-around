@@ -30,6 +30,8 @@ public final class HorseConfig {
 	public float turnGrip = 1.0F;
 	public float turnResponse = 1.0F;
 	public float sideAngle = 45.0F;
+	public boolean horseAvoids = true;
+	public boolean climbLedges = true;
 	// Stamina and jumping.
 	public float gallopSeconds = 28.0F;
 	public float recovery = 1.0F;
@@ -102,6 +104,8 @@ public final class HorseConfig {
 		WEIGHT_SHIFT_GALLOP = 0.18F * c.turnResponse;
 		TURN_ACCEL = 0.25F * c.turnResponse;
 		STEER_OFFSET = c.sideAngle;
+		AVOID_DANGER = c.horseAvoids;
+		LEDGE_CLIMB = c.climbLedges;
 		STAMINA_DRAIN_GALLOP = 1.0F / (Math.max(c.gallopSeconds, 1.0F) * 20.0F);
 		JUMP_POWER_STILL = 0.4F * c.jumpHeight;
 		JUMP_POWER_RUNNING = 0.8F * c.jumpHeight;
@@ -124,5 +128,7 @@ public final class HorseConfig {
 		HUFF_VOLUME_MAX = 0.3F * c.horseSounds;
 		EXHAUSTED_BREATH_VOLUME = 0.45F * c.horseSounds;
 		LEAVES_RUSTLE_VOLUME = 0.6F * c.horseSounds;
+		REFUSAL_VOLUME = 0.5F * c.horseSounds;
+		CLIMB_SOUND_VOLUME = 0.35F * c.horseSounds;
 	}
 }
