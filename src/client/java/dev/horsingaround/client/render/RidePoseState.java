@@ -1,6 +1,8 @@
 package dev.horsingaround.client.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import dev.horsingaround.ride.RideState;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Implemented on {@code LivingEntityRenderState} by mixin: an extra world-space translate + rotate about a pivot, and
@@ -50,12 +52,17 @@ public interface RidePoseState {
 	float horsingaround$neckPitch();
 
 	/**
-	 * Hooves on the ground (see {@link GroundLegs}): the swing that stands the legs upright against the body's tilt, and
-	 * the front and hind legs' folds, radians; vanilla model only.
+	 * Hooves on the ground (see {@link GroundLegs}): the body's tilt (radians), and how far the front and hind hooves come
+	 * up onto higher ground (blocks); vanilla model only.
 	 */
-	void horsingaround$setLegs(float upright, float fore, float hind);
+	void horsingaround$setLegs(float tilt, float fore, float hind);
 
-	float horsingaround$legUpright();
+	float horsingaround$legTilt();
+
+	/** The ridden horse's own ride state (null for anything else), so the legs can find the ground under each hoof. */
+	void horsingaround$setRide(@Nullable RideState ride);
+
+	@Nullable RideState horsingaround$rideState();
 
 	float horsingaround$foreLeg();
 

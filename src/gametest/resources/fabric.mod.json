@@ -18,6 +18,9 @@
 			"dev.horsingaround.gametest.DedicatedServerTest"
 		]
 	},
+	"mixins": [
+		"horsingaround-gametest.mixins.json"
+	],
 	"depends": {
 		"horsingaround": "*"
 	}

@@ -32,8 +32,8 @@ vanilla keys, with no crashes in singleplayer and on a dedicated server with the
 
 ## Out of scope for MVP
 
-Bonding, whistle/calling, brushing and feeding, predator fear, new models or animations, new items, saddlebags,
-camel or llama changes.
+Bonding, whistle/calling, brushing and feeding, predator fear, new models or animations (except the knee cut into each
+leg, user direction 2026-10-08), new items, saddlebags, camel or llama changes.
 
 ## Acceptance
 

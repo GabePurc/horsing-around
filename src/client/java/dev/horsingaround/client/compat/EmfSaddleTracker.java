@@ -82,13 +82,10 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 	 * armour) so they stay together.
 	 */
 	private void stepLegs(final EMFModelPartRoot root, final RideState ride, final float partialTicks) {
-		final float upright = ride.pitch(partialTicks) * RideTuning.LEG_UPRIGHT * Mth.DEG_TO_RAD;
+		final float tilt = ride.pitch(partialTicks) * Mth.DEG_TO_RAD;
 		final float fore = ride.foreLeg(partialTicks);
 		final float hind = ride.hindLeg(partialTicks);
 		final float air = ride.airLegs(partialTicks);
-		if (upright == 0.0F && fore == 0.0F && hind == 0.0F && air <= 0.0F) {
-			return;
-		}
 		ModelPart[] parts = this.legs.get(root);
 		if (parts == null) {
 			parts = new ModelPart[LEG_NAMES.length];
@@ -97,7 +94,10 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 			}
 			this.legs.put(root, parts);
 		}
-		GroundLegs.pose(parts[0], parts[1], parts[2], parts[3], upright, fore, hind);
+		GroundLegs.pose(parts[0], parts[1], parts[2], parts[3], tilt, fore, hind, 16.0F / root.yScale, ride, root, air <= 0.0F);
+		if (air <= 0.0F) {
+			return;
+		}
 		AirLegs.pose(parts[0], parts[1], parts[2], parts[3], air, ride.airRise(partialTicks));
 	}
 
@@ -170,15 +170,24 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		final float partialTicks = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
 		this.stepLegs(root, ride, partialTicks);
 		this.swingTail(root, ride, partialTicks);
-		if (!root.isMainModel) {
-			this.holdStirrups(root);
-			return;
-		}
-		// Climbing, the neck reaches forward, and further when the rider would be in the way of the head; applied after the
-		// pack so its own neck logic isn't disturbed.
+		// Climbing, the neck reaches forward, and further when the rider would be in the way of the head; and a horse that
+		// just ran out of stamina tosses its head. Applied after the pack so its own neck logic isn't disturbed, and on
+		// every layer (each has its own neck: armour and bridle follow the head).
 		final ModelPart neckPart = this.neck(root);
 		if (neckPart != null) {
 			neckPart.xRot += RideTuning.neckCounter((ride.pitch(partialTicks) + ride.jumpPitch(partialTicks)) * Mth.DEG_TO_RAD) + ride.neckReach;
+			final float shake = ride.headShake(((Entity) holder).tickCount + partialTicks, this.phase);
+			if (shake > 0.0F) {
+				neckPart.yRot += -Mth.sin(this.phase[0]) * RideTuning.HEAD_SHAKE_YAW * shake;
+				neckPart.zRot += Mth.cos(this.phase[0]) * RideTuning.HEAD_SHAKE_ROLL * shake;
+				if (root.isMainModel) {
+					ride.animatedShakeFrames++;
+				}
+			}
+		}
+		if (!root.isMainModel) {
+			this.holdStirrups(root);
+			return;
 		}
 		final ModelPart body = root.getAllVanillaPartsByNameEMF().get("body");
 		if (body == null) {
@@ -219,16 +228,5 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		s.animatedPitch = pitch;
 		s.animatedRoll = roll;
 		s.animatedAt = now;
-
-		// The pack re-poses the head after vanilla, so the exhausted head toss goes on here, after it.
-		final float shake = s.headShake(((Entity) holder).tickCount + Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true), this.phase);
-		if (shake > 0.0F) {
-			final ModelPart neck = this.neck(root);
-			if (neck != null) {
-				neck.yRot += -Mth.sin(this.phase[0]) * RideTuning.HEAD_SHAKE_YAW * shake;
-				neck.zRot += Mth.cos(this.phase[0]) * RideTuning.HEAD_SHAKE_ROLL * shake;
-				s.animatedShakeFrames++;
-			}
-		}
 	}
 }

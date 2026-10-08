@@ -206,8 +206,28 @@ public final class RideController {
 				if (s.exhausted) {
 					power *= JUMP_POWER_EXHAUSTED;
 				}
-				if (AVOID_DANGER && Awareness.refusesJump(horse, s, power)) {
-					// No leaping off a cliff, into lava, or so far down a slope it would get hurt (a gap is fine).
+				// A fence, a wall, anything up to a hurdle's height in reach: high enough and far enough to clear it.
+				final double hurdle = Awareness.hurdle(horse, horse.getYRot(), HURDLE_REACH);
+				if (!Double.isNaN(hurdle)) {
+					final double gravity = horse.getGravity();
+					final float lift = launchSpeed(hurdle - horse.getY() + HURDLE_CLEARANCE, gravity);
+					// It can reach the face at any time, but only gets past it while above the top: from when it rises past
+					// the top until it comes back down to it.
+					final int over = ticksAbove(lift, hurdle - horse.getY(), gravity);
+					final int up = ticksToClimbBallistic(lift, hurdle - horse.getY(), gravity);
+					final float rad = horse.getYRot() * Mth.DEG_TO_RAD;
+					final Vec3 movement = horse.getDeltaMovement();
+					final float pace = (float) (movement.x * -Mth.sin(rad) + movement.z * Mth.cos(rad))
+						+ (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * Math.max(s.speed, 0.0F);
+					s.jumpLift = lift;
+					final float needed = Math.max((Awareness.hurdleClear + HURDLE_MARGIN) / Math.max(over, 1),
+						(Awareness.hurdleClear - Awareness.hurdleFace + HURDLE_MARGIN) / Math.max(over - up, 1));
+					s.hurdleForward = Mth.clamp(needed, pace, HURDLE_MAX_FORWARD);
+					s.hurdleYaw = horse.getYRot();
+					s.hurdles++;
+				} else if (AVOID_DANGER && (Awareness.hurdleUnsafe || Awareness.refusesJump(horse, s, power))) {
+					// No leaping off a cliff, into lava, or so far down a slope it would get hurt (a gap is fine), nor over
+					// a fence into any of those.
 					s.jumpBuffer = 0;
 					Awareness.refuse(horse, s);
 					power = 0.0F;
@@ -225,6 +245,17 @@ public final class RideController {
 		}
 		if (s.jumpBuffer > 0) {
 			s.jumpBuffer--;
+		}
+		// Over a hurdle, held at its speed until it lands, so meeting the face as it rises doesn't stop it dead (and should
+		// it come down on top of the fence or wall, on until it is off it).
+		if (s.hurdleForward > 0.0F) {
+			if (horse.onGround() && !s.leapt && !Awareness.onHurdle(horse)) {
+				s.hurdleForward = 0.0F;
+			} else {
+				final float rad = s.hurdleYaw * Mth.DEG_TO_RAD;
+				final double over = Math.max(s.hurdleForward - (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * Math.max(s.speed, 0.0F) * AIR_CONTROL, 0.0F);
+				horse.setDeltaMovement(-Mth.sin(rad) * over, horse.getDeltaMovement().y, Mth.cos(rad) * over);
+			}
 		}
 
 		// Steering: the horse heads where the rider looks, offset 45 degrees left or right while A/D are held with W (90,
@@ -351,6 +382,48 @@ public final class RideController {
 		s.ledgeAsked = false;
 		s.ledgeCrouch = 0.0F;
 		s.ledgeLift = 0.0F;
+	}
+
+	/** Takeoff speed whose arc (gravity and drag as vanilla's) peaks at least {@code height} up. */
+	private static float launchSpeed(final double height, final double gravity) {
+		for (float launch = 0.3F; launch < 1.5F; launch += 0.01F) {
+			double y = 0.0;
+			double vy = launch;
+			while (vy > 0.0) {
+				y += vy;
+				vy = (vy - gravity) * 0.98;
+			}
+			if (y >= height) {
+				return launch;
+			}
+		}
+		return 1.5F;
+	}
+
+	/** Ticks for an arc launched at {@code launch} to rise {@code height} (all of its rise, if it never gets there). */
+	private static int ticksToClimbBallistic(final float launch, final double height, final double gravity) {
+		double y = 0.0;
+		double vy = launch;
+		int tick = 0;
+		while (tick < 60 && vy > 0.0 && y < height) {
+			y += vy;
+			vy = (vy - gravity) * 0.98;
+			tick++;
+		}
+		return tick;
+	}
+
+	/** Ticks an arc launched at {@code launch} stays at least {@code height} up (counted to when it comes back down to it). */
+	private static int ticksAbove(final float launch, final double height, final double gravity) {
+		double y = 0.0;
+		double vy = launch;
+		int tick = 0;
+		while (tick < 60 && (vy > 0.0 || y >= height)) {
+			y += vy;
+			vy = (vy - gravity) * 0.98;
+			tick++;
+		}
+		return tick;
 	}
 
 	/**
@@ -852,15 +925,34 @@ public final class RideController {
 		final float crouchPitch = s.ledgeCrouch * LEDGE_CROUCH_PITCH + s.cutSquat * CUT_SQUAT_PITCH;
 		s.pitch += Mth.clamp((tilt + crouchPitch - s.pitch) * TILT_EASE, -TILT_RATE_MAX, TILT_RATE_MAX);
 
-		// As high as it can sit with every leg reaching its ground: the joints are LEG_LENGTH above the hooves and
-		// FORE_HOOVES / HIND_HOOVES from the pivot, and an upright leg's top is drawn up into the body by its swing.
+		// As high as it can sit with every leg reaching its ground (the eased ground, and the ground actually under each
+		// pair of hooves, read again only when the horse moves and the ground isn't level): the joints are LEG_LENGTH
+		// above the hooves and FORE_HOOVES / HIND_HOOVES from the pivot, and an upright leg's top is drawn up into the
+		// body by its swing.
 		final float sin = Mth.sin(s.pitch * Mth.DEG_TO_RAD);
+		final float cos = Mth.cos(s.pitch * Mth.DEG_TO_RAD);
 		final float tuck = LEG_HALF_DEPTH / 16.0F * Math.abs(Mth.sin(s.pitch * LEG_UPRIGHT * Mth.DEG_TO_RAD));
-		final double foreReach = s.fore - y - FORE_HOOVES * sin;
-		final double hindReach = s.hind - y + HIND_HOOVES * sin;
+		final float yaw = bodyYaw * Mth.DEG_TO_RAD;
+		final double fx = -Mth.sin(yaw);
+		final double fz = Mth.cos(yaw);
+		if (probe) {
+			final boolean level = Math.abs(s.foreGround - y) < 1.0E-3 && Math.abs(s.hindGround - y) < 1.0E-3 && Math.abs(s.pitch) < 0.5F;
+			s.foreFoot = level ? Double.NaN : footing(horse, fx, fz, FORE_HOOVES * cos, y + RIDDEN_STEP_HEIGHT + 1.0);
+			s.hindFoot = level ? Double.NaN : footing(horse, fx, fz, -HIND_HOOVES * cos, y + RIDDEN_STEP_HEIGHT + 1.0);
+		}
+		final double foreEased = s.fore - y - FORE_HOOVES * sin;
+		final double hindEased = s.hind - y + HIND_HOOVES * sin;
+		final double foreFoot = s.foreFoot - y - FORE_HOOVES * sin;
+		final double hindFoot = s.hindFoot - y + HIND_HOOVES * sin;
+		// Low enough for the lower of the eased and the actual ground (so no hoof hangs), and no lower than leaves the
+		// higher of them within a knee bend (so no hoof sinks into a step it is still on).
+		final double foreLow = Double.isNaN(foreFoot) ? foreEased : Math.min(foreEased, foreFoot);
+		final double hindLow = Double.isNaN(hindFoot) ? hindEased : Math.min(hindEased, hindFoot);
+		final double foreHigh = Double.isNaN(foreFoot) ? foreEased : Math.max(foreEased, foreFoot);
+		final double hindHigh = Double.isNaN(hindFoot) ? hindEased : Math.max(hindEased, hindFoot);
 		// (Never so low that the pair on higher ground folds more than SINK_MAX: past that, at a drop, the lower pair reaches
 		// down for its ground instead of the whole body sinking toward it.)
-		double offset = Math.max(Math.min(foreReach, hindReach), Math.max(foreReach, hindReach) - SINK_MAX) - tuck - s.ledgeCrouch * LEDGE_CROUCH
+		double offset = Math.max(Math.min(foreLow, hindLow), Math.max(foreHigh, hindHigh) - SINK_MAX) - tuck - s.ledgeCrouch * LEDGE_CROUCH
 			- s.cutSquat * CUT_SQUAT;
 		// No sudden change in how fast the drawn body rises or sinks while the hooves are down: a jolt eases in.
 		final double before = horse.yo + s.heightOffsetO;
@@ -868,61 +960,19 @@ public final class RideController {
 			offset = before + Mth.clamp(y + offset - before, s.drawnRise - DRAWN_JOLT, s.drawnRise + DRAWN_JOLT) - y;
 		}
 		s.heightOffset = (float) offset;
-		// Then each pair of legs finds the ground actually under its hooves (read again only when the horse moves).
-		final float yaw = bodyYaw * Mth.DEG_TO_RAD;
-		final double fx = -Mth.sin(yaw);
-		final double fz = Mth.cos(yaw);
-		s.foreLeg = leg(horse, s, fx, fz, FORE_HOOVES, probe);
-		s.hindLeg = leg(horse, s, fx, fz, -HIND_HOOVES, probe);
+		// Then the pair over higher ground bends its knees to bring its hooves up onto it, stepping rather than flicking.
+		s.foreLeg = knees(s.foreLeg, foreFoot, offset + tuck);
+		s.hindLeg = knees(s.hindLeg, hindFoot, offset + tuck);
 	}
 
 	/**
-	 * One pair of legs finding its footing: where along its swing (hoof forward or back, up to LEG_SWING_MAX radians) its
-	 * hoof meets the ground actually there, the way a horse places its feet on the treads of a slope or a staircase. An
-	 * upright straight leg reaches LEG_LENGTH below its joint; swinging shortens its reach and moves the hoof along. The
-	 * pick weighs how far the hoof would be off the ground (floating counts FLOAT_COST times as much as sinking in) against
-	 * swinging far or changing its swing, and the leg then swings toward it by at most LEG_SWING_RATE a tick, so the legs
-	 * step rather than flick. On level ground (and while the horse stands still) nothing is read. Returns the swing,
-	 * radians, hoof forward.
-	 *
-	 * @param along where the pair stands, blocks ahead of the horse's centre (behind: negative)
-	 * @param probe the horse moved: read the ground again
+	 * How far (blocks) a pair of hooves comes up from where a straight leg puts them, onto its ground {@code ground}
+	 * (relative to the horse, along its tilt, as the reaches above) with the body at {@code body}; eased from
+	 * {@code current}.
 	 */
-	private static float leg(final AbstractHorse horse, final RideState s, final double fx, final double fz, final float along, final boolean probe) {
-		final boolean front = along > 0.0F;
-		final float previous = front ? s.foreFold : s.hindFold;
-		final double y = horse.getY();
-		final boolean level = Math.abs(s.foreGround - y) < 1.0E-3 && Math.abs(s.hindGround - y) < 1.0E-3 && Math.abs(s.pitch) < 0.5F;
-		float best = 0.0F;
-		if (!probe) {
-			best = previous;
-		} else if (!level) {
-			final float tilt = s.pitch * Mth.DEG_TO_RAD;
-			final double jointAlong = along * Mth.cos(tilt);
-			final double jointY = y + s.heightOffset + LEG_LENGTH + along * Mth.sin(tilt);
-			final float upright = tilt * LEG_UPRIGHT;
-			double bestCost = Double.MAX_VALUE;
-			for (int i = -LEG_SEARCH_STEPS; i <= LEG_SEARCH_STEPS; i++) {
-				final float swing = i * (LEG_SWING_MAX / LEG_SEARCH_STEPS);
-				final double ground = footing(horse, fx, fz, jointAlong + LEG_LENGTH * Mth.sin(swing), jointY);
-				if (Double.isNaN(ground)) {
-					continue;
-				}
-				final double gap = jointY - LEG_LENGTH * Mth.cos(swing) + LEG_HALF_DEPTH / 16.0F * Math.abs(Mth.sin(upright - swing)) - ground;
-				final double cost = (gap > 0.0 ? gap * FLOAT_COST : -gap) + SWING_COST * Math.abs(swing) + CHANGE_COST * Math.abs(swing - previous);
-				if (cost < bestCost) {
-					bestCost = cost;
-					best = swing;
-				}
-			}
-		}
-		final float swing = previous + Mth.clamp(best - previous, -LEG_SWING_RATE, LEG_SWING_RATE);
-		if (front) {
-			s.foreFold = swing;
-		} else {
-			s.hindFold = swing;
-		}
-		return swing;
+	private static float knees(final float current, final double ground, final double body) {
+		final float wanted = Double.isNaN(ground) ? 0.0F : (float) Mth.clamp(ground - body, 0.0, KNEE_LIFT_MAX);
+		return current + Mth.clamp(wanted - current, -KNEE_LIFT_RATE, KNEE_LIFT_RATE);
 	}
 
 	/**
@@ -942,12 +992,10 @@ public final class RideController {
 	public static double hoofGap(final AbstractHorse horse, final RideState s, final boolean front) {
 		final float tilt = s.pitch * Mth.DEG_TO_RAD;
 		final float along = front ? FORE_HOOVES : -HIND_HOOVES;
-		final float swing = front ? s.foreLeg : s.hindLeg;
-		final double hoofY = horse.getY() + s.heightOffset + LEG_LENGTH + along * Mth.sin(tilt) - LEG_LENGTH * Mth.cos(swing)
-			+ LEG_HALF_DEPTH / 16.0F * Math.abs(Mth.sin(tilt * LEG_UPRIGHT - swing));
-		final double hoofAlong = along * Mth.cos(tilt) + LEG_LENGTH * Mth.sin(swing);
+		final double hoofY = horse.getY() + s.heightOffset + along * Mth.sin(tilt) + LEG_HALF_DEPTH / 16.0F * Math.abs(Mth.sin(tilt * LEG_UPRIGHT))
+			+ (front ? s.foreLeg : s.hindLeg);
 		final float yaw = horse.yBodyRot * Mth.DEG_TO_RAD;
-		final double ground = footing(horse, -Mth.sin(yaw), Mth.cos(yaw), hoofAlong, hoofY + RIDDEN_STEP_HEIGHT);
+		final double ground = footing(horse, -Mth.sin(yaw), Mth.cos(yaw), along * Mth.cos(tilt), hoofY + RIDDEN_STEP_HEIGHT);
 		return Double.isNaN(ground) ? 0.0 : hoofY - ground;
 	}
 

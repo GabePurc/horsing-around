@@ -134,18 +134,21 @@ public final class GalleryTest implements FabricClientGameTest {
 		final CompletableFuture<Void> reload = ctx.computeOnClient(mc -> {
 			final PackRepository packs = mc.getResourcePackRepository();
 			packs.reload();
+			// Store shots: real textures, never the test colours.
+			for (final String id : java.util.List.copyOf(packs.getSelectedIds())) {
+				if (id.contains("horsingaround-debug")) {
+					packs.removePack(id);
+				}
+			}
 			for (final String id : packs.getAvailableIds()) {
 				if (id.contains("FreshAnimations")) {
 					packs.addPack(id);
-					mc.options.updateResourcePacks(packs);
-					return mc.reloadResourcePacks();
 				}
 			}
-			return null;
+			mc.options.updateResourcePacks(packs);
+			return mc.reloadResourcePacks();
 		});
-		if (reload != null) {
-			ctx.waitFor(mc -> reload.isDone(), 20 * 120);
-			ctx.waitTicks(40);
-		}
+		ctx.waitFor(mc -> reload.isDone(), 20 * 120);
+		ctx.waitTicks(40);
 	}
 }

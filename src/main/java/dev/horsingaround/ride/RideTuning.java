@@ -292,6 +292,23 @@ public final class RideTuning {
 	/** Gaps up to this wide (with safe ground at about the same height beyond) stay jumpable: no braking, no refusal. */
 	static final float GAP_REACH = 4.0F;
 	/** Refusing (a drop or hazard from a trot or faster, or a jump off a cliff): a snort and a head toss, at most this often. */
+	/**
+	 * Hurdles: pressing jump with a fence, wall, gate or anything else HURDLE_LOW to HURDLE_HEIGHT blocks tall within
+	 * HURDLE_REACH of the chest (no deeper than HURDLE_DEPTH, with room to land beyond and no further down than the horse
+	 * will fall), the horse jumps HURDLE_CLEARANCE over it, carrying forward far enough to clear it with HURDLE_MARGIN to
+	 * spare, at any pace, standing too; held in the air at that speed until it lands. A jump pressed too far out for
+	 * HURDLE_MAX_FORWARD blocks/tick to carry it over waits (it is held for a moment anyway) until it is close enough.
+	 * Ridden straight at one from a trot up, the horse slows only to a trot by the time it is in reach and doesn't go
+	 * round it; if the rider doesn't jump, it stops short with a snort. Nothing it would land on that hurts it.
+	 */
+	static final double HURDLE_LOW = 1.125;
+	static final double HURDLE_HEIGHT = 1.6;
+	static final float HURDLE_REACH = 2.5F;
+	static final float HURDLE_DEPTH = 1.5F;
+	static final double HURDLE_CLEARANCE = 0.35;
+	static final float HURDLE_MARGIN = 0.3F;
+	static final float HURDLE_MAX_FORWARD = 0.55F;
+
 	static final int REFUSAL_COOLDOWN_TICKS = 60;
 	static float REFUSAL_VOLUME = 0.5F;
 
@@ -374,8 +391,8 @@ public final class RideTuning {
 	 * ground under the front and the hind hooves (SLOPE_SHARE of it, up to SLOPE_PITCH_MAX degrees), pivoting at the leg
 	 * joints (LEG_LENGTH above the hooves), and eased: TILT_EASE of the way a tick, never
 	 * more than TILT_RATE_MAX degrees. It then sits as high as it can with every leg still reaching its ground. The legs
-	 * stand upright (they counter LEG_UPRIGHT of the body's tilt), and each pair finds its footing on the ground actually
-	 * under it, swinging forward or back onto a tread (a swung leg reaches less far down). On top of whatever animates the legs (vanilla or Fresh Animations), so the stride stays.
+	 * stand upright (they counter LEG_UPRIGHT of the body's tilt), the body sits low enough for the pair over the lower
+	 * ground actually under them to reach it, and the other pair bends its knees onto its own. On top of whatever animates the legs (vanilla or Fresh Animations), so the stride stays.
 	 */
 	static final float HOOF_SPAN = FORE_HOOVES + HIND_HOOVES;
 	static final float SLOPE_SHARE = 0.95F;
@@ -386,23 +403,59 @@ public final class RideTuning {
 	public static final float LEG_LENGTH = 0.625F;
 	public static final float LEG_UPRIGHT = 1.0F;
 	/**
-	 * Finding footing (see {@code RideController#leg}): swings up to LEG_SWING_MAX radians either way are tried, in
-	 * LEG_SEARCH_STEPS steps each way; a hoof floating above the ground costs FLOAT_COST per block (sunk in, 1), every
-	 * radian of swing SWING_COST and of change from the last swing CHANGE_COST; the leg swings at most LEG_SWING_RATE
-	 * radians a tick.
+	 * Knees (see {@code Knees}): each leg box at least KNEE_MIN_LEG model pixels long is cut into the upper leg, the
+	 * cannon from KNEE_SHARE of the way down, and the hoof (its last HOOF_PIXELS, as the horse texture paints it), each
+	 * piece reaching KNEE_OVERLAP pixels up into the one above. Where the ride doesn't know where each hoof is drawn, a
+	 * pair of hooves comes up onto ground higher than a straight leg reaches by up to KNEE_LIFT_MAX blocks, easing toward
+	 * it by at most KNEE_LIFT_RATE blocks a tick so the legs step rather than flick.
 	 */
-	static final float LEG_SWING_MAX = 0.9F;
-	static final int LEG_SEARCH_STEPS = 5;
-	static final double FLOAT_COST = 1.5;
-	static final double SWING_COST = 0.08;
-	static final double CHANGE_COST = 0.1;
-	static final float LEG_SWING_RATE = 0.6F;
+	public static final float KNEE_MIN_LEG = 8.0F;
+	public static final float KNEE_SHARE = 0.41F;
+	public static final float HOOF_PIXELS = 2.0F;
+	public static final float KNEE_OVERLAP = 0.75F;
+	/** The upper leg reaches this many pixels further up into the body than the model's box, so a big swing shows no gap. */
+	public static final float HIP_EXTEND = 2.5F;
+	public static final float KNEE_LIFT_MAX = 0.45F;
+	static final float KNEE_LIFT_RATE = 0.15F;
+	/**
+	 * Where the model is drawn, each hoof finds its own ground (see {@code GroundLegs}) and comes up onto it by up to
+	 * LEG_RISE_MAX blocks, easing up at LEG_RISE_UP blocks a second (quick, so a hoof never stands in a step) and down at
+	 * LEG_RISE_DOWN.
+	 */
+	public static final float LEG_RISE_MAX = 0.55F;
+	public static final float LEG_RISE_UP = 20.0F;
+	public static final float LEG_RISE_DOWN = 3.0F;
+	/** A hoof up against a step's face moves off it (back onto the tread) at up to LEG_SHIFT_RATE blocks a second. */
+	public static final float LEG_SHIFT_RATE = 8.0F;
+	/**
+	 * Each hoof reads the ground where it will be LEG_LOOKAHEAD seconds on at the speed it is drawn moving (up to
+	 * LEG_LOOKAHEAD_MAX model pixels along the leg), so a swinging hoof clears a step's edge instead of catching on it.
+	 */
+	public static final float LEG_LOOKAHEAD = 0.1F;
+	public static final float LEG_LOOKAHEAD_MAX = 4.0F;
+	/**
+	 * The drawn body is raised or lowered so the standing leg on the lowest ground is straight (no hoof hangs, and the
+	 * legs fold no more than the ground asks), but never so low that a leg would have to fold more than LEG_RISE_MAX less
+	 * FIT_MARGIN (better a hoof over a step's edge than one in a step); easing in over FIT_TIME seconds, by up to
+	 * FIT_UP_MAX / FIT_DOWN_MAX blocks. A leg the animation pack has lifted more than PACK_LIFT blocks is mid-stride and
+	 * doesn't count as standing.
+	 */
+	public static final float FIT_TIME = 0.12F;
+	public static final float FIT_UP_MAX = 0.6F;
+	public static final float FIT_DOWN_MAX = 0.35F;
+	public static final float PACK_LIFT = 0.06F;
+	public static final float FIT_MARGIN = 0.05F;
+	/** On level ground a hoof comes up for ground no less than LEVEL_DEAD_ZONE blocks above it (the pack's own hooves sit a little in it). */
+	public static final float LEVEL_DEAD_ZONE = 0.04F;
+	/** A hoof stands flat on its ground once the body tilts HOOF_LEVEL_TILT radians or the hoof comes up HOOF_LEVEL_RISE blocks, eased in up to there. */
+	public static final float HOOF_LEVEL_TILT = 0.1F;
+	public static final float HOOF_LEVEL_RISE = 0.05F;
 	/**
 	 * The body sinks no further than leaves the pair of legs on higher ground folding SINK_MAX blocks (at a drop, the
 	 * lower pair reaches down instead), and with the hooves down how fast it rises or sinks changes by at most DRAWN_JOLT
 	 * blocks/tick a tick.
 	 */
-	static final double SINK_MAX = 0.3;
+	static final double SINK_MAX = KNEE_LIFT_MAX;
 	static final double DRAWN_JOLT = 0.2;
 	/**
 	 * Taking the body's tilt off the legs swings their tops out of the body; each leg is drawn up LEG_HALF_DEPTH model

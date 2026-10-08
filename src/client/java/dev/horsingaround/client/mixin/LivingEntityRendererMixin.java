@@ -67,6 +67,7 @@ public abstract class LivingEntityRendererMixin {
 			pose.horsingaround$setNeck(0.0F);
 			pose.horsingaround$setHeadShake(0.0F, 0.0F);
 			pose.horsingaround$setLegs(0.0F, 0.0F, 0.0F);
+			pose.horsingaround$setRide(null);
 			pose.horsingaround$setAirLegs(0.0F, 0.0F);
 			pose.horsingaround$setTail(0.0F);
 			return;
@@ -103,6 +104,7 @@ public abstract class LivingEntityRendererMixin {
 		final float shiftZ = fz * moveForward + rz * moveUp * bankSin;
 		HORSE_ROTATION.rotationAxis(bank, fx, 0.0F, fz).rotateAxis(bodyPitch, rx, 0.0F, rz);
 
+		pose.horsingaround$setRide(isHorse ? s : null);
 		if (isHorse) {
 			// A pack-animated model gets its neck pose in the Entity Model Features hook, after the pack has run.
 			final boolean packAnimated = !saddle.synthetic;
@@ -116,7 +118,7 @@ public abstract class LivingEntityRendererMixin {
 			if (packAnimated) {
 				pose.horsingaround$setLegs(0.0F, 0.0F, 0.0F);
 			} else {
-				pose.horsingaround$setLegs(slope * LEG_UPRIGHT, s.foreLeg(partialTicks), s.hindLeg(partialTicks));
+				pose.horsingaround$setLegs(slope, s.foreLeg(partialTicks), s.hindLeg(partialTicks));
 			}
 			pose.horsingaround$setAirLegs(packAnimated ? 0.0F : s.airLegs(partialTicks), s.airRise(partialTicks));
 			pose.horsingaround$setTail(packAnimated ? 0.0F : s.tailLift(partialTicks));
@@ -234,5 +236,26 @@ public abstract class LivingEntityRendererMixin {
 		final LivingEntityRenderState state, final PoseStack poseStack, final SubmitNodeCollector collector, final CameraRenderState camera, final CallbackInfo ci
 	) {
 		((RidePoseState) state).horsingaround$applyPose(poseStack);
+	}
+
+	/** Where a ridden horse's model is drawn this frame, so its legs can find the ground under each hoof (see GroundLegs). */
+	@Inject(
+		method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
+		at = @At(
+			value = "INVOKE",
+			target = "Lnet/minecraft/client/renderer/entity/LivingEntityRenderer;isBodyVisible(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;)Z"
+		)
+	)
+	private void horsingaround$drawnPose(
+		final LivingEntityRenderState state, final PoseStack poseStack, final SubmitNodeCollector collector, final CameraRenderState camera, final CallbackInfo ci
+	) {
+		final RideState ride = ((RidePoseState) state).horsingaround$rideState();
+		if (ride != null) {
+			ride.drawnPose.set(poseStack.last().pose());
+			ride.drawnCameraX = camera.pos.x;
+			ride.drawnCameraY = camera.pos.y;
+			ride.drawnCameraZ = camera.pos.z;
+			ride.drawnPoseSet = true;
+		}
 	}
 }

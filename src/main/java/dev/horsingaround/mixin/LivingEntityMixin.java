@@ -74,9 +74,15 @@ abstract class LivingEntityMixin {
 			: vanilla;
 	}
 
-	/** Ridden, a full block is a step even from a path, farmland or mud, or onto snow. */
+	/**
+	 * Ridden, a full block is a step even from a path, farmland or mud, or onto snow; but jumping a hurdle, nothing is a
+	 * step (taking off right at a fence, a step up would put the horse on top of it).
+	 */
 	@ModifyReturnValue(method = "maxUpStep", at = @At("RETURN"))
 	private float horsingaround$riddenStep(final float step) {
-		return (Object) this instanceof RideStateHolder holder && holder.horsingaround$ride().narrow ? Math.max(step, RideTuning.RIDDEN_STEP_HEIGHT) : step;
+		if (!((Object) this instanceof RideStateHolder holder) || !holder.horsingaround$ride().narrow) {
+			return step;
+		}
+		return holder.horsingaround$ride().hurdleForward > 0.0F ? 0.0F : Math.max(step, RideTuning.RIDDEN_STEP_HEIGHT);
 	}
 }

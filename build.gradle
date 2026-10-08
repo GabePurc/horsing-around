@@ -97,6 +97,14 @@ def installFreshAnimations = tasks.register("installFreshAnimations") {
 }
 installFreshAnimations.configure { mustRunAfter "deleteGameTestRunDir" }
 
+// Test colours (src/gametest/debugpack): in the client tests horses' legs are colour-coded (upper leg blue, knee white,
+// lower leg orange, hoof black, sole magenta) so screenshots show what each piece is doing; -PplainTextures turns it off.
+def installDebugPack = tasks.register("installDebugPack", Sync) {
+	from "src/gametest/debugpack/horsingaround-debug"
+	into layout.buildDirectory.dir("run/clientGameTest/resourcepacks/horsingaround-debug")
+}
+installDebugPack.configure { mustRunAfter "deleteGameTestRunDir" }
+
 // Client tests: ./gradlew runClientGameTest runs the ride test, the natural-terrain test, every vanilla mount, and a ride
 // on a dedicated server; pick some with -Ptests=ride,terrain,mounts,server, one terrain scenario with
 // -Pscenario=<part of its name>, and only some sections of the ride test with -Psections=<names> (core, stairs,
@@ -115,6 +123,8 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	systemProperty "horsingaround.tests", clientTests
 	systemProperty "horsingaround.scenario", terrainScenario
 	systemProperty "horsingaround.sections", rideSections
+	systemProperty "horsingaround.plainTextures", project.hasProperty("plainTextures")
+	dependsOn installDebugPack
 }
 tasks.matching { it.name in ["runClient", "runClientGameTest"] }.configureEach { dependsOn installFreshAnimations }
 

@@ -18,6 +18,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.gui.components.debug.DebugScreenEntries;
@@ -111,9 +112,17 @@ public final class RideFeelTest implements FabricClientGameTest {
 				// Only on request (it is part of steps): up and down slopes and stairs.
 				slopes(ctx, input, world);
 			}
+			if (sections.contains("hurdles") && !sections.contains("picking")) {
+				// Only on request (it is part of picking): jumping fences and walls.
+				hurdles(ctx, input, world);
+			}
 			if (sections.contains("face") && !sections.contains("picking")) {
 				// Only on request (it is part of picking): pressing jump right up against a wall or a ledge.
 				jumpAtTheFace(ctx, input, world);
+			}
+			if (sections.contains("knees")) {
+				// Only on request: the legs as drawn, measured and shot up close, flat ground to stairs.
+				knees(ctx, input, world);
 			}
 			if (sections.contains("legs")) {
 				// Only on request: close side shots of the legs in a jump, for judging the pose.
@@ -1154,6 +1163,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		ledgeAtAGallop(ctx, input, world);
 		ledgeStraightAhead(ctx, input, world);
 		jumpAtTheFace(ctx, input, world);
+		hurdles(ctx, input, world);
 		pillar(ctx, input, world);
 		treesInARow(ctx, input, world);
 		bushes(ctx, input, world);
@@ -1756,6 +1766,97 @@ public final class RideFeelTest implements FabricClientGameTest {
 		}
 	}
 
+	/** A hurdle lane: what is built across the lane at z=-6, how the horse comes at it, and what should happen. */
+	private record Hurdle(String name, String block, int spurs, boolean jump, String beyond, boolean over) {
+	}
+
+	/**
+	 * Fences and walls across the lane (1.5 blocks tall, at z=-6): pressing jump within reach clears them at a walk, a trot
+	 * and from a standstill, landing beyond and never on top; ridden at without a jump, the horse stops short with a snort;
+	 * with lava beyond, it refuses the jump.
+	 */
+	private void hurdles(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		final List<Hurdle> lanes = List.of(
+			new Hurdle("an oak fence at a walk", "oak_fence", 0, true, "", true),
+			new Hurdle("a cobblestone wall at a trot", "cobblestone_wall", 1, true, "", true),
+			new Hurdle("an oak fence at a canter", "oak_fence", 2, true, "", true),
+			new Hurdle("an oak fence from a standstill", "oak_fence", -1, true, "", true),
+			new Hurdle("an oak fence at a trot, no jump", "oak_fence", 1, false, "", false),
+			new Hurdle("an oak fence with lava beyond", "oak_fence", 0, true, "lava", false)
+		);
+		for (int i = 0; i < lanes.size(); i++) {
+			final Hurdle lane = lanes.get(i);
+			section("Hurdle: " + lane.name());
+			final int x = 3100 + i * 20;
+			final List<String> build = new ArrayList<>();
+			// (Fences join up with each other; the line stands on its own.)
+			build.add(String.format(Locale.ROOT, "fill %d -60 -6 %d -60 -6 minecraft:%s", x - 3, x + 3, lane.block()));
+			if (!lane.beyond().isEmpty()) {
+				build.add(String.format(Locale.ROOT, "fill %d -61 -12 %d -61 -7 minecraft:%s", x - 3, x + 3, lane.beyond()));
+			}
+			lane(ctx, input, world, x + 0.5, -60, "hurdle_test_" + x, build.toArray(String[]::new));
+			sideCamera(world, x + 6.5, -59.5, -6.0, 90.0F);
+			final int hurdles = ride(ctx, r -> r.hurdles);
+			final int refusals = ride(ctx, r -> r.refusals);
+			if (lane.spurs() < 0) {
+				// From a standstill, half a block short of it.
+				ctx.runOnClient(mc -> mc.player.getVehicle().setPos(x + 0.5, -60.0, -4.6));
+				ctx.waitTicks(5);
+				input.pressKey(o -> o.keyJump);
+			} else {
+				input.holdKey(o -> o.keyUp);
+				ctx.waitTicks(2);
+				for (int sp = 0; sp < lane.spurs(); sp++) {
+					input.pressKey(o -> o.keySprint);
+					ctx.waitTicks(4);
+				}
+			}
+			boolean pressed = lane.spurs() < 0;
+			double highestOver = -60.0;
+			double slowest = Double.MAX_VALUE;
+			int shots = 0;
+			final StringBuilder trace = new StringBuilder();
+			for (int t = 0; t < 160 && horseZ(ctx) > -14.0; t++) {
+				ctx.waitTick();
+				final double z = horseZ(ctx);
+				final Sample s = sample(ctx);
+				if (!pressed && lane.jump() && z - half(ctx) < -4.2) {
+					// Jump with the chest about a stride short of it.
+					input.pressKey(o -> o.keyJump);
+					pressed = true;
+				}
+				if (z > -8.0 && z < -1.0) {
+					trace.append(String.format(Locale.ROOT, "z%.2f y%.2f v%.2f g%s r%d | ", z, s.y, s.speed, s.onGround ? "1" : "0", ride(ctx, r -> r.refusals) - refusals));
+					if (shots < 8) {
+						cameraShot(ctx, String.format(Locale.ROOT, "19_hurdle_%d_%02d", i, shots++));
+					}
+				}
+				if (Math.abs(z - -5.5) < 0.7) {
+					highestOver = Math.max(highestOver, s.y);
+				}
+				if (z > -4.0 && z < -2.0 && t > 10) {
+					slowest = Math.min(slowest, s.speed);
+				}
+			}
+			input.releaseKey(o -> o.keyUp);
+			ctx.waitTicks(10);
+			log("  path: %s", trace);
+			final double end = horseZ(ctx);
+			if (lane.over()) {
+				check("over it (z beyond -7)", end < -7.0);
+				check("one hurdle jump", ride(ctx, r -> r.hurdles) - hurdles, 1, 1);
+				check("high enough over it (lowest clear height as it passes, blocks above the ground)", highestOver - -60.0, 1.5, 3.0);
+				check("lands on the ground beyond, not on the fence (y)", sample(ctx).y, -60.05, -59.95);
+				check("no snort", ride(ctx, r -> r.refusals) == refusals);
+			} else {
+				check("stays this side of it", end > -6.0);
+				check("never on top of it (y)", sample(ctx).y, -60.05, -59.95);
+				check("snorts at it", ride(ctx, r -> r.refusals) > refusals);
+			}
+			stop(ctx, input);
+		}
+	}
+
 	/**
 	 * Trunks in a row: one dead ahead, then one just right of the line and one further left. Going round the first on the
 	 * right (the side the horse would try first) leads into the second; the lane on the left runs clear past all three.
@@ -1935,6 +2036,189 @@ public final class RideFeelTest implements FabricClientGameTest {
 		stop(ctx, input);
 	}
 
+	/**
+	 * The legs as they are drawn (after the animation pack and this mod posed them; {@link LegProbe}), in the test colours and
+	 * shot up close against a white wall: on flat ground first (what the pack itself does, the baseline), then standing and
+	 * walking on slopes, stairs and a single step. Per leg, each tick: the hoof's sole against the ground under it, the top of
+	 * the leg against the body (a gap there is a leg come off), and which way the knee juts (front knees forward, hind hocks
+	 * back).
+	 */
+	private void knees(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		ctx.runOnClient(mc -> LegProbe.arm(true));
+		final int fov = ctx.computeOnClient(mc -> mc.options.fov().get());
+		ctx.runOnClient(mc -> mc.options.fov().set(55));
+		try {
+			legLane(ctx, input, world, "flat_walk", 3000, -60, false, false, -14.0, backdrop(3000));
+			legLane(ctx, input, world, "flat_trot", 3020, -60, true, false, -20.0, backdrop(3020));
+			legLane(ctx, input, world, "up_slope", 3040, -60, false, true, -16.0, slopeBuild(3040, true, false, true));
+			legLane(ctx, input, world, "down_slope", 3060, -54, false, true, -16.0, slopeBuild(3060, false, false, true));
+			legLane(ctx, input, world, "up_stairs", 3080, -60, false, true, -16.0, slopeBuild(3080, true, true, true));
+			legLane(ctx, input, world, "down_stairs", 3100, -54, false, true, -16.0, slopeBuild(3100, false, true, true));
+			// Stopping half way up the stairs, and with the front hooves up a single step.
+			legLane(ctx, input, world, "stand_stairs", 3120, -60, false, true, -7.6, slopeBuild(3120, true, true, true));
+			legLane(ctx, input, world, "stand_step", 3140, -60, false, true, -8.4,
+				String.format(Locale.ROOT, "fill %d -60 -30 %d -60 -9 minecraft:stone", 3140, 3140), backdrop(3140));
+			legLane(ctx, input, world, "stand_step_down", 3160, -59, false, true, -9.2,
+				String.format(Locale.ROOT, "fill %d -60 -8 %d -60 12 minecraft:stone", 3160, 3160), backdrop(3160));
+		} finally {
+			ctx.runOnClient(mc -> {
+				mc.options.fov().set(fov);
+				LegProbe.arm(false);
+			});
+		}
+	}
+
+	/**
+	 * Rides north from z=0.5 on a lane (built by {@code build}) until z passes {@code until}, then stands; samples the
+	 * drawn legs every tick, and shoots them up close every few ticks and once standing. Only flat lanes' numbers are a
+	 * baseline (nothing checked but that the legs stay on); the rest are checked.
+	 */
+	private void legLane(
+		final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String name, final int x, final double y,
+		final boolean trot, final boolean checked, final double until, final String... build
+	) {
+		section("Legs as drawn: " + name.replace('_', ' '));
+		lane(ctx, input, world, x + 0.5, y, "legs_" + name, build);
+		sideCamera(world, x + 3.5, y - 1.2, 0.5, 90.0F);
+		final boolean firstLane = ctx.computeOnClient(mc -> LegProbe.tree == null);
+		if (firstLane) {
+			ctx.runOnClient(mc -> LegProbe.requestTree());
+		}
+		input.holdKey(o -> o.keyUp);
+		if (trot) {
+			ctx.waitTicks(2);
+			input.pressKey(o -> o.keySprint);
+		}
+		final List<Double> front = new ArrayList<>();
+		final List<Double> hind = new ArrayList<>();
+		double sunk = Double.MAX_VALUE;
+		double hipLow = Double.MAX_VALUE;
+		int wrongKnee = 0;
+		int bentFrames = 0;
+		int shots = 0;
+		final StringBuilder trace = new StringBuilder();
+		boolean riding = true;
+		for (int i = 0; i < 400; i++) {
+			ctx.waitTick();
+			final double z = horseZ(ctx);
+			if (riding && z < until) {
+				input.releaseKey(o -> o.keyUp);
+				riding = false;
+			}
+			final int still = ticksStill(ctx);
+			if (!riding && still > 30) {
+				break;
+			}
+			// Follow beside the horse, level with its legs.
+			final double hx = horseX(ctx);
+			final double hy = ctx.computeOnClient(mc -> mc.player.getVehicle().getY());
+			// (An armour stand's eyes are 1.7775 above its feet: these are a little above the horse's back, 5 blocks off,
+			// looking down at the legs so the treads under them show.)
+			world.getServer().runCommand(String.format(Locale.ROOT, "tp @e[type=minecraft:armor_stand,tag=test_camera] %.2f %.2f %.2f 90 15", hx + 5.0, hy + 1.8 - 1.7775, z));
+			final double[] legs = ctx.computeOnClient(mc -> new double[] {
+				LegProbe.gap[0], LegProbe.gap[1], LegProbe.gap[2], LegProbe.gap[3], LegProbe.hip[0], LegProbe.hip[1], LegProbe.hip[2], LegProbe.hip[3],
+				LegProbe.jut[0], LegProbe.jut[1], LegProbe.jut[2], LegProbe.jut[3], LegProbe.frames
+			});
+			final double[] ride = ctx.computeOnClient(mc -> {
+				final RideState r = ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride();
+				return new double[] {r.pitch(1.0F), r.foreLeg(1.0F), r.hindLeg(1.0F), mc.player.getVehicle().onGround() ? 1 : 0};
+			});
+			if (legs[12] == 0 || ride[3] == 0) {
+				continue;
+			}
+			front.add(Math.min(legs[0], legs[1]));
+			hind.add(Math.min(legs[2], legs[3]));
+			for (int leg = 0; leg < 4; leg++) {
+				sunk = Math.min(sunk, legs[leg]);
+				if (!Double.isNaN(legs[4 + leg])) {
+					hipLow = Math.min(hipLow, legs[4 + leg]);
+				}
+				final double jut = legs[8 + leg];
+				if (!Double.isNaN(jut) && Math.abs(jut) > 0.03) {
+					bentFrames++;
+					// Front knees jut forward, hind hocks back.
+					if (leg < 2 ? jut < 0.0 : jut > 0.0) {
+						wrongKnee++;
+					}
+				}
+			}
+			trace.append(String.format(Locale.ROOT, "z%.2f y%.2f tilt%.1f lift%.2f/%.2f %s%s| ", z, hy, ride[0], ride[1], ride[2], ctx.computeOnClient(mc -> LegProbe.line()),
+				ctx.computeOnClient(mc -> String.format(Locale.ROOT, "[fit %.2f, FL found %.2f %.2f %.2f drawn %.2f %.2f %.2f, wants %.2f %.2f %.2f %.2f, pack lifts %.2f %.2f %.2f %.2f]",
+					((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().drawnFit, dev.horsingaround.client.render.GroundLegs.SOLES[0],
+					dev.horsingaround.client.render.GroundLegs.SOLES[1], dev.horsingaround.client.render.GroundLegs.SOLES[2], LegProbe.sole[0][0], LegProbe.sole[0][1],
+					LegProbe.sole[0][2], dev.horsingaround.client.render.GroundLegs.WANTED[0], dev.horsingaround.client.render.GroundLegs.WANTED[1],
+					dev.horsingaround.client.render.GroundLegs.WANTED[2], dev.horsingaround.client.render.GroundLegs.WANTED[3],
+					dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[0], dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[1],
+					dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[2], dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[3]))));
+			if ((riding && i % 4 == 0 && shots < 10 || !riding && still == 20) && shots < 12) {
+				ctx.waitTick();
+				legShot(ctx, String.format(Locale.ROOT, "30_legs_%s_%02d", name, shots++));
+			}
+		}
+		input.releaseKey(o -> o.keyUp);
+		if (firstLane) {
+			log("  the drawn model's parts (legs, and the body's top levels):%n%s", (Object) ctx.computeOnClient(mc -> LegProbe.tree));
+		}
+		log("  %s", trace);
+		front.sort(null);
+		hind.sort(null);
+		final double frontTypical = percentile(front, 0.5);
+		final double hindTypical = percentile(hind, 0.5);
+		log("  planted hoof of each pair off the ground (blocks): front median %.3f 90%% %.3f, hind median %.3f 90%% %.3f; most sunk %.3f; "
+			+ "leg tops in the body at least %.3f; knees bent %d frames, the wrong way %d", frontTypical, percentile(front, 0.9), hindTypical,
+			percentile(hind, 0.9), sunk, hipLow, bentFrames, wrongKnee);
+		// (Fresh Animations' own stride shows a pixel or two of a leg's top now and then: the flat lanes give the baseline.)
+		check("legs stay on the body (least a leg's top is inside it, blocks)", hipLow, -0.13, 1.0);
+		if (checked) {
+			check("front hooves on the ground (median of the lower one, blocks)", frontTypical, -0.03, 0.06);
+			check("hind hooves on the ground (median of the lower one, blocks)", hindTypical, -0.03, 0.06);
+			check("front hooves on the ground nearly always (90th percentile, blocks)", percentile(front, 0.9), -0.03, 0.2);
+			check("hind hooves on the ground nearly always (90th percentile, blocks)", percentile(hind, 0.9), -0.03, 0.2);
+			check("no hoof sunk into the ground (most, blocks)", sunk, -0.06, 1.0);
+			check("knees bend the way a horse's do (front forward, hind back; frames wrong)", wrongKnee, 0, 0);
+		}
+	}
+
+	private static double percentile(final List<Double> sorted, final double share) {
+		return sorted.isEmpty() ? Double.NaN : sorted.get(Math.min(sorted.size() - 1, (int) (sorted.size() * share)));
+	}
+
+	/** Ticks the ridden horse has stood still (0 while it moves). */
+	private int stillTicks;
+	private double stillX = Double.NaN;
+	private double stillZ = Double.NaN;
+
+	private int ticksStill(final ClientGameTestContext ctx) {
+		final double x = horseX(ctx);
+		final double z = horseZ(ctx);
+		this.stillTicks = Math.abs(x - this.stillX) < 1.0E-3 && Math.abs(z - this.stillZ) < 1.0E-3 ? this.stillTicks + 1 : 0;
+		this.stillX = x;
+		this.stillZ = z;
+		return this.stillTicks;
+	}
+
+	/** A close shot from the lane's camera, big enough to see each piece of each leg. */
+	private void legShot(final ClientGameTestContext ctx, final String name) {
+		final boolean found = ctx.computeOnClient(mc -> {
+			final var stands = mc.level.getEntitiesOfClass(ArmorStand.class, mc.player.getBoundingBox().inflate(16.0), ArmorStand::isInvisible);
+			if (stands.isEmpty()) {
+				return false;
+			}
+			mc.setCameraEntity(stands.get(0));
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.gui.hud.toggle();
+			return true;
+		});
+		log("  screenshot %s -> %s", name, ctx.takeScreenshot(TestScreenshotOptions.of("horsingaround_" + name).withSize(1280, 960)));
+		if (found) {
+			ctx.runOnClient(mc -> {
+				mc.gui.hud.toggle();
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				mc.setCameraEntity(mc.player);
+			});
+		}
+	}
+
 	/** A 2-block pillar dead ahead: nothing to land on, so the horse goes round it. */
 	private void pillar(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
 		section("Trotting at a 2-block pillar");
@@ -2010,30 +2294,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 	) {
 		final String name = (up ? "up" : "down") + (stairs ? "_stairs" : "_slope") + (trot ? "_trot" : "_walk");
 		section((trot ? "Trotting " : "Walking ") + (up ? "up " : "down ") + (stairs ? "a staircase of stair blocks" : "a slope of full blocks"));
-		// Riding north from z=0.5: six steps of a block from z=-5, the low ground at -60 (tops at -59), the high at -54.
-		final List<String> build = new ArrayList<>();
-		// Three blocks wide, so the side camera sees the hooves over the edge.
-		final int west = x - 1;
-		final int east = x + 1;
-		if (up) {
-			build.add(String.format(Locale.ROOT, "fill %d -60 -25 %d -55 -11 minecraft:stone", west, east));
-		} else {
-			build.add(String.format(Locale.ROOT, "fill %d -60 -4 %d -55 12 minecraft:stone", west, east));
-		}
-		for (int i = 0; i < 6; i++) {
-			final int z = up ? -5 - i : -5 - i;
-			// Top of this step: climbing, one more each block; going down, one less.
-			final int top = up ? -59 + i : -55 - i;
-			if (stairs) {
-				if (top - 2 >= -60) {
-					build.add(String.format(Locale.ROOT, "fill %d -60 %d %d %d %d minecraft:stone", west, z, east, top - 2, z));
-				}
-				build.add(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:stone_stairs[facing=%s]", west, top - 1, z, east, top - 1, z, up ? "north" : "south"));
-			} else if (top - 1 >= -60) {
-				build.add(String.format(Locale.ROOT, "fill %d -60 %d %d %d %d minecraft:stone", west, z, east, top - 1, z));
-			}
-		}
-		lane(ctx, input, world, x + 0.5, up ? -60 : -54, "slope_test_" + x, build.toArray(String[]::new));
+		lane(ctx, input, world, x + 0.5, up ? -60 : -54, "slope_test_" + x, slopeBuild(x, up, stairs, false));
 		sideCamera(world, x + 6.5, -57.5, -8.0, 90.0F);
 		input.holdKey(o -> o.keyUp);
 		if (trot) {
@@ -2041,6 +2302,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			input.pressKey(o -> o.keySprint);
 		}
 		hitboxes(ctx, true);
+		final int bentBefore = ctx.computeOnClient(mc -> dev.horsingaround.client.render.Knees.bentFrames);
 		final List<Double> gaps = new ArrayList<>();
 		double worstFloat = 0.0;
 		double maxTilt = 0.0;
@@ -2088,6 +2350,12 @@ public final class RideFeelTest implements FabricClientGameTest {
 			trace.append(String.format(Locale.ROOT, "t%d z%.2f y%.2f tilt%.1f front%+.2f hind%+.2f fold%.2f/%.2f %s | ", (int) now[1], z, sample(ctx).y, now[2], now[3], now[4],
 				now[5], now[6], ground));
 			if (i % 2 == 0 && shots < 12) {
+				// From close beside the horse, level with it, so the knees show.
+				final double cx = ctx.computeOnClient(mc -> mc.player.getVehicle().getX()) + 3.5;
+				final double cy = ctx.computeOnClient(mc -> mc.player.getVehicle().getY()) - 0.8;
+				final double cz = z;
+				world.getServer().runCommand(String.format(Locale.ROOT, "tp @e[type=minecraft:armor_stand,tag=test_camera] %.2f %.2f %.2f 90 10", cx, cy, cz));
+				ctx.waitTick();
 				cameraShot(ctx, String.format(Locale.ROOT, "17_%s_%02d", name, shots++));
 			}
 		}
@@ -2105,9 +2373,46 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("hooves on the ground: nearly always (blocks off it, 90th percentile)", most, 0.0, 0.55);
 		check("a hoof lifted to step comes down again (longest more than 0.2 above the ground, ticks)", longestUp, 0, 3);
 		check("never far above it, reaching down for the next step at most (most a hoof floats, blocks)", worstFloat, 0.0, 0.8);
-		check("legs swing to find their footing (most, radians)", maxFold, 0.05, 1.0);
+		check("hooves come up onto the higher ground (most, blocks)", maxFold, 0.05, 0.5);
+		check("every leg has a knee (legs cut)", ctx.computeOnClient(mc -> dev.horsingaround.client.render.Knees.cut) >= 4);
+		check("the knees bend on the way (frames bent)", ctx.computeOnClient(mc -> dev.horsingaround.client.render.Knees.bentFrames) - bentBefore > 0);
 		check("rider's head clear of the horse's (closest, centre to centre, blocks)", headGap, 0.45, 10.0);
 		stop(ctx, input);
+	}
+
+	/**
+	 * Riding north from z=0.5: six steps of a block from z=-5, the low ground at -60 (tops at -59), the high at -54. One block
+	 * wide, so a camera beside it sees the legs on the treads; with a white wall behind it for close shots if {@code backdrop}.
+	 */
+	private static String[] slopeBuild(final int x, final boolean up, final boolean stairs, final boolean backdrop) {
+		final List<String> build = new ArrayList<>();
+		if (up) {
+			build.add(String.format(Locale.ROOT, "fill %d -60 -25 %d -55 -11 minecraft:stone", x, x));
+		} else {
+			build.add(String.format(Locale.ROOT, "fill %d -60 -4 %d -55 12 minecraft:stone", x, x));
+		}
+		for (int i = 0; i < 6; i++) {
+			final int z = -5 - i;
+			// Top of this step: climbing, one more each block; going down, one less.
+			final int top = up ? -59 + i : -55 - i;
+			if (stairs) {
+				if (top - 2 >= -60) {
+					build.add(String.format(Locale.ROOT, "fill %d -60 %d %d %d %d minecraft:stone", x, z, x, top - 2, z));
+				}
+				build.add(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:stone_stairs[facing=%s]", x, top - 1, z, x, top - 1, z, up ? "north" : "south"));
+			} else if (top - 1 >= -60) {
+				build.add(String.format(Locale.ROOT, "fill %d -60 %d %d %d %d minecraft:stone", x, z, x, top - 1, z));
+			}
+		}
+		if (backdrop) {
+			build.add(backdrop(x));
+		}
+		return build.toArray(String[]::new);
+	}
+
+	/** A white wall four blocks west of a lane, behind the horse as the close camera (east of it) sees it. */
+	private static String backdrop(final int x) {
+		return String.format(Locale.ROOT, "fill %d -60 -30 %d -50 12 minecraft:white_concrete", x - 4, x - 4);
 	}
 
 	/**
@@ -2195,8 +2500,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("tilts with the step (max tilt, deg)", maxTilt, trot ? 8.0 : 15.0, 40.0);
 		check("smoothly, never snaps (max tilt change per tick, deg)", maxTiltRate, 0.2, 4.1);
 		check("two beats: forehand three quarters " + (up ? "up" : "down") + ", hindquarters still behind (their share of the step)", forehandFirst, 0.0, trot ? 0.5 : 0.35);
-		check("legs swing to find their footing on the step (most, radians)", Math.max(maxFore, maxHind), 0.05, 1.0);
-		check("smooth (max rendered height change per tick, blocks)", maxVisualStep, 0.03, trot ? 0.2 : 0.15);
+		check("hooves come up onto the step (most, blocks)", Math.max(maxFore, maxHind), 0.05, 0.5);
+		check("smooth (max rendered height change per tick, blocks)", maxVisualStep, 0.03, trot ? 0.2 : 0.17);
 		check("level again after (pitch deg)", Math.abs(sample(ctx).pitch), 0.0, 1.5);
 	}
 
@@ -2432,14 +2737,25 @@ public final class RideFeelTest implements FabricClientGameTest {
 		final CompletableFuture<Void> reload = ctx.computeOnClient(mc -> {
 			final PackRepository packs = mc.getResourcePackRepository();
 			packs.reload();
+			boolean changed = false;
 			for (final String id : packs.getAvailableIds()) {
 				if (id.contains("FreshAnimations")) {
 					packs.addPack(id);
-					mc.options.updateResourcePacks(packs);
-					return mc.reloadResourcePacks();
+					changed = true;
 				}
 			}
-			return null;
+			// The test colours go on top (see installDebugPack in build.gradle).
+			for (final String id : packs.getAvailableIds()) {
+				if (id.contains("horsingaround-debug") && !Boolean.getBoolean("horsingaround.plainTextures")) {
+					packs.addPack(id);
+					changed = true;
+				}
+			}
+			if (!changed) {
+				return null;
+			}
+			mc.options.updateResourcePacks(packs);
+			return mc.reloadResourcePacks();
 		});
 		if (reload == null) {
 			return false;

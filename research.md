@@ -58,6 +58,8 @@ mods. It replaces vanilla entity animation with its own, driven by vanilla value
 speeds feed straight into its leg cycles. Compatibility rules for this mod:
 
 - Never replace the horse model or its animation; only add whole-body transforms (lean) on the render pose stack.
+  (Revised 2026-10-08, user direction: each leg gets a knee. The leg box is cut in two, texture and all, and the pack
+  still animates the leg from the hip; only the knee is ours. See "Knees and hurdles".)
 - Keep vanilla animation inputs truthful (speed, onGround, ridden state).
 - Dev runs and the ride test load EMF, ETF and FA so every change is checked against the target look.
 
@@ -359,6 +361,29 @@ so every leg can reach, then swing each leg so its hoof lands on the ground actu
 - No clipping: when the horse's head would come within reach of the rider's head or chest (a jump, a steep climb), the
   horse stretches its neck further forward (up to 35 degrees, as a jumping horse does), and if that isn't enough the
   rider folds less over the neck (up to 30 degrees), only as far as needed, quickly in and easing back out.
+
+## Knees and hurdles (user direction, 2026-10-08)
+
+Play-test feedback on the hooves-on-the-ground version: at moments the legs detached from the body; horse armour no
+longer followed the head; there was weirdness going down stairs and at walls and fences, and the horse should be able to
+jump walls and fences while ridden. The user asked to try legs in two sections, with a knee, joined up by inverse
+kinematics, still driven by Fresh Animations' animation.
+
+- The detaching legs came from swinging a rigid one-piece leg up to ~90 degrees to find footing: its top swung out of
+  the body. The armour came from the neck reach going only on the body layer's neck; Fresh Animations gives the armour
+  and the bridle their own copy of the neck, animated the same way, so it goes on every layer now.
+- Knees: the first time a leg is posed its box is cut halfway down into the upper leg (left on the leg part, which the
+  model or the pack swings from the hip) and the lower leg (cannon and hoof, on a new child part that bends at the
+  knee), the texture cut with it and the lower piece reaching a little into the upper so no gap opens on a bend. The
+  pair over higher ground bends its knees to bring its hooves up onto it, by up to 0.45 blocks, the hip turning so the
+  hoof stays where the stride put it (two-bone IK): the front knees fold back and the hind ones (the hocks) forward, as
+  a horse's do. The body sits low enough for the pair over the lower ground actually under it to reach it.
+- Hurdles: pressing jump with a fence, a wall, a gate or anything else 1.125-1.6 blocks tall within 2.5 blocks of the
+  chest (no deeper than 1.5, headroom over it, safe ground beyond) jumps 0.35 over it and far enough to clear it, at
+  any pace, standing too, held at that speed in the air so meeting the face as it rises doesn't stop it. Lava or a
+  drop it won't take beyond: it refuses. Ridden straight at one from a trot up, it doesn't go round it and slows only to
+  a trot by the time it's in reach; without a jump it stops short with a snort. Pens still hold horses: nothing jumps a
+  fence unless the rider asks.
 
 ## Staying vanilla
 
