@@ -93,8 +93,8 @@ yesterday. This is my first public version, and I'm only getting started.
 
 ## Want a better camera on foot too?
 
-Check out **Horsing Around: Over the Shoulder**, a Red Dead style over-the-shoulder camera that also takes over the riding
-camera when both are installed.
+Check out **Horsing Around: Over the Shoulder**, an over-the-shoulder camera for getting around on foot that also takes
+over the riding camera when both are installed.
 
 ## Buy me a coffee? (and get a hat)
 

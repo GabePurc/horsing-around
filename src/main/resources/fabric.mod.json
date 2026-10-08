@@ -3,7 +3,7 @@
 	"id": "horsingaround",
 	"version": "${version}",
 	"name": "Horsing Around",
-	"description": "Weighty, momentum-based horse riding in the spirit of Red Dead Redemption 2, kept close to vanilla: gaits and stamina, turning inertia, a riding camera, and horses that pick their way.",
+	"description": "Weighty, momentum-based horse riding kept close to vanilla: gaits and stamina, turning inertia, a riding camera, and horses that pick their way.",
 	"authors": [
 		"GabePurc"
 	],
