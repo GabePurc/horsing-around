@@ -104,9 +104,28 @@ installFreshAnimations.configure { mustRunAfter "deleteGameTestRunDir" }
 def clientTests = project.findProperty("tests") ?: "ride,terrain,mounts,server,hat"
 def terrainScenario = project.findProperty("scenario") ?: ""
 def rideSections = project.findProperty("sections") ?: ""
+// Test games run light, to keep the load on the machine down: the lowest settings, no sound, one frame per game tick
+// (LowSettings in the tests), a 2 GB heap, and performance mods (-PplainGame runs without them, -PfullGraphics with
+// normal settings; the gallery and store shots always get normal settings).
+def lowSettings = !project.hasProperty("fullGraphics") && !clientTests.contains("gallery") && !clientTests.contains("store")
+configurations.register("testPerformanceMods") { transitive = false }
+dependencies {
+	testPerformanceMods "maven.modrinth:sodium:bAZQdGpg"          // mc26.3-0.9.2
+	testPerformanceMods "maven.modrinth:lithium:xS0Q8LSi"         // mc26.3-0.26.2
+	testPerformanceMods "maven.modrinth:ferrite-core:d5ddUdiB"    // 9.0.0
+	testPerformanceMods "maven.modrinth:immediatelyfast:3MP9UR23" // 1.17.1+26.3
+}
+def performanceMods = project.hasProperty("plainGame") ? null : configurations.testPerformanceMods
 // The server test starts a local dedicated server in the test run folder; the user accepted the Minecraft EULA
 // (https://aka.ms/MinecraftEULA) for it on 2026-10-07.
 def gameTestEula = layout.buildDirectory.file("run/clientGameTest/eula.txt").get().asFile
+def lightTestGame = { task ->
+	task.systemProperty "horsingaround.lowSettings", lowSettings
+	task.maxHeapSize = "2G"
+	if (performanceMods != null) {
+		task.systemProperty "fabric.addMods", performanceMods.asPath
+	}
+}
 tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	doFirst {
 		gameTestEula.parentFile.mkdirs()
@@ -115,8 +134,74 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	systemProperty "horsingaround.tests", clientTests
 	systemProperty "horsingaround.scenario", terrainScenario
 	systemProperty "horsingaround.sections", rideSections
+	lightTestGame(it)
 }
 tasks.matching { it.name in ["runClient", "runClientGameTest"] }.configureEach { dependsOn installFreshAnimations }
+
+// Faster: ./gradlew runClientGameTestParallel --configuration-cache runs the same client tests in three light games at
+// once (the ride test split in two, the other tests in the third), each in its own folder, build/run/clientGameTest-<shard>/.
+// (The configuration cache is what lets Gradle run tasks side by side; without the flag they run one after another.) The
+// shards' reports are then merged into build/run/clientGameTest/ and every failed check is listed.
+def testShards = [
+	RideA : [tests: "ride", sections: "core,ledges,cuts"],
+	RideB : [tests: "ride", sections: "stairs,picking,steps"],
+	Others: [tests: "terrain,mounts,server,hat", sections: ""],
+]
+loom {
+	runs {
+		testShards.each { name, shard ->
+			register("clientGameTest${name}") {
+				inherit clientGameTest
+				runDir "build/run/clientGameTest-${name.toLowerCase()}"
+				ideConfigGenerated false
+			}
+		}
+	}
+}
+def shardDirs = testShards.keySet().collect { layout.buildDirectory.dir("run/clientGameTest-${it.toLowerCase()}").get().asFile }
+testShards.each { name, shard ->
+	def dir = layout.buildDirectory.dir("run/clientGameTest-${name.toLowerCase()}").get().asFile
+	tasks.matching { it.name == "runClientGameTest${name}" }.configureEach {
+		dependsOn installFreshAnimations
+		doFirst {
+			// A fresh folder each run, with the Fresh Animations pack and the EULA for the server test.
+			dir.deleteDir()
+			new File(dir, "resourcepacks").mkdirs()
+			java.nio.file.Files.copy(freshAnimationsZip.toPath(), new File(dir, "resourcepacks/" + freshAnimationsZip.name).toPath())
+			new File(dir, "eula.txt").text = "eula=true\n"
+		}
+		systemProperty "horsingaround.tests", shard.tests
+		systemProperty "horsingaround.scenario", ""
+		systemProperty "horsingaround.sections", shard.sections
+		lightTestGame(it)
+	}
+}
+def mergedReports = layout.buildDirectory.dir("run/clientGameTest").get().asFile
+def collectShardReports = tasks.register("collectClientGameTestShards") {
+	description = "Merges the parallel client test shards' reports into build/run/clientGameTest/ and lists failed checks."
+	doLast { task ->
+		mergedReports.mkdirs()
+		def merged = [:]
+		shardDirs.each { dir ->
+			(dir.listFiles() ?: []).findAll { it.name.startsWith("horsingaround-") && it.name.endsWith("-report.txt") }.sort { it.name }.each { report ->
+				merged[report.name] = (merged[report.name] ?: "") + "### " + dir.name + "\n" + report.text
+			}
+		}
+		def failed = []
+		merged.each { report, text ->
+			new File(mergedReports, report).text = text
+			text.eachLine { if (it.contains("FAIL")) failed << report + ": " + it.trim() }
+		}
+		task.logger.lifecycle(failed.isEmpty() ? "All client test checks passed (${merged.size()} reports)." : "Failed checks:\n" + failed.join("\n"))
+	}
+}
+tasks.register("runClientGameTestParallel") {
+	group = "fabric"
+	description = "Runs the client tests in three light games at once (use --configuration-cache so they run side by side)."
+	dependsOn testShards.keySet().collect { "runClientGameTest${it}" }
+	finalizedBy collectShardReports
+}
+testShards.keySet().each { name -> tasks.matching { it.name == "runClientGameTest${name}" }.configureEach { finalizedBy collectShardReports } }
 
 processResources {
 	def version = project.version

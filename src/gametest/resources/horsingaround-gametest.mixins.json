@@ -1,0 +1,11 @@
+{
+	"required": true,
+	"package": "dev.horsingaround.gametest.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"OptionsMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
