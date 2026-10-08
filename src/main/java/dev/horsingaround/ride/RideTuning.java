@@ -433,14 +433,17 @@ public final class RideTuning {
 	 */
 	public static final float LEG_LOOKAHEAD = 0.1F;
 	public static final float LEG_LOOKAHEAD_MAX = 4.0F;
+	/** A hoof in a step's face all over looks up to LEG_FACE_SEARCH half its depth further back for a tread to stand on. */
+	public static final int LEG_FACE_SEARCH = 5;
 	/**
 	 * The drawn body is raised or lowered so the standing leg on the lowest ground is straight (no hoof hangs, and the
 	 * legs fold no more than the ground asks), but never so low that a leg would have to fold more than LEG_RISE_MAX less
-	 * FIT_MARGIN (better a hoof over a step's edge than one in a step); easing in over FIT_TIME seconds, by up to
-	 * FIT_UP_MAX / FIT_DOWN_MAX blocks. A leg the animation pack has lifted more than PACK_LIFT blocks is mid-stride and
+	 * FIT_MARGIN (better a hoof over a step's edge than one in a step); easing in over FIT_TIME seconds, never faster than
+	 * FIT_RATE_MAX blocks a second (so it never pops the body), by up to FIT_UP_MAX / FIT_DOWN_MAX blocks. A leg the animation pack has lifted more than PACK_LIFT blocks is mid-stride and
 	 * doesn't count as standing.
 	 */
 	public static final float FIT_TIME = 0.12F;
+	public static final float FIT_RATE_MAX = 0.5F;
 	public static final float FIT_UP_MAX = 0.6F;
 	public static final float FIT_DOWN_MAX = 0.35F;
 	public static final float PACK_LIFT = 0.06F;
@@ -455,7 +458,7 @@ public final class RideTuning {
 	 * lower pair reaches down instead), and with the hooves down how fast it rises or sinks changes by at most DRAWN_JOLT
 	 * blocks/tick a tick.
 	 */
-	static final double SINK_MAX = KNEE_LIFT_MAX;
+	static final double SINK_MAX = 0.3;
 	static final double DRAWN_JOLT = 0.2;
 	/**
 	 * Taking the body's tilt off the legs swings their tops out of the body; each leg is drawn up LEG_HALF_DEPTH model
@@ -520,6 +523,11 @@ public final class RideTuning {
 	public static final float HIND_AIR_STAGGER = 0.25F;
 	public static final float HIND_AIR_FORWARD = 1.5F;
 	public static final float AIR_LEG_HALF_DEPTH = 2.0F;
+	/** With the knees (see {@code Knees}): the front knees fold FORE_AIR_KNEE radians at the tuck, the hocks HIND_AIR_KNEE as the hind legs gather. */
+	public static final float FORE_AIR_KNEE = 1.4F;
+	/** Till the legs are AIR_GROUNDED of the way into the jump's shape (a step down is a short fall), each hoof still finds its ground. */
+	public static final float AIR_GROUNDED = 0.5F;
+	public static final float HIND_AIR_KNEE = 0.5F;
 	static final float AIR_LEG_RISE = 0.45F;
 	static final float AIR_LEG_PHASE_EASE = 0.35F;
 	/**

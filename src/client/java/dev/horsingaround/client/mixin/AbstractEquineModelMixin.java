@@ -3,6 +3,8 @@ package dev.horsingaround.client.mixin;
 import dev.horsingaround.client.render.AirLegs;
 import dev.horsingaround.client.render.GroundLegs;
 import dev.horsingaround.client.render.RidePoseState;
+import dev.horsingaround.ride.RideState;
+import dev.horsingaround.ride.RideTuning;
 import net.minecraft.client.model.Model;
 import net.minecraft.client.model.animal.equine.AbstractEquineModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -52,13 +54,18 @@ public abstract class AbstractEquineModelMixin {
 		}
 		// (Legs an animation pack poses get all of this in its hook, after it has run; here they come with nothing to do,
 		// and must leave the ride's leg state alone.)
-		final boolean posedHere = pose.horsingaround$legTilt() != 0.0F || pose.horsingaround$foreLeg() != 0.0F || pose.horsingaround$hindLeg() != 0.0F;
-		GroundLegs.pose(
+		final float air = pose.horsingaround$airLegs();
+		final boolean posedHere = pose.horsingaround$legTilt() != 0.0F || pose.horsingaround$foreLeg() != 0.0F || pose.horsingaround$hindLeg() != 0.0F || air != 0.0F;
+		final RideState ride = posedHere ? pose.horsingaround$rideState() : null;
+		final boolean footing = GroundLegs.pose(
 			this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, pose.horsingaround$legTilt(), pose.horsingaround$foreLeg(),
-			pose.horsingaround$hindLeg(), 16.0F / ((Model<?>) (Object) this).root().yScale,
-			posedHere ? pose.horsingaround$rideState() : null, ((Model<?>) (Object) this).root(), pose.horsingaround$airLegs() <= 0.0F
+			pose.horsingaround$hindLeg(), 16.0F / ((Model<?>) (Object) this).root().yScale, ride, ((Model<?>) (Object) this).root(),
+			air < RideTuning.AIR_GROUNDED || ride != null && !ride.leapt()
 		);
-		AirLegs.pose(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, pose.horsingaround$airLegs(), pose.horsingaround$airRise());
+		// (A step down is a short fall, not a jump: with the hooves finding their ground, no jump shape.)
+		if (!(footing && ride != null && !ride.leapt())) {
+			AirLegs.pose(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, air, pose.horsingaround$airRise());
+		}
 		this.tail.xRot += pose.horsingaround$tail();
 	}
 }

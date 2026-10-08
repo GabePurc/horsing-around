@@ -58,8 +58,8 @@ mods. It replaces vanilla entity animation with its own, driven by vanilla value
 speeds feed straight into its leg cycles. Compatibility rules for this mod:
 
 - Never replace the horse model or its animation; only add whole-body transforms (lean) on the render pose stack.
-  (Revised 2026-10-08, user direction: each leg gets a knee. The leg box is cut in two, texture and all, and the pack
-  still animates the leg from the hip; only the knee is ours. See "Knees and hurdles".)
+  (Revised 2026-10-08, user direction: each leg gets a knee. The leg box is cut into upper leg, cannon and hoof,
+  texture and all, and the pack still animates the leg; the knee and fetlock are ours. See "Knees and hurdles".)
 - Keep vanilla animation inputs truthful (speed, onGround, ridden state).
 - Dev runs and the ride test load EMF, ETF and FA so every change is checked against the target look.
 
@@ -372,12 +372,26 @@ kinematics, still driven by Fresh Animations' animation.
 - The detaching legs came from swinging a rigid one-piece leg up to ~90 degrees to find footing: its top swung out of
   the body. The armour came from the neck reach going only on the body layer's neck; Fresh Animations gives the armour
   and the bridle their own copy of the neck, animated the same way, so it goes on every layer now.
-- Knees: the first time a leg is posed its box is cut halfway down into the upper leg (left on the leg part, which the
-  model or the pack swings from the hip) and the lower leg (cannon and hoof, on a new child part that bends at the
-  knee), the texture cut with it and the lower piece reaching a little into the upper so no gap opens on a bend. The
-  pair over higher ground bends its knees to bring its hooves up onto it, by up to 0.45 blocks, the hip turning so the
-  hoof stays where the stride put it (two-bone IK): the front knees fold back and the hind ones (the hocks) forward, as
-  a horse's do. The body sits low enough for the pair over the lower ground actually under it to reach it.
+- Knees: the first time a leg is posed its box is cut into the upper leg (left on the leg part the model or the pack
+  swings), the cannon (from 41% of the way down, on a child part that bends at the knee) and the hoof (its last 2
+  pixels, as the horse texture paints it, bending at the fetlock), the texture cut with it, each piece capped and
+  reaching a little into the one above so no gap opens on a bend. The upper leg also reaches 2.5 pixels further up into
+  the body, so a big swing at the top shows no gap. Each hoof stands flat on the ground where it is drawn (the hoof
+  turns at the fetlock to stay upright, as a horse's pastern lets it), the knee bent the way a horse's is (front knees
+  jut forward, hind hocks back) and the leg turning at its top to suit (two-bone IK, top of the leg to fetlock).
+- Pivots (found 2026-10-08 by measuring the legs as drawn, see Tooling): Fresh Animations pivots each leg near the
+  hoof, not the hip (it animates the stride by moving the hoof and turning the leg about it). Everything that swings a
+  leg (standing it upright on a slope, the knee, the jump's shape) turned the leg about the pack's pivot, so its top
+  swung out of the body: the legs that "detached" and went wonky. Every swing now turns a leg about the top of its box
+  and moves the pivot to keep the top where the pack put it, whatever the model's pivot.
+- Each hoof's own ground: one of a pair can be on a step while the other is below it (on stairs, the stride puts them
+  half a block apart), so each hoof reads the ground under its front, middle and back where the model is drawn (the
+  render pose is kept from the frame), a moment ahead along its own motion so a swinging hoof clears a step's edge
+  instead of catching on it, and comes up onto it quickly (down more gently). A hoof against a step's face it can't
+  climb onto (more than 0.55 above) moves back off it onto the tread. The drawn body then fits itself: it comes up or
+  down until the standing leg on the lowest ground is straight (a leg the pack has lifted mid-stride doesn't count),
+  but never so low that a leg on higher ground would have to fold past what a knee can (better a hoof just off a
+  step's edge than one in the step). On level ground nothing is read and the pack's legs are untouched.
 - Hurdles: pressing jump with a fence, a wall, a gate or anything else 1.125-1.6 blocks tall within 2.5 blocks of the
   chest (no deeper than 1.5, headroom over it, safe ground beyond) jumps 0.35 over it and far enough to clear it, at
   any pace, standing too, held at that speed in the air so meeting the face as it rises doesn't stop it. Lava or a

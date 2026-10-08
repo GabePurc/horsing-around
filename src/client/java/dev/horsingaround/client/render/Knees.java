@@ -82,6 +82,8 @@ public final class Knees {
 	/** Legs cut so far, and frames a knee was bent (for tests). */
 	public static int cut;
 	public static int bentFrames;
+	/** The last plant's fetlock target (leg part's parent frame, y and z), its reach and the reach asked for (for tests). */
+	public static final float[] TARGET = new float[4];
 
 	private Knees() {
 	}
@@ -120,18 +122,55 @@ public final class Knees {
 	}
 
 	/**
-	 * Stands the hoof flat on the ground {@code rise} model pixels up in the world (the body tilted {@code tilt} radians
-	 * nose up), {@code shift} pixels back along the leg and {@code sink} pixels down the leg part's frame from where the
+	 * Stands the hoof flat on the ground {@code rise} model pixels up in the world (down in the world being {@code down}
+	 * radians from the leg part's frame's down, toward its tail), {@code shift} pixels back along the leg and {@code sink} pixels down the leg part's frame from where the
 	 * straight leg has its sole, the top of the
 	 * leg staying put: the knee bends (front knees jut forward, hind hocks back), the leg turns at the top to suit, and
 	 * the hoof turns at the fetlock to stand upright ({@code level} of the way: 0 leaves it in line with the leg). A leg
 	 * without a knee stays as it is.
 	 */
 	public static void plant(
-		final ModelPart part, final Leg leg, final float rise, final float shift, final float tilt, final float sink, final float level, final boolean front
+		final ModelPart part, final Leg leg, final float rise, final float shift, final float down, final float sink, final float level, final boolean front
+	) {
+		if (!solve(part, leg, rise, shift, down, sink, front)) {
+			return;
+		}
+		swing(part, leg, solvedUpper - leg.upperAngle);
+		leg.lower.xRot = solvedLower - part.xRot - leg.lowerAngle;
+		leg.hoof.xRot = (down - solvedLower) * level;
+		if (solvedBend > 1.0E-3F) {
+			bentFrames++;
+		}
+	}
+
+	/**
+	 * Where {@link #plant} would put the knee (the leg part's parent frame, y then z, into {@code out}), without moving
+	 * anything; false if it wouldn't bend the leg.
+	 */
+	public static boolean knee(
+		final ModelPart part, final Leg leg, final float rise, final float shift, final float down, final float sink, final boolean front, final float[] out
+	) {
+		if (!solve(part, leg, rise, shift, down, sink, front)) {
+			return false;
+		}
+		out[0] = solvedKneeY;
+		out[1] = solvedKneeZ;
+		return true;
+	}
+
+	// The last solve (render thread).
+	private static float solvedUpper;
+	private static float solvedLower;
+	private static float solvedBend;
+	private static float solvedKneeY;
+	private static float solvedKneeZ;
+
+	/** Two-bone IK from the top of the leg to the fetlock over the hoof's ground; false if there is nothing to do. */
+	private static boolean solve(
+		final ModelPart part, final Leg leg, final float rise, final float shift, final float down, final float sink, final boolean front
 	) {
 		if (leg.lower == null || leg.hoof == null || rise <= 0.0F && sink <= 0.0F && shift == 0.0F) {
-			return;
+			return false;
 		}
 		final float cos = Mth.cos(part.xRot);
 		final float sin = Mth.sin(part.xRot);
@@ -139,31 +178,27 @@ public final class Knees {
 		final float topZ = part.z + leg.hipY * sin + leg.hipZ * cos;
 		final float soleY = part.y + leg.soleY * cos - leg.soleZ * sin;
 		final float soleZ = part.z + leg.soleY * sin + leg.soleZ * cos;
-		// Down in the world is down and toward the tail in the model tilted nose up; the hoof stands on it, upright.
-		final float downY = Mth.cos(tilt);
-		final float downZ = Mth.sin(tilt);
-		final float targetY = soleY + sink - (rise + leg.hoofLength) * downY - shift * sin;
-		final float targetZ = soleZ - (rise + leg.hoofLength) * downZ + shift * cos;
-		final float dy = targetY - topY;
-		final float dz = targetZ - topZ;
+		// The hoof stands on its ground, upright; moved back along the leg by the shift.
+		final float targetY = soleY + sink - (rise + leg.hoofLength) * Mth.cos(down) - shift * sin;
+		final float targetZ = soleZ - (rise + leg.hoofLength) * Mth.sin(down) + shift * cos;
 		final float a = leg.upper;
 		final float b = leg.lowerLength;
+		final float dy = targetY - topY;
+		final float dz = targetZ - topZ;
 		final float reach = Mth.clamp(Mth.length(dy, dz), Math.abs(a - b) + 0.01F, a + b);
 		// The angle at the top between the line to the fetlock and the upper leg.
-		final float atTop = (float) Math.acos(Mth.clamp((a * a + reach * reach - b * b) / (2.0F * a * reach), -1.0F, 1.0F));
+		solvedBend = (float) Math.acos(Mth.clamp((a * a + reach * reach - b * b) / (2.0F * a * reach), -1.0F, 1.0F));
 		final float toFetlock = (float) Math.atan2(dz, dy);
 		// Turned toward the head (front knees jut forward) or the tail (hind hocks jut back).
-		final float upperAngle = front ? toFetlock - atTop : toFetlock + atTop;
-		final float kneeY = topY + a * Mth.cos(upperAngle);
-		final float kneeZ = topZ + a * Mth.sin(upperAngle);
-		final float lowerAngle = (float) Math.atan2(targetZ - kneeZ, targetY - kneeY);
-		swing(part, leg, upperAngle - leg.upperAngle);
-		leg.lower.xRot = lowerAngle - part.xRot - leg.lowerAngle;
-		// Upright in the world is the tilt's angle from the model's down.
-		leg.hoof.xRot = (tilt - lowerAngle) * level;
-		if (atTop > 1.0E-3F) {
-			bentFrames++;
-		}
+		solvedUpper = front ? toFetlock - solvedBend : toFetlock + solvedBend;
+		solvedKneeY = topY + a * Mth.cos(solvedUpper);
+		solvedKneeZ = topZ + a * Mth.sin(solvedUpper);
+		solvedLower = (float) Math.atan2(targetZ - solvedKneeZ, targetY - solvedKneeY);
+		TARGET[0] = targetY;
+		TARGET[1] = targetZ;
+		TARGET[2] = reach;
+		TARGET[3] = Mth.length(dy, dz);
+		return true;
 	}
 
 	/**

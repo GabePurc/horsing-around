@@ -94,8 +94,11 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 			}
 			this.legs.put(root, parts);
 		}
-		GroundLegs.pose(parts[0], parts[1], parts[2], parts[3], tilt, fore, hind, 16.0F / root.yScale, ride, root, air <= 0.0F);
-		if (air <= 0.0F) {
+		final boolean footing = GroundLegs.pose(
+			parts[0], parts[1], parts[2], parts[3], tilt, fore, hind, 16.0F / root.yScale, ride, root, air < RideTuning.AIR_GROUNDED || !ride.leapt()
+		);
+		// (A step down is a short fall, not a jump: with the hooves finding their ground, no jump shape.)
+		if (air <= 0.0F || footing && !ride.leapt()) {
 			return;
 		}
 		AirLegs.pose(parts[0], parts[1], parts[2], parts[3], air, ride.airRise(partialTicks));

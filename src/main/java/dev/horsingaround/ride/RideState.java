@@ -68,6 +68,11 @@ public final class RideState {
 	public boolean jumpedOff;
 	/** In the air from a jump (the rider's or up a ledge) rather than from stepping off something. */
 	boolean leapt;
+
+	/** Whether the horse jumped (rather than stepped or fell off something) into the flight it is in. */
+	public boolean leapt() {
+		return this.leapt;
+	}
 	/** Stride count at the last huff. */
 	int lastHuffStride;
 	/** Server side: where the horse was last tick, and its smoothed ground speed, for trampling. */
@@ -261,7 +266,8 @@ public final class RideState {
 	/** Per leg: where its sole was drawn last frame (world x, z; NaN, not yet), for where it is heading. */
 	public final double[] legSoleX = {Double.NaN, Double.NaN, Double.NaN, Double.NaN};
 	public final double[] legSoleZ = new double[4];
-	public long legRiseAt;
+	/** When the legs were last posed (game time in ticks, with the partial tick; NaN, not yet). */
+	public double legRiseAt = Double.NaN;
 	/**
 	 * How far the drawn body is raised (blocks) so the standing leg on the lowest ground is straight, fitted to the ground
 	 * under each hoof where the model is drawn (see GroundLegs); added to {@link #heightOffset(float)}. Client only.

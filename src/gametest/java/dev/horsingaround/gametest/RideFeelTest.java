@@ -2143,13 +2143,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 				}
 			}
 			trace.append(String.format(Locale.ROOT, "z%.2f y%.2f tilt%.1f lift%.2f/%.2f %s%s| ", z, hy, ride[0], ride[1], ride[2], ctx.computeOnClient(mc -> LegProbe.line()),
-				ctx.computeOnClient(mc -> String.format(Locale.ROOT, "[fit %.2f, FL found %.2f %.2f %.2f drawn %.2f %.2f %.2f, wants %.2f %.2f %.2f %.2f, pack lifts %.2f %.2f %.2f %.2f]",
-					((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().drawnFit, dev.horsingaround.client.render.GroundLegs.SOLES[0],
-					dev.horsingaround.client.render.GroundLegs.SOLES[1], dev.horsingaround.client.render.GroundLegs.SOLES[2], LegProbe.sole[0][0], LegProbe.sole[0][1],
-					LegProbe.sole[0][2], dev.horsingaround.client.render.GroundLegs.WANTED[0], dev.horsingaround.client.render.GroundLegs.WANTED[1],
-					dev.horsingaround.client.render.GroundLegs.WANTED[2], dev.horsingaround.client.render.GroundLegs.WANTED[3],
-					dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[0], dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[1],
-					dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[2], dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[3]))));
+				legDebug(ctx)));
 			if ((riding && i % 4 == 0 && shots < 10 || !riding && still == 20) && shots < 12) {
 				ctx.waitTick();
 				legShot(ctx, String.format(Locale.ROOT, "30_legs_%s_%02d", name, shots++));
@@ -2177,6 +2171,27 @@ public final class RideFeelTest implements FabricClientGameTest {
 			check("no hoof sunk into the ground (most, blocks)", sunk, -0.06, 1.0);
 			check("knees bend the way a horse's do (front forward, hind back; frames wrong)", wrongKnee, 0, 0);
 		}
+	}
+
+	/** What the legs asked for on the last frame drawn (see GroundLegs), for traces. */
+	private static String legDebug(final ClientGameTestContext ctx) {
+		return ctx.computeOnClient(mc -> {
+			final RideState r = ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride();
+			final StringBuilder soles = new StringBuilder();
+			for (int i = 0; i < 4; i++) {
+				final double[] at = dev.horsingaround.client.render.GroundLegs.SOLES;
+				final double[] t = dev.horsingaround.client.render.GroundLegs.TARGETS;
+				soles.append(String.format(Locale.ROOT, " sole%d found %.2f %.2f %.2f drawn %.2f %.2f %.2f target %.2f %.2f %.2f reach %.1f/%.1f fetlock %.2f %.2f %.2f", i, at[i * 3],
+					at[i * 3 + 1], at[i * 3 + 2], LegProbe.sole[i][0], LegProbe.sole[i][1], LegProbe.sole[i][2], t[i * 5], t[i * 5 + 1], t[i * 5 + 2], t[i * 5 + 3],
+					t[i * 5 + 4], LegProbe.fetlock[i][0], LegProbe.fetlock[i][1], LegProbe.fetlock[i][2]));
+			}
+			return soles + String.format(Locale.ROOT, " down %.1f", dev.horsingaround.client.render.GroundLegs.DOWN * Mth.RAD_TO_DEG) + String.format(Locale.ROOT, "[fit %.2f, wants %.2f %.2f %.2f %.2f, shifts %.2f %.2f %.2f %.2f, rises %.2f %.2f %.2f %.2f, pack lifts %.2f %.2f %.2f %.2f]",
+				r.drawnFit, dev.horsingaround.client.render.GroundLegs.WANTED[0], dev.horsingaround.client.render.GroundLegs.WANTED[1],
+				dev.horsingaround.client.render.GroundLegs.WANTED[2], dev.horsingaround.client.render.GroundLegs.WANTED[3], r.legShift[0], r.legShift[1], r.legShift[2],
+				r.legShift[3], r.legRise[0], r.legRise[1], r.legRise[2], r.legRise[3], dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[0],
+				dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[1], dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[2],
+				dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[3]);
+		});
 	}
 
 	private static double percentile(final List<Double> sorted, final double share) {
@@ -2302,8 +2317,12 @@ public final class RideFeelTest implements FabricClientGameTest {
 			input.pressKey(o -> o.keySprint);
 		}
 		hitboxes(ctx, true);
+		ctx.runOnClient(mc -> LegProbe.arm(true));
 		final int bentBefore = ctx.computeOnClient(mc -> dev.horsingaround.client.render.Knees.bentFrames);
 		final List<Double> gaps = new ArrayList<>();
+		int sunkFrames = 0;
+		int kneeFrames = 0;
+		int frames = 0;
 		double worstFloat = 0.0;
 		double maxTilt = 0.0;
 		double maxTiltRate = 0.0;
@@ -2322,9 +2341,13 @@ public final class RideFeelTest implements FabricClientGameTest {
 			final double[] now = ctx.computeOnClient(mc -> {
 				final AbstractHorse horse = (AbstractHorse) mc.player.getVehicle();
 				final RideState r = ((RideStateHolder) horse).horsingaround$ride();
+				// The legs as drawn (LegProbe): the lower hoof of each pair against the ground under it, and how far any hoof
+				// is in the ground; how far the hooves are brought up onto their ground.
 				return new double[] {
-					horse.getZ(), horse.tickCount, r.pitch(1.0F), dev.horsingaround.ride.RideController.hoofGap(horse, r, true),
-					dev.horsingaround.ride.RideController.hoofGap(horse, r, false), r.foreLeg(1.0F), r.hindLeg(1.0F), r.headGap, horse.onGround() ? 1 : 0
+					horse.getZ(), horse.tickCount, r.pitch(1.0F), Math.min(LegProbe.gap[0], LegProbe.gap[1]), Math.min(LegProbe.gap[2], LegProbe.gap[3]),
+					Math.max(r.legRise[0], r.legRise[1]), Math.max(r.legRise[2], r.legRise[3]), r.headGap, horse.onGround() ? 1 : 0,
+					Math.min(Math.min(LegProbe.gap[0], LegProbe.gap[1]), Math.min(LegProbe.gap[2], LegProbe.gap[3])),
+					Math.max(Math.max(LegProbe.legInside[0], LegProbe.legInside[1]), Math.max(LegProbe.legInside[2], LegProbe.legInside[3]))
 				};
 			});
 			final double z = now[0];
@@ -2334,6 +2357,13 @@ public final class RideFeelTest implements FabricClientGameTest {
 			// On the slope: both pairs of hooves, how far off the ground they're drawn.
 			gaps.add(Math.abs(now[3]));
 			gaps.add(Math.abs(now[4]));
+			frames++;
+			if (now[9] < -0.1) {
+				sunkFrames++;
+			}
+			if (now[10] > 0.1) {
+				kneeFrames++;
+			}
 			worstFloat = Math.max(worstFloat, Math.max(now[3], now[4]));
 			foreUp = now[3] > 0.2 ? foreUp + 1 : 0;
 			hindUp = now[4] > 0.2 ? hindUp + 1 : 0;
@@ -2347,8 +2377,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 			previousPitch = (float) now[2];
 			previousTick = (int) now[1];
 			final String ground = ride(ctx, r -> r.debugGround());
-			trace.append(String.format(Locale.ROOT, "t%d z%.2f y%.2f tilt%.1f front%+.2f hind%+.2f fold%.2f/%.2f %s | ", (int) now[1], z, sample(ctx).y, now[2], now[3], now[4],
-				now[5], now[6], ground));
+			trace.append(String.format(Locale.ROOT, "t%d z%.2f y%.2f tilt%.1f front%+.2f hind%+.2f fold%.2f/%.2f %s %s%s | ", (int) now[1], z, sample(ctx).y, now[2], now[3],
+				now[4], now[5], now[6], ground, ctx.computeOnClient(mc -> LegProbe.line()), legDebug(ctx)));
 			if (i % 2 == 0 && shots < 12) {
 				// From close beside the horse, level with it, so the knees show.
 				final double cx = ctx.computeOnClient(mc -> mc.player.getVehicle().getX()) + 3.5;
@@ -2360,6 +2390,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 		}
 		hitboxes(ctx, false);
+		ctx.runOnClient(mc -> LegProbe.arm(false));
 		input.releaseKey(o -> o.keyUp);
 		log("  %s", trace);
 		gaps.sort(null);
@@ -2370,10 +2401,17 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("smoothly (max tilt change per tick, deg)", maxTiltRate, 0.2, 4.1);
 		check("hooves on the ground: typically (blocks off it, median)", typical, 0.0, 0.12);
 		// (Stepping from block to block, a hoof is lifted or set down for a tick or two.)
-		check("hooves on the ground: nearly always (blocks off it, 90th percentile)", most, 0.0, 0.55);
+		// (A swinging hoof can catch a step's edge for a frame. On a slope of full blocks, a block up for every block along,
+		// the stride still carries a hoof or a knee into the next block's face now and then: a known limit, see research.md.)
+		final boolean fullBlocks = !stairs;
+		check("hooves on the ground: nearly always (blocks off it, 90th percentile)", most, 0.0, fullBlocks ? 0.35 : 0.2);
+		check("a hoof is hardly ever in the ground (share of frames one is more than 0.1 in)", frames == 0 ? 1.0 : (double) sunkFrames / frames, 0.0,
+			fullBlocks ? 0.4 : 0.12);
+		check("a knee is hardly ever in the ground (share of frames one is more than 0.1 in)", frames == 0 ? 1.0 : (double) kneeFrames / frames, 0.0,
+			fullBlocks ? 0.4 : 0.2);
 		check("a hoof lifted to step comes down again (longest more than 0.2 above the ground, ticks)", longestUp, 0, 3);
 		check("never far above it, reaching down for the next step at most (most a hoof floats, blocks)", worstFloat, 0.0, 0.8);
-		check("hooves come up onto the higher ground (most, blocks)", maxFold, 0.05, 0.5);
+		check("hooves come up onto the higher ground (most, blocks)", maxFold, 0.05, RideTuning.LEG_RISE_MAX + 0.01);
 		check("every leg has a knee (legs cut)", ctx.computeOnClient(mc -> dev.horsingaround.client.render.Knees.cut) >= 4);
 		check("the knees bend on the way (frames bent)", ctx.computeOnClient(mc -> dev.horsingaround.client.render.Knees.bentFrames) - bentBefore > 0);
 		check("rider's head clear of the horse's (closest, centre to centre, blocks)", headGap, 0.45, 10.0);

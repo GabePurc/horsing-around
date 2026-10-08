@@ -42,6 +42,8 @@ public final class LegProbe {
 	public static int frames;
 	/** Per leg, the last frame drawn: the hoof's lowest point above the ground under its sole (blocks; negative is sunk in). */
 	public static final double[] gap = new double[4];
+	/** How far the rest of the leg (the knee, the cannon) is in the ground at its deepest corner (blocks, the shortest way out). */
+	public static final double[] legInside = new double[4];
 	/** How far the top of the leg is up inside the body, at its shallowest corner (blocks; negative, a gap shows). */
 	public static final double[] hip = new double[4];
 	/** How far the knee juts toward the head from the line from the top of the leg to the fetlock (blocks; NaN, no knee). */
@@ -65,6 +67,7 @@ public final class LegProbe {
 	private static final Vector3f point = new Vector3f();
 	private static final BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 	private static final StringBuilder dump = new StringBuilder();
+	private static Level level;
 
 	private LegProbe() {
 	}
@@ -98,6 +101,8 @@ public final class LegProbe {
 		Arrays.fill(lowest, Double.MAX_VALUE);
 		Arrays.fill(soleY, Double.MAX_VALUE);
 		Arrays.fill(topY, -Double.MAX_VALUE);
+		Arrays.fill(legInside, 0.0);
+		level = horse.level();
 		for (int i = 0; i < 4; i++) {
 			Arrays.fill(knee[i], Double.NaN);
 			Arrays.fill(fetlock[i], Double.NaN);
@@ -117,7 +122,6 @@ public final class LegProbe {
 		final float yaw = horse.getVisualRotationYInDegrees() * Mth.DEG_TO_RAD;
 		final double fx = -Mth.sin(yaw);
 		final double fz = Mth.cos(yaw);
-		final Level level = horse.level();
 		// The belly's plane (its normal up).
 		final double ax = belly[0], ay = belly[1], az = belly[2];
 		double nx = (belly[4] - ay) * (belly[8] - az) - (belly[5] - az) * (belly[7] - ay);
@@ -136,16 +140,23 @@ public final class LegProbe {
 				continue;
 			}
 			final double[] c = soleCorners[leg];
+			// (The sole's lowest corner: with a knee folded below the hoof, the leg's lowest point isn't the hoof.)
+			lowest[leg] = Math.min(Math.min(c[1], c[4]), Math.min(c[7], c[10]));
 			double ground = Double.NEGATIVE_INFINITY;
+			double inside = 0.0;
 			double cx = 0.0, cy = 0.0, cz = 0.0;
 			for (int i = 0; i < 4; i++) {
 				ground = Math.max(ground, groundAt(level, c[i * 3], c[i * 3 + 2], lowest[leg]));
+				inside = Math.max(inside, insideAt(level, c[i * 3], c[i * 3 + 2], lowest[leg]));
 				cx += c[i * 3] * 0.25;
 				cy += c[i * 3 + 1] * 0.25;
 				cz += c[i * 3 + 2] * 0.25;
 			}
 			ground = Math.max(ground, groundAt(level, cx, cz, lowest[leg]));
-			gap[leg] = lowest[leg] - ground;
+			inside = Math.max(inside, insideAt(level, cx, cz, lowest[leg]));
+			// In a block: how far in, the shortest way out (a hoof touching a step's face is barely in it); else how high above
+			// the ground under it.
+			gap[leg] = inside > 1.0E-3 ? -inside : lowest[leg] - ground;
 			sole[leg][0] = cx;
 			sole[leg][1] = cy;
 			sole[leg][2] = cz;
@@ -229,7 +240,7 @@ public final class LegProbe {
 		if (!part.skipDraw && (leg >= 0 || body)) {
 			for (final ModelPart.Cube cube : access.horsingaround$cubes()) {
 				if (leg >= 0) {
-					leg(cube, matrix, leg, cam);
+					leg(cube, matrix, leg, cam, !hasHoof(part) || FETLOCK.equals(name));
 				} else {
 					belly(cube, matrix, cam);
 				}
@@ -242,7 +253,21 @@ public final class LegProbe {
 	}
 
 	/** A leg's box: its lowest point, its lowest end face (the sole), and its highest end face (the top of the leg). */
-	private static void leg(final ModelPart.Cube cube, final Matrix4f matrix, final int leg, final Vec3 cam) {
+	/** Whether a leg's part has the hoof below it (then only the hoof's own end faces count as the sole). */
+	private static boolean hasHoof(final ModelPart part) {
+		final Map<String, ModelPart> children = ((ModelPartAccessor) (Object) part).horsingaround$children();
+		if (children.containsKey(FETLOCK)) {
+			return true;
+		}
+		for (final ModelPart child : children.values()) {
+			if (hasHoof(child)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static void leg(final ModelPart.Cube cube, final Matrix4f matrix, final int leg, final Vec3 cam, final boolean soleHere) {
 		float minY = Float.MAX_VALUE;
 		float maxY = -Float.MAX_VALUE;
 		for (final ModelPart.Polygon polygon : cube.polygons) {
@@ -263,7 +288,13 @@ public final class LegProbe {
 				lowest[leg] = Math.min(lowest[leg], point.y + cam.y);
 				centreY += (point.y + cam.y) / vertices.length;
 			}
-			if (atBottom && centreY < soleY[leg]) {
+			if (!soleHere) {
+				for (final ModelPart.Vertex vertex : vertices) {
+					matrix.transformPosition(vertex.worldX(), vertex.worldY(), vertex.worldZ(), point);
+					legInside[leg] = Math.max(legInside[leg], insideAt(level, point.x + cam.x, point.z + cam.z, point.y + cam.y));
+				}
+			}
+			if (soleHere && atBottom && centreY < soleY[leg]) {
 				soleY[leg] = centreY;
 				corners(vertices, matrix, cam, soleCorners[leg]);
 			}
@@ -308,6 +339,44 @@ public final class LegProbe {
 		}
 	}
 
+	/**
+	 * How far a point at (x, {@code y}, z) is inside a block's collision shape, the shortest way out (up through its top,
+	 * or sideways out of its column); 0 if it isn't in one.
+	 */
+	private static double insideAt(final Level level, final double x, final double z, final double y) {
+		final int bx = Mth.floor(x);
+		final int by = Mth.floor(y);
+		final int bz = Mth.floor(z);
+		final double lx = x - bx;
+		final double ly = y - by;
+		final double lz = z - bz;
+		pos.set(bx, by, bz);
+		double most = 0.0;
+		for (final AABB box : level.getBlockState(pos).getCollisionShape(level, pos).toAabbs()) {
+			if (lx > box.minX && lx < box.maxX && ly > box.minY && ly < box.maxY && lz > box.minZ && lz < box.maxZ) {
+				// (Out of the top, or sideways only where the neighbour there isn't solid at that height.)
+				double out = box.maxY - ly;
+				out = Math.min(out, sideways(level, bx, by, bz, ly, lx - box.minX, -1, 0));
+				out = Math.min(out, sideways(level, bx, by, bz, ly, box.maxX - lx, 1, 0));
+				out = Math.min(out, sideways(level, bx, by, bz, ly, lz - box.minZ, 0, -1));
+				out = Math.min(out, sideways(level, bx, by, bz, ly, box.maxZ - lz, 0, 1));
+				most = Math.max(most, out);
+			}
+		}
+		return most;
+	}
+
+	/** {@code distance} if the neighbour that way leaves room at height {@code ly}, else the way out isn't that way. */
+	private static double sideways(final Level level, final int bx, final int by, final int bz, final double ly, final double distance, final int dx, final int dz) {
+		pos.set(bx + dx, by, bz + dz);
+		for (final AABB box : level.getBlockState(pos).getCollisionShape(level, pos).toAabbs()) {
+			if (ly > box.minY && ly < box.maxY) {
+				return Double.MAX_VALUE;
+			}
+		}
+		return distance;
+	}
+
 	/** The top of the highest thing to stand on at (x, z) no more than 0.6 above {@code y}. */
 	private static double groundAt(final Level level, final double x, final double z, final double y) {
 		final int bx = Mth.floor(x);
@@ -335,7 +404,7 @@ public final class LegProbe {
 		final StringBuilder out = new StringBuilder();
 		final String[] names = {"FL", "FR", "HL", "HR"};
 		for (int i = 0; i < 4; i++) {
-			out.append(String.format(Locale.ROOT, "%s gap%+.2f hip%+.2f jut%+.2f  ", names[i], gap[i], hip[i], jut[i]));
+			out.append(String.format(Locale.ROOT, "%s gap%+.2f knee%+.2f hip%+.2f jut%+.2f  ", names[i], gap[i], -legInside[i], hip[i], jut[i]));
 		}
 		return out.toString();
 	}

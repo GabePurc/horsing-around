@@ -944,19 +944,18 @@ public final class RideController {
 		final double hindEased = s.hind - y + HIND_HOOVES * sin;
 		final double foreFoot = s.foreFoot - y - FORE_HOOVES * sin;
 		final double hindFoot = s.hindFoot - y + HIND_HOOVES * sin;
-		// Low enough for the lower of the eased and the actual ground (so no hoof hangs), and no lower than leaves the
-		// higher of them within a knee bend (so no hoof sinks into a step it is still on).
+		// Low enough for the lower of the eased and the actual ground (so no hoof hangs), but never so low that the pair on
+		// higher (eased) ground folds more than SINK_MAX: past that, at a drop, the lower pair reaches down for its ground
+		// instead of the whole body sinking toward it. Where the model is drawn, the body then fits itself to the ground
+		// under each hoof (see GroundLegs).
 		final double foreLow = Double.isNaN(foreFoot) ? foreEased : Math.min(foreEased, foreFoot);
 		final double hindLow = Double.isNaN(hindFoot) ? hindEased : Math.min(hindEased, hindFoot);
-		final double foreHigh = Double.isNaN(foreFoot) ? foreEased : Math.max(foreEased, foreFoot);
-		final double hindHigh = Double.isNaN(hindFoot) ? hindEased : Math.max(hindEased, hindFoot);
-		// (Never so low that the pair on higher ground folds more than SINK_MAX: past that, at a drop, the lower pair reaches
-		// down for its ground instead of the whole body sinking toward it.)
-		double offset = Math.max(Math.min(foreLow, hindLow), Math.max(foreHigh, hindHigh) - SINK_MAX) - tuck - s.ledgeCrouch * LEDGE_CROUCH
+		double offset = Math.max(Math.min(foreLow, hindLow), Math.max(foreEased, hindEased) - SINK_MAX) - tuck - s.ledgeCrouch * LEDGE_CROUCH
 			- s.cutSquat * CUT_SQUAT;
-		// No sudden change in how fast the drawn body rises or sinks while the hooves are down: a jolt eases in.
+		// No sudden change in how fast the drawn body rises or sinks while the hooves are down, landing included (a step
+		// just ahead of where it lands doesn't throw the body up): a jolt eases in.
 		final double before = horse.yo + s.heightOffsetO;
-		if (s.wasOnGround && Math.abs(y + offset - before) < STEP_SNAP) {
+		if (Math.abs(y + offset - before) < STEP_SNAP) {
 			offset = before + Mth.clamp(y + offset - before, s.drawnRise - DRAWN_JOLT, s.drawnRise + DRAWN_JOLT) - y;
 		}
 		s.heightOffset = (float) offset;
