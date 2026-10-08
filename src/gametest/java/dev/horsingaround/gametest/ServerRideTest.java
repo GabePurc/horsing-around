@@ -1,6 +1,9 @@
 package dev.horsingaround.gametest;
 
+import dev.horsingaround.client.cosmetic.Hats;
+import dev.horsingaround.client.cosmetic.Supporters;
 import dev.horsingaround.net.RulesPayload;
+import dev.horsingaround.ride.HorseConfig;
 import dev.horsingaround.net.ServerRules;
 import dev.horsingaround.ride.RideStateHolder;
 import dev.horsingaround.ride.RideTuning;
@@ -59,6 +62,21 @@ public final class ServerRideTest implements FabricClientGameTest {
 				check("the server tells the client it runs the mod", ctx.computeOnClient(mc -> ServerRules.present));
 				check("with its leaves rule", ctx.computeOnClient(mc -> ServerRules.rideThroughLeaves) == RideTuning.RIDE_THROUGH_LEAVES);
 				server.runCommand("gamemode creative @a");
+				// A supporter's cowboy hat goes through the server to everyone on it.
+				final java.util.UUID me = ctx.computeOnClient(mc -> mc.player.getUUID());
+				ctx.runOnClient(mc -> {
+					Supporters.addForTesting(me);
+					HorseConfig.get().hat = true;
+					HorseConfig.get().hatColor = 0x2F4A6E;
+					Hats.sendOwn();
+				});
+				ctx.waitTicks(10);
+				check("the server passes a supporter's hat on to everyone", ctx.computeOnClient(mc -> Hats.relayed(me)) == 0x2F4A6E);
+				ctx.runOnClient(mc -> {
+					HorseConfig.reset();
+					Hats.sendOwn();
+					Supporters.removeForTesting(me);
+				});
 				course(ctx, server, connection, watch, true);
 			}
 

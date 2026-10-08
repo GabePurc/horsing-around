@@ -35,6 +35,9 @@ public final class HorseConfig {
 	public float handBob = 1.0F;
 	// Sound.
 	public float horseSounds = 1.0F;
+	// Supporter hat (shown only to and for players on the supporters list).
+	public boolean hat = true;
+	public int hatColor = 0x8B5A2B;
 
 	public static HorseConfig get() {
 		return instance;

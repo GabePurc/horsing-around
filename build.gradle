@@ -101,7 +101,7 @@ installFreshAnimations.configure { mustRunAfter "deleteGameTestRunDir" }
 // on a dedicated server; pick some with -Ptests=ride,terrain,mounts,server, one terrain scenario with
 // -Pscenario=<part of its name>, and only some sections of the ride test with -Psections=<names> (core, stairs,
 // picking, steps).
-def clientTests = project.findProperty("tests") ?: "ride,terrain,mounts,server"
+def clientTests = project.findProperty("tests") ?: "ride,terrain,mounts,server,hat"
 def terrainScenario = project.findProperty("scenario") ?: ""
 def rideSections = project.findProperty("sections") ?: ""
 // The server test starts a local dedicated server in the test run folder; the user accepted the Minecraft EULA

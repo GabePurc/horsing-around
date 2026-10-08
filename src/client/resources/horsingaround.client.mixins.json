@@ -5,6 +5,8 @@
 	"client": [
 		"AbstractClientPlayerMixin",
 		"AbstractEquineModelMixin",
+		"AvatarRenderStateMixin",
+		"AvatarRendererMixin",
 		"CameraMixin",
 		"FirstPersonHandsMixin",
 		"HudMixin",

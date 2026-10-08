@@ -21,5 +21,19 @@
 	"key.horsingaround.settings": "Open horse settings",
 	"key.category.horsingaround.horses": "Horsing Around",
 	"message.horsingaround.server_missing": "This server doesn't have Horsing Around, so horses ride as in vanilla",
-	"message.horsingaround.server_mismatch": "This server runs Horsing Around %s, which doesn't match yours (%s), so horses ride as in vanilla"
+	"message.horsingaround.server_mismatch": "This server runs Horsing Around %s, which doesn't match yours (%s), so horses ride as in vanilla",
+	"options.horsingaround.section.hat": "Cowboy hat",
+	"options.horsingaround.hat.support": "Get a cowboy hat: buy me a coffee",
+	"options.horsingaround.hat.support.tooltip": "Supporters get a cowboy hat to wear, in any colour. This opens my Buy Me a Coffee page: put your Minecraft username in the message and your hat shows up within a day or two. Thank you!",
+	"options.horsingaround.hat": "Wear my cowboy hat",
+	"options.horsingaround.hat.tooltip": "Wear your supporter hat. Your helmet still protects you, it just isn't drawn while the hat is on. Everyone with the mod on the same server sees it.",
+	"options.horsingaround.hat_palette": "Hat colours",
+	"options.horsingaround.hat_hue": "Hue",
+	"options.horsingaround.hat_hue.tooltip": "The colour of the hat, round the colour wheel.",
+	"options.horsingaround.hat_richness": "Richness",
+	"options.horsingaround.hat_richness.tooltip": "How strong the colour is. All the way down for greys, black and white.",
+	"options.horsingaround.hat_brightness": "Brightness",
+	"options.horsingaround.hat_brightness.tooltip": "How light or dark the hat is.",
+	"options.horsingaround.degrees": "%s°",
+	"options.horsingaround.section.hat_supporter": "Your cowboy hat (thanks for supporting!)"
 }
