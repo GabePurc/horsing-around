@@ -19,7 +19,8 @@ The optional add-on Horsing Around: Over the Shoulder lives in its own repo, che
 compile-only copy of it), so treat that class's public signatures as a contract: change both repos together.
 
 Player settings live in `HorseConfig` (JSON in the config folder) with a vanilla-style screen reachable from Mod Menu
-(optional dependency; never required at runtime).
+(optional dependency; never required at runtime). They are only for comfort and personal preference (camera, first-person
+motion, sound volume); nothing that changes how horses ride is a setting (user direction, 2026-10-08).
 
 Build: `./gradlew build`. Play-test: `./gradlew runClient` (loads Mod Menu, the Fresh Animations stack, and the
 add-on if it has been built in `../Over the Shoulder`).

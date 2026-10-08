@@ -839,12 +839,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 	private void hardCuts(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
 		section("Hard cuts off: turning the view 90 deg at a gallop (for comparison)");
-		ctx.runOnClient(mc -> {
-			HorseConfig.get().hardCuts = false;
-			HorseConfig.apply();
-		});
+		ctx.runOnClient(mc -> RideTuning.HARD_CUT = false);
 		final Turn plain = gallopAndLook(ctx, input, world, 1200, 90.0F, null);
-		ctx.runOnClient(mc -> HorseConfig.reset());
+		ctx.runOnClient(mc -> RideTuning.HARD_CUT = true);
 		check("a plain turn is gradual at a gallop (ticks to come round 90 deg)", plain.ticks, 25, 60);
 		check("...and keeps its pace (slowest / before)", plain.slowest, 0.85, 1.05);
 		stop(ctx, input);
@@ -1031,11 +1028,12 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("Mod Menu lists the horse settings", FabricLoader.getInstance().getEntrypointContainers("modmenu", Object.class).stream()
 			.anyMatch(entry -> entry.getProvider().getMetadata().getId().equals("horsingaround")));
 		ctx.runOnClient(mc -> {
-			HorseConfig.get().speed = 1.2F;
+			HorseConfig.get().cameraDistance = 1.2F;
 			HorseConfig.apply();
 		});
-		check("a changed horse setting applies (gallop speed multiple)", ctx.computeOnClient(mc -> RideTuning.GAIT_SPEED[RideTuning.GALLOP]), 1.37, 1.39);
+		check("a changed setting applies live (riding camera distance, blocks)", ctx.computeOnClient(mc -> RideTuning.CAMERA_DISTANCE_STILL), 4.79, 4.81);
 		ctx.runOnClient(mc -> HorseConfig.reset());
+		check("no setting changes how horses ride (gallop speed multiple)", ctx.computeOnClient(mc -> RideTuning.GAIT_SPEED[RideTuning.GALLOP]), 1.149, 1.151);
 		ctx.setScreen(() -> new dev.horsingaround.client.config.HorseSettingsScreen(null));
 		ctx.waitTicks(5);
 		screenshot(ctx, "10c_horse_settings");

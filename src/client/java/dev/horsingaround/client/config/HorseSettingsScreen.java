@@ -1,86 +1,69 @@
 package dev.horsingaround.client.config;
 
+import dev.horsingaround.HorsingAround;
 import dev.horsingaround.ride.HorseConfig;
 import java.util.function.Consumer;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.ImageWidget;
+import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.OptionsSubScreen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
-/** Horsing Around settings, in the style of the vanilla options screens. Changes apply live. */
+/**
+ * Horsing Around settings: only how riding looks and sounds to you (how horses ride is the same for everyone). In the
+ * style of the vanilla options screens, with the mod's icon in the title, a tooltip on every option, and changes applied
+ * live.
+ */
 public final class HorseSettingsScreen extends OptionsSubScreen {
 	private static final String KEY = "options.horsingaround.";
+	private static final Identifier ICON = Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "icon.png");
+	/** Section headings: saddle-leather tan. */
+	private static final int SECTION_COLOR = 0xE3B778;
 
 	public HorseSettingsScreen(final Screen parent) {
 		super(parent, Minecraft.getInstance().options, Component.translatable(KEY + "title"));
 	}
 
 	@Override
+	protected void addTitle() {
+		final LinearLayout title = LinearLayout.horizontal().spacing(6);
+		title.defaultCellSetting().alignVerticallyMiddle();
+		title.addChild(ImageWidget.texture(16, 16, ICON, 16, 16));
+		title.addChild(new StringWidget(this.title, this.font));
+		this.layout.addToHeader(title);
+	}
+
+	@Override
 	protected void addOptions() {
 		final HorseConfig c = HorseConfig.get();
-		this.list.addHeader(Component.translatable(KEY + "riding"));
+		this.list.addHeader(Component.translatable(KEY + "subtitle").withStyle(ChatFormatting.GRAY));
+
+		this.list.addHeader(section("camera"));
+		this.list.addBig(OptionInstance.createBoolean(KEY + "third_person", tooltip("third_person"), c.thirdPersonOnMount, v -> {
+			c.thirdPersonOnMount = v;
+			HorseConfig.apply();
+		}));
 		this.list.addSmall(
-			percent("speed", 50, 150, c.speed, v -> c.speed = v),
-			percent("acceleration", 50, 200, c.acceleration, v -> c.acceleration = v),
-			percent("turn_grip", 50, 200, c.turnGrip, v -> c.turnGrip = v),
-			percent("turn_response", 50, 200, c.turnResponse, v -> c.turnResponse = v),
-			whole("side_angle", "degrees", 15, 90, c.sideAngle, v -> c.sideAngle = v),
-			whole("across_angle", "degrees", 45, 120, c.acrossAngle, v -> c.acrossAngle = v),
-			OptionInstance.createBoolean(KEY + "hard_cuts", OptionInstance.cachedConstantTooltip(Component.translatable(KEY + "hard_cuts.tooltip")),
-				c.hardCuts, v -> {
-					c.hardCuts = v;
-					HorseConfig.apply();
-				}),
-			OptionInstance.createBoolean(KEY + "horse_avoids", OptionInstance.cachedConstantTooltip(Component.translatable(KEY + "horse_avoids.tooltip")),
-				c.horseAvoids, v -> {
-					c.horseAvoids = v;
-					HorseConfig.apply();
-				}),
-			OptionInstance.createBoolean(KEY + "climb_ledges", OptionInstance.cachedConstantTooltip(Component.translatable(KEY + "climb_ledges.tooltip")),
-				c.climbLedges, v -> {
-					c.climbLedges = v;
-					HorseConfig.apply();
-				})
-		);
-		this.list.addHeader(Component.translatable(KEY + "stamina"));
-		this.list.addSmall(
-			whole("gallop_seconds", "seconds", 5, 120, c.gallopSeconds, v -> c.gallopSeconds = v),
-			percent("recovery", 50, 300, c.recovery, v -> c.recovery = v),
-			percent("jump_height", 50, 150, c.jumpHeight, v -> c.jumpHeight = v),
-			percent("jump_cost", 0, 20, c.jumpCost, v -> c.jumpCost = v)
-		);
-		this.list.addHeader(Component.translatable(KEY + "camera"));
-		this.list.addSmall(
-			OptionInstance.createBoolean(KEY + "third_person", c.thirdPersonOnMount, v -> {
-				c.thirdPersonOnMount = v;
-				HorseConfig.apply();
-			}),
 			percent("camera_distance", 50, 150, c.cameraDistance, v -> c.cameraDistance = v),
-			percent("speed_fov", 0, 15, c.speedFov, v -> c.speedFov = v),
-			percent("view_bob", 0, 200, c.viewBob, v -> c.viewBob = v),
-			percent("hand_bob", 0, 200, c.handBob, v -> c.handBob = v),
-			percent("horse_lean", 0, 200, c.horseLean, v -> c.horseLean = v),
-			percent("rider_lean", 0, 100, c.riderLean, v -> c.riderLean = v)
+			percent("speed_zoom", 0, 100, c.speedZoom, v -> c.speedZoom = v)
 		);
-		this.list.addHeader(Component.translatable(KEY + "world"));
+
+		this.list.addHeader(section("comfort"));
 		this.list.addSmall(
-			OptionInstance.createBoolean(KEY + "leaves", OptionInstance.cachedConstantTooltip(Component.translatable(KEY + "leaves.tooltip")), c.rideThroughLeaves, v -> {
-				c.rideThroughLeaves = v;
-				HorseConfig.apply();
-			}),
-			percent("leaves_slowdown", 0, 60, c.leavesSlowdown, v -> c.leavesSlowdown = v),
-			OptionInstance.createBoolean(KEY + "trample", OptionInstance.cachedConstantTooltip(Component.translatable(KEY + "trample.tooltip")), c.trample, v -> {
-				c.trample = v;
-				HorseConfig.apply();
-			}),
-			percent("trample_damage", 0, 300, c.trampleDamage, v -> c.trampleDamage = v),
-			percent("horse_sounds", 0, 200, c.horseSounds, v -> c.horseSounds = v)
+			percent("view_bob", 0, 100, c.viewBob, v -> c.viewBob = v),
+			percent("hand_bob", 0, 100, c.handBob, v -> c.handBob = v)
 		);
+
+		this.list.addHeader(section("sound"));
+		this.list.addBig(percent("horse_sounds", 0, 100, c.horseSounds, v -> c.horseSounds = v));
 	}
 
 	@Override
@@ -99,29 +82,25 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		HorseConfig.save();
 	}
 
-	/** Slider in whole percent of a multiplier or fraction. */
+	private static Component section(final String id) {
+		return Component.translatable(KEY + "section." + id).withColor(SECTION_COLOR);
+	}
+
+	private static <T> OptionInstance.TooltipSupplier<T> tooltip(final String id) {
+		return OptionInstance.cachedConstantTooltip(Component.translatable(KEY + id + ".tooltip"));
+	}
+
+	/** Slider in whole percent of the designed effect; 0 reads "Off". */
 	private static OptionInstance<Integer> percent(final String id, final int min, final int max, final float value, final Consumer<Float> set) {
 		return new OptionInstance<>(
-			KEY + id, OptionInstance.noTooltip(),
-			(caption, percent) -> Options.genericValueLabel(caption, Component.translatable(KEY + "percent", percent)),
+			KEY + id, tooltip(id),
+			(caption, percent) -> percent == 0
+				? Options.genericValueLabel(caption, CommonComponents.OPTION_OFF)
+				: Options.genericValueLabel(caption, Component.translatable(KEY + "percent", percent)),
 			new OptionInstance.IntRange(min, max),
 			Math.round(value * 100.0F),
 			percent -> {
 				set.accept(percent / 100.0F);
-				HorseConfig.apply();
-			}
-		);
-	}
-
-	/** Slider in whole units (degrees, seconds). */
-	private static OptionInstance<Integer> whole(final String id, final String unit, final int min, final int max, final float value, final Consumer<Float> set) {
-		return new OptionInstance<>(
-			KEY + id, OptionInstance.noTooltip(),
-			(caption, amount) -> Options.genericValueLabel(caption, Component.translatable(KEY + unit, amount)),
-			new OptionInstance.IntRange(min, max),
-			Math.round(value),
-			amount -> {
-				set.accept((float) amount);
 				HorseConfig.apply();
 			}
 		);
