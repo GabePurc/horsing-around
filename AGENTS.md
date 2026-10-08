@@ -41,7 +41,11 @@ mod (the target setup: a family server) and checks the server accepts every move
 `build/run/clientGameTest/screenshots/` (view them; with hitboxes on, F3+B, the ridden horse also draws its steering
 and step state). Don't test only perfect cases: generated worlds are messy. When
 feel numbers change on purpose, update the test targets too. `./gradlew runGameTest` loads the mod on a bare
-dedicated server (no client code) and rides there. `-Ptests=gallery` takes clean store screenshots.
+dedicated server (no client code) and rides there. `-Ptests=gallery` takes clean store screenshots. `-Ptests=store` films
+the README's clips and stills in a generated world (`StoreMediaTest`; `-Pscenario=gaits,river` for some; add
+`-PshaderPack=<path to a shader pack zip>` to film with Iris and that pack, like the user's own screenshots), and
+`scripts/store-media.sh` turns them into `docs/media/`. The README is also the Modrinth description: its images load
+from `raw.githubusercontent.com/.../main/docs/media/`, so they show only once merged to main.
 
 Run one game at a time (two test games at once, even from different repos, made ride checks flaky).
 

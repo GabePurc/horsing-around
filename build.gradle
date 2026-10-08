@@ -118,6 +118,32 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 }
 tasks.matching { it.name in ["runClient", "runClientGameTest"] }.configureEach { dependsOn installFreshAnimations }
 
+// Store filming (-Ptests=store) with shaders, to match store screenshots taken with them: -PshaderPack=<path to a shader
+// pack zip> also loads Sodium and Iris (the compatibility pack's versions) and turns that pack on, with its settings
+// file (<pack>.txt) when there is one. Dev-only; nothing here ships.
+def storeShaderPack = project.findProperty("shaderPack")
+if (storeShaderPack) {
+	dependencies {
+		localRuntime "maven.modrinth:sodium:v4PSXean"
+		localRuntime "maven.modrinth:iris:vTN4NRGW"
+	}
+	def pack = file(storeShaderPack)
+	def packSettings = new File(pack.path + ".txt")
+	def shaderPacks = layout.buildDirectory.dir("run/clientGameTest/shaderpacks").get().asFile
+	def irisConfig = layout.buildDirectory.file("run/clientGameTest/config/iris.properties").get().asFile
+	tasks.matching { it.name == "runClientGameTest" }.configureEach {
+		doFirst {
+			shaderPacks.mkdirs()
+			java.nio.file.Files.copy(pack.toPath(), new File(shaderPacks, pack.name).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+			if (packSettings.exists()) {
+				java.nio.file.Files.copy(packSettings.toPath(), new File(shaderPacks, packSettings.name).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+			}
+			irisConfig.parentFile.mkdirs()
+			irisConfig.text = "enableShaders=true\nshaderPack=${pack.name}\ndisableUpdateMessage=true\n"
+		}
+	}
+}
+
 processResources {
 	def version = project.version
 	inputs.property "version", version
