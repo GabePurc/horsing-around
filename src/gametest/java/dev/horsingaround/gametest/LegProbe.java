@@ -42,6 +42,8 @@ public final class LegProbe {
 	public static int frames;
 	/** Per leg, the last frame drawn: the hoof's lowest point above the ground under its sole (blocks; negative is sunk in). */
 	public static final double[] gap = new double[4];
+	/** How far the body's underside is in the ground at its deepest corner (blocks, the shortest way out). */
+	public static double bodyInside;
 	/** How far the rest of the leg (the knee, the cannon) is in the ground at its deepest corner (blocks, the shortest way out). */
 	public static final double[] legInside = new double[4];
 	/** How far the top of the leg is up inside the body, at its shallowest corner (blocks; negative, a gap shows). */
@@ -122,6 +124,12 @@ public final class LegProbe {
 		final float yaw = horse.getVisualRotationYInDegrees() * Mth.DEG_TO_RAD;
 		final double fx = -Mth.sin(yaw);
 		final double fz = Mth.cos(yaw);
+		bodyInside = 0.0;
+		if (bellyVolume > 0.0) {
+			for (int i = 0; i < 4; i++) {
+				bodyInside = Math.max(bodyInside, insideAt(level, belly[i * 3], belly[i * 3 + 2], belly[i * 3 + 1]));
+			}
+		}
 		// The belly's plane (its normal up).
 		final double ax = belly[0], ay = belly[1], az = belly[2];
 		double nx = (belly[4] - ay) * (belly[8] - az) - (belly[5] - az) * (belly[7] - ay);

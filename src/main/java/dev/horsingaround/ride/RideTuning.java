@@ -334,7 +334,14 @@ public final class RideTuning {
 	 */
 	static final float LEDGE_LINE_ANGLE = 30.0F;
 	static final float LEDGE_REACH = 3.0F;
-	static final float LEDGE_CLEARANCE = 0.3F;
+	/**
+	 * Riding at a ledge, pressing jump asks for its jump from as far as LEDGE_ASKED_REACH (instead of a plain jump into its
+	 * face); and landing on top, the horse settles for LEDGE_SETTLE_TICKS before it will jump again (pressing jump over
+	 * and over doesn't bounce it straight off the top).
+	 */
+	static final float LEDGE_ASKED_REACH = 5.0F;
+	static final int LEDGE_SETTLE_TICKS = 14;
+	public static final float LEDGE_CLEARANCE = 0.3F;
 	static final double LEDGE_SUPPORT = 0.6;
 	/** Forward speed in the jump at least this, blocks/tick, and the run-up gives up after LEDGE_APPROACH_TICKS. */
 	static final float LEDGE_MIN_FORWARD = 0.1F;

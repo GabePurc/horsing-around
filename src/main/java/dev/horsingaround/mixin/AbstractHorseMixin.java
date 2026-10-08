@@ -195,6 +195,17 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 		this.needsSync = true;
 	}
 
+	/**
+	 * The ride jumps on the press (see RideController); vanilla's charge-and-release jump would come on top of it, firing
+	 * the moment the horse touches ground after the release (a bounce straight back up, past the ride's own pauses).
+	 */
+	@WrapMethod(method = "onPlayerJump")
+	private void horsingaround$noReleaseJump(final int jumpAmount, final Operation<Void> original) {
+		if (!this.horsingaround$managed()) {
+			original.call(jumpAmount);
+		}
+	}
+
 	/** Vanilla rears the horse when a jump starts. Just play the sound. */
 	@WrapMethod(method = "handleStartJump")
 	private void horsingaround$startJump(final int jumpScale, final Operation<Void> original) {

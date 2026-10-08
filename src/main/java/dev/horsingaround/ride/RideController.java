@@ -177,16 +177,19 @@ public final class RideController {
 
 		// Ledges up to 2 blocks: riding at one at a walk or trot, the horse jumps up it in its stride; pressing jump at one
 		// (standing at its face, say) asks for the same jump, since a plain jump can't clear it.
-		final boolean asked = jumps > 0 || s.jumpBuffer > 0;
+		final boolean asked = (jumps > 0 || s.jumpBuffer > 0) && s.jumpRecovery == 0;
+		// (Asked while riding at it, from further out: the press waits for the ledge's jump instead of hopping into its face.)
+		final float reach = asked && forward && s.speed >= GAIT_SPEED[WALK] * 0.5F ? LEDGE_ASKED_REACH : LEDGE_REACH;
 		if (s.ledgeTicks > 0) {
 			ledgeJump(horse, s, forward);
 		} else if (LEDGE_CLIMB && horse.onGround() && !s.swimming
-			&& (asked || forward && s.speed > 0.0F && s.speed <= GAIT_SPEED[TROT] + 0.05F) && Awareness.ledgeAhead(horse)) {
-			final double top = Awareness.ledge(horse, horse.getYRot(), LEDGE_REACH);
+			&& (asked || forward && s.speed > 0.0F && s.speed <= GAIT_SPEED[TROT] + 0.05F) && Awareness.ledgeAhead(horse, reach)) {
+			final double top = Awareness.ledge(horse, horse.getYRot(), reach);
 			if (!Double.isNaN(top)) {
 				s.ledgeTicks = 1;
 				s.ledgeAir = false;
 				s.ledgeAsked = asked;
+				s.ledgeReach = reach;
 				s.ledgeTop = top;
 				s.ledgeYaw = horse.getYRot();
 				s.jumpBuffer = 0;
@@ -308,6 +311,9 @@ public final class RideController {
 		if (s.ledgeAir) {
 			if (horse.onGround() || s.ledgeTicks > LEDGE_APPROACH_TICKS + 40) {
 				endLedge(s);
+				// Up on top it settles before it will jump again, and a press made on the way up is spent.
+				s.jumpRecovery = LEDGE_SETTLE_TICKS;
+				s.jumpBuffer = 0;
 				return;
 			}
 			double vy = horse.getDeltaMovement().y;
@@ -325,7 +331,7 @@ public final class RideController {
 			return;
 		}
 		// The run-up.
-		final double top = Awareness.ledge(horse, s.ledgeYaw, LEDGE_REACH);
+		final double top = Awareness.ledge(horse, s.ledgeYaw, Math.max(s.ledgeReach, LEDGE_REACH));
 		if (!(forward || s.ledgeAsked) || !horse.onGround() || Double.isNaN(top) || s.ledgeTicks > LEDGE_APPROACH_TICKS
 			|| !s.ledgeAsked && Math.abs(Mth.wrapDegrees(s.riderYaw - s.ledgeYaw)) > 60.0F) {
 			endLedge(s);

@@ -120,6 +120,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 				// Only on request (it is part of picking): pressing jump right up against a wall or a ledge.
 				jumpAtTheFace(ctx, input, world);
 			}
+			if (sections.isEmpty() || sections.contains("ledges") || sections.contains("spam")) {
+				spamJumpAtLedge(ctx, input, world);
+			}
 			if (sections.contains("knees")) {
 				// Only on request: the legs as drawn, measured and shot up close, flat ground to stairs.
 				knees(ctx, input, world);
@@ -1766,6 +1769,74 @@ public final class RideFeelTest implements FabricClientGameTest {
 		}
 	}
 
+	/**
+	 * Spamming jump at a 2-block ledge (standing at its face, and walking at it): one heave up onto it, no higher than
+	 * the heave goes, and no jump straight off the top the moment it lands. Records the drawn body too, for any pop.
+	 */
+	private void spamJumpAtLedge(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		for (final boolean walking : new boolean[] {false, true}) {
+			section("Spamming jump " + (walking ? "walking at" : "standing at") + " a 2-block ledge");
+			final int x = 3060 + (walking ? 20 : 0);
+			lane(ctx, input, world, x + 0.5, -60, "spam_ledge_test_" + x,
+				String.format(Locale.ROOT, "fill %d -60 -30 %d -59 %d minecraft:stone", x - 5, x + 5, walking ? -6 : -1));
+			sideCamera(world, x + 6.5, -58.5, walking ? -6.0 : -1.0, 90.0F);
+			final int climbs = ride(ctx, r -> r.ledgeClimbs);
+			final double startY = sample(ctx).y;
+			if (walking) {
+				input.holdKey(o -> o.keyUp);
+			}
+			double peak = startY;
+			double drawnPeak = startY;
+			int takeoffs = 0;
+			boolean wasOnGround = true;
+			int firstLanding = -1;
+			int nextTakeoff = -1;
+			int hops = 0;
+			double onTop = Double.NaN;
+			final StringBuilder trace = new StringBuilder();
+			for (int i = 0; i < 80; i++) {
+				if (i % 2 == 0) {
+					input.pressKey(o -> o.keyJump);
+				}
+				ctx.waitTick();
+				final Sample now = sample(ctx);
+				if (firstLanding < 0) {
+					peak = Math.max(peak, now.y);
+					drawnPeak = Math.max(drawnPeak, now.visualY);
+				}
+				if (wasOnGround && !now.onGround) {
+					takeoffs++;
+					if (firstLanding >= 0 && nextTakeoff < 0) {
+						nextTakeoff = horseTick(ctx);
+					} else if (firstLanding < 0 && now.y < startY + 1.0 && ride(ctx, r -> r.ledgeTicks) == 0) {
+						// (Left the ground below the ledge and not in the heave: a plain hop.)
+						hops++;
+					}
+				}
+				if (!wasOnGround && now.onGround && firstLanding < 0 && now.y > startY + 1.9) {
+					firstLanding = horseTick(ctx);
+					onTop = now.y;
+				}
+				wasOnGround = now.onGround;
+				trace.append(String.format(Locale.ROOT, "%d t%d y%.2f vis%.2f %s l%d | ", i, horseTick(ctx), now.y - startY, now.visualY - startY, now.onGround ? "g" : "a",
+					ride(ctx, r -> r.ledgeTicks)));
+				if (i % 8 == 0 && i < 48) {
+					cameraShot(ctx, String.format(Locale.ROOT, "21_spam_%s_%02d", walking ? "walk" : "stand", i / 8));
+				}
+			}
+			input.releaseKey(o -> o.keyUp);
+			log("  path: %s", trace);
+			check("heaves up onto it once", ride(ctx, r -> r.ledgeClimbs) - climbs, 1, 1);
+			check("up on top (blocks gained)", onTop - startY, 1.95, 2.05);
+			check("no higher than the heave goes, getting up there (most above the start, blocks)", peak - startY, 2.0, 2.0 + RideTuning.LEDGE_CLEARANCE + 0.35);
+			check("nor drawn higher (most above the start, blocks)", drawnPeak - startY, 2.0, 2.0 + RideTuning.LEDGE_CLEARANCE + 0.45);
+			// (Walking at it from well out, the first press is a plain jump in the open.)
+			check("no hop into its face first (plain jumps before the heave)", hops, 0, walking ? 1 : 0);
+			check("settles on top before jumping again (ticks from landing to the next jump)", nextTakeoff < 0 ? 99 : nextTakeoff - firstLanding, 12, 99);
+			stop(ctx, input);
+		}
+	}
+
 	/** A hurdle lane: what is built across the lane at z=-6, how the horse comes at it, and what should happen. */
 	private record Hurdle(String name, String block, int spurs, boolean jump, String beyond, boolean over) {
 	}
@@ -2309,7 +2380,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 	) {
 		final String name = (up ? "up" : "down") + (stairs ? "_stairs" : "_slope") + (trot ? "_trot" : "_walk");
 		section((trot ? "Trotting " : "Walking ") + (up ? "up " : "down ") + (stairs ? "a staircase of stair blocks" : "a slope of full blocks"));
-		lane(ctx, input, world, x + 0.5, up ? -60 : -54, "slope_test_" + x, slopeBuild(x, up, stairs, false));
+		final int steps = 10;
+		final double end = -5.0 - steps - 4.0;
+		lane(ctx, input, world, x + 0.5, up ? -60 : -60 + steps, "slope_test_" + x, slopeBuild(x, up, stairs, false, steps));
 		sideCamera(world, x + 6.5, -57.5, -8.0, 90.0F);
 		input.holdKey(o -> o.keyUp);
 		if (trot) {
@@ -2322,7 +2395,15 @@ public final class RideFeelTest implements FabricClientGameTest {
 		final List<Double> gaps = new ArrayList<>();
 		int sunkFrames = 0;
 		int kneeFrames = 0;
+		int phaseFrames = 0;
+		int bodyFrames = 0;
 		int frames = 0;
+		// The drawn body's climb (blocks a tick), and how sharply that changes from tick to tick.
+		double previousVisual = Double.NaN;
+		double previousRise = Double.NaN;
+		double sharpest = 0.0;
+		double jerkSum = 0.0;
+		int jerks = 0;
 		double worstFloat = 0.0;
 		double maxTilt = 0.0;
 		double maxTiltRate = 0.0;
@@ -2336,7 +2417,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		int previousTick = horseTick(ctx);
 		int shots = 0;
 		final StringBuilder trace = new StringBuilder();
-		for (int i = 0; i < 300 && horseZ(ctx) > -16.0; i++) {
+		for (int i = 0; i < 400 && horseZ(ctx) > end; i++) {
 			ctx.waitTick();
 			final double[] now = ctx.computeOnClient(mc -> {
 				final AbstractHorse horse = (AbstractHorse) mc.player.getVehicle();
@@ -2347,11 +2428,29 @@ public final class RideFeelTest implements FabricClientGameTest {
 					horse.getZ(), horse.tickCount, r.pitch(1.0F), Math.min(LegProbe.gap[0], LegProbe.gap[1]), Math.min(LegProbe.gap[2], LegProbe.gap[3]),
 					Math.max(r.legRise[0], r.legRise[1]), Math.max(r.legRise[2], r.legRise[3]), r.headGap, horse.onGround() ? 1 : 0,
 					Math.min(Math.min(LegProbe.gap[0], LegProbe.gap[1]), Math.min(LegProbe.gap[2], LegProbe.gap[3])),
-					Math.max(Math.max(LegProbe.legInside[0], LegProbe.legInside[1]), Math.max(LegProbe.legInside[2], LegProbe.legInside[3]))
+					Math.max(Math.max(LegProbe.legInside[0], LegProbe.legInside[1]), Math.max(LegProbe.legInside[2], LegProbe.legInside[3])),
+					horse.getY() + r.heightOffset(1.0F), LegProbe.bodyInside
 				};
 			});
 			final double z = now[0];
-			if (z > -3.0 || z < -13.5 || now[8] == 0.0) {
+			// The climb, every tick (a tick skipped for a shot spreads over two).
+			final int ticks = (int) now[1] - previousTick;
+			if (z <= -2.0 && z >= end + 2.0 && ticks > 0) {
+				final double rise = (now[11] - previousVisual) / ticks;
+				if (!Double.isNaN(previousRise)) {
+					final double jerk = Math.abs(rise - previousRise) / ticks;
+					sharpest = Math.max(sharpest, jerk);
+					jerkSum += jerk * jerk;
+					jerks++;
+				}
+				previousRise = rise;
+			}
+			previousVisual = now[11];
+			if (z > -3.0 || z < end + 2.5 || now[8] == 0.0) {
+				if (ticks > 0) {
+					previousTick = (int) now[1];
+					previousPitch = (float) now[2];
+				}
 				continue;
 			}
 			// On the slope: both pairs of hooves, how far off the ground they're drawn.
@@ -2363,6 +2462,12 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 			if (now[10] > 0.1) {
 				kneeFrames++;
+			}
+			if (now[9] < -0.05 || now[10] > 0.05) {
+				phaseFrames++;
+			}
+			if (now[12] > 0.05) {
+				bodyFrames++;
 			}
 			worstFloat = Math.max(worstFloat, Math.max(now[3], now[4]));
 			foreUp = now[3] > 0.2 ? foreUp + 1 : 0;
@@ -2377,9 +2482,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 			previousPitch = (float) now[2];
 			previousTick = (int) now[1];
 			final String ground = ride(ctx, r -> r.debugGround());
-			trace.append(String.format(Locale.ROOT, "t%d z%.2f y%.2f tilt%.1f front%+.2f hind%+.2f fold%.2f/%.2f %s %s%s | ", (int) now[1], z, sample(ctx).y, now[2], now[3],
-				now[4], now[5], now[6], ground, ctx.computeOnClient(mc -> LegProbe.line()), legDebug(ctx)));
-			if (i % 2 == 0 && shots < 12) {
+			trace.append(String.format(Locale.ROOT, "t%d z%.2f y%.2f vis%.3f tilt%.1f front%+.2f hind%+.2f fold%.2f/%.2f %s %s%s | ", (int) now[1], z, sample(ctx).y, now[11],
+				now[2], now[3], now[4], now[5], now[6], ground, ctx.computeOnClient(mc -> LegProbe.line()), legDebug(ctx)));
+			if (i % 6 == 0 && shots < 8) {
 				// From close beside the horse, level with it, so the knees show.
 				final double cx = ctx.computeOnClient(mc -> mc.player.getVehicle().getX()) + 3.5;
 				final double cy = ctx.computeOnClient(mc -> mc.player.getVehicle().getY()) - 0.8;
@@ -2396,7 +2501,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 		gaps.sort(null);
 		final double typical = gaps.isEmpty() ? 1.0 : gaps.get(gaps.size() / 2);
 		final double most = gaps.isEmpty() ? 1.0 : gaps.get((int) (gaps.size() * 0.9));
-		check("over the slope", horseZ(ctx) < -15.9);
+		check("over the slope", horseZ(ctx) < end + 0.1);
+		final double share = frames == 0 ? 1.0 : 1.0 / frames;
+		log("  climb: sharpest change in the drawn body's rise %.3f blocks/tick a tick, typical (rms) %.3f; frames: a leg in a block %d of %d, the body %d",
+			sharpest, jerks == 0 ? 0.0 : Math.sqrt(jerkSum / jerks), phaseFrames, frames, bodyFrames);
 		check("tilts with the slope, nose " + (up ? "up" : "down") + " (max tilt, deg)", maxTilt, stairs ? 15.0 : 20.0, 40.5);
 		check("smoothly (max tilt change per tick, deg)", maxTiltRate, 0.2, 4.1);
 		check("hooves on the ground: typically (blocks off it, median)", typical, 0.0, 0.12);
@@ -2423,16 +2531,21 @@ public final class RideFeelTest implements FabricClientGameTest {
 	 * wide, so a camera beside it sees the legs on the treads; with a white wall behind it for close shots if {@code backdrop}.
 	 */
 	private static String[] slopeBuild(final int x, final boolean up, final boolean stairs, final boolean backdrop) {
+		return slopeBuild(x, up, stairs, backdrop, 6);
+	}
+
+	/** As {@link #slopeBuild(int, boolean, boolean, boolean)}, with {@code steps} steps: the high ground at -60 + steps. */
+	private static String[] slopeBuild(final int x, final boolean up, final boolean stairs, final boolean backdrop, final int steps) {
 		final List<String> build = new ArrayList<>();
 		if (up) {
-			build.add(String.format(Locale.ROOT, "fill %d -60 -25 %d -55 -11 minecraft:stone", x, x));
+			build.add(String.format(Locale.ROOT, "fill %d -60 %d %d %d %d minecraft:stone", x, -5 - steps - 14, x, -61 + steps, -5 - steps));
 		} else {
-			build.add(String.format(Locale.ROOT, "fill %d -60 -4 %d -55 12 minecraft:stone", x, x));
+			build.add(String.format(Locale.ROOT, "fill %d -60 -4 %d %d 12 minecraft:stone", x, x, -61 + steps));
 		}
-		for (int i = 0; i < 6; i++) {
+		for (int i = 0; i < steps; i++) {
 			final int z = -5 - i;
 			// Top of this step: climbing, one more each block; going down, one less.
-			final int top = up ? -59 + i : -55 - i;
+			final int top = up ? -59 + i : -61 + steps - i;
 			if (stairs) {
 				if (top - 2 >= -60) {
 					build.add(String.format(Locale.ROOT, "fill %d -60 %d %d %d %d minecraft:stone", x, z, x, top - 2, z));

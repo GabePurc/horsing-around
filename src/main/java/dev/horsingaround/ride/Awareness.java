@@ -877,13 +877,18 @@ public final class Awareness {
 	 * allocation; {@link #ledge} then checks properly.
 	 */
 	static boolean ledgeAhead(final AbstractHorse horse) {
+		return ledgeAhead(horse, LEDGE_REACH);
+	}
+
+	/** Something in the way at the height of a ledge's top within {@code reach} of the chest straight ahead. */
+	static boolean ledgeAhead(final AbstractHorse horse, final float reach) {
 		body(horse);
 		final Level level = horse.level();
 		final float rad = horse.getYRot() * Mth.DEG_TO_RAD;
 		final double fx = -Mth.sin(rad);
 		final double fz = Mth.cos(rad);
 		final int y = Mth.floor(horse.getY() + 1.5);
-		for (float d = half + 0.25F; d <= half + LEDGE_REACH; d += 0.5F) {
+		for (float d = half + 0.25F; d <= half + reach; d += 0.5F) {
 			final BlockState state = level.getBlockState(POS.set(Mth.floor(horse.getX() + fx * d), y, Mth.floor(horse.getZ() + fz * d)));
 			if (!state.isAir() && !(Foliage.leavesOpen(level) && state.is(BlockTags.LEAVES)) && !state.getCollisionShape(level, POS).isEmpty()) {
 				return true;

@@ -137,6 +137,8 @@ public final class RideState {
 	public int ledgeTicks;
 	public boolean ledgeAir;
 	boolean ledgeAsked;
+	/** How far ahead the ledge was spotted from (blocks): the run-up keeps looking that far. */
+	float ledgeReach;
 	double ledgeTop;
 	float ledgeYaw;
 	float ledgeForward;
