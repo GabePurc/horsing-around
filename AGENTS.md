@@ -47,7 +47,12 @@ as the renderer drew them: judge leg work by those numbers and close shots, not 
 feel numbers change on purpose, update the test targets too. `./gradlew runGameTest` loads the mod on a bare
 dedicated server (no client code) and rides there. `-Ptests=gallery` takes clean store screenshots.
 
-Run one game at a time (two test games at once, even from different repos, made ride checks flaky).
+Test games run light (lowest settings, no sound, 20 frames a second, a 2 GB heap, and Sodium, Lithium, FerriteCore and
+ImmediatelyFast loaded only into test games; `-PplainGame` drops the mods, `-PfullGraphics` keeps normal settings, and
+the gallery always gets them). `./gradlew runClientGameTestParallel --configuration-cache` runs the client tests in three
+such games at once (ride split in two, the rest in a third; folders `build/run/clientGameTest-<shard>/`), then merges
+their reports into `build/run/clientGameTest/` and lists any failed check. Apart from that runner, run one game at a
+time (two separate test games at once, even from different repos, made ride checks flaky).
 
 Compatibility: `./gradlew runCompat --continue` runs the tests in a production game with packs of popular mods
 (`compatPacks` in `build.gradle`); results in `build/run/compat/<pack>/`. Run it before a release and after touching

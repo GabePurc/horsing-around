@@ -3,7 +3,8 @@
 	"package": "dev.horsingaround.gametest.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"ModelFeatureRendererMixin"
+		"ModelFeatureRendererMixin",
+		"OptionsMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
