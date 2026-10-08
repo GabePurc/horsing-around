@@ -49,8 +49,13 @@ public interface RidePoseState {
 
 	float horsingaround$neckPitch();
 
-	/** Leg poses on a step, -1..1 (see {@code RideState#foreLeg} and {@code RideState#hindLeg}); vanilla model only. */
-	void horsingaround$setLegs(float fore, float hind);
+	/**
+	 * Hooves on the ground (see {@link GroundLegs}): the swing that stands the legs upright against the body's tilt, and
+	 * the front and hind legs' folds, radians; vanilla model only.
+	 */
+	void horsingaround$setLegs(float upright, float fore, float hind);
+
+	float horsingaround$legUpright();
 
 	float horsingaround$foreLeg();
 

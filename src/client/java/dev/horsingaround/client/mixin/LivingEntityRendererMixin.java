@@ -35,6 +35,24 @@ public abstract class LivingEntityRendererMixin {
 	@Unique
 	private static final Vector3f OFFSET = new Vector3f();
 	@Unique
+	private static final Vector3f HEAD = new Vector3f();
+	/** This frame's rider and horse, for {@link #horsingaround$room}: where the horse and the rider's seat are, and how they face. */
+	@Unique
+	private static final Vector3f ROOM_HORSE = new Vector3f();
+	@Unique
+	private static final Vector3f ROOM_SEAT = new Vector3f();
+	@Unique
+	private static final Quaternionf ROOM_ROTATION = new Quaternionf();
+	@Unique
+	private static float roomFx;
+	@Unique
+	private static float roomFz;
+	@Unique
+	private static float roomBank;
+	/** Head to head, from the last {@link #horsingaround$room}. */
+	@Unique
+	private static float roomHeadGap;
+	@Unique
 	private static final SaddleMotion SADDLE = new SaddleMotion();
 	@Unique
 	private static final float[] SHAKE_PHASE = new float[1];
@@ -48,7 +66,7 @@ public abstract class LivingEntityRendererMixin {
 			pose.horsingaround$clearPose();
 			pose.horsingaround$setNeck(0.0F);
 			pose.horsingaround$setHeadShake(0.0F, 0.0F);
-			pose.horsingaround$setLegs(0.0F, 0.0F);
+			pose.horsingaround$setLegs(0.0F, 0.0F, 0.0F);
 			pose.horsingaround$setAirLegs(0.0F, 0.0F);
 			pose.horsingaround$setTail(0.0F);
 			return;
@@ -63,17 +81,26 @@ public abstract class LivingEntityRendererMixin {
 		final float fz = Mth.cos(yaw);
 		final float rx = -fz;
 		final float rz = fx;
+		final float slope = s.pitch(partialTicks) * Mth.DEG_TO_RAD;
 		final float jump = s.jumpPitch(partialTicks) * Mth.DEG_TO_RAD;
-		final float pitch = s.pitch(partialTicks) * Mth.DEG_TO_RAD + jump;
+		final float pitch = slope + jump;
 		final float bank = s.lean(partialTicks) * Mth.DEG_TO_RAD;
 		// A generated gait motion moves the horse model too; a measured one is already in the animated model.
-		final float bodyPitch = saddle.synthetic ? pitch + saddle.pitch * Mth.DEG_TO_RAD : pitch;
-		// The jump tilt pivots on the hooves: the hind ones as it lifts its front to take off, the front ones as it lands.
+		final float tilt = saddle.synthetic ? slope + saddle.pitch * Mth.DEG_TO_RAD : slope;
+		final float bodyPitch = tilt + jump;
+		// The ground tilt pivots at the leg joints, so the hooves stay under them; the jump tilt pivots on the hooves: the
+		// hind ones as it lifts its front to take off, the front ones as it lands. Then the bank, about the ground.
 		final float pivot = jump > 0.0F ? -HIND_HOOVES : FORE_HOOVES;
-		final float pivotForward = pivot * (1.0F - Mth.cos(jump));
-		final float bodyLift = s.heightOffset(partialTicks) + (saddle.synthetic ? saddle.lift : 0.0F) + Math.abs(pivot) * Mth.sin(Math.abs(jump));
-		final float shiftX = fx * pivotForward;
-		final float shiftZ = fz * pivotForward;
+		final float jointForward = LEG_LENGTH * Mth.sin(tilt) - pivot;
+		final float jointUp = LEG_LENGTH * (1.0F - Mth.cos(tilt));
+		final float cosJump = Mth.cos(jump);
+		final float sinJump = Mth.sin(jump);
+		final float moveForward = jointForward * cosJump - jointUp * sinJump + pivot;
+		final float moveUp = jointForward * sinJump + jointUp * cosJump;
+		final float bankSin = Mth.sin(bank);
+		final float bodyLift = s.heightOffset(partialTicks) + (saddle.synthetic ? saddle.lift : 0.0F) + moveUp * Mth.cos(bank);
+		final float shiftX = fx * moveForward + rx * moveUp * bankSin;
+		final float shiftZ = fz * moveForward + rz * moveUp * bankSin;
 		HORSE_ROTATION.rotationAxis(bank, fx, 0.0F, fz).rotateAxis(bodyPitch, rx, 0.0F, rz);
 
 		if (isHorse) {
@@ -84,9 +111,13 @@ public abstract class LivingEntityRendererMixin {
 				shake == 0.0F ? 0.0F : -Mth.sin(SHAKE_PHASE[0]) * HEAD_SHAKE_YAW * shake,
 				shake == 0.0F ? 0.0F : Mth.cos(SHAKE_PHASE[0]) * HEAD_SHAKE_ROLL * shake
 			);
-			pose.horsingaround$setNeck(packAnimated ? 0.0F : pitch * NECK_COUNTER_PITCH);
-			// Legs on a step; a pack-animated model gets them in the Entity Model Features hook too.
-			pose.horsingaround$setLegs(packAnimated ? 0.0F : s.foreLeg(partialTicks), packAnimated ? 0.0F : s.hindLeg(partialTicks));
+			pose.horsingaround$setNeck(packAnimated ? 0.0F : neckCounter(pitch) + s.neckReach);
+			// Hooves on the ground; a pack-animated model gets them in the Entity Model Features hook too.
+			if (packAnimated) {
+				pose.horsingaround$setLegs(0.0F, 0.0F, 0.0F);
+			} else {
+				pose.horsingaround$setLegs(slope * LEG_UPRIGHT, s.foreLeg(partialTicks), s.hindLeg(partialTicks));
+			}
 			pose.horsingaround$setAirLegs(packAnimated ? 0.0F : s.airLegs(partialTicks), s.airRise(partialTicks));
 			pose.horsingaround$setTail(packAnimated ? 0.0F : s.tailLift(partialTicks));
 			if (bank == 0.0F && bodyPitch == 0.0F && bodyLift == 0.0F) {
@@ -120,11 +151,42 @@ public abstract class LivingEntityRendererMixin {
 		final float jumpFold = s.airLegs(partialTicks) * RIDER_JUMP_FOLD * Mth.DEG_TO_RAD + Math.max(jump, 0.0F) * (RIDER_JUMP_FOLLOW - RIDER_UPHILL_LEAN);
 		final float riderPitch = -Math.max(pitch, 0.0F) * RIDER_UPHILL_LEAN - jumpFold
 			+ (saddle.pitch * RIDER_SADDLE_PITCH_FOLLOW - forwardLean + s.inertia(partialTicks) + s.leafPush(partialTicks)) * Mth.DEG_TO_RAD;
-		RIDER_ROTATION.rotationAxis(riderBank, fx, 0.0F, fz).rotateAxis(riderPitch, rx, 0.0F, rz);
+		// Room between the horse's head and the rider (a jump, a steep climb): too close, the horse stretches its neck
+		// forward, as a jumping horse does, and if that isn't enough the rider folds less over the neck.
+		ROOM_HORSE.set(hx + shiftX, hy + bodyLift, hz + shiftZ);
+		ROOM_SEAT.set(tx, ty + RIDER_SEAT_HEIGHT, tz);
+		roomFx = fx;
+		roomFz = fz;
+		roomBank = riderBank;
+		final float neck = neckCounter(pitch);
+		final float step = 1.0F / ROOM_STEPS;
+		float reach = NECK_REACH_MAX * Mth.DEG_TO_RAD;
+		for (int k = 0; k <= ROOM_STEPS; k++) {
+			if (horsingaround$room(neck + reach * k * step, riderPitch) >= 0.0F) {
+				reach *= k * step;
+				break;
+			}
+		}
+		final long now = System.nanoTime();
+		final float dt = s.roomAt == 0L ? 1.0F : Math.min((now - s.roomAt) * 1.0E-9F, 0.1F);
+		s.roomAt = now;
+		s.neckReach += (reach - s.neckReach) * (1.0F - (float) Math.exp(-dt / (reach > s.neckReach ? ROOM_IN_SECONDS : ROOM_OUT_SECONDS)));
+		float sitBack = SIT_BACK_MAX * Mth.DEG_TO_RAD;
+		for (int k = 0; k <= ROOM_STEPS; k++) {
+			if (horsingaround$room(neck + s.neckReach, riderPitch + sitBack * k * step) >= 0.0F) {
+				sitBack *= k * step;
+				break;
+			}
+		}
+		s.sitBack += (sitBack - s.sitBack) * (1.0F - (float) Math.exp(-dt / (sitBack > s.sitBack ? ROOM_IN_SECONDS : ROOM_OUT_SECONDS)));
+		final float seatedPitch = riderPitch + s.sitBack;
+		horsingaround$room(neck + s.neckReach, seatedPitch);
+		s.headGap = roomHeadGap;
+		RIDER_ROTATION.rotationAxis(riderBank, fx, 0.0F, fz).rotateAxis(seatedPitch, rx, 0.0F, rz);
 		pose.horsingaround$setPose(tx, ty, tz, RIDER_ROTATION.x, RIDER_ROTATION.y, RIDER_ROTATION.z, RIDER_ROTATION.w, 0.0F, RIDER_SEAT_HEIGHT, 0.0F);
 
 		// The legs hold still against the horse (where the stirrups are held) whatever the torso does.
-		final float legPitch = riderPitch - bodyPitch;
+		final float legPitch = seatedPitch - bodyPitch;
 		// The stirrups roll with the saddle's sway, so the legs do too.
 		final float legRoll = riderBank - bank - (saddle.synthetic ? 0.0F : saddle.roll * Mth.DEG_TO_RAD);
 		// At a canter the pelvis rocks a little with the stride while the shoulders stay put; less in a gallop's half seat.
@@ -137,6 +199,31 @@ public abstract class LivingEntityRendererMixin {
 		final float twist = Mth.clamp(state.yRot * TORSO_TWIST, -TORSO_TWIST_MAX, TORSO_TWIST_MAX) * Mth.DEG_TO_RAD;
 		final float lift = saddle.lift * (0.5F + 0.5F * saddle.limbSpeed);
 		pose.horsingaround$setRider(-lift * HAND_BOB, legPitch, legRoll, twist, pelvis, s.shield(partialTicks));
+	}
+
+	/**
+	 * Room to spare (blocks; negative: too close) between the horse's head, its neck at {@code neck} radians forward of
+	 * how it is built, and the rider's head and chest, leaning at {@code riderPitch} (back positive). Uses this frame's
+	 * horse pose ({@code HORSE_ROTATION}) and the ROOM_ fields.
+	 */
+	@Unique
+	private static float horsingaround$room(final float neck, final float riderPitch) {
+		final float fx = roomFx;
+		final float fz = roomFz;
+		final float neckCos = Mth.cos(neck);
+		final float neckSin = Mth.sin(neck);
+		final float forward = NECK_BASE_FORWARD + HEAD_FORWARD * neckCos + HEAD_UP * neckSin;
+		final float up = NECK_BASE_UP - HEAD_FORWARD * neckSin + HEAD_UP * neckCos;
+		HORSE_ROTATION.transform(HEAD.set(fx * forward, up, fz * forward)).add(ROOM_HORSE);
+		final float headX = HEAD.x;
+		final float headY = HEAD.y;
+		final float headZ = HEAD.z;
+		ROOM_ROTATION.rotationAxis(roomBank, fx, 0.0F, fz).rotateAxis(riderPitch, -fz, 0.0F, fx);
+		ROOM_ROTATION.transform(HEAD.set(0.0F, RIDER_HEAD_ABOVE_SEAT, 0.0F)).add(ROOM_SEAT);
+		roomHeadGap = Mth.length(HEAD.x - headX, HEAD.y - headY, HEAD.z - headZ);
+		ROOM_ROTATION.transform(HEAD.set(0.0F, RIDER_CHEST_ABOVE_SEAT, 0.0F)).add(ROOM_SEAT);
+		final float chest = Mth.length(HEAD.x - headX, HEAD.y - headY, HEAD.z - headZ);
+		return Math.min(roomHeadGap - HEAD_ROOM, chest - CHEST_ROOM);
 	}
 
 	@Inject(

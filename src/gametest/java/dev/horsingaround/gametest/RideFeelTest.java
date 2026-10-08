@@ -107,6 +107,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 			if (sections.isEmpty() || sections.contains("ledges")) {
 				messyLedges(ctx, input, world);
 			}
+			if (sections.contains("slopes") && !sections.contains("steps")) {
+				// Only on request (it is part of steps): up and down slopes and stairs.
+				slopes(ctx, input, world);
+			}
 			if (sections.contains("face") && !sections.contains("picking")) {
 				// Only on request (it is part of picking): pressing jump right up against a wall or a ledge.
 				jumpAtTheFace(ctx, input, world);
@@ -382,11 +386,13 @@ public final class RideFeelTest implements FabricClientGameTest {
 		boolean fallingShot = false;
 		float tailDown = 0.0F;
 		float tailUp = 0.0F;
+		float headGap = Float.MAX_VALUE;
 		for (int i = 1; i <= 40; i++) {
 			ctx.waitTick();
 			elapsed++;
 			final Sample s = sample(ctx);
 			peak = Math.max(peak, s.y);
+			headGap = Math.min(headGap, ride(ctx, r -> r.headGap));
 			final float legs = ride(ctx, r -> r.airLegs(1.0F));
 			final float rise = ride(ctx, r -> r.airRise(1.0F));
 			airLegs = Math.max(airLegs, legs);
@@ -434,6 +440,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("running jump height (blocks)", peak - startY, 1.5, 2.4);
 		check("takes off front first: nose up (deg)", noseUp, 12.0, 26.0);
 		check("lands front first: nose down (deg)", -noseDown, 6.0, 16.0);
+		check("rider's head clear of the horse's in the jump (closest, centre to centre, blocks)", headGap, 0.45, 10.0);
 		check("speed kept in the air (fraction)", slowest / before, 0.85, 1.3);
 		check("in the air the legs take the jump's shape (0..1)", airLegs, 0.95, 1.0);
 		check("the gallop stride stops in the air (leg-animation speed)", slowestStride, 0.0, 0.3);
@@ -662,7 +669,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("climbed the staircase (blocks)", sample(ctx).y - startY, 3.9, 4.1);
 		check("physics still steps a block in one tick", maxPhysicsStep, 0.9, 1.1);
 		check("rendered horse climbs smoothly (max rise per tick)", maxVisualStep, 0.05, 0.4);
-		check("nose pitches up while climbing, but not far (deg)", maxPitch, 4.0, 10.5);
+		check("nose pitches up with each step (deg)", maxPitch, 10.0, 40.0);
 		ticksUntilStopped(ctx, 60);
 		ctx.waitTicks(10);
 		check("level again on the plateau (pitch deg)", Math.abs(sample(ctx).pitch), 0.0, 2.0);
@@ -1527,6 +1534,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		int landedAt = -1;
 		boolean shot = false;
 		final StringBuilder ledgeTrace = new StringBuilder();
+		float headGap = Float.MAX_VALUE;
 		int frames = 0;
 		int takeoffTick = -1;
 		int landTick = -1;
@@ -1544,6 +1552,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			final Sample s = sample(ctx);
 			final double z = horseZ(ctx);
 			final int tick = horseTick(ctx);
+			headGap = Math.min(headGap, ride(ctx, r -> r.headGap));
 			// From the side, from the crouch to walking on from the top (a fixed camera: the horse alone, as the game never
 			// draws the local player for another camera), and its trace.
 			if (z < -15.0 && frames < 16) {
@@ -1619,6 +1628,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("in the air like a heave up a bank (ticks)", airborne, 10, 18);
 		check("clears the lip without launching (peak above the top, blocks)", peak - -58.0, 0.05, 0.6);
 		check("walks on from the top (speed after landing / walk)", after / WALK_SPEED, 0.6, 1.2);
+		check("rider's head clear of the horse's (closest, centre to centre, blocks)", headGap, 0.45, 10.0);
 		stop(ctx, input);
 	}
 
@@ -1964,6 +1974,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 	}
 
 	private void stepsAndFooting(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		slopes(ctx, input, world);
 		stepInTwoBeats(ctx, input, world, 800, true, false);
 		stepInTwoBeats(ctx, input, world, 810, true, true);
 		stepInTwoBeats(ctx, input, world, 820, false, false);
@@ -1975,8 +1986,133 @@ public final class RideFeelTest implements FabricClientGameTest {
 	}
 
 	/**
-	 * A single 1-block step up (or down) at a walk or trot: the forehand goes first with the front legs folding up onto
-	 * it (or reaching down), the body tilts only a little, then the hindquarters follow with a push. Side shots with
+	 * Up and down a slope of full blocks (one up for every block along) and a staircase of stair blocks, at a walk and a
+	 * trot: the body tilts with the slope (nose up climbing, nose down going down), the hooves stay on the ground (the
+	 * pair on higher ground folding), and the rider's head stays clear of the horse's. Side shots with the overlay on.
+	 */
+	private void slopes(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		int lane = 0;
+		for (final boolean stairs : new boolean[] {false, true}) {
+			for (final boolean up : new boolean[] {true, false}) {
+				for (final boolean trot : new boolean[] {false, true}) {
+					if (trot && stairs) {
+						continue;
+					}
+					slope(ctx, input, world, 2600 + 20 * lane++, up, stairs, trot);
+				}
+			}
+		}
+	}
+
+	private void slope(
+		final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final int x, final boolean up, final boolean stairs,
+		final boolean trot
+	) {
+		final String name = (up ? "up" : "down") + (stairs ? "_stairs" : "_slope") + (trot ? "_trot" : "_walk");
+		section((trot ? "Trotting " : "Walking ") + (up ? "up " : "down ") + (stairs ? "a staircase of stair blocks" : "a slope of full blocks"));
+		// Riding north from z=0.5: six steps of a block from z=-5, the low ground at -60 (tops at -59), the high at -54.
+		final List<String> build = new ArrayList<>();
+		// Three blocks wide, so the side camera sees the hooves over the edge.
+		final int west = x - 1;
+		final int east = x + 1;
+		if (up) {
+			build.add(String.format(Locale.ROOT, "fill %d -60 -25 %d -55 -11 minecraft:stone", west, east));
+		} else {
+			build.add(String.format(Locale.ROOT, "fill %d -60 -4 %d -55 12 minecraft:stone", west, east));
+		}
+		for (int i = 0; i < 6; i++) {
+			final int z = up ? -5 - i : -5 - i;
+			// Top of this step: climbing, one more each block; going down, one less.
+			final int top = up ? -59 + i : -55 - i;
+			if (stairs) {
+				if (top - 2 >= -60) {
+					build.add(String.format(Locale.ROOT, "fill %d -60 %d %d %d %d minecraft:stone", west, z, east, top - 2, z));
+				}
+				build.add(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:stone_stairs[facing=%s]", west, top - 1, z, east, top - 1, z, up ? "north" : "south"));
+			} else if (top - 1 >= -60) {
+				build.add(String.format(Locale.ROOT, "fill %d -60 %d %d %d %d minecraft:stone", west, z, east, top - 1, z));
+			}
+		}
+		lane(ctx, input, world, x + 0.5, up ? -60 : -54, "slope_test_" + x, build.toArray(String[]::new));
+		sideCamera(world, x + 6.5, -57.5, -8.0, 90.0F);
+		input.holdKey(o -> o.keyUp);
+		if (trot) {
+			ctx.waitTicks(2);
+			input.pressKey(o -> o.keySprint);
+		}
+		hitboxes(ctx, true);
+		final List<Double> gaps = new ArrayList<>();
+		double worstFloat = 0.0;
+		double maxTilt = 0.0;
+		double maxTiltRate = 0.0;
+		double maxFold = 0.0;
+		double headGap = Double.MAX_VALUE;
+		// The longest a pair of hooves stays more than 0.2 above the ground (a hoof lifted to step is a tick or two).
+		int foreUp = 0;
+		int hindUp = 0;
+		int longestUp = 0;
+		float previousPitch = sample(ctx).pitch;
+		int previousTick = horseTick(ctx);
+		int shots = 0;
+		final StringBuilder trace = new StringBuilder();
+		for (int i = 0; i < 300 && horseZ(ctx) > -16.0; i++) {
+			ctx.waitTick();
+			final double[] now = ctx.computeOnClient(mc -> {
+				final AbstractHorse horse = (AbstractHorse) mc.player.getVehicle();
+				final RideState r = ((RideStateHolder) horse).horsingaround$ride();
+				return new double[] {
+					horse.getZ(), horse.tickCount, r.pitch(1.0F), dev.horsingaround.ride.RideController.hoofGap(horse, r, true),
+					dev.horsingaround.ride.RideController.hoofGap(horse, r, false), r.foreLeg(1.0F), r.hindLeg(1.0F), r.headGap, horse.onGround() ? 1 : 0
+				};
+			});
+			final double z = now[0];
+			if (z > -3.0 || z < -13.5 || now[8] == 0.0) {
+				continue;
+			}
+			// On the slope: both pairs of hooves, how far off the ground they're drawn.
+			gaps.add(Math.abs(now[3]));
+			gaps.add(Math.abs(now[4]));
+			worstFloat = Math.max(worstFloat, Math.max(now[3], now[4]));
+			foreUp = now[3] > 0.2 ? foreUp + 1 : 0;
+			hindUp = now[4] > 0.2 ? hindUp + 1 : 0;
+			longestUp = Math.max(longestUp, Math.max(foreUp, hindUp));
+			maxTilt = Math.max(maxTilt, (up ? 1 : -1) * now[2]);
+			maxFold = Math.max(maxFold, Math.max(Math.abs(now[5]), Math.abs(now[6])));
+			headGap = Math.min(headGap, now[7]);
+			if (now[1] > previousTick) {
+				maxTiltRate = Math.max(maxTiltRate, Math.abs(now[2] - previousPitch) / (now[1] - previousTick));
+			}
+			previousPitch = (float) now[2];
+			previousTick = (int) now[1];
+			final String ground = ride(ctx, r -> r.debugGround());
+			trace.append(String.format(Locale.ROOT, "t%d z%.2f y%.2f tilt%.1f front%+.2f hind%+.2f fold%.2f/%.2f %s | ", (int) now[1], z, sample(ctx).y, now[2], now[3], now[4],
+				now[5], now[6], ground));
+			if (i % 2 == 0 && shots < 12) {
+				cameraShot(ctx, String.format(Locale.ROOT, "17_%s_%02d", name, shots++));
+			}
+		}
+		hitboxes(ctx, false);
+		input.releaseKey(o -> o.keyUp);
+		log("  %s", trace);
+		gaps.sort(null);
+		final double typical = gaps.isEmpty() ? 1.0 : gaps.get(gaps.size() / 2);
+		final double most = gaps.isEmpty() ? 1.0 : gaps.get((int) (gaps.size() * 0.9));
+		check("over the slope", horseZ(ctx) < -15.9);
+		check("tilts with the slope, nose " + (up ? "up" : "down") + " (max tilt, deg)", maxTilt, stairs ? 15.0 : 20.0, 40.5);
+		check("smoothly (max tilt change per tick, deg)", maxTiltRate, 0.2, 4.1);
+		check("hooves on the ground: typically (blocks off it, median)", typical, 0.0, 0.12);
+		// (Stepping from block to block, a hoof is lifted or set down for a tick or two.)
+		check("hooves on the ground: nearly always (blocks off it, 90th percentile)", most, 0.0, 0.55);
+		check("a hoof lifted to step comes down again (longest more than 0.2 above the ground, ticks)", longestUp, 0, 3);
+		check("never far above it, reaching down for the next step at most (most a hoof floats, blocks)", worstFloat, 0.0, 0.8);
+		check("legs swing to find their footing (most, radians)", maxFold, 0.05, 1.0);
+		check("rider's head clear of the horse's (closest, centre to centre, blocks)", headGap, 0.45, 10.0);
+		stop(ctx, input);
+	}
+
+	/**
+	 * A single 1-block step up (or down) at a walk or trot: the forehand goes first, the body tilting with the step and the
+	 * front legs folding up onto it (or, coming down, the hind legs tucking under), then the hindquarters follow. Side shots with
 	 * hitboxes and the steering overlay on, every tick or two through the step.
 	 */
 	private void stepInTwoBeats(
@@ -2033,8 +2169,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 					tick, (s.y - low) / step, (s.visualY - low) / step, fore, hind, s.pitch, legs[2], legs[3]);
 			}
 			maxTilt = Math.max(maxTilt, (float) (s.pitch * step));
-			maxFore = Math.max(maxFore, legs[2] * step);
-			maxHind = Math.max(maxHind, legs[3]);
+			maxFore = Math.max(maxFore, Math.abs(legs[2]));
+			maxHind = Math.max(maxHind, Math.abs(legs[3]));
 			// (The test thread now and then sees two ticks at once.)
 			if (tick > previousTick) {
 				maxVisualStep = Math.max(maxVisualStep, Math.abs(s.visualY - previous.visualY) / (tick - previousTick));
@@ -2056,13 +2192,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 		ctx.waitTicks(10);
 		check("on the other level (blocks)", (sample(ctx).y - low) * step, 0.95, 1.05);
 		check("the forehand goes first (ticks before the hindquarters)", hindHalf - foreHalf, trot ? 2 : 4, trot ? 8 : 12);
-		check("leans no more than a real horse (max tilt, deg)", maxTilt, 3.0, 10.0);
-		check("leans gently, never snaps (max tilt change per tick, deg)", maxTiltRate, 0.2, 3.0);
+		check("tilts with the step (max tilt, deg)", maxTilt, trot ? 8.0 : 15.0, 40.0);
+		check("smoothly, never snaps (max tilt change per tick, deg)", maxTiltRate, 0.2, 4.1);
 		check("two beats: forehand three quarters " + (up ? "up" : "down") + ", hindquarters still behind (their share of the step)", forehandFirst, 0.0, trot ? 0.5 : 0.35);
-		check(up ? "front legs fold up onto the step" : "front legs reach down for it", maxFore, 0.4, 1.0);
-		if (up) {
-			check("hind legs drive the hindquarters up", maxHind, 0.6, 1.0);
-		}
+		check("legs swing to find their footing on the step (most, radians)", Math.max(maxFore, maxHind), 0.05, 1.0);
 		check("smooth (max rendered height change per tick, blocks)", maxVisualStep, 0.03, trot ? 0.2 : 0.15);
 		check("level again after (pitch deg)", Math.abs(sample(ctx).pitch), 0.0, 1.5);
 	}

@@ -163,7 +163,8 @@ Translation (`RideController.steps`, `Footing`, tuning in `RideTuning`):
   behind. The tilt levels off softly toward 10 degrees (about 6 on a single block at a walk, less at speed) and is
   eased once more so quick bumps at speed rock the body rather than jolt it: at most ~1-2.5 degrees a tick anywhere.
   At a gallop the two beats run together, as they would.
-- The weight stays on the hindquarters: the body sits 30% of the way up toward the front's height (20% going down).
+- (Revised 2026-10-08, see "Hooves on the ground": the tilt follows the ground and the legs plant.) The weight stays on
+  the hindquarters: the body sits 30% of the way up toward the front's height (20% going down).
   The front legs fold up and forward onto the step (or reach down for it), the hind legs drive back as the
   hindquarters rise. A block is about as tall as a Minecraft horse's legs, so with rigid model legs the front hooves
   pass through the edge of a step for a moment; the body hides it from the riding camera.
@@ -325,6 +326,39 @@ Translation:
   the pitch back to a riding angle (that moved the player's aim), and this mod's camera distance and height settings
   don't reach it (the add-on gets the designed riding distance and has its own settings; they're greyed out here, with
   a note). Its riding height came down too (0.35 above the eyes, was 0.7).
+
+## Hooves on the ground, and no clipping (user direction, 2026-10-08)
+
+Play-test feedback: going up stairs or 1-block slopes the horse's angle was wrong and its back legs floated; going down
+it didn't lean forward and its legs floated. The user asked for inverse kinematics, or anything else that keeps the
+hooves planted (except where they obviously shouldn't be) while keeping Fresh Animations' animation. Separately, in
+jumps the horse's head went through the rider's; the user first asked for the rider to lean their head aside, then
+decided against any sideways lean: horse and rider just shouldn't clip.
+
+Causes: the body tilted at most ~10 degrees and sat with its weight on the hindquarters, so on a slope of one block per
+block (45 degrees) the back of the body was far above the hind hooves' ground; downhill, ground more than 1.25 blocks
+below the hooves was read as level, so the front saw no slope at all; stair blocks were read as full blocks. And Fresh
+Animations' neck isn't vanilla's: it leaves vanilla's neck part empty and animates its own ("neck2", inside the body),
+so the neck reaching forward on climbs (and the tired head toss) never reached the Fresh Animations model.
+
+Both the vanilla horse and Fresh Animations have rigid one-piece legs (no knee joint), so "IK" here is: place the body
+so every leg can reach, then swing each leg so its hoof lands on the ground actually under it.
+
+- Tilt: along the line between the ground under the front and the hind hooves (95% of it, up to 40 degrees), eased and
+  never more than 4 degrees a tick, pivoting at the leg joints so the hooves stay under them (pivoting at the ground,
+  a 40-degree tilt slid the body half a block back).
+- Height: as high as the body can sit with every leg still reaching its ground.
+- Legs: stand upright against the tilt; each pair then finds its footing, trying swings forward and back (up to ~50
+  degrees) for where its hoof meets the ground actually there (a swung leg reaches less far down), weighing a floating
+  hoof more than one sunk into the ground, and big or sudden swings against it. On level ground nothing is read. On top
+  of Fresh Animations' stride, so its animation is kept; each leg's top is drawn into the body so no gap shows.
+- Ground: read at the hoof's exact spot (the low half of a stair is itself); down a slope the ground may fall away a
+  block for every block along (plus half a block where the steps fall).
+- Climbing, the neck reaches forward and down by 85% of the tilt (going down it comes up by 60%), so the head stays low
+  and forward instead of the horse looking like it rears; on Fresh Animations this goes on its own neck.
+- No clipping: when the horse's head would come within reach of the rider's head or chest (a jump, a steep climb), the
+  horse stretches its neck further forward (up to 35 degrees, as a jumping horse does), and if that isn't enough the
+  rider folds less over the neck (up to 30 degrees), only as far as needed, quickly in and easing back out.
 
 ## Staying vanilla
 

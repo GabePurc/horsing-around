@@ -26,6 +26,8 @@ public class LivingEntityRenderStateMixin implements RidePoseState {
 	@Unique
 	private float horsingaround$neck;
 	@Unique
+	private float horsingaround$legUpright;
+	@Unique
 	private float horsingaround$foreLeg;
 	@Unique
 	private float horsingaround$hindLeg;
@@ -116,9 +118,15 @@ public class LivingEntityRenderStateMixin implements RidePoseState {
 	}
 
 	@Override
-	public void horsingaround$setLegs(final float fore, final float hind) {
+	public void horsingaround$setLegs(final float upright, final float fore, final float hind) {
+		this.horsingaround$legUpright = upright;
 		this.horsingaround$foreLeg = fore;
 		this.horsingaround$hindLeg = hind;
+	}
+
+	@Override
+	public float horsingaround$legUpright() {
+		return this.horsingaround$legUpright;
 	}
 
 	@Override

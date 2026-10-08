@@ -370,35 +370,53 @@ public final class RideTuning {
 	static final double STEP_CATCH_UP = 0.12;
 	static final float STEP_SNAP = 3.0F;
 	/**
-	 * A real horse doesn't lean far on a step: the body tilts toward PITCH_MAX degrees (about three quarters of it once
-	 * the front is PITCH_RISE blocks above the back, levelling off beyond) and the hindquarters keep the weight, the body
-	 * sitting BODY_RISE_UP of the way from the hind support's height toward the front's going up (BODY_RISE_DOWN going
-	 * down). The front legs fold up onto a step to make up the rest, and reach down for one.
+	 * On steps, stairs and slopes, up or down, the hooves stay on the ground. The body tilts along the line between the
+	 * ground under the front and the hind hooves (SLOPE_SHARE of it, up to SLOPE_PITCH_MAX degrees), pivoting at the leg
+	 * joints (LEG_LENGTH above the hooves), and eased: TILT_EASE of the way a tick, never
+	 * more than TILT_RATE_MAX degrees. It then sits as high as it can with every leg still reaching its ground. The legs
+	 * stand upright (they counter LEG_UPRIGHT of the body's tilt), and each pair finds its footing on the ground actually
+	 * under it, swinging forward or back onto a tread (a swung leg reaches less far down). On top of whatever animates the legs (vanilla or Fresh Animations), so the stride stays.
 	 */
-	static final float PITCH_MAX = 10.0F;
-	static final float PITCH_RISE = 0.7F;
+	static final float HOOF_SPAN = FORE_HOOVES + HIND_HOOVES;
+	static final float SLOPE_SHARE = 0.95F;
+	static final float SLOPE_PITCH_MAX = 40.0F;
 	/** The tilt then eases this much of the way per tick, so quick bumps at speed rock the body gently. */
 	static final float TILT_EASE = 0.4F;
-	static final float BODY_RISE_UP = 0.3F;
-	static final float BODY_RISE_DOWN = 0.2F;
+	static final float TILT_RATE_MAX = 4.0F;
+	public static final float LEG_LENGTH = 0.625F;
+	public static final float LEG_UPRIGHT = 1.0F;
 	/**
-	 * Leg poses on a step, radians (and model pixels): the front legs fold up and forward onto a step (FORE_TUCK) or
-	 * reach forward and down for one (FORE_REACH); the hind legs drive back as the hindquarters push up (HIND_DRIVE) or
-	 * gather under the body going down (HIND_GATHER). Full pose when the front of the body is LEG_POSE_REACH blocks off
-	 * the ground its hooves are going to, or the hindquarters rise at HIND_DRIVE_SPEED blocks/tick.
+	 * Finding footing (see {@code RideController#leg}): swings up to LEG_SWING_MAX radians either way are tried, in
+	 * LEG_SEARCH_STEPS steps each way; a hoof floating above the ground costs FLOAT_COST per block (sunk in, 1), every
+	 * radian of swing SWING_COST and of change from the last swing CHANGE_COST; the leg swings at most LEG_SWING_RATE
+	 * radians a tick.
 	 */
-	public static final float FORE_TUCK_ANGLE = 0.85F;
-	public static final float FORE_TUCK_LIFT = 3.0F;
-	public static final float FORE_REACH_ANGLE = 0.35F;
-	public static final float HIND_DRIVE_ANGLE = 0.5F;
-	public static final float HIND_GATHER_ANGLE = 0.3F;
-	static final float LEG_POSE_REACH = 0.5F;
-	static final float HIND_DRIVE_SPEED = 0.12F;
+	static final float LEG_SWING_MAX = 0.9F;
+	static final int LEG_SEARCH_STEPS = 5;
+	static final double FLOAT_COST = 1.5;
+	static final double SWING_COST = 0.08;
+	static final double CHANGE_COST = 0.1;
+	static final float LEG_SWING_RATE = 0.6F;
 	/**
-	 * Climbing, the neck reaches forward/down by this share of the body's nose-up pitch (and the reverse downhill),
-	 * keeping the head out of the rider's way, as real horses do.
+	 * The body sinks no further than leaves the pair of legs on higher ground folding SINK_MAX blocks (at a drop, the
+	 * lower pair reaches down instead), and with the hooves down how fast it rises or sinks changes by at most DRAWN_JOLT
+	 * blocks/tick a tick.
 	 */
-	public static final float NECK_COUNTER_PITCH = 0.6F;
+	static final double SINK_MAX = 0.3;
+	static final double DRAWN_JOLT = 0.2;
+	/**
+	 * Taking the body's tilt off the legs swings their tops out of the body; each leg is drawn up LEG_HALF_DEPTH model
+	 * pixels x sin of that swing so no gap shows at the hip or shoulder (the body is lowered to match, so the hooves
+	 * still reach).
+	 */
+	public static final float LEG_HALF_DEPTH = 2.0F;
+	/**
+	 * Climbing (or taking off), the neck reaches forward and down by NECK_COUNTER_UP of the body's nose-up tilt, so the
+	 * head stays low and forward as a climbing horse carries it (and out of the rider's way) instead of rearing up;
+	 * going down, it comes up by NECK_COUNTER_DOWN of the nose-down tilt.
+	 */
+	public static final float NECK_COUNTER_UP = 0.85F;
+	public static final float NECK_COUNTER_DOWN = 0.6F;
 	static final float PITCH_SMOOTHING = 0.3F;
 	/** Swimming out of the water, the body follows its path, scaled down. */
 	static final float AIR_PITCH_SCALE = 0.4F;
@@ -498,6 +516,29 @@ public final class RideTuning {
 	public static final float RIDER_SEAT_HEIGHT = 0.6F;
 	/** The rider sinks this far into the saddle (vanilla seats them for a legs-out pose), blocks. */
 	public static final float RIDER_SEAT_DROP = 0.12F;
+	/**
+	 * Room between horse and rider: when the horse's head comes up toward the rider (a jump, a steep climb), the horse
+	 * stretches its neck forward (up to NECK_REACH_MAX degrees, as a jumping horse does), and if that isn't enough the
+	 * rider folds less over the neck (up to SIT_BACK_MAX degrees), each only as far as keeps the middle of the horse's
+	 * head HEAD_ROOM from the middle of the rider's head and CHEST_ROOM from their chest (blocks), tried in ROOM_STEPS
+	 * steps; quickly in (ROOM_IN_SECONDS), easing back (ROOM_OUT_SECONDS). The horse's head is NECK_BASE_FORWARD /
+	 * NECK_BASE_UP from the ground under its centre to the base of its neck, and HEAD_FORWARD / HEAD_UP from there to the
+	 * middle of its head; the rider's head and chest are RIDER_HEAD_ABOVE_SEAT and RIDER_CHEST_ABOVE_SEAT above the point
+	 * the rider leans about.
+	 */
+	public static final float NECK_BASE_FORWARD = 0.75F;
+	public static final float NECK_BASE_UP = 1.25F;
+	public static final float HEAD_FORWARD = 0.2F;
+	public static final float HEAD_UP = 0.6F;
+	public static final float RIDER_HEAD_ABOVE_SEAT = 1.15F;
+	public static final float RIDER_CHEST_ABOVE_SEAT = 0.6F;
+	public static final float HEAD_ROOM = 0.6F;
+	public static final float CHEST_ROOM = 0.5F;
+	public static final float NECK_REACH_MAX = 35.0F;
+	public static final float SIT_BACK_MAX = 30.0F;
+	public static final int ROOM_STEPS = 7;
+	public static final float ROOM_IN_SECONDS = 0.05F;
+	public static final float ROOM_OUT_SECONDS = 0.35F;
 	/** Forward fold over the neck, degrees: a little at any gait, crouched at a gallop (RDR2 riders: ~5-10 / 20-30). */
 	public static final float FORWARD_LEAN_STILL = 4.0F;
 	public static final float FORWARD_LEAN_MOVING = 6.0F;
@@ -648,6 +689,11 @@ public final class RideTuning {
 	static final float TRAMPLE_MAX_HEIGHT = 1.0F;
 
 	private RideTuning() {
+	}
+
+	/** The neck's counter to the body's tilt (radians, forward/down positive) for a tilt of {@code pitch} radians. */
+	public static float neckCounter(final float pitch) {
+		return pitch * (pitch > 0.0F ? NECK_COUNTER_UP : NECK_COUNTER_DOWN);
 	}
 
 	/** 0 at a standstill, 1 at full gallop. */

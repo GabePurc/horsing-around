@@ -105,6 +105,12 @@ public final class RideState {
 	public double debugHind() {
 		return this.hind;
 	}
+
+	/** Ground read under the front and hind hooves, the drawn height offset, and whether in flight (for tests). */
+	public String debugGround() {
+		return String.format(java.util.Locale.ROOT, "g%.2f/%.2f e%.2f/%.2f off%.2f%s", this.foreGround, this.hindGround, this.fore, this.hind, this.heightOffset,
+			this.flying ? " FLY" : "");
+	}
 	/** Distance along the way ahead to a wall this tick; MAX_VALUE when none. */
 	float wallAhead = Float.MAX_VALUE;
 	/**
@@ -121,6 +127,16 @@ public final class RideState {
 	float ledgeLift;
 	int ledgeAirTicks;
 	float ledgeCrouch;
+	/**
+	 * Room between the horse's head and its rider (render thread): how far the horse stretches its neck forward and the
+	 * rider sits back from folding over it (radians), when they were last eased (nanos), and how far apart the heads were
+	 * in the last frame drawn (centre to centre, blocks; for tests).
+	 */
+	public float neckReach;
+	public float sitBack;
+	public long roomAt;
+	public float headGap = Float.MAX_VALUE;
+
 	/** Rising up a ledge (the climb, before it comes down onto the top). */
 	public boolean climbingLedge() {
 		return this.ledgeAir && this.ledgeLift > 0.0F;
@@ -162,16 +178,20 @@ public final class RideState {
 	float lastGroundSpeed;
 	/**
 	 * Steps in two beats: world height of the ground carrying the front and the back of the body, eased in two stages
-	 * (the first stage in the *Ease fields), how far the back rose last tick, and the ground under each pair of hooves
+	 * (the first stage in the *Ease fields), and the ground under each pair of hooves
 	 * (reused while the horse stands still, so probes only run when it moves). NaN until first placed.
 	 */
 	double fore = Double.NaN;
 	double hind = Double.NaN;
 	double foreEase;
 	double hindEase;
-	float hindRise;
 	double foreGround;
 	double hindGround;
+	/** How fast the drawn body rose last tick, blocks/tick. */
+	float drawnRise;
+	/** How far each pair of legs swings to find its footing, radians, hoof forward. */
+	float foreFold;
+	float hindFold;
 	/** In the air from a jump or a fall bigger than a step: the body follows its flight instead of the ground. */
 	boolean flying;
 	/**
@@ -184,7 +204,10 @@ public final class RideState {
 	float airRise;
 	float airRiseO;
 	float airRiseEase;
-	/** Leg poses for steps, -1..1: front legs folded up (+) or reaching down (-); hind legs driving (+) or gathered (-). */
+	/**
+	 * Hooves on the ground: how far (radians, hoof forward) the front and the hind legs swing to fold onto ground higher
+	 * than a straight leg reaches (on top of standing upright against the body's tilt).
+	 */
 	float foreLeg;
 	float foreLegO;
 	float hindLeg;
@@ -296,12 +319,12 @@ public final class RideState {
 		return this.airRiseO + (this.airRise - this.airRiseO) * partialTicks;
 	}
 
-	/** Front legs on a step, -1..1: folded up onto it (+) or reaching down for it (-). */
+	/** Front legs folding onto higher ground: swing, radians, hoof forward. */
 	public float foreLeg(final float partialTicks) {
 		return this.foreLegO + (this.foreLeg - this.foreLegO) * partialTicks;
 	}
 
-	/** Hind legs on a step, -1..1: driving the hindquarters up (+) or gathered under the body going down (-). */
+	/** Hind legs folding (tucked under going down): swing, radians, hoof forward. */
 	public float hindLeg(final float partialTicks) {
 		return this.hindLegO + (this.hindLeg - this.hindLegO) * partialTicks;
 	}

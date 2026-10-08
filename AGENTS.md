@@ -30,7 +30,8 @@ Release-readiness work (Modrinth, compatibility with other mods) is planned in `
 
 Verify every gameplay change with `./gradlew runClientGameTest`, which runs four client tests (pick some with
 `-Ptests=ride,terrain,mounts,server`, one terrain scenario with `-Pscenario=<part of its name>`, some ride sections with
-`-Psections=core,cuts,stairs,picking,steps`; `legs` takes close shots of the legs in a jump):
+`-Psections=core,cuts,stairs,picking,steps`; `legs` takes close shots of the legs in a jump, `slopes` and `face` run just
+the slope-and-stairs lanes and the jump-at-a-wall lanes):
 `RideFeelTest` rides a horse with simulated keys through every mechanic in hand-built lanes and writes
 `build/run/clientGameTest/horsingaround-ride-report.txt`; `TerrainRideTest` rides procedurally built natural terrain
 (forests, mountains, hills, hazards, river, badlands) like a player would and writes

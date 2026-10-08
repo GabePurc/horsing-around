@@ -386,7 +386,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 		tiltRates.sort(null);
 		log("  body tilt change per tick: 99th percentile %.2f deg, most %.2f deg",
 			tiltRates.isEmpty() ? 0.0 : tiltRates.get((int) (tiltRates.size() * 0.99)), maxTiltRate);
-		check("smooth: the body never snaps into a tilt (max change per tick, deg)", maxTiltRate, 0.0, 3.5);
+		check("smooth: the body never snaps into a tilt (max change per tick, deg)", maxTiltRate, 0.0, 4.1);
 		log("  sharpest pick-up in the drawn horse's rise: %s", worstStep);
 		check("smooth: the drawn horse climbs steps, never pops up them (sharpest pick-up in rise, blocks/tick a tick)", maxVisualStep, 0.0, 0.3);
 		check("smooth: the riding camera too (sharpest pick-up in rise, blocks/tick a tick)", maxEyeStep, 0.0, 0.3);
