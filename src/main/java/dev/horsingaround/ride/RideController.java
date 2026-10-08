@@ -174,17 +174,21 @@ public final class RideController {
 			s.bankClimbs++;
 		}
 
-		// Ledges up to 2 blocks: riding at one at a walk or trot, the horse jumps up it in its stride.
+		// Ledges up to 2 blocks: riding at one at a walk or trot, the horse jumps up it in its stride; pressing jump at one
+		// (standing at its face, say) asks for the same jump, since a plain jump can't clear it.
+		final boolean asked = jumps > 0 || s.jumpBuffer > 0;
 		if (s.ledgeTicks > 0) {
 			ledgeJump(horse, s, forward);
-		} else if (LEDGE_CLIMB && forward && horse.onGround() && !s.swimming && s.jumpBuffer == 0 && s.speed > 0.0F
-			&& s.speed <= GAIT_SPEED[TROT] + 0.05F && Awareness.ledgeAhead(horse)) {
+		} else if (LEDGE_CLIMB && horse.onGround() && !s.swimming
+			&& (asked || forward && s.speed > 0.0F && s.speed <= GAIT_SPEED[TROT] + 0.05F) && Awareness.ledgeAhead(horse)) {
 			final double top = Awareness.ledge(horse, horse.getYRot(), LEDGE_REACH);
 			if (!Double.isNaN(top)) {
 				s.ledgeTicks = 1;
 				s.ledgeAir = false;
+				s.ledgeAsked = asked;
 				s.ledgeTop = top;
 				s.ledgeYaw = horse.getYRot();
+				s.jumpBuffer = 0;
 				ledgeJump(horse, s, forward);
 			}
 		}
@@ -255,26 +259,43 @@ public final class RideController {
 
 	/**
 	 * Jumping up a ledge in its stride: the horse keeps coming at its pace, sinks onto its haunches over the last few
-	 * ticks, and takes off where its arc brings the body above the lip just as its chest reaches the face; in the air it
-	 * keeps that forward speed, then walks on from the top. Letting go of forward or turning away calls it off.
+	 * ticks, and takes off where its climb brings the body above the lip just as its chest reaches the face. The climb is
+	 * a heave, not a pop: the hind legs' push builds it over a few ticks and it slows gently toward the top, then the
+	 * horse comes down onto the ledge and walks on. In the air it keeps its forward speed. Letting go of forward or
+	 * turning away calls it off, unless the rider asked for it with jump; asked from a standstill, it gathers itself
+	 * where it stands and goes.
 	 */
 	private static void ledgeJump(final AbstractHorse horse, final RideState s, final boolean forward) {
 		s.ledgeTicks++;
 		final float yaw = s.ledgeYaw * Mth.DEG_TO_RAD;
 		final double fx = -Mth.sin(yaw);
 		final double fz = Mth.cos(yaw);
+		// The rider's push still acts in the air (air control); the jump's forward speed includes it.
+		final float airPush = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * Math.max(s.speed, 0.0F) * AIR_CONTROL;
+		final double lighter = horse.getGravity() * LEDGE_LIFT_GRAVITY;
 		if (s.ledgeAir) {
 			if (horse.onGround() || s.ledgeTicks > LEDGE_APPROACH_TICKS + 40) {
 				endLedge(s);
 				return;
 			}
-			horse.setDeltaMovement(fx * s.ledgeForward, horse.getDeltaMovement().y, fz * s.ledgeForward);
+			double vy = horse.getDeltaMovement().y;
+			if (s.ledgeLift > 0.0F) {
+				final double climb = climbSpeed(s.ledgeLift, ++s.ledgeAirTicks, lighter);
+				// Over the top (or a head knocked on something): its full weight brings it down onto the ledge.
+				if (climb <= 0.0 || horse.verticalCollision) {
+					s.ledgeLift = 0.0F;
+				} else {
+					vy = climb;
+				}
+			}
+			final double forwardSpeed = Math.max(s.ledgeForward - airPush, 0.0F);
+			horse.setDeltaMovement(fx * forwardSpeed, vy, fz * forwardSpeed);
 			return;
 		}
 		// The run-up.
 		final double top = Awareness.ledge(horse, s.ledgeYaw, LEDGE_REACH);
-		if (!forward || !horse.onGround() || Double.isNaN(top) || s.ledgeTicks > LEDGE_APPROACH_TICKS
-			|| Math.abs(Mth.wrapDegrees(s.riderYaw - s.ledgeYaw)) > 60.0F) {
+		if (!(forward || s.ledgeAsked) || !horse.onGround() || Double.isNaN(top) || s.ledgeTicks > LEDGE_APPROACH_TICKS
+			|| !s.ledgeAsked && Math.abs(Mth.wrapDegrees(s.riderYaw - s.ledgeYaw)) > 60.0F) {
 			endLedge(s);
 			return;
 		}
@@ -284,69 +305,95 @@ public final class RideController {
 		final float push = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * s.speed;
 		final float pace = Math.max((float) (movement.x * fx + movement.z * fz) + push, LEDGE_MIN_FORWARD);
 		final double height = top - horse.getY();
-		final double gravity = horse.getGravity();
-		final float launch = launchSpeed(height + LEDGE_CLEARANCE, gravity);
-		final int rise = ticksToRise(launch, height + 0.05, gravity);
+		final float lift = liftFor(height + LEDGE_CLEARANCE, lighter);
+		final int rise = ticksToClimb(lift, height + 0.05, lighter);
 		// It bounds up: at least LEDGE_BOUND a tick forward through the air, taking off far enough out that its chest
-		// reaches the face near the top of the arc, so it sails over the lip and lands a stride onto the top, instead of
-		// popping straight up beside the face.
+		// reaches the face once the body is over the lip, so it carries over the lip and lands a stride onto the top,
+		// instead of rising straight up beside the face.
 		final float bound = Math.min(Math.max(pace, LEDGE_BOUND), LEDGE_MAX_FORWARD);
-		final float takeoff = bound * ticksToRise(launch, height + LEDGE_CLEARANCE * LEDGE_CROSS_HEIGHT, gravity);
+		final float takeoff = bound * ticksToClimb(lift, height + LEDGE_CLEARANCE * LEDGE_CROSS_HEIGHT, lighter);
 		final float face = Awareness.ledgeFace;
-		s.ledgeCrouch = Mth.clamp(1.0F - (face - takeoff) / (pace * LEDGE_CROUCH_TICKS), 0.0F, 1.0F);
-		if (face > takeoff + pace * 0.5F && !horse.horizontalCollision) {
+		// Asked for from (nearly) a standstill, it gathers itself where it stands.
+		final boolean standing = s.ledgeAsked && s.speed < GAIT_SPEED[WALK] * 0.5F;
+		final boolean there = standing || face <= takeoff + pace * 0.5F || horse.horizontalCollision;
+		// It sinks onto its haunches over its last LEDGE_CROUCH_TICKS of run-up (and never faster), and goes once down.
+		final float crouch = there ? 1.0F : Mth.clamp(1.0F - (face - takeoff) / (pace * LEDGE_CROUCH_TICKS), 0.0F, 1.0F);
+		s.ledgeCrouch = Math.min(crouch, s.ledgeCrouch + 1.0F / LEDGE_CROUCH_TICKS);
+		if (!there || s.ledgeCrouch < 0.999F) {
 			return;
 		}
 		s.ledgeAir = true;
 		s.leapt = true;
 		s.ledgeCrouch = 0.0F;
 		s.ledgeTop = top;
+		s.ledgeLift = lift;
+		s.ledgeAirTicks = 0;
 		// No faster than gets the chest to the face just as the body clears the lip, so it never meets the face rising.
 		s.ledgeForward = Mth.clamp(Math.min(bound, face / (rise + 1.0F)), LEDGE_MIN_FORWARD, LEDGE_MAX_FORWARD);
 		s.ledgeClimbs++;
 		s.ledgeTakeoffX = horse.getX();
 		s.ledgeTakeoffZ = horse.getZ();
+		s.ledgeTakeoffTick = horse.tickCount;
 		// The push isn't folded into the velocity on leaving the ground; the jump sets the motion itself.
 		s.jumpedOff = true;
 		final boolean exhaustedBefore = s.exhausted;
 		spend(s, LEDGE_STAMINA_COST);
 		tiredness(horse, s, exhaustedBefore);
 		hoofSound(horse, SoundEvents.HORSE_JUMP);
-		horse.setDeltaMovement(fx * s.ledgeForward, launch, fz * s.ledgeForward);
+		final double forwardSpeed = Math.max(s.ledgeForward - airPush, 0.0F);
+		horse.setDeltaMovement(fx * forwardSpeed, climbSpeed(lift, 0, lighter), fz * forwardSpeed);
 	}
 
 	private static void endLedge(final RideState s) {
 		s.ledgeTicks = 0;
 		s.ledgeAir = false;
+		s.ledgeAsked = false;
 		s.ledgeCrouch = 0.0F;
+		s.ledgeLift = 0.0F;
 	}
 
-	/** Takeoff speed whose arc (vanilla gravity and drag) peaks at least {@code height} up. */
-	private static float launchSpeed(final double height, final double gravity) {
-		for (float launch = 0.3F; launch < 1.5F; launch += 0.01F) {
-			double y = 0.0;
-			double vy = launch;
-			while (vy > 0.0) {
-				y += vy;
-				vy = (vy - gravity) * 0.98;
-			}
-			if (y >= height) {
-				return launch;
+	/**
+	 * Climb speed (blocks/tick) {@code tick} ticks after taking off up a ledge: the push builds to {@code lift} over
+	 * LEDGE_THRUST_TICKS, then the climb slows by {@code lighter} a tick. Zero or less once over the top.
+	 */
+	private static double climbSpeed(final float lift, final int tick, final double lighter) {
+		return tick < LEDGE_THRUST_TICKS ? lift * (tick + 1.0) / LEDGE_THRUST_TICKS : lift - (tick - LEDGE_THRUST_TICKS + 1) * lighter;
+	}
+
+	/** Height a climb building to {@code lift} reaches at its top. */
+	private static double climbHeight(final float lift, final double lighter) {
+		// The push: lift (1 + 2 + ... + T) / T; then lift - k * lighter for every tick it is still rising.
+		final int slowing = (int) Math.ceil(lift / lighter) - 1;
+		return lift * (LEDGE_THRUST_TICKS + 1) * 0.5 + slowing * (lift - lighter * (slowing + 1) * 0.5);
+	}
+
+	/** The least climb speed whose climb tops out at least {@code height} up. */
+	private static float liftFor(final double height, final double lighter) {
+		float lo = 0.0F;
+		float hi = 1.5F;
+		for (int i = 0; i < 16; i++) {
+			final float mid = (lo + hi) * 0.5F;
+			if (climbHeight(mid, lighter) >= height) {
+				hi = mid;
+			} else {
+				lo = mid;
 			}
 		}
-		return 1.5F;
+		return hi;
 	}
 
-	/** Ticks for an arc launched at {@code launch} to climb {@code height}. */
-	private static int ticksToRise(final float launch, final double height, final double gravity) {
+	/** Ticks for a climb building to {@code lift} to get {@code height} up (or to its top, if lower). */
+	private static int ticksToClimb(final float lift, final double height, final double lighter) {
 		double y = 0.0;
-		double vy = launch;
-		int ticks = 1;
-		while ((y += vy) < height && vy > 0.0) {
-			vy = (vy - gravity) * 0.98;
-			ticks++;
+		int tick = 0;
+		for (double vy = climbSpeed(lift, 0, lighter); vy > 0.0 && tick < 60; vy = climbSpeed(lift, tick, lighter)) {
+			y += vy;
+			tick++;
+			if (y >= height) {
+				break;
+			}
 		}
-		return ticks;
+		return tick;
 	}
 
 	/** The jump sound of a ledge jump, heard by the rider. */
@@ -663,7 +710,8 @@ public final class RideController {
 				// In the air the body tilts with its flight: nose up taking off, level over the top, nose down to land.
 				final float flight = (float) Math.toDegrees(Math.atan2(dy, Math.sqrt(horizontalSq) + 1.0E-3)) * JUMP_PITCH_SCALE;
 				s.jumpPitch += (Mth.clamp(flight, -JUMP_PITCH_DOWN, JUMP_PITCH_UP) - s.jumpPitch) * JUMP_PITCH_SMOOTHING;
-				s.pitch += -s.pitch * PITCH_SMOOTHING;
+				// The ground tilt (a slope, the crouch before a ledge) lets go gently while the flight's tilt takes over.
+				s.pitch -= Mth.clamp(s.pitch * PITCH_SMOOTHING, -AIR_PITCH_RELEASE, AIR_PITCH_RELEASE);
 				s.heightOffset -= Mth.clamp(s.heightOffset * (1.0F - AIR_OFFSET_DECAY), -AIR_OFFSET_MAX_STEP, AIR_OFFSET_MAX_STEP);
 			}
 		}

@@ -296,12 +296,16 @@ public final class RideTuning {
 	static float REFUSAL_VOLUME = 0.5F;
 
 	/**
-	 * Ledges up to 2 blocks high: riding at one at a walk or trot, the horse jumps up it without stopping. It spots the
-	 * ledge within LEDGE_REACH of its chest, sinks onto its haunches over the last LEDGE_CROUCH_TICKS, and bounds up it:
-	 * at least LEDGE_BOUND blocks/tick forward through the air (no more than LEDGE_MAX_FORWARD), taking off one and a
-	 * half to two blocks out, where that arc brings its chest to the face near the top of the arc (LEDGE_CROSS_HEIGHT of
-	 * the LEDGE_CLEARANCE above the lip), and lands a stride onto the top, then walks on. Not at a canter or gallop (it slows for the wall first); never onto leaves or a
-	 * lone log (it needs solid ground under LEDGE_SUPPORT of its body), and never over fences, walls or gates.
+	 * Ledges up to 2 blocks high: riding at one at a walk or trot, the horse jumps up it without stopping, and pressing
+	 * jump at one (even standing at its face) asks for the same jump. It spots the ledge within LEDGE_REACH of its
+	 * chest, sinks onto its haunches over at least LEDGE_CROUCH_TICKS, and heaves itself up it: the push of the hind legs
+	 * builds the climb over LEDGE_THRUST_TICKS (no sudden pop), the body carries on up under LEDGE_LIFT_GRAVITY of its
+	 * weight (a slower, weightier rise than a plain jump) to LEDGE_CLEARANCE above the lip, and comes down onto the top
+	 * under its full weight. It moves at least LEDGE_BOUND blocks/tick forward through the air (more if it was going
+	 * faster, up to LEDGE_MAX_FORWARD), taking off about one and a half blocks out, where its chest reaches the face once
+	 * the body is LEDGE_CROSS_HEIGHT of the clearance above the lip, and lands a stride onto the top, then walks on. Not
+	 * at a canter or gallop (it slows for the wall first); never onto leaves or a lone log (it needs solid ground under
+	 * LEDGE_SUPPORT of its body), and never over fences, walls or gates.
 	 */
 	public static final boolean LEDGE_CLIMB = true;
 	static final float LEDGE_HEIGHT = 2.0F;
@@ -317,15 +321,18 @@ public final class RideTuning {
 	static final double LEDGE_SUPPORT = 0.6;
 	/** Forward speed in the jump at least this, blocks/tick, and the run-up gives up after LEDGE_APPROACH_TICKS. */
 	static final float LEDGE_MIN_FORWARD = 0.1F;
-	static final float LEDGE_BOUND = 0.26F;
+	static final float LEDGE_BOUND = 0.2F;
 	/** It takes off where its chest gets to the face once the body is this share of the clearance above the lip. */
-	static final float LEDGE_CROSS_HEIGHT = 0.75F;
-	static final float LEDGE_MAX_FORWARD = 0.32F;
+	static final float LEDGE_CROSS_HEIGHT = 0.5F;
+	static final float LEDGE_MAX_FORWARD = 0.3F;
 	static final int LEDGE_APPROACH_TICKS = 40;
-	static final float LEDGE_CROUCH_TICKS = 3.0F;
+	static final float LEDGE_CROUCH_TICKS = 5.0F;
 	/** Crouching: the body sinks this far (blocks) and the nose lifts this much (degrees). */
-	static final float LEDGE_CROUCH = 0.12F;
+	static final float LEDGE_CROUCH = 0.16F;
 	static final float LEDGE_CROUCH_PITCH = 6.0F;
+	/** The heave: ticks the hind legs' push takes to build the climb, and the share of gravity that slows the rise. */
+	static final int LEDGE_THRUST_TICKS = 3;
+	static final float LEDGE_LIFT_GRAVITY = 0.56F;
 	static final float LEDGE_STAMINA_COST = 0.04F;
 	static float CLIMB_SOUND_VOLUME = 0.35F;
 
@@ -407,6 +414,8 @@ public final class RideTuning {
 	static final float JUMP_PITCH_UP = 25.0F;
 	static final float JUMP_PITCH_DOWN = 15.0F;
 	static final float JUMP_PITCH_SMOOTHING = 0.5F;
+	/** Taking off, the tilt it had on the ground eases out by at most this much a tick (degrees). */
+	static final float AIR_PITCH_RELEASE = 2.5F;
 	/** World-space follow rate for the body height afloat: turns climbing out of the water into a smooth rise. */
 	static final float WATER_HEIGHT_SMOOTHING = 0.35F;
 	/** Airborne, any leftover height offset fades this fast relative to the physics body (no lag in flight). */
@@ -556,14 +565,25 @@ public final class RideTuning {
 
 	/** Switch to third person on mounting and back to first person on dismounting. */
 	public static boolean AUTO_THIRD_PERSON = true;
-	public static float CAMERA_DISTANCE_STILL = 4.0F;
-	public static float CAMERA_DISTANCE_GALLOP = 5.5F;
+	/**
+	 * How far the riding camera sits back, at a standstill and at a full gallop, as designed; the player's camera distance
+	 * setting scales it (CAMERA_DISTANCE_SCALE) for this mod's own camera only. A camera add-on gets the designed values.
+	 */
+	public static final float CAMERA_DISTANCE_STILL = 4.0F;
+	public static final float CAMERA_DISTANCE_GALLOP = 5.5F;
+	public static float CAMERA_DISTANCE_SCALE = 1.0F;
 	/** Low value = the camera falls behind as the horse speeds up and catches up as it slows. */
 	public static final float CAMERA_DISTANCE_SMOOTHING = 0.08F;
-	/** Pivot height above the rider's eyes. */
-	public static final float CAMERA_HEIGHT = 0.5F;
-	/** Vertical follow rate; filters out the jolt of stepping up blocks and floats a little through jumps. */
+	/** Pivot height above the rider's eyes, blocks (the player's camera height setting). */
+	public static final float CAMERA_HEIGHT_DEFAULT = 0.2F;
+	public static float CAMERA_HEIGHT = CAMERA_HEIGHT_DEFAULT;
+	/**
+	 * Vertical follow rate, in two stages so the camera's climb starts and stops softly: filters out the jolt of stepping
+	 * up blocks and of a jump's takeoff, without falling far behind.
+	 */
 	public static final float CAMERA_HEIGHT_SMOOTHING = 0.6F;
+	/** Further than this from the rider (a teleport), the camera's height jumps straight there. */
+	public static final double CAMERA_HEIGHT_SNAP = 4.0;
 	/** FOV widening at a full gallop (scaled by the FOV Effects option). */
 	public static float FOV_GALLOP_BOOST = 0.05F;
 	/** After this many ticks without vertical mouse movement while moving, the view eases back to a riding pitch. */

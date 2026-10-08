@@ -12,8 +12,9 @@ public final class RideCameraApi {
 	}
 
 	/**
-	 * While claimed, this mod stops placing the third-person riding camera and the caller does it. Mount/dismount view
-	 * switching, height smoothing and the values below keep working.
+	 * While claimed, this mod stops doing anything to the third-person riding view and the caller does it all: it stops
+	 * placing the camera, its camera height and distance settings don't apply, and it no longer eases the pitch back to
+	 * a riding angle. Mount/dismount view switching, height smoothing and the values below keep working.
 	 */
 	public static void setThirdPersonClaimed(final boolean claimed) {
 		RideCamera.setThirdPersonClaimed(claimed);
@@ -34,9 +35,12 @@ public final class RideCameraApi {
 		return RideCamera.speedFraction();
 	}
 
-	/** Distance the riding camera would sit back at this speed, blocks. */
+	/**
+	 * Distance the riding camera is designed to sit back at this speed (falling behind as the horse speeds up), blocks;
+	 * this mod's own camera distance setting doesn't apply (the caller has its own).
+	 */
 	public static float distance(final float partialTicks) {
-		return RideCamera.distance(partialTicks);
+		return RideCamera.designedDistance(partialTicks);
 	}
 
 	/** Gentle saddle lift for this frame, blocks; 0 when View Bobbing is off. */

@@ -44,8 +44,8 @@ are branches). Wade into a river, swim across with your horse's head above the w
 the far side. Gallop through a flock of chickens and... well, try not to. Players and your own pets are always safe.
 Skeleton horses still stroll along the bottom of lakes like the spooky little guys they are.
 
-**The camera rides along.** Climb on and the view swings into third person, sits a bit higher, pulls back as you pick up
-speed, and smooths out the bumps. Prefer first person? The view gently moves with the saddle.
+**The camera rides along.** Climb on and the view swings into third person, pulls back as you pick up speed, and
+smooths out the bumps. Prefer first person? The view gently moves with the saddle.
 
 ## Which mounts?
 
@@ -66,7 +66,7 @@ the mod politely steps aside, and lets you know the first time you climb onto a 
 
 Every horse rides the same for everyone, the way I tuned it. What you can change is how riding looks and sounds to
 you, in [Mod Menu](https://modrinth.com/mod/modmenu) or with the "Open horse settings" key: whether the camera switches
-to third person when you mount, how far back it sits, how much the view widens at speed, how much your view and hands
+to third person when you mount, how far back and how high it sits, how much the view widens at speed, how much your view and hands
 move with the stride in first person, and how loud the horse's breathing and snorting are. If fast motion bothers you,
 you can turn all the movement right down.
 
@@ -78,8 +78,8 @@ and it looks fantastic.
 
 I also put it through automated test rides alongside a big pile of popular mods: Sodium, Iris, Lithium, C2ME,
 FerriteCore, ImmediatelyFast, Entity Culling, More Culling, Not Enough Animations, Emotecraft, Better Combat,
-First-person Model, Shoulder Surfing Reloaded, Camera Overhaul, Freecam, Do a Barrel Roll, AppleSkin, Raised, Jade,
-Xaero's Minimap, Horse Expert, Horseman, Bareback Horse Riding and Mounts Stay Still. When another mod also changes how
+First-person Model, Shoulder Surfing Reloaded, Camera Overhaul, Freecam, Do a Barrel Roll, AppleSkin, Raised,
+Better Mount HUD, Jade, Xaero's Minimap, Horse Expert, Horseman, Bareback Horse Riding and Mounts Stay Still. When another mod also changes how
 horses ride (like Horseman's free camera) or how riders sit (like Not Enough Animations), Horsing Around takes the reins
 on its own horses and leaves the rest of that mod alone. Shoulder Surfing gets the camera whenever it's switched on.
 

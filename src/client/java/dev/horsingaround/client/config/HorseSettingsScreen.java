@@ -1,9 +1,12 @@
 package dev.horsingaround.client.config;
 
 import dev.horsingaround.HorsingAround;
+import dev.horsingaround.client.RideCamera;
 import dev.horsingaround.client.cosmetic.HatColors;
 import dev.horsingaround.client.cosmetic.Hats;
 import java.net.URI;
+import java.util.List;
+import java.util.Locale;
 import java.util.function.IntConsumer;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.ConfirmLinkScreen;
@@ -13,6 +16,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ImageWidget;
 import net.minecraft.client.gui.components.StringWidget;
@@ -58,10 +62,20 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 			c.thirdPersonOnMount = v;
 			HorseConfig.apply();
 		}));
-		this.list.addSmall(
-			percent("camera_distance", 50, 150, c.cameraDistance, v -> c.cameraDistance = v),
-			percent("speed_zoom", 0, 100, c.speedZoom, v -> c.speedZoom = v)
-		);
+		final OptionInstance<Integer> distance = percent("camera_distance", 50, 150, c.cameraDistance, v -> c.cameraDistance = v);
+		final OptionInstance<Integer> height = blocks("camera_height", HorseConfig.CAMERA_HEIGHT_MIN, HorseConfig.CAMERA_HEIGHT_MAX, c.cameraHeight, v -> c.cameraHeight = v);
+		this.list.addSmall(distance, height);
+		this.list.addBig(percent("speed_zoom", 0, 100, c.speedZoom, v -> c.speedZoom = v));
+		if (RideCamera.isThirdPersonClaimed()) {
+			// Over the Shoulder places the third-person riding camera, with its own distance and height.
+			for (final OptionInstance<Integer> option : List.of(distance, height)) {
+				final AbstractWidget widget = this.list.findOption(option);
+				if (widget != null) {
+					widget.active = false;
+					widget.setTooltip(Tooltip.create(Component.translatable(KEY + "camera_claimed.tooltip")));
+				}
+			}
+		}
 
 		this.list.addHeader(section("comfort"));
 		this.list.addSmall(
@@ -137,6 +151,29 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 
 	private static <T> OptionInstance.TooltipSupplier<T> tooltip(final String id) {
 		return OptionInstance.cachedConstantTooltip(Component.translatable(KEY + id + ".tooltip"));
+	}
+
+	/** Slider in hundredths of a block, shown as "0.2 blocks". */
+	private static OptionInstance<Integer> blocks(final String id, final float min, final float max, final float value, final Consumer<Float> set) {
+		return new OptionInstance<>(
+			KEY + id, tooltip(id),
+			(caption, hundredths) -> Options.genericValueLabel(caption, Component.translatable(KEY + "blocks", trim(hundredths / 100.0F))),
+			new OptionInstance.IntRange(Math.round(min * 100.0F), Math.round(max * 100.0F)),
+			Math.round(value * 100.0F),
+			hundredths -> {
+				set.accept(hundredths / 100.0F);
+				HorseConfig.apply();
+			}
+		);
+	}
+
+	/** 0.20 -> "0.2", -0.25 -> "-0.25", 1.00 -> "1". */
+	private static String trim(final float value) {
+		String text = String.format(Locale.ROOT, "%.2f", value);
+		while (text.endsWith("0")) {
+			text = text.substring(0, text.length() - 1);
+		}
+		return text.endsWith(".") ? text.substring(0, text.length() - 1) : text;
 	}
 
 	/** Slider in whole percent of the designed effect; 0 reads "Off". */
