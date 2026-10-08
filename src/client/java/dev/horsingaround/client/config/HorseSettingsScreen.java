@@ -1,6 +1,12 @@
 package dev.horsingaround.client.config;
 
 import dev.horsingaround.HorsingAround;
+import dev.horsingaround.client.cosmetic.HatColors;
+import dev.horsingaround.client.cosmetic.Hats;
+import java.net.URI;
+import java.util.function.IntConsumer;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import dev.horsingaround.ride.HorseConfig;
 import java.util.function.Consumer;
 import net.minecraft.ChatFormatting;
@@ -27,6 +33,7 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	private static final Identifier ICON = Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "icon.png");
 	/** Section headings: saddle-leather tan. */
 	private static final int SECTION_COLOR = 0xE3B778;
+	private static final URI SUPPORT = URI.create("https://buymeacoffee.com/blintzbug");
 
 	public HorseSettingsScreen(final Screen parent) {
 		super(parent, Minecraft.getInstance().options, Component.translatable(KEY + "title"));
@@ -64,6 +71,47 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 
 		this.list.addHeader(section("sound"));
 		this.list.addBig(percent("horse_sounds", 0, 100, c.horseSounds, v -> c.horseSounds = v));
+
+		this.addHatOptions(c);
+	}
+
+	/** Supporters wear a cowboy hat and pick its colour; everyone else hears how to get one. */
+	private void addHatOptions(final HorseConfig c) {
+		if (!Hats.canWear()) {
+			this.list.addHeader(section("hat"));
+			this.list.addBig(Button.builder(Component.translatable(KEY + "hat.support"), ConfirmLinkScreen.confirmLink(this, SUPPORT, true))
+				.tooltip(Tooltip.create(Component.translatable(KEY + "hat.support.tooltip"))).build());
+			return;
+		}
+		this.list.addHeader(section("hat_supporter"));
+		this.list.addBig(OptionInstance.createBoolean(KEY + "hat", tooltip("hat"), c.hat, v -> {
+			c.hat = v;
+			Hats.sendOwn();
+		}));
+		this.list.addBig(new HatPaletteWidget(310, c.hatColor, color -> {
+			c.hatColor = color;
+			Hats.sendOwn();
+			this.rebuildWidgets();
+		}));
+		final float[] hsv = HatColors.toHsv(c.hatColor);
+		this.list.addSmall(
+			slider("hat_hue", 0, 359, Math.round(hsv[0]), "degrees", hue -> c.hatColor = HatColors.fromHsv(hue, HatColors.toHsv(c.hatColor)[1], HatColors.toHsv(c.hatColor)[2])),
+			slider("hat_richness", 0, 100, Math.round(hsv[1] * 100.0F), "percent", rich -> c.hatColor = HatColors.fromHsv(HatColors.toHsv(c.hatColor)[0], rich / 100.0F, HatColors.toHsv(c.hatColor)[2]))
+		);
+		this.list.addBig(
+			slider("hat_brightness", 5, 100, Math.round(hsv[2] * 100.0F), "percent", bright -> c.hatColor = HatColors.fromHsv(HatColors.toHsv(c.hatColor)[0], HatColors.toHsv(c.hatColor)[1], bright / 100.0F))
+		);
+	}
+
+	/** A hat colour slider: changes the colour live (sent to the server when the screen closes). */
+	private static OptionInstance<Integer> slider(final String id, final int min, final int max, final int value, final String unit, final IntConsumer set) {
+		return new OptionInstance<>(
+			KEY + id, tooltip(id),
+			(caption, amount) -> Options.genericValueLabel(caption, Component.translatable(KEY + unit, amount)),
+			new OptionInstance.IntRange(min, max),
+			value,
+			set::accept
+		);
 	}
 
 	@Override
@@ -80,6 +128,7 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	public void removed() {
 		super.removed();
 		HorseConfig.save();
+		Hats.sendOwn();
 	}
 
 	private static Component section(final String id) {

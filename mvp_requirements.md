@@ -68,3 +68,6 @@ User direction (2026-10-06): the mods will be published on Modrinth for anyone t
    mount (camel, camel husk, llama, pig, strider, happy ghast, nautilus, zombie nautilus, boats, minecarts) rides
    exactly as in vanilla; mob riders (zombie and skeleton horsemen) and vanilla quirks (skeleton horses walking the
    bottom of lakes) are kept.
+7. **Supporter cosmetic** (user request, 2026-10-08): supporters (Buy Me a Coffee) get a cowboy hat they switch on and
+   colour in the settings. Purely cosmetic and not an item (Mojang's usage guidelines: cosmetics yes, capes no, nothing
+   that affects gameplay); while worn, the helmet isn't drawn. The supporters list download is disclosed in the README.

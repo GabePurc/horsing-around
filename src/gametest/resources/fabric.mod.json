@@ -10,6 +10,7 @@
 			"dev.horsingaround.gametest.TerrainRideTest",
 			"dev.horsingaround.gametest.MountsTest",
 			"dev.horsingaround.gametest.ServerRideTest",
+			"dev.horsingaround.gametest.HatTest",
 			"dev.horsingaround.gametest.GalleryTest",
 			"dev.horsingaround.gametest.TestSummary"
 		],

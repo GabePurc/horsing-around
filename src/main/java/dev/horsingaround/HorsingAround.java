@@ -1,5 +1,8 @@
 package dev.horsingaround;
 
+import dev.horsingaround.net.HatPayload;
+import dev.horsingaround.net.HatRelay;
+import dev.horsingaround.net.PlayerHatPayload;
 import dev.horsingaround.net.RulesPayload;
 import dev.horsingaround.net.ServerRules;
 import dev.horsingaround.ride.HorseConfig;
@@ -29,13 +32,21 @@ public final class HorsingAround implements ModInitializer {
 		version = FabricLoader.getInstance().getModContainer(MOD_ID).map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse("");
 		HorseConfig.load();
 		PayloadTypeRegistry.clientboundPlay().register(RulesPayload.TYPE, RulesPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(PlayerHatPayload.TYPE, PlayerHatPayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(HatPayload.TYPE, HatPayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(HatPayload.TYPE, (hat, context) -> HatRelay.receive(context.player(), hat));
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, joined) -> {
 			if (ServerPlayNetworking.canSend(handler, RulesPayload.TYPE)) {
 				sender.sendPacket(rules());
 			}
+			HatRelay.joined(handler.player);
 		});
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, left) -> HatRelay.left(handler.player));
 		ServerLifecycleEvents.SERVER_STARTING.register(started -> server = started);
-		ServerLifecycleEvents.SERVER_STOPPED.register(stopped -> server = null);
+		ServerLifecycleEvents.SERVER_STOPPED.register(stopped -> {
+			server = null;
+			HatRelay.clear();
+		});
 		CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> Mounts.invalidate());
 	}
 

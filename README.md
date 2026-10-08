@@ -96,11 +96,22 @@ yesterday. This is my first public version, and I'm only getting started.
 Check out **Horsing Around: Over the Shoulder**, a Red Dead style over-the-shoulder camera that also takes over the riding
 camera when both are installed.
 
-## Buy me a coffee?
+## Buy me a coffee? (and get a hat)
 
 I make this in my spare time because I love it, and it'll always be free. If it's made your rides a little better and
 you'd like to chip in, you can [buy me a coffee](https://buymeacoffee.com/blintzbug). It genuinely keeps me going, and
 it means more horse features, sooner. No pressure at all, though: telling your friends about it helps just as much.
+
+As a thank-you, supporters get a **cowboy hat** to wear in game. Put your Minecraft username in your coffee message and
+within a day or two it'll appear in your horse settings: switch it on, pick any colour you like, and ride off into the
+sunset. Everyone with the mod on your server sees it. It's purely cosmetic (your helmet still protects you, it's just
+hidden under the hat), and it never gives anyone an advantage.
+
+## Privacy
+
+When the game starts, the mod downloads the list of supporters (`supporters.json` in this repository) from GitHub so it
+knows who gets a hat. That's a plain download: nothing about you is sent anywhere. If it can't connect, it uses the last
+copy it saw.
 
 ## Requirements
 

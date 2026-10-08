@@ -5,7 +5,15 @@ import com.mojang.blaze3d.platform.InputConstants;
 import dev.horsingaround.client.compat.EmfSaddleTracker;
 import dev.horsingaround.client.config.HorseSettingsScreen;
 import dev.horsingaround.client.debug.SteeringOverlay;
+import dev.horsingaround.client.cosmetic.HatLayer;
+import dev.horsingaround.client.cosmetic.HatModel;
+import dev.horsingaround.client.cosmetic.Hats;
+import dev.horsingaround.client.cosmetic.Supporters;
+import dev.horsingaround.net.PlayerHatPayload;
 import dev.horsingaround.net.RulesPayload;
+import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityRenderLayerRegistrationCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.ModelLayerRegistry;
+import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import dev.horsingaround.net.ServerRules;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -35,12 +43,29 @@ public final class HorsingAroundClient implements ClientModInitializer {
 			}
 		}
 		// The server tells us it runs the mod (and its rules); until then, and on servers without it, horses ride as in vanilla.
-		ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, context) -> ServerRules.accept(rules));
+		ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, context) -> {
+			ServerRules.accept(rules);
+			Hats.sendOwn();
+		});
+		ClientPlayNetworking.registerGlobalReceiver(PlayerHatPayload.TYPE, (hat, context) -> Hats.receive(hat));
 		ClientPlayConnectionEvents.INIT.register((handler, minecraft) -> {
 			ServerRules.reset();
 			ServerNotice.reset();
+			Hats.clear();
 		});
-		ClientPlayConnectionEvents.DISCONNECT.register((handler, minecraft) -> ServerRules.reset());
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, minecraft) -> {
+			ServerRules.reset();
+			Hats.clear();
+		});
+
+		// The supporters' cowboy hat.
+		Supporters.load();
+		ModelLayerRegistry.registerModelLayer(HatModel.LAYER, HatModel::createLayer);
+		LivingEntityRenderLayerRegistrationCallback.EVENT.register((type, renderer, helper, context) -> {
+			if (renderer instanceof AvatarRenderer<?> avatar) {
+				helper.register(new HatLayer(avatar, context.getModelSet()));
+			}
+		});
 		final KeyMapping settings = KeyMappingHelper.registerKeyMapping(new KeyMapping(
 			"key.horsingaround.settings", InputConstants.UNKNOWN.getValue(),
 			KeyMapping.Category.register(Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "horses"))

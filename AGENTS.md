@@ -52,3 +52,10 @@ Dev runs load Entity Model Features, Entity Texture Features and the Fresh Anima
 
 Code rules: per-tick paths must not allocate beyond what vanilla already does, and must not do work for horses that
 are not being ridden. Prefer one mixin per vanilla class and keep logic in plain classes under `ride/`.
+
+Supporter cowboy hat (user request, 2026-10-08): a cosmetic for people who buy the user a coffee
+(https://buymeacoffee.com/blintzbug), never an item and never a gameplay advantage (Mojang's usage guidelines allow
+cosmetics, not capes). Supporters are listed by Minecraft UUID in `supporters.json` at the repo root, which every client
+downloads at startup (disclosed in the README); add one through a PR when the user asks. The hat colour goes through
+the server (`HatRelay`); clients only draw hats for players on their own copy of the list. While the hat is on, the
+player's helmet and head items aren't drawn (still worn). Code: `client/cosmetic/`, `net/HatPayload`, `HatTest`.
