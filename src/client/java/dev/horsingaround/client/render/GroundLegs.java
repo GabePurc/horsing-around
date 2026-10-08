@@ -152,7 +152,9 @@ public final class GroundLegs {
 			if (levelBody) {
 				ride.drawnFit = fit(ride.drawnFit, -ride.drawnFit, dt);
 			} else if (standing != Float.POSITIVE_INFINITY) {
-				ride.drawnFit = fit(ride.drawnFit, Math.max(standing, highest - (LEG_RISE_MAX - FIT_MARGIN)), dt);
+				// (Held while the ride is already moving the body up or down fast, so the two never add up to a jolt.)
+				final float hold = Mth.clamp(1.0F - Math.abs(ride.drawnRise) / FIT_HOLD_RISE, 0.0F, 1.0F);
+				ride.drawnFit = fit(ride.drawnFit, Math.max(standing, highest - (LEG_RISE_MAX - FIT_MARGIN)), dt * hold);
 			}
 		}
 		// Then each knee bends to bring its hoof onto its ground, stepping up quickly and down more gently.

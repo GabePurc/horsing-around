@@ -204,7 +204,7 @@ public final class RideState {
 	double foreGround;
 	double hindGround;
 	/** How fast the drawn body rose last tick, blocks/tick. */
-	float drawnRise;
+	public float drawnRise;
 	/** The ground actually under the front and hind hooves (NaN on level ground or where there is none). */
 	double foreFoot = Double.NaN;
 	double hindFoot = Double.NaN;

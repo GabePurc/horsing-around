@@ -388,10 +388,18 @@ kinematics, still driven by Fresh Animations' animation.
   half a block apart), so each hoof reads the ground under its front, middle and back where the model is drawn (the
   render pose is kept from the frame), a moment ahead along its own motion so a swinging hoof clears a step's edge
   instead of catching on it, and comes up onto it quickly (down more gently). A hoof against a step's face it can't
-  climb onto (more than 0.55 above) moves back off it onto the tread. The drawn body then fits itself: it comes up or
-  down until the standing leg on the lowest ground is straight (a leg the pack has lifted mid-stride doesn't count),
-  but never so low that a leg on higher ground would have to fold past what a knee can (better a hoof just off a
-  step's edge than one in the step). On level ground nothing is read and the pack's legs are untouched.
+  climb onto (more than 0.55 above) moves back off it onto the tread. Up is read off the drawn model's own transform,
+  so the hoof rises straight up whatever tilts the body. The drawn body then fits itself: it comes up or down (slowly,
+  never jolting) until the standing leg on the lowest ground is straight (a leg the pack has lifted mid-stride doesn't
+  count), but never so low that a leg on higher ground would have to fold past what a knee can. A knee that would bend
+  into the ground (a hock going down stairs, into the step behind) bends the other way. A step down is a short fall,
+  not a jump: the hooves keep finding their ground and the legs don't take the jump's shape. All of it eases on game
+  time, so it keeps pace with the horse at any frame rate. On level ground nothing is read and the pack's legs are
+  untouched.
+- Known limit: on a slope of full blocks (a block up for every block along, 45 degrees), the stride still carries a
+  hoof or a knee into the next block's face in roughly a fifth to a third of frames: a 0.76-block leg can't reach a
+  1-block riser, so the hoof either stands short of it or touches it. Stairs (half-block steps) are clean going up and
+  touch now and then going down.
 - Hurdles: pressing jump with a fence, a wall, a gate or anything else 1.125-1.6 blocks tall within 2.5 blocks of the
   chest (no deeper than 1.5, headroom over it, safe ground beyond) jumps 0.35 over it and far enough to clear it, at
   any pace, standing too, held at that speed in the air so meeting the face as it rises doesn't stop it. Lava or a

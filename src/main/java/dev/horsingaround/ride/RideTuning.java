@@ -444,6 +444,8 @@ public final class RideTuning {
 	 */
 	public static final float FIT_TIME = 0.12F;
 	public static final float FIT_RATE_MAX = 0.5F;
+	/** The fit holds still while the ride moves the drawn body FIT_HOLD_RISE blocks a tick or more (eased in below that). */
+	public static final float FIT_HOLD_RISE = 0.12F;
 	public static final float FIT_UP_MAX = 0.6F;
 	public static final float FIT_DOWN_MAX = 0.35F;
 	public static final float PACK_LIFT = 0.06F;
