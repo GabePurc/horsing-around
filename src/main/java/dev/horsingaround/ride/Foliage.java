@@ -1,10 +1,12 @@
 package dev.horsingaround.ride;
 
+import dev.horsingaround.net.ServerRules;
 import net.minecraft.core.BlockPos;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import org.jspecify.annotations.Nullable;
@@ -16,13 +18,21 @@ public final class Foliage {
 	private Foliage() {
 	}
 
+	/**
+	 * Whether ridden horses pass through leaves on this side: the setting, and on a client also the server's agreement
+	 * (it checks every move the rider's client makes).
+	 */
+	public static boolean leavesOpen(final Level level) {
+		return RideTuning.RIDE_THROUGH_LEAVES && (!level.isClientSide() || ServerRules.rideThroughLeaves);
+	}
+
 	/** Whether leaves should not block this entity: a horse ridden by a player, or that horse's rider. */
 	public static boolean ridesThrough(final @Nullable Entity entity) {
 		if (entity == null || !RideTuning.RIDE_THROUGH_LEAVES) {
 			return false;
 		}
 		final Entity horse = entity instanceof RideStateHolder ? entity : entity.getVehicle();
-		return horse instanceof RideStateHolder holder && holder.horsingaround$managed() && horse.getControllingPassenger() instanceof Player;
+		return horse instanceof RideStateHolder holder && holder.horsingaround$playerRidden() && leavesOpen(horse.level());
 	}
 
 	/** The first leaves block the horse's body overlaps, or null. Ride simulation thread only. */

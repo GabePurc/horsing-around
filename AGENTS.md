@@ -27,16 +27,26 @@ Builds must work on any machine: never commit machine-specific paths. Gradle pic
 `gradle/gradle-daemon-jvm.properties` (downloads one if needed); local JDK locations go in `~/.gradle/gradle.properties`.
 Release-readiness work (Modrinth, compatibility with other mods) is planned in `development_plan.md`, Release.
 
-Verify every gameplay change with `./gradlew runClientGameTest`, which runs two client tests (pick one with
-`-Ptests=ride` or `-Ptests=terrain`, one terrain scenario with `-Pscenario=<part of its name>`, some ride sections with
+Verify every gameplay change with `./gradlew runClientGameTest`, which runs four client tests (pick some with
+`-Ptests=ride,terrain,mounts,server`, one terrain scenario with `-Pscenario=<part of its name>`, some ride sections with
 `-Psections=core,cuts,stairs,picking,steps`; `legs` takes close shots of the legs in a jump):
 `RideFeelTest` rides a horse with simulated keys through every mechanic in hand-built lanes and writes
 `build/run/clientGameTest/horsingaround-ride-report.txt`; `TerrainRideTest` rides procedurally built natural terrain
 (forests, mountains, hills, hazards, river, badlands) like a player would and writes
-`horsingaround-terrain-report.txt` with traces of any crash, hurt or dead end. Screenshots land in
+`horsingaround-terrain-report.txt` with traces of any crash, hurt or dead end; `MountsTest` rides every vanilla mount
+(only the horse family gets the new riding) and mob riders; `ServerRideTest` starts a real dedicated server with the
+mod (the target setup: a family server) and checks the server accepts every move. All of them log server corrections
+("moved wrongly" = rubber-banding) and warnings. Screenshots land in
 `build/run/clientGameTest/screenshots/` (view them; with hitboxes on, F3+B, the ridden horse also draws its steering
 and step state). Don't test only perfect cases: generated worlds are messy. When
-feel numbers change on purpose, update the test targets too.
+feel numbers change on purpose, update the test targets too. `./gradlew runGameTest` loads the mod on a bare
+dedicated server (no client code) and rides there. `-Ptests=gallery` takes clean store screenshots.
+
+Run one game at a time (two test games at once, even from different repos, made ride checks flaky).
+
+Compatibility: `./gradlew runCompat --continue` runs the tests in a production game with packs of popular mods
+(`compatPacks` in `build.gradle`); results in `build/run/compat/<pack>/`. Run it before a release and after touching
+mixins. The mod is meant for servers that have it installed; on a server without it the client rides vanilla.
 Dev runs load Entity Model Features, Entity Texture Features and the Fresh Animations pack (the user's target setup).
 
 Code rules: per-tick paths must not allocate beyond what vanilla already does, and must not do work for horses that

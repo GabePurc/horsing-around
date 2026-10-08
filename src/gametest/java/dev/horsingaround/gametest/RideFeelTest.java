@@ -48,6 +48,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 	private final List<String> report = new ArrayList<>();
 	private int failures;
+	private CameraType cameraBeforeMounting = CameraType.FIRST_PERSON;
 
 	private record Sample(
 		double speed, double y, float horseYaw, float playerYaw, int gait, float stamina, boolean exhausted, float lean, boolean onGround,
@@ -74,6 +75,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 				+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
 				+ "attributes:[{id:\"minecraft:movement_speed\",base:" + SPEED_ATTRIBUTE + "d},{id:\"minecraft:jump_strength\",base:" + JUMP_ATTRIBUTE + "d}],"
 				+ "Tags:[\"ride_test\"]}");
+			// (Another camera mod may already have the view in third person: dismounting should restore whatever it was.)
+			this.cameraBeforeMounting = ctx.computeOnClient(mc -> mc.options.getCameraType());
 			server.runCommand("ride @p mount @e[type=minecraft:horse,tag=ride_test,limit=1]");
 			ctx.waitFor(mc -> mc.player != null && mc.player.getVehicle() instanceof AbstractHorse);
 			world.getConnection().waitForChunksRender();
@@ -129,9 +132,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		} finally {
 			writeReport();
 		}
-		if (this.failures > 0) {
-			throw new AssertionError(this.failures + " ride checks failed; see horsingaround-ride-report.txt");
-		}
+		TestSummary.failed(this.failures, "horsingaround-ride-report.txt");
 	}
 
 	private void mounting(final ClientGameTestContext ctx) {
@@ -522,7 +523,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		ctx.waitTicks(2);
 		check("unridden, it is vanilla size again (width, blocks)", ctx.computeOnClient(mc -> mc.level.getEntitiesOfClass(AbstractHorse.class, mc.player.getBoundingBox().inflate(4.0))
 			.stream().mapToDouble(h -> h.getBbWidth()).max().orElse(0.0)), 1.35, 1.45);
-		check("camera restored to first person", ctx.computeOnClient(mc -> mc.options.getCameraType()) == CameraType.FIRST_PERSON);
+		final CameraType camera = ctx.computeOnClient(mc -> mc.options.getCameraType());
+		check("camera restored to how it was before mounting (" + this.cameraBeforeMounting + ", now " + camera + ")", camera == this.cameraBeforeMounting);
 	}
 
 	private void stairs(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
@@ -914,9 +916,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 		section("Looking round while standing");
 		lane(ctx, input, world, 1400.5, -60, "cut_test_still");
+		final float facing = sample(ctx).horseYaw;
 		input.lookAt(180.0F + 150.0F, 10.0F);
 		ctx.waitTicks(10);
-		check("doesn't turn the horse (free look, deg)", Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - 180.0F)), 0.0, 1.0);
+		check("doesn't turn the horse (free look, deg; mounted facing " + Math.round(facing) + ")", Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - facing)), 0.0, 1.0);
 		check("no cut", ride(ctx, s -> s.cut), 0.0, 0.0);
 		input.holdKey(o -> o.keyUp);
 		final int pivot = ticksToFace(ctx, 330.0F, 60);
@@ -1573,11 +1576,18 @@ public final class RideFeelTest implements FabricClientGameTest {
 		input.pressKey(o -> o.keySprint);
 		boolean touched = false;
 		double maxSide = 0.0;
+		final StringBuilder path = new StringBuilder(String.format(Locale.ROOT, "start x%.2f yaw%.1f | ", horseX(ctx), sample(ctx).horseYaw));
 		for (int i = 0; i < 300 && horseZ(ctx) > -42.0; i++) {
 			ctx.waitTick();
 			maxSide = Math.max(maxSide, Math.abs(horseX(ctx) - 1100.75));
 			touched |= horseZ(ctx) < -18.0 && ctx.computeOnClient(mc -> mc.player.getVehicle().horizontalCollision);
+			if (horseZ(ctx) < -12.0 && horseZ(ctx) > -26.0) {
+				final Sample s = sample(ctx);
+				path.append(String.format(Locale.ROOT, "z%.1f x%.2f y%.2f v%.2f o%.0f l%d | ", horseZ(ctx), horseX(ctx), s.y, s.speed,
+					ride(ctx, r -> r.avoidOffset), ride(ctx, r -> r.ledgeTicks)));
+			}
 		}
+		log("  path: %s", path);
 		check("goes round it instead of jumping", ride(ctx, s -> s.ledgeClimbs) == climbs && sample(ctx).y < -59.9);
 		check("rides on past it", horseZ(ctx) < -41.9);
 		check("without scraping it", !touched);

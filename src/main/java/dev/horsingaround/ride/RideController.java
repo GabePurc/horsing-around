@@ -87,8 +87,9 @@ public final class RideController {
 			}
 		}
 
-		// Water: wade while the hooves reach the bottom (slower the deeper it is), swim once they don't.
-		final double depth = horse.isInWater() ? horse.getFluidHeight(FluidTags.WATER) : 0.0;
+		// Water: wade while the hooves reach the bottom (slower the deeper it is), swim once they don't. A horse that
+		// doesn't float (a skeleton horse) keeps vanilla's water physics and walks along the bottom.
+		final double depth = horse.isInWater() && Mounts.floats(horse) ? horse.getFluidHeight(FluidTags.WATER) : 0.0;
 		// Start swimming once out of depth; keep swimming until the hooves find the bottom (no flicker at the threshold).
 		// A heave out of the water carries on until the hooves are on the bank.
 		s.swimming = !horse.onGround() && (s.bankTicks > 0 || depth > (s.swimming ? 0.5 : WADE_DEPTH));
@@ -99,7 +100,7 @@ public final class RideController {
 		} else if (depth > 0.0 && target > 0.0F) {
 			target *= 1.0F - WADE_DRAG * (float) Math.pow(Math.min(depth / WADE_DEPTH, 1.0), WADE_DRAG_CURVE);
 		}
-		final BlockState leaves = RIDE_THROUGH_LEAVES ? Foliage.leavesIn(horse) : null;
+		final BlockState leaves = Foliage.leavesOpen(horse.level()) ? Foliage.leavesIn(horse) : null;
 		if (leaves != null) {
 			target *= LEAVES_SPEED_FACTOR;
 			rustle(horse, s, leaves);
@@ -701,7 +702,7 @@ public final class RideController {
 		boolean face = false;
 		boolean chest = false;
 		final float pace = Math.min(groundSpeed / ((float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR), 1.0F);
-		if (RIDE_THROUGH_LEAVES && pace > LEAF_BRUSH_MIN_PACE && horse.getControllingPassenger() instanceof Player rider) {
+		if (pace > LEAF_BRUSH_MIN_PACE && Foliage.leavesOpen(horse.level()) && horse.getControllingPassenger() instanceof Player rider) {
 			final float yaw = bodyYaw * Mth.DEG_TO_RAD;
 			final double fx = -Mth.sin(yaw);
 			final double fz = Mth.cos(yaw);

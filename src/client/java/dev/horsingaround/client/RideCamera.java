@@ -2,6 +2,7 @@ package dev.horsingaround.client;
 
 import static dev.horsingaround.ride.RideTuning.*;
 
+import dev.horsingaround.client.compat.CameraMods;
 import dev.horsingaround.client.render.SaddleMotion;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
@@ -54,7 +55,7 @@ public final class RideCamera {
 			riding = s != null;
 			if (riding) {
 				if (AUTO_THIRD_PERSON && minecraft.options.getCameraType() == CameraType.FIRST_PERSON) {
-					minecraft.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+					CameraMods.setCameraType(minecraft, CameraType.THIRD_PERSON_BACK);
 					switchedPerspective = true;
 				}
 				distance = distanceO = CAMERA_DISTANCE_STILL;
@@ -62,8 +63,8 @@ public final class RideCamera {
 				lastPitch = player.getXRot();
 				pitchIdleTicks = 0;
 			} else {
-				if (switchedPerspective && minecraft.options.getCameraType() == CameraType.THIRD_PERSON_BACK) {
-					minecraft.options.setCameraType(CameraType.FIRST_PERSON);
+				if (switchedPerspective && CameraMods.isThirdPersonBack(minecraft)) {
+					CameraMods.setCameraType(minecraft, CameraType.FIRST_PERSON);
 				}
 				switchedPerspective = false;
 			}
@@ -90,7 +91,8 @@ public final class RideCamera {
 	}
 
 	public static boolean isActive(final Entity cameraEntity, final Minecraft minecraft) {
-		return riding && !thirdPersonClaimed && cameraEntity == minecraft.player && minecraft.options.getCameraType() == CameraType.THIRD_PERSON_BACK;
+		return riding && !thirdPersonClaimed && cameraEntity == minecraft.player && minecraft.options.getCameraType() == CameraType.THIRD_PERSON_BACK
+			&& !CameraMods.otherCameraActive();
 	}
 
 	/**

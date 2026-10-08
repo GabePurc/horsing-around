@@ -69,12 +69,12 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		);
 		this.list.addHeader(Component.translatable(KEY + "world"));
 		this.list.addSmall(
-			OptionInstance.createBoolean(KEY + "leaves", c.rideThroughLeaves, v -> {
+			OptionInstance.createBoolean(KEY + "leaves", OptionInstance.cachedConstantTooltip(Component.translatable(KEY + "leaves.tooltip")), c.rideThroughLeaves, v -> {
 				c.rideThroughLeaves = v;
 				HorseConfig.apply();
 			}),
 			percent("leaves_slowdown", 0, 60, c.leavesSlowdown, v -> c.leavesSlowdown = v),
-			OptionInstance.createBoolean(KEY + "trample", c.trample, v -> {
+			OptionInstance.createBoolean(KEY + "trample", OptionInstance.cachedConstantTooltip(Component.translatable(KEY + "trample.tooltip")), c.trample, v -> {
 				c.trample = v;
 				HorseConfig.apply();
 			}),

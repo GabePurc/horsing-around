@@ -3,6 +3,7 @@ package dev.horsingaround.ride;
 import static dev.horsingaround.ride.RideTuning.*;
 
 import com.google.gson.Gson;
+import dev.horsingaround.HorsingAround;
 import com.google.gson.GsonBuilder;
 import java.io.IOException;
 import java.io.Reader;
@@ -136,5 +137,6 @@ public final class HorseConfig {
 		REFUSAL_VOLUME = 0.5F * c.horseSounds;
 		CLIMB_SOUND_VOLUME = 0.35F * c.horseSounds;
 		CUT_SOUND_VOLUME = 0.6F * c.horseSounds;
+		HorsingAround.sendRules();
 	}
 }

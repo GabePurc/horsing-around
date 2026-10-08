@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.At;
 /** Turns off vanilla's hold-to-charge riding jump; the ride controller jumps on press instead. */
 @Mixin(LocalPlayer.class)
 public abstract class LocalPlayerMixin {
-	@ModifyExpressionValue(method = "aiStep", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/PlayerRideableJumping;getJumpCooldown()I"))
+	@ModifyExpressionValue(method = "aiStep", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/PlayerRideableJumping;getJumpCooldown()I"), require = 1)
 	private int horsingaround$noChargedJump(final int cooldown) {
 		return ((LocalPlayer) (Object) this).getVehicle() instanceof RideStateHolder holder && holder.horsingaround$managed() ? 1 : cooldown;
 	}

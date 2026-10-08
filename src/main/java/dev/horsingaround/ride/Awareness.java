@@ -666,7 +666,7 @@ public final class Awareness {
 			if (by <= bodyTop && isHazard(state) && !occupied(bx, by, bz)) {
 				return HAZARD;
 			}
-			final VoxelShape shape = RIDE_THROUGH_LEAVES && state.is(BlockTags.LEAVES) ? Shapes.empty() : state.getCollisionShape(level, POS);
+			final VoxelShape shape = Foliage.leavesOpen(level) && state.is(BlockTags.LEAVES) ? Shapes.empty() : state.getCollisionShape(level, POS);
 			if (shape.isEmpty() || shape != Shapes.block() && !covers(shape, inX, inZ)) {
 				if (!fluid.isEmpty() && fluid.is(FluidTags.WATER)) {
 					// Swimming is fine, and water breaks any fall.
@@ -857,7 +857,7 @@ public final class Awareness {
 		final int y = Mth.floor(horse.getY() + 1.5);
 		for (float d = half + 0.25F; d <= half + LEDGE_REACH; d += 0.5F) {
 			final BlockState state = level.getBlockState(POS.set(Mth.floor(horse.getX() + fx * d), y, Mth.floor(horse.getZ() + fz * d)));
-			if (!state.isAir() && !(RIDE_THROUGH_LEAVES && state.is(BlockTags.LEAVES)) && !state.getCollisionShape(level, POS).isEmpty()) {
+			if (!state.isAir() && !(Foliage.leavesOpen(level) && state.is(BlockTags.LEAVES)) && !state.getCollisionShape(level, POS).isEmpty()) {
 				return true;
 			}
 		}

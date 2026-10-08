@@ -60,12 +60,12 @@ public final class TerrainRideTest implements FabricClientGameTest {
 	/** Damage a horse or rider must never take on a ride. */
 	private static final List<String> NEVER = List.of("cactus", "sweetBerryBush", "inFire", "onFire", "lava", "hotFloor", "freeze", "inWall", "drown", "campfire");
 
-	private enum Kind {
+	enum Kind {
 		FOREST, DENSE_FOREST, MOUNTAIN_DOWN, MOUNTAIN_UP, HILLS, TAIGA, RIVER, BADLANDS
 	}
 
 	/** How the rider heads for the target: straight at it, or zigzagging like someone exploring. */
-	private record Scenario(String name, Kind kind, long seed, boolean zigzag, double minPace, int maxStuck) {
+	record Scenario(String name, Kind kind, long seed, boolean zigzag, double minPace, int maxStuck) {
 	}
 
 	private static final List<Scenario> SCENARIOS = List.of(
@@ -82,7 +82,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 	);
 
 	/** Where a ride starts and where the rider is heading, both standing heights. */
-	private record Route(BlockPos start, BlockPos target) {
+	record Route(BlockPos start, BlockPos target) {
 	}
 
 	private record Hurt(boolean horse, String type, float amount, float healthBefore, float maxHealth) {
@@ -128,9 +128,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 			}
 			writeReport();
 		}
-		if (this.failures > 0) {
-			throw new AssertionError(this.failures + " terrain ride checks failed; see horsingaround-terrain-report.txt");
-		}
+		TestSummary.failed(this.failures, "horsingaround-terrain-report.txt");
 	}
 
 	/** Builds the scenario's terrain, then rides it like a player. Returns the crashes. */
@@ -451,7 +449,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 	// ---- Terrain ----
 
 	/** Builds the scenario in the SIZE x SIZE area north of (ox, oz) (server thread). */
-	private static Route build(final ServerLevel level, final Scenario scenario, final int ox, final int oz) {
+	static Route build(final ServerLevel level, final Scenario scenario, final int ox, final int oz) {
 		final Terrain t = new Terrain(level, ox, oz, new Random(scenario.seed()));
 		final int mid = SIZE / 2;
 		return switch (scenario.kind()) {
