@@ -25,10 +25,15 @@ public final class HorseConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("horsingaround.json");
 	private static HorseConfig instance = new HorseConfig();
+	/** Range of the camera height setting, blocks. */
+	public static final float CAMERA_HEIGHT_MIN = -0.5F;
+	public static final float CAMERA_HEIGHT_MAX = 1.5F;
 
 	// Camera.
 	public boolean thirdPersonOnMount = true;
 	public float cameraDistance = 1.0F;
+	/** Riding camera height above the rider's eyes, blocks. */
+	public float cameraHeight = CAMERA_HEIGHT_DEFAULT;
 	public float speedZoom = 1.0F;
 	// Comfort (first person).
 	public float viewBob = 1.0F;
@@ -78,13 +83,14 @@ public final class HorseConfig {
 	public static void apply() {
 		final HorseConfig c = instance;
 		c.cameraDistance = Mth.clamp(c.cameraDistance, 0.5F, 1.5F);
+		c.cameraHeight = Mth.clamp(c.cameraHeight, CAMERA_HEIGHT_MIN, CAMERA_HEIGHT_MAX);
 		c.speedZoom = Mth.clamp(c.speedZoom, 0.0F, 1.0F);
 		c.viewBob = Mth.clamp(c.viewBob, 0.0F, 1.0F);
 		c.handBob = Mth.clamp(c.handBob, 0.0F, 1.0F);
 		c.horseSounds = Mth.clamp(c.horseSounds, 0.0F, 1.0F);
 		AUTO_THIRD_PERSON = c.thirdPersonOnMount;
-		CAMERA_DISTANCE_STILL = 4.0F * c.cameraDistance;
-		CAMERA_DISTANCE_GALLOP = 5.5F * c.cameraDistance;
+		CAMERA_DISTANCE_SCALE = c.cameraDistance;
+		CAMERA_HEIGHT = c.cameraHeight;
 		FOV_GALLOP_BOOST = 0.05F * c.speedZoom;
 		FP_BOUNCE_SCALE = 0.35F * c.viewBob;
 		FP_NOD_SCALE = 0.15F * c.viewBob;

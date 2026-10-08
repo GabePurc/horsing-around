@@ -509,7 +509,10 @@ public final class Awareness {
 		final double reach = Math.max(half - 0.25, 0.1);
 		final double end = profileLength * STEP;
 		if (x - reach > end) {
-			return profileFallsAway || profileLength == 0 ? Double.NEGATIVE_INFINITY : PROFILE[profileLength - 1];
+			// Past the end: nothing if it ended at a drop; if it ended at a wall the horse can't get past it, so it comes down
+			// short of it (with a wall right in front, where it stands: before, that read as a bottomless drop and a jump
+			// pressed close to a wall or ledge was refused).
+			return profileFallsAway ? Double.NEGATIVE_INFINITY : profileLength == 0 ? profileOrigin : PROFILE[profileLength - 1];
 		}
 		double ground = x - reach <= 0.0 ? profileOrigin : Double.NEGATIVE_INFINITY;
 		final int first = Math.max(Mth.ceil((x - reach) / STEP) - 1, 0);

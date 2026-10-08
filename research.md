@@ -293,6 +293,39 @@ really happens to a rider. A rider at a canter follows the horse's back with a s
 upper body stays tall and quiet, and at a gallop rises into a half seat where the legs take the motion. The pelvis now
 moves about a third as much (~3cm of hip travel at a canter, from ~9) and half that again at a gallop.
 
+## Heaving up ledges, jumping at walls, camera height (user direction, 2026-10-08)
+
+Play-test feedback: the 2-block jump still felt too snappy and unnatural; close to blocks in front, the horse sometimes
+snorted and wouldn't jump even with space pressed; the riding camera sat too high (and needed a height setting); with
+Better Mount HUD installed the stamina bar vanished; and Over the Shoulder should override anything this mod does to the
+third-person view whenever it's active.
+
+Reference: a horse getting up a bank as tall as its back doesn't pop up like a ball. It gathers itself (haunches down,
+nose up), the hind legs drive the body up over a moment while the forehand reaches for the top, it slows as it gets
+there, and the weight comes down onto the bank. The old jump left the ground at its full climbing speed in one tick (0.6
+blocks/tick, 2.3 blocks up in 7 ticks) under full Minecraft gravity: a ball's arc.
+
+Translation:
+
+- The ledge jump is a heave: a longer, deeper gather (at least 5 ticks, haunches down 0.16, nose up 6 degrees, never
+  sinking all at once even from a standstill at the face), the hind legs' push builds the climb over 3 ticks instead of
+  one, and it rises under a little over half its weight, slowing toward the top (fastest climb ~0.4 blocks/tick, ~10
+  ticks up instead of 7), then comes down onto the ledge under its full weight. It carries less forward speed (at least
+  0.2 blocks/tick, from 0.26) and takes off about one and a half blocks out.
+- Pressing jump at a ledge it can climb (in reach, even standing at its face) asks for the ledge jump, since a plain
+  jump can't clear it; standing, it gathers where it is and goes.
+- The safety look before a jump read a wall right in front as a bottomless drop (its ground profile was empty), so a
+  jump pressed walking into a wall or a ledge it wouldn't climb was refused with a snort. A wall in front now means it
+  comes down where it stands.
+- The riding camera's pivot sits 0.2 above the rider's eyes (was 0.5), with a "Camera height" setting (-0.5 to 1.5
+  blocks); its height follow eases in two stages so a takeoff or a step starts and stops softly.
+- The stamina bar holds the jump bar's slot whenever stamina isn't full, also against mods that give it to the
+  experience bar (Better Mount HUD shows experience unless jump is held, and our horses never charge a jump).
+- While Over the Shoulder is on, this mod leaves the third-person view to it entirely: no placing the camera, no easing
+  the pitch back to a riding angle (that moved the player's aim), and this mod's camera distance and height settings
+  don't reach it (the add-on gets the designed riding distance and has its own settings; they're greyed out here, with
+  a note). Its riding height came down too (0.35 above the eyes, was 0.7).
+
 ## Staying vanilla
 
 - No new HUD panels. Stamina lives in the vanilla horse jump bar, which charged jumping no longer needs.

@@ -108,19 +108,29 @@ public final class RideState {
 	/** Distance along the way ahead to a wall this tick; MAX_VALUE when none. */
 	float wallAhead = Float.MAX_VALUE;
 	/**
-	 * Jumping up a ledge: ticks since the ledge was spotted (0 when not), whether it has taken off, the ledge's top, the
-	 * heading, the forward speed of the jump, and how far it has sunk onto its haunches (0..1).
+	 * Jumping up a ledge: ticks since the ledge was spotted (0 when not), whether it has taken off, whether the rider
+	 * asked for it (jump pressed at the ledge), the ledge's top, the heading, the forward speed of the jump, the climb
+	 * speed the hind legs' push builds to, ticks since takeoff, and how far it has sunk onto its haunches (0..1).
 	 */
 	public int ledgeTicks;
 	public boolean ledgeAir;
+	boolean ledgeAsked;
 	double ledgeTop;
 	float ledgeYaw;
 	float ledgeForward;
+	float ledgeLift;
+	int ledgeAirTicks;
 	float ledgeCrouch;
-	/** Ledge jumps made, and where the last one took off (for tests). */
+	/** Rising up a ledge (the climb, before it comes down onto the top). */
+	public boolean climbingLedge() {
+		return this.ledgeAir && this.ledgeLift > 0.0F;
+	}
+
+	/** Ledge jumps made, and where and when the last one took off (for tests). */
 	public int ledgeClimbs;
 	public double ledgeTakeoffX;
 	public double ledgeTakeoffZ;
+	public int ledgeTakeoffTick;
 
 	// Visual body pose, computed on every client for every horse.
 	float lean;
@@ -313,6 +323,7 @@ public final class RideState {
 		this.wallAhead = Float.MAX_VALUE;
 		this.ledgeTicks = 0;
 		this.ledgeAir = false;
+		this.ledgeAsked = false;
 		this.ledgeCrouch = 0.0F;
 		this.ledgeOnLine = false;
 		this.bankTicks = 0;

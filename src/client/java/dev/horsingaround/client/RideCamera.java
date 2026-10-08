@@ -25,9 +25,14 @@ public final class RideCamera {
 	private static float distanceO;
 	private static double eyeY;
 	private static double eyeYO;
+	/** First stage of the two-stage height follow. */
+	private static double eyeYEase;
 	private static float lastPitch;
 	private static RideState ride;
-	/** Set by a camera add-on that places the third-person camera itself. */
+	/**
+	 * Set by a camera add-on that places the third-person camera itself (Over the Shoulder): then everything this mod does
+	 * to the third-person view steps aside for it (placement, height and distance settings, easing the pitch back).
+	 */
 	static boolean thirdPersonClaimed;
 	private static final SaddleMotion SADDLE = new SaddleMotion();
 	/** Low-passed saddle motion for the current frame. */
@@ -59,7 +64,7 @@ public final class RideCamera {
 					switchedPerspective = true;
 				}
 				distance = distanceO = CAMERA_DISTANCE_STILL;
-				eyeY = eyeYO = player.getEyeY() + s.heightOffset(1.0F);
+				eyeY = eyeYO = eyeYEase = player.getEyeY() + s.heightOffset(1.0F);
 				lastPitch = player.getXRot();
 				pitchIdleTicks = 0;
 			} else {
@@ -77,10 +82,17 @@ public final class RideCamera {
 		distanceO = distance;
 		distance += (Mth.lerp(gallopFraction(s.speed), CAMERA_DISTANCE_STILL, CAMERA_DISTANCE_GALLOP) - distance) * CAMERA_DISTANCE_SMOOTHING;
 		eyeYO = eyeY;
-		eyeY += (player.getEyeY() + s.heightOffset(1.0F) - eyeY) * CAMERA_HEIGHT_SMOOTHING;
+		final double eye = player.getEyeY() + s.heightOffset(1.0F);
+		if (Math.abs(eye - eyeY) > CAMERA_HEIGHT_SNAP) {
+			eyeY = eyeYO = eyeYEase = eye;
+		}
+		eyeYEase += (eye - eyeYEase) * CAMERA_HEIGHT_SMOOTHING;
+		eyeY += (eyeYEase - eyeY) * CAMERA_HEIGHT_SMOOTHING;
 
+		// The view eases back to a riding pitch, except while another camera places the third-person view (there the
+		// pitch is the player's aim).
 		float pitch = player.getXRot();
-		if (Math.abs(pitch - lastPitch) > 0.01F || s.speed < GAIT_SPEED[TROT]) {
+		if (Math.abs(pitch - lastPitch) > 0.01F || s.speed < GAIT_SPEED[TROT] || otherThirdPerson(minecraft)) {
 			pitchIdleTicks = 0;
 		} else if (++pitchIdleTicks > PITCH_RECENTER_DELAY) {
 			pitch += (PITCH_DEFAULT - pitch) * PITCH_RECENTER_RATE;
@@ -91,8 +103,22 @@ public final class RideCamera {
 	}
 
 	public static boolean isActive(final Entity cameraEntity, final Minecraft minecraft) {
-		return riding && !thirdPersonClaimed && cameraEntity == minecraft.player && minecraft.options.getCameraType() == CameraType.THIRD_PERSON_BACK
-			&& !CameraMods.otherCameraActive();
+		return riding && cameraEntity == minecraft.player && ownThirdPerson(minecraft);
+	}
+
+	/** This mod places the third-person (back) view: it is on, and no add-on or other camera mod has taken it over. */
+	private static boolean ownThirdPerson(final Minecraft minecraft) {
+		return !thirdPersonClaimed && minecraft.options.getCameraType() == CameraType.THIRD_PERSON_BACK && !CameraMods.otherCameraActive();
+	}
+
+	/** A third-person view that an add-on or another camera mod places. */
+	private static boolean otherThirdPerson(final Minecraft minecraft) {
+		return !minecraft.options.getCameraType().isFirstPerson() && (thirdPersonClaimed || CameraMods.otherCameraActive());
+	}
+
+	/** Whether a camera add-on (Over the Shoulder) has taken over the third-person view. */
+	public static boolean isThirdPersonClaimed() {
+		return thirdPersonClaimed;
 	}
 
 	/**
@@ -145,7 +171,13 @@ public final class RideCamera {
 		return eyeY(partialTicks) + CAMERA_HEIGHT + frameLift * THIRD_PERSON_BOUNCE_SCALE;
 	}
 
+	/** This mod's own camera distance: the designed distance at this speed, scaled by the player's setting. */
 	public static float distance(final float partialTicks) {
+		return designedDistance(partialTicks) * CAMERA_DISTANCE_SCALE;
+	}
+
+	/** Designed distance at this speed (falling behind as the horse speeds up), before the player's setting. */
+	public static float designedDistance(final float partialTicks) {
 		return Mth.lerp(partialTicks, distanceO, distance);
 	}
 

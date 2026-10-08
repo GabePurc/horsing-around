@@ -32,8 +32,9 @@ abstract class EntityMixin {
 			final RideState s = holder.horsingaround$ride();
 			final Entity horse = (Entity) (Object) this;
 			if (s.narrow && horse.isLocalInstanceAuthoritative()) {
-				// (Not while heaving out of the water: that rises smoothly onto the bank by itself.)
-				if (!this.onGround && !horse.isInWater() && s.bankTicks == 0) {
+				// (Not while heaving out of the water or climbing up a ledge: those rise smoothly onto the top by themselves,
+				// and a step-up partway would pop the horse up.)
+				if (!this.onGround && !horse.isInWater() && s.bankTicks == 0 && !s.climbingLedge()) {
 					this.onGround = true;
 				}
 				s.moving = true;

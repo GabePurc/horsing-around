@@ -49,6 +49,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 	private final List<String> report = new ArrayList<>();
 	private int failures;
 	private CameraType cameraBeforeMounting = CameraType.FIRST_PERSON;
+	private TestServerContext server;
 
 	private record Sample(
 		double speed, double y, float horseYaw, float playerYaw, int gait, float stamina, boolean exhausted, float lean, boolean onGround,
@@ -69,6 +70,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			.adjustSettings(settings -> settings.setGameMode(WorldCreationUiState.SelectedGameMode.CREATIVE))
 			.create()) {
 			final TestServerContext server = world.getServer();
+			this.server = server;
 			server.runCommand("time set noon");
 			server.runCommand("tp @a 0.5 -60 0.5 180 10");
 			server.runCommand("summon minecraft:horse 0.5 -60 0.5 {Tame:1b,Variant:0,Rotation:[180f,0f],"
@@ -92,6 +94,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 				freeLook(ctx, input);
 				walk(ctx, input);
 				gallop(ctx, input);
+				staminaBarAndCameraAddOn(ctx, input);
 				turn(ctx, input);
 				runningJump(ctx, input);
 				exhaustion(ctx, input);
@@ -103,6 +106,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 			if (sections.isEmpty() || sections.contains("ledges")) {
 				messyLedges(ctx, input, world);
+			}
+			if (sections.contains("face") && !sections.contains("picking")) {
+				// Only on request (it is part of picking): pressing jump right up against a wall or a ledge.
+				jumpAtTheFace(ctx, input, world);
 			}
 			if (sections.contains("legs")) {
 				// Only on request: close side shots of the legs in a jump, for judging the pose.
@@ -139,6 +146,21 @@ public final class RideFeelTest implements FabricClientGameTest {
 		section("Mounting");
 		check("ridden, the horse's box narrows to its body (width, blocks)", ctx.computeOnClient(mc -> (double) mc.player.getVehicle().getBbWidth()), 0.85, 0.95);
 		check("camera switched to third person", ctx.computeOnClient(mc -> mc.options.getCameraType()) == CameraType.THIRD_PERSON_BACK);
+		// The pivot sits CAMERA_HEIGHT above the rider's eyes and the camera backs off along the view (10 deg down).
+		if (ctx.computeOnClient(mc -> RideCamera.isActive(mc.player, mc))) {
+			final double above = cameraAboveEyes(ctx);
+			check("riding camera sits low behind the rider (camera above the eyes, standing, blocks)", above, 0.75, 1.05);
+			ctx.runOnClient(mc -> {
+				HorseConfig.get().cameraHeight = RideTuning.CAMERA_HEIGHT_DEFAULT + 0.5F;
+				HorseConfig.apply();
+			});
+			ctx.waitTicks(2);
+			check("the camera height setting raises it (blocks)", cameraAboveEyes(ctx) - above, 0.45, 0.55);
+			ctx.runOnClient(mc -> HorseConfig.reset());
+			ctx.waitTicks(2);
+		} else {
+			log("  camera height: skipped (another camera mod places the view)");
+		}
 		screenshot(ctx, "01_mounted");
 		sideScreenshot(ctx, "01b_seated_side");
 	}
@@ -206,6 +228,67 @@ public final class RideFeelTest implements FabricClientGameTest {
 		sideScreenshot(ctx, "03e_gallop_side_b");
 		saddleSync(ctx);
 		firstPersonBob(ctx);
+	}
+
+	/**
+	 * The stamina bar holds the jump bar's slot in survival too, where the experience bar wants it (and Better Mount HUD,
+	 * in the compatibility runs, hides the jump bar unless jump is held). Then a camera add-on (Over the Shoulder) taking
+	 * the third-person view: this mod stops easing the pitch and placing the camera, and its distance setting doesn't
+	 * reach the add-on.
+	 */
+	private void staminaBarAndCameraAddOn(final ClientGameTestContext ctx, final TestInput input) {
+		section("Stamina bar in survival, and a camera add-on");
+		this.server.runCommand("gamemode survival @a");
+		ctx.waitTicks(3);
+		final String bar = contextualBar(ctx);
+		check("stamina not full after galloping", sample(ctx).stamina < 1.0F);
+		check("survival: the stamina bar has the slot (" + bar + ")", bar.equals("JumpableVehicleBar"));
+		screenshot(ctx, "03f_stamina_bar_survival");
+		this.server.runCommand("gamemode creative @a");
+
+		// Down to a canter (no stamina drain), mouse left alone.
+		input.pressKey(o -> o.keyDown);
+		input.lookAt(180.0F, 35.0F);
+		ctx.waitTicks(75);
+		check("idle mouse at a canter: the view eases back toward a riding pitch (deg)", ctx.computeOnClient(mc -> (double) mc.player.getXRot()), 9.0, 30.0);
+		ctx.runOnClient(mc -> dev.horsingaround.client.api.RideCameraApi.setThirdPersonClaimed(true));
+		input.lookAt(180.0F, 35.0F);
+		ctx.waitTicks(75);
+		check("an add-on placing the view: the pitch is left to the player (deg)", ctx.computeOnClient(mc -> (double) mc.player.getXRot()), 34.9, 35.1);
+		check("an add-on placing the view: this mod doesn't place the camera", ctx.computeOnClient(mc -> !RideCamera.isActive(mc.player, mc)));
+		ctx.runOnClient(mc -> {
+			HorseConfig.get().cameraDistance = 1.4F;
+			HorseConfig.apply();
+		});
+		check("the add-on gets the designed riding distance, not this mod's distance setting (share)",
+			ctx.computeOnClient(mc -> (double) (dev.horsingaround.client.api.RideCameraApi.distance(1.0F) / RideCamera.designedDistance(1.0F))), 0.999, 1.001);
+		check("this mod's own camera takes the distance setting (share)", ctx.computeOnClient(mc -> (double) (RideCamera.distance(1.0F) / RideCamera.designedDistance(1.0F))),
+			1.399, 1.401);
+		ctx.runOnClient(mc -> {
+			HorseConfig.reset();
+			dev.horsingaround.client.api.RideCameraApi.setThirdPersonClaimed(false);
+		});
+		input.lookAt(180.0F, 10.0F);
+		input.pressKey(o -> o.keySprint);
+		ctx.waitTicks(30);
+	}
+
+	/** Simple name of the bar in the experience bar's slot (jump bar, experience, locator). */
+	private static String contextualBar(final ClientGameTestContext ctx) {
+		return ctx.computeOnClient(mc -> {
+			try {
+				final java.lang.reflect.Field field = net.minecraft.client.gui.Hud.class.getDeclaredField("contextualInfoBar");
+				field.setAccessible(true);
+				return ((com.mojang.datafixers.util.Pair<?, ?>) field.get(mc.gui.hud)).getSecond().getClass().getSimpleName();
+			} catch (final ReflectiveOperationException e) {
+				return e.toString();
+			}
+		});
+	}
+
+	/** How far the riding camera is above the rider's (smoothed) eyes this frame. */
+	private static double cameraAboveEyes(final ClientGameTestContext ctx) {
+		return ctx.computeOnClient(mc -> mc.gameRenderer.mainCamera().position().y - RideCamera.eyeY(1.0F));
 	}
 
 	private void turn(final ClientGameTestContext ctx, final TestInput input) {
@@ -1031,7 +1114,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			HorseConfig.get().cameraDistance = 1.2F;
 			HorseConfig.apply();
 		});
-		check("a changed setting applies live (riding camera distance, blocks)", ctx.computeOnClient(mc -> RideTuning.CAMERA_DISTANCE_STILL), 4.79, 4.81);
+		check("a changed setting applies live (riding camera distance scale)", ctx.computeOnClient(mc -> RideTuning.CAMERA_DISTANCE_SCALE), 1.19, 1.21);
 		ctx.runOnClient(mc -> HorseConfig.reset());
 		check("no setting changes how horses ride (gallop speed multiple)", ctx.computeOnClient(mc -> RideTuning.GAIT_SPEED[RideTuning.GALLOP]), 1.149, 1.151);
 		ctx.setScreen(() -> new dev.horsingaround.client.config.HorseSettingsScreen(null));
@@ -1063,6 +1146,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		ledgeAtAWalk(ctx, input, world);
 		ledgeAtAGallop(ctx, input, world);
 		ledgeStraightAhead(ctx, input, world);
+		jumpAtTheFace(ctx, input, world);
 		pillar(ctx, input, world);
 		treesInARow(ctx, input, world);
 		bushes(ctx, input, world);
@@ -1448,6 +1532,12 @@ public final class RideFeelTest implements FabricClientGameTest {
 		int landTick = -1;
 		double previousY = -60.0;
 		double previousZ = 0.0;
+		// The climb, tick by tick: how fast it rises over its first ticks off the ground, and at its fastest.
+		double climbY = -60.0;
+		int climbTick = -1;
+		double groundY = -60.0;
+		double takeoffClimb = -1.0;
+		double fastestClimb = 0.0;
 		sideCamera(world, 405.5, -59.5, -17.5, 90.0F);
 		for (int i = 0; i < 300 && horseZ(ctx) > -26.0; i++) {
 			ctx.waitTick();
@@ -1466,6 +1556,23 @@ public final class RideFeelTest implements FabricClientGameTest {
 				}
 				frames++;
 			}
+			// Height, tick, and the ledge jump's takeoff tick read together (separate reads can fall either side of a tick).
+			final double[] climbNow = ctx.computeOnClient(mc -> {
+				final Entity horse = mc.player.getVehicle();
+				final RideState r = ((RideStateHolder) horse).horsingaround$ride();
+				return new double[] {horse.getY(), horse.tickCount, r.ledgeClimbs > climbs ? r.ledgeTakeoffTick : -1, horse.onGround() ? 1 : 0};
+			});
+			if (climbNow[2] < 0.0 && climbNow[3] > 0.0) {
+				groundY = climbNow[0];
+			} else if (climbNow[2] >= 0.0 && takeoffClimb < 0.0) {
+				// Rise a tick, on average, from the ground through its first tick or two in the air.
+				takeoffClimb = (climbNow[0] - groundY) / (climbNow[1] - climbNow[2] + 1.0);
+			}
+			if (climbTick >= 0 && climbNow[1] > climbTick) {
+				fastestClimb = Math.max(fastestClimb, (climbNow[0] - climbY) / (climbNow[1] - climbTick));
+			}
+			climbY = climbNow[0];
+			climbTick = (int) climbNow[1];
 			if (Double.isNaN(takeoffZ)) {
 				if (ride(ctx, r -> r.ledgeClimbs) > climbs) {
 					// Where it really took off (samples can skip a tick while screenshots are taken).
@@ -1507,7 +1614,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("bounds up it: takes off well before the wall (front to face, blocks)", takeoffZ - half(ctx) - -19.0, 1.2, 2.8);
 		check("no stop before it (walking speed at takeoff, blocks/tick)", approach / WALK_SPEED, 0.6, 1.2);
 		check("an arc, not a pop straight up: forward travel on the way up (blocks)", risingTravel, 1.2, 3.0);
-		check("in the air like a jump (ticks)", airborne, 5, 16);
+		check("a heave, not a pop: the push builds (rise a tick over its first ticks off the ground, blocks)", takeoffClimb, 0.02, 0.25);
+		check("a heave, not a pop: fastest climb (blocks/tick)", fastestClimb, 0.25, 0.45);
+		check("in the air like a heave up a bank (ticks)", airborne, 10, 18);
 		check("clears the lip without launching (peak above the top, blocks)", peak - -58.0, 0.05, 0.6);
 		check("walks on from the top (speed after landing / walk)", after / WALK_SPEED, 0.6, 1.2);
 		stop(ctx, input);
@@ -1591,6 +1700,50 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("without scraping it", !touched);
 		check("moves over only as much as it needs (blocks off the line)", maxSide, 0.2, 1.2);
 		stop(ctx, input);
+	}
+
+	/**
+	 * Pressing jump right up against something: at a wall too high to climb, a plain jump with no snort (the safety look
+	 * used to read a wall right in front as a bottomless drop and refuse); at a 2-block ledge, standing at its face or a
+	 * block out, the ledge jump (a plain jump can't clear it).
+	 */
+	private void jumpAtTheFace(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Pressing jump walking into a 3-block wall");
+		lane(ctx, input, world, 3000.5, -60, "jump_wall_test", "fill 2995 -60 -30 3005 -58 -1 minecraft:stone");
+		input.holdKey(o -> o.keyUp);
+		ctx.waitTicks(15);
+		int refusals = ride(ctx, r -> r.refusals);
+		double startY = sample(ctx).y;
+		check("walking into it", ride(ctx, r -> (int) Math.signum(r.speed)) == 1);
+		input.pressKey(o -> o.keyJump);
+		double peak = startY;
+		for (int i = 0; i < 20; i++) {
+			ctx.waitTick();
+			peak = Math.max(peak, sample(ctx).y);
+		}
+		check("no snort: it doesn't refuse a jump against a wall", ride(ctx, r -> r.refusals) == refusals);
+		check("it jumps (height, blocks)", peak - startY, 0.9, 3.0);
+		stop(ctx, input);
+
+		for (final int gap : new int[] {0, 1}) {
+			section("Pressing jump standing " + (gap == 0 ? "at a 2-block ledge's face" : "a block from a 2-block ledge"));
+			final int x = 3020 + gap * 20;
+			lane(ctx, input, world, x + 0.5, -60, "jump_ledge_test_" + x, String.format(Locale.ROOT, "fill %d -60 -30 %d -59 %d minecraft:stone", x - 5, x + 5, -1 - gap));
+			final int climbs = ride(ctx, r -> r.ledgeClimbs);
+			refusals = ride(ctx, r -> r.refusals);
+			startY = sample(ctx).y;
+			input.pressKey(o -> o.keyJump);
+			final StringBuilder trace = new StringBuilder();
+			for (int i = 0; i < 40; i++) {
+				ctx.waitTick();
+				trace.append(String.format(Locale.ROOT, "z%.2f y%.2f l%d | ", horseZ(ctx), sample(ctx).y - startY, ride(ctx, r -> r.ledgeTicks)));
+			}
+			log("  path: %s", trace);
+			check("jump asks for the ledge jump", ride(ctx, r -> r.ledgeClimbs) - climbs, 1, 1);
+			check("no snort", ride(ctx, r -> r.refusals) == refusals);
+			check("up on top (blocks gained)", sample(ctx).y - startY, 1.95, 2.05);
+			stop(ctx, input);
+		}
 	}
 
 	/**
