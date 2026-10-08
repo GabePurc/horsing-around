@@ -778,10 +778,13 @@ public final class RideController {
 			s.flying = true;
 		} else {
 			// Stepping off something no deeper than a step, the hooves stay on the ground; a jump or a bigger drop is a
-			// flight, until the horse lands.
+			// flight, until the horse lands. (A bigger drop under the hind hooves too: walking down a slope of full blocks,
+			// the wide body stays on each block's edge until its middle is over the one below that, but it is stepping.)
 			if (onGround) {
 				s.flying = false;
-			} else if (!s.flying && (dy > 0.0 || s.leapt || groundHeight(horse, horse.getX(), y, horse.getZ(), y) < y - STEP_REACH)) {
+			} else if (!s.flying && (dy > 0.0 || s.leapt || groundHeight(horse, horse.getX(), y, horse.getZ(), y) < y - STEP_REACH
+				&& groundHeight(horse, horse.getX() + Mth.sin(bodyYaw * Mth.DEG_TO_RAD) * HIND_HOOVES, y, horse.getZ() - Mth.cos(bodyYaw * Mth.DEG_TO_RAD) * HIND_HOOVES, y)
+					< y - STEP_REACH)) {
 				s.flying = true;
 			}
 			if (!s.flying) {
@@ -958,11 +961,22 @@ public final class RideController {
 		final double hindLow = Double.isNaN(hindFoot) ? hindEased : Math.min(hindEased, hindFoot);
 		double offset = Math.max(Math.min(foreLow, hindLow), Math.max(foreEased, hindEased) - SINK_MAX) - tuck - s.ledgeCrouch * LEDGE_CROUCH
 			- s.cutSquat * CUT_SQUAT;
-		// No sudden change in how fast the drawn body rises or sinks while the hooves are down, landing included (a step
-		// just ahead of where it lands doesn't throw the body up): a jolt eases in.
+		// The drawn body tracks where it should be: a climb at a steady rate carried through without lag, and the jolt of
+		// each step (a stair's half block, the body catching up as the hindquarters come up) smoothed out (an alpha-beta
+		// tracker, BODY_TRACK of the way to it each tick). Never a jolt past DRAWN_JOLT a tick either, landing included (a
+		// step just ahead of where it lands doesn't throw the body up).
 		final double before = horse.yo + s.heightOffsetO;
 		if (Math.abs(y + offset - before) < STEP_SNAP) {
-			offset = before + Mth.clamp(y + offset - before, s.drawnRise - DRAWN_JOLT, s.drawnRise + DRAWN_JOLT) - y;
+			if (!s.wasOnGround) {
+				s.bodyClimb = s.drawnRise;
+			}
+			final double predicted = before + s.bodyClimb;
+			final double residual = y + offset - predicted;
+			s.bodyClimb += (float) (residual * BODY_TRACK * BODY_TRACK / (2.0 - BODY_TRACK));
+			final double drawn = predicted + residual * BODY_TRACK;
+			offset = before + Mth.clamp(drawn - before, s.drawnRise - DRAWN_JOLT, s.drawnRise + DRAWN_JOLT) - y;
+		} else {
+			s.bodyClimb = 0.0F;
 		}
 		s.heightOffset = (float) offset;
 		// Then the pair over higher ground bends its knees to bring its hooves up onto it, stepping rather than flicking.

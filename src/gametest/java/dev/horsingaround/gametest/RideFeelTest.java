@@ -2451,6 +2451,11 @@ public final class RideFeelTest implements FabricClientGameTest {
 					previousTick = (int) now[1];
 					previousPitch = (float) now[2];
 				}
+				if (z <= -3.0 && z >= end + 2.5) {
+					// (In the air for a moment: just where it is and what the ride makes of it.)
+					trace.append(String.format(Locale.ROOT, "air t%d z%.2f y%.2f vis%.3f tilt%.1f %s | ", (int) now[1], z, sample(ctx).y, now[11], now[2],
+						ride(ctx, r -> r.debugGround())));
+				}
 				continue;
 			}
 			// On the slope: both pairs of hooves, how far off the ground they're drawn.

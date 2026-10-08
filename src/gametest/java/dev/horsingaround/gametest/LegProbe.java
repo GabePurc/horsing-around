@@ -44,6 +44,8 @@ public final class LegProbe {
 	public static final double[] gap = new double[4];
 	/** How far the body's underside is in the ground at its deepest corner (blocks, the shortest way out). */
 	public static double bodyInside;
+	/** The same for the chest end of it alone (the rest is the hindquarters). */
+	public static double chestInside;
 	/** How far the rest of the leg (the knee, the cannon) is in the ground at its deepest corner (blocks, the shortest way out). */
 	public static final double[] legInside = new double[4];
 	/** How far the top of the leg is up inside the body, at its shallowest corner (blocks; negative, a gap shows). */
@@ -125,9 +127,18 @@ public final class LegProbe {
 		final double fx = -Mth.sin(yaw);
 		final double fz = Mth.cos(yaw);
 		bodyInside = 0.0;
+		chestInside = 0.0;
 		if (bellyVolume > 0.0) {
+			final float heading = horse.getVisualRotationYInDegrees() * Mth.DEG_TO_RAD;
+			final double hx = -Mth.sin(heading);
+			final double hz = Mth.cos(heading);
+			final double middle = (belly[0] + belly[3] + belly[6] + belly[9]) * 0.25 * hx + (belly[2] + belly[5] + belly[8] + belly[11]) * 0.25 * hz;
 			for (int i = 0; i < 4; i++) {
-				bodyInside = Math.max(bodyInside, insideAt(level, belly[i * 3], belly[i * 3 + 2], belly[i * 3 + 1]));
+				final double in = insideAt(level, belly[i * 3], belly[i * 3 + 2], belly[i * 3 + 1]);
+				bodyInside = Math.max(bodyInside, in);
+				if (belly[i * 3] * hx + belly[i * 3 + 2] * hz > middle) {
+					chestInside = Math.max(chestInside, in);
+				}
 			}
 		}
 		// The belly's plane (its normal up).
@@ -414,6 +425,7 @@ public final class LegProbe {
 		for (int i = 0; i < 4; i++) {
 			out.append(String.format(Locale.ROOT, "%s gap%+.2f knee%+.2f hip%+.2f jut%+.2f  ", names[i], gap[i], -legInside[i], hip[i], jut[i]));
 		}
+		out.append(String.format(Locale.ROOT, "body in %.2f (chest %.2f)  ", bodyInside, chestInside));
 		return out.toString();
 	}
 }

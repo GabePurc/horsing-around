@@ -113,6 +113,7 @@ public final class GroundLegs {
 		}
 		DOWN = down;
 		final float upright = down * LEG_UPRIGHT;
+		final float stride = 1.0F - (1.0F - STRIDE_STEEP) * Mth.clamp(Math.abs(down) / STRIDE_STEEP_TILT, 0.0F, 1.0F);
 		// Each leg upright (turned about its top), and where it is drawn, how far the ground under its hoof is above it.
 		float standing = Float.POSITIVE_INFINITY;
 		float highest = Float.NEGATIVE_INFINITY;
@@ -128,7 +129,9 @@ public final class GroundLegs {
 			Knees.straighten(leg);
 			// (How high the pack has the hoof, before it is turned upright: lifted mid-stride, it isn't standing.)
 			final float packLift = (groundY - (part.y + leg.soleY * Mth.cos(part.xRot) - leg.soleZ * Mth.sin(part.xRot))) / pixels;
-			Knees.swing(part, leg, part.xRot + upright);
+			// On steep ground the stride is shorter (a horse picks its way up and down stairs): the pack's swing, turned
+			// about the top of the leg, is scaled down; then the leg stands upright against the tilt.
+			Knees.swing(part, leg, part.xRot * stride + upright);
 			if (ground) {
 				final float rise = groundRise(ride, root, part, leg, level, i, dt);
 				RISES[i] = rise;
@@ -299,9 +302,12 @@ public final class GroundLegs {
 		}
 		MATRIX.transformPosition(leg.soleX / 16.0F, leg.soleY / 16.0F, leg.soleZ / 16.0F, POINT);
 		SOLES[index * 3 + 1] = ride.drawnCameraY + POINT.y;
-		// Front edge, middle, back edge: the higher of the ground under each now and where it will be.
+		// Front edge, middle, back edge: the higher of the ground under each now and where it will be (a step's face is
+		// judged only where the hoof is: one just ahead is something to come up for, not to back off).
 		for (int edge = -1; edge <= 1; edge++) {
-			SAMPLES[edge + 1] = Math.max(sample(ride, leg, level, edge * leg.soleHalf), sample(ride, leg, level, edge * leg.soleHalf + ahead));
+			final float now = sample(ride, leg, level, edge * leg.soleHalf);
+			final float soon = ahead == 0.0F ? now : sample(ride, leg, level, edge * leg.soleHalf + ahead);
+			SAMPLES[edge + 1] = Float.isNaN(now) || Float.isNaN(soon) ? now : Math.max(now, soon);
 		}
 		SOLES[index * 3] = nowX;
 		SOLES[index * 3 + 2] = nowZ;

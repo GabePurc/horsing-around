@@ -431,7 +431,7 @@ public final class RideTuning {
 	 */
 	public static final float LEG_RISE_MAX = 0.55F;
 	public static final float LEG_RISE_UP = 20.0F;
-	public static final float LEG_RISE_DOWN = 3.0F;
+	public static final float LEG_RISE_DOWN = 6.0F;
 	/** A hoof up against a step's face moves off it (back onto the tread) at up to LEG_SHIFT_RATE blocks a second. */
 	public static final float LEG_SHIFT_RATE = 8.0F;
 	/**
@@ -439,6 +439,9 @@ public final class RideTuning {
 	 * LEG_LOOKAHEAD_MAX model pixels along the leg), so a swinging hoof clears a step's edge instead of catching on it.
 	 */
 	public static final float LEG_LOOKAHEAD = 0.1F;
+	/** On ground tilting STRIDE_STEEP_TILT radians or more, the legs swing only STRIDE_STEEP of the animation's stride (eased in up to there). */
+	public static final float STRIDE_STEEP = 0.5F;
+	public static final float STRIDE_STEEP_TILT = 0.52F;
 	public static final float LEG_LOOKAHEAD_MAX = 4.0F;
 	/** A hoof in a step's face all over looks up to LEG_FACE_SEARCH half its depth further back for a tread to stand on. */
 	public static final int LEG_FACE_SEARCH = 5;
@@ -469,6 +472,11 @@ public final class RideTuning {
 	 */
 	static final double SINK_MAX = 0.3;
 	static final double DRAWN_JOLT = 0.2;
+	/**
+	 * The drawn body tracks its height BODY_TRACK of the way each tick, carrying its climb (an alpha-beta tracker): up
+	 * stairs and slopes it rises at an even rate instead of in a pulse each step.
+	 */
+	static final double BODY_TRACK = 0.4;
 	/**
 	 * Taking the body's tilt off the legs swings their tops out of the body; each leg is drawn up LEG_HALF_DEPTH model
 	 * pixels x sin of that swing so no gap shows at the hip or shoulder (the body is lowered to match, so the hooves
