@@ -16,7 +16,9 @@ vanilla keys, with no crashes in singleplayer and on a dedicated server with the
 7. **Collisions**: running into walls at speed sheds momentum.
 8. **Multiplayer correctness**: other players see the horse's real heading, not the rider's camera.
 9. **Skid stop / rear**: hard braking from a gallop skids and can rear.
-10. **Config**: feel numbers adjustable without recompiling.
+10. **Settings** (user direction, 2026-10-08): players can only change comfort and personal preference (camera, first-person
+    motion, the mod's extra sound volume), never how horses ride; feel numbers live in `RideTuning`, the same for
+    everyone. The menu should look polished and vanilla-styled.
 11. **Camera**: RDR2-style third-person riding camera (see `research.md`).
 12. **Jumping**: instant, momentum-based jumps; the jump bar shows stamina.
 13. **Fresh Animations**: works with EMF + ETF + Fresh Animations without visual or log errors.

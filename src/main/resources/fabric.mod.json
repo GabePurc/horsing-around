@@ -41,5 +41,12 @@
 	"suggests": {
 		"modmenu": "*",
 		"horsingaround_shoulder": "*"
+	},
+	"custom": {
+		"modmenu": {
+			"links": {
+				"modmenu.buymeacoffee": "https://buymeacoffee.com/blintzbug"
+			}
+		}
 	}
 }

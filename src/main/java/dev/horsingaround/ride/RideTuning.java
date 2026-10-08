@@ -21,11 +21,11 @@ public final class RideTuning {
 	static final float[] BASE_GAIT_ACCEL = {0.0F, 0.05F, 0.035F, 0.025F, 0.018F};
 	static final float[] GAIT_ACCEL = BASE_GAIT_ACCEL.clone();
 	/** Forward key released: horse eases to a stop (~2s from a gallop). */
-	static float DECEL_COAST = 0.03F;
+	static final float DECEL_COAST = 0.03F;
 	/** Dropped a gait while still moving forward. */
-	static float DECEL_REIN = 0.035F;
+	static final float DECEL_REIN = 0.035F;
 	/** Back key held while moving: hard stop (~0.8s from a gallop). */
-	static float DECEL_BRAKE = 0.07F;
+	static final float DECEL_BRAKE = 0.07F;
 	static final float REVERSE_SPEED = -0.2F;
 	static final float REVERSE_ACCEL = 0.03F;
 	/**
@@ -67,7 +67,7 @@ public final class RideTuning {
 	/** Swimming is tiring: a full stamina bar lasts this long in deep water. */
 	static final float STAMINA_DRAIN_SWIM = 1.0F / (40 * 20);
 	/** Pushing through leaves holds the horse to this share of its gait speed. */
-	static float LEAVES_SPEED_FACTOR = 0.75F;
+	static final float LEAVES_SPEED_FACTOR = 0.75F;
 	/** Volume of the rustle while pushing through leaves (the rabbit hop sound). */
 	static float LEAVES_RUSTLE_VOLUME = 0.6F;
 
@@ -97,19 +97,19 @@ public final class RideTuning {
 	// ---- Steering: the horse shifts its weight first, then turns ----
 
 	/** Turn rate limit at low speed, degrees per tick (real horses manage ~90-120 deg/s at a walk). */
-	static float TURN_RATE_STILL = 6.0F;
+	static final float TURN_RATE_STILL = 6.0F;
 	/**
 	 * Sideways grip, m/s^2. Real horses top out around 6; a bit more keeps Minecraft terrain playable. Max turn rate is
 	 * grip / speed, so the turning circle widens with speed: ~2 blocks at a walk, ~4 trot, ~8 canter, ~14 gallop.
 	 */
-	static float LATERAL_GRIP = 9.0F;
+	static final float LATERAL_GRIP = 9.0F;
 	/**
 	 * The horse heads where the rider looks. A/D don't move the view: they set the horse this many degrees left or
 	 * right of it, so the rider can ride at an angle while looking or aiming straight at something.
 	 */
-	static float STEER_OFFSET = 45.0F;
+	static final float STEER_OFFSET = 45.0F;
 	/** A or D alone (no W or S) ride the horse on at its gait, this many degrees left or right of the view: across it. */
-	static float ACROSS_OFFSET = 90.0F;
+	static final float ACROSS_OFFSET = 90.0F;
 	/** Fraction of the heading error the horse tries to correct each tick. */
 	static final float TURN_GAIN = 0.3F;
 	/**
@@ -117,10 +117,10 @@ public final class RideTuning {
 	 * square of this commitment, so the body comes around ~0.3s after the head at a walk and ~0.2s at a gallop
 	 * (about half a stride).
 	 */
-	static float WEIGHT_SHIFT_STILL = 0.09F;
-	static float WEIGHT_SHIFT_GALLOP = 0.18F;
+	static final float WEIGHT_SHIFT_STILL = 0.09F;
+	static final float WEIGHT_SHIFT_GALLOP = 0.18F;
 	/** Max change in turn rate per tick, as a fraction of the current max turn rate. */
-	static float TURN_ACCEL = 0.25F;
+	static final float TURN_ACCEL = 0.25F;
 	/** Speed scrubbed off at full turn commitment at a gallop. */
 	static final float TURN_SPEED_LOSS = 0.12F;
 	/** The head and neck lead into the turn: up to 30 degrees at a walk, 15 at a gallop, reacting within ~0.1s. */
@@ -141,7 +141,8 @@ public final class RideTuning {
 	 * up to CUT_DECEL) to the speed at which that grip brings it round in about CUT_TURN_TICKS. Once committed it eases
 	 * out of the cut by CUT_RELEASE a tick as it comes round. 90 degrees at a gallop: ~0.85s at ~65% pace (a plain turn
 	 * took ~1.9s); 150: ~1s at ~45%; a look of 40 degrees or less (riding at an angle with A/D included) is ordinary
-	 * steering, so the horse still shifts its weight before it turns.
+	 * steering, so the horse still shifts its weight before it turns. Always on (not a setting); the ride test switches it
+	 * off to compare against a plain turn.
 	 */
 	public static boolean HARD_CUT = true;
 	static final float CUT_START = 40.0F;
@@ -164,7 +165,7 @@ public final class RideTuning {
 	// ---- Stamina ----
 
 	/** Full stamina lasts ~28s of galloping. */
-	public static float STAMINA_DRAIN_GALLOP = 1.0F / (28 * 20);
+	public static final float STAMINA_DRAIN_GALLOP = 1.0F / (28 * 20);
 	/** Stamina regained per tick at each gait (galloping never regenerates). */
 	static final float[] BASE_STAMINA_REGEN = {1.0F / (6 * 20), 1.0F / (6 * 20), 1.0F / (10 * 20), 1.0F / (25 * 20), 0.0F};
 	static final float[] STAMINA_REGEN = BASE_STAMINA_REGEN.clone();
@@ -189,17 +190,17 @@ public final class RideTuning {
 	// ---- Jumping: instant on press, power from momentum ----
 
 	/** Jump strength at a standstill and at a canter or faster (vanilla full charge = 1.0). */
-	static float JUMP_POWER_STILL = 0.55F;
-	static float JUMP_POWER_RUNNING = 0.8F;
+	static final float JUMP_POWER_STILL = 0.55F;
+	static final float JUMP_POWER_RUNNING = 0.8F;
 	/**
 	 * Every jump takes off at least this fast (blocks/tick, about 1.25 blocks high, like a player's jump), so a weak
 	 * horse or a standing jump still clears a block.
 	 */
-	public static float JUMP_MIN_VELOCITY = 0.42F;
+	public static final float JUMP_MIN_VELOCITY = 0.42F;
 	static final float JUMP_POWER_EXHAUSTED = 0.75F;
 	/** Extra forward push on takeoff at full power, blocks/tick (vanilla 0.4). */
 	public static final float JUMP_FORWARD_BOOST = 0.1F;
-	public static float JUMP_STAMINA_COST = 0.04F;
+	public static final float JUMP_STAMINA_COST = 0.04F;
 	/** A jump pressed this many ticks before landing still fires on touchdown. */
 	static final int JUMP_BUFFER_TICKS = 8;
 	/** Ticks on the ground after a jump before the next one. */
@@ -220,7 +221,7 @@ public final class RideTuning {
 	 * walls, and stops short of drops that would hurt it (beyond its safe fall distance, 6 blocks for vanilla horses)
 	 * and of hazards (lava, fire, cactus, berry bushes, powder snow...). The rider's intent always wins otherwise.
 	 */
-	public static boolean AVOID_DANGER = true;
+	public static final boolean AVOID_DANGER = true;
 	/** How far ahead the horse looks: this many ticks of travel, within limits (blocks). */
 	static final float LOOK_AHEAD_TICKS = 20.0F;
 	static final float LOOK_AHEAD_MIN = 2.0F;
@@ -302,7 +303,7 @@ public final class RideTuning {
 	 * the LEDGE_CLEARANCE above the lip), and lands a stride onto the top, then walks on. Not at a canter or gallop (it slows for the wall first); never onto leaves or a
 	 * lone log (it needs solid ground under LEDGE_SUPPORT of its body), and never over fences, walls or gates.
 	 */
-	public static boolean LEDGE_CLIMB = true;
+	public static final boolean LEDGE_CLIMB = true;
 	static final float LEDGE_HEIGHT = 2.0F;
 	/** A ledge may have a thin layer on top (snow, a carpet) this thick and still be jumped onto. */
 	static final float LEDGE_TOP_LAYER = 0.26F;
@@ -331,8 +332,8 @@ public final class RideTuning {
 	// ---- Visuals (client) ----
 
 	/** Visual bank into turns: degrees per (deg/tick of turn x (blocks/tick)^2 of speed), capped. */
-	static float LEAN_GAIN = 16.0F;
-	static float LEAN_MAX = 15.0F;
+	static final float LEAN_GAIN = 16.0F;
+	static final float LEAN_MAX = 15.0F;
 	static final float LEAN_SMOOTHING = 0.4F;
 	/** Where the front and hind hooves stand, blocks ahead of and behind the horse's centre. */
 	public static final float FORE_HOOVES = 0.65F;
@@ -473,7 +474,7 @@ public final class RideTuning {
 	// ---- Rider (client) ----
 
 	/** The rider resists the horse's bank to stay upright: fraction of the bank the torso follows. */
-	public static float RIDER_BANK_FOLLOW = 0.3F;
+	public static final float RIDER_BANK_FOLLOW = 0.3F;
 	/** Uphill the rider leans forward by this fraction of the horse's pitch; downhill they stay vertical. */
 	public static final float RIDER_UPHILL_LEAN = 0.25F;
 	/**
@@ -613,13 +614,13 @@ public final class RideTuning {
 	// ---- World ----
 
 	/** A player-ridden horse (and rider) pushes through leaves instead of being stopped. */
-	public static boolean RIDE_THROUGH_LEAVES = true;
+	public static final boolean RIDE_THROUGH_LEAVES = true;
 	/** A horse moving faster than a walk tramples small creatures in its path. */
-	public static boolean TRAMPLE = true;
+	public static final boolean TRAMPLE = true;
 	/** Trampling starts above this share of vanilla top speed (a walk is 0.35, a trot 0.6). */
 	static final float TRAMPLE_MIN_SPEED = 0.5F;
 	/** Damage at a full gallop, half-hearts; scales down to nothing at TRAMPLE_MIN_SPEED. */
-	static float TRAMPLE_DAMAGE_MAX = 8.0F;
+	static final float TRAMPLE_DAMAGE_MAX = 8.0F;
 	/** Knock aside strength at a full gallop. */
 	static final float TRAMPLE_KNOCKBACK = 0.6F;
 	/** "Small" means no wider or taller than this, blocks (chickens, rabbits, cats, foxes, frogs, baby animals...). */
