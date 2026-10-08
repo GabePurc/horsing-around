@@ -53,10 +53,16 @@ User direction (2026-10-06): the mods will be published on Modrinth for anyone t
    the Gradle launcher; Gradle finds or downloads JDK 25 itself. CI builds every push.
 2. **Plain Fabric install**: needs only Fabric Loader and Fabric API. Mod Menu, EMF/ETF and Fresh Animations stay
    optional; the add-on works with or without Horsing Around.
-3. **Every install mix works**: mod on both sides, client only (vanilla or unmodded servers: no rubber-banding, no
-   kicks), server only (vanilla clients ride normally). Features that need the server's agreement switch off when the
-   server lacks the mod.
+3. **Modded servers** (user direction, 2026-10-07): the mod is meant for servers that have it installed, like the
+   user's family server: mod on the server and on each player's game. A client on a server without the mod switches
+   the mod off (horses ride as in vanilla, with a one-time notice), and players without the mod can still join a modded
+   server and ride as in vanilla. Running on vanilla servers is not a goal.
 4. **Compatible with basically any mod**: no crashes, no log errors, and no silently disabled features (ours or
    theirs) alongside popular Fabric mods, checked by an automated run with a mod pack (see `development_plan.md`,
    Release). Doesn't have to hold in dev runs before then.
-5. **Store-ready metadata**: license, authors, links (source, issues), description, icon, screenshots.
+5. **Store-ready metadata**: license (MIT, user's choice 2026-10-07), authors (GabePurc), links (source, issues: the
+   GitHub repos, which the user makes public before publishing), description, icon, screenshots.
+6. **Every ridable mob works** (user request, 2026-10-07): the horse family gets the new riding; every other vanilla
+   mount (camel, camel husk, llama, pig, strider, happy ghast, nautilus, zombie nautilus, boats, minecarts) rides
+   exactly as in vanilla; mob riders (zombie and skeleton horsemen) and vanilla quirks (skeleton horses walking the
+   bottom of lakes) are kept.

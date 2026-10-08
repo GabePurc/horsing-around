@@ -44,7 +44,10 @@ public abstract class LivingEntityRendererMixin {
 		final RidePoseState pose = (RidePoseState) state;
 		final boolean isHorse = entity instanceof RideStateHolder;
 		if (!((isHorse ? entity : entity.getVehicle()) instanceof RideStateHolder holder) || !holder.horsingaround$managed()) {
+			// Render states are reused between entities, so nothing of a ridden horse's pose may carry over.
 			pose.horsingaround$clearPose();
+			pose.horsingaround$setNeck(0.0F);
+			pose.horsingaround$setHeadShake(0.0F, 0.0F);
 			pose.horsingaround$setLegs(0.0F, 0.0F);
 			pose.horsingaround$setAirLegs(0.0F, 0.0F);
 			pose.horsingaround$setTail(0.0F);

@@ -1,31 +1,29 @@
 package dev.horsingaround.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.sugar.Local;
 import dev.horsingaround.HorsingAround;
 import dev.horsingaround.RiderBridge;
-import dev.horsingaround.ride.Footing;
+import dev.horsingaround.ride.Mounts;
 import dev.horsingaround.ride.RideController;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
 import dev.horsingaround.ride.RideTuning;
 import dev.horsingaround.ride.Trample;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
-import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.animal.camel.Camel;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
-import net.minecraft.world.entity.animal.equine.Llama;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
@@ -35,9 +33,15 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(AbstractHorse.class)
+/**
+ * The ride itself. Every hook leaves vanilla (and other mods' hooks) running for mounts this mod doesn't manage, and
+ * changes results rather than cancelling methods where it can. The physics hooks that live on the classes that declare
+ * those methods are in the entity and living entity mixins. Applied after other mods' horse hooks (priority), so on the
+ * horses this mod manages its riding wins over theirs (another mod's free camera turning the horse, say), while their
+ * other features keep working.
+ */
+@Mixin(value = AbstractHorse.class, priority = 1500)
 public abstract class AbstractHorseMixin extends Animal implements RideStateHolder {
 	@Unique
 	private static final Vec3 FORWARD = new Vec3(0.0, 0.0, 1.0);
@@ -58,7 +62,9 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 	@Unique
 	private final RideState horsingaround$ride = new RideState();
 	@Unique
-	private final boolean horsingaround$managed = !((Object) this instanceof Camel) && !((Object) this instanceof Llama);
+	private boolean horsingaround$managed;
+	@Unique
+	private int horsingaround$managedGeneration = -1;
 
 	protected AbstractHorseMixin(final EntityType<? extends Animal> type, final Level level) {
 		super(type, level);
@@ -80,7 +86,17 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 
 	@Override
 	public boolean horsingaround$managed() {
+		final int generation = Mounts.generation();
+		if (this.horsingaround$managedGeneration != generation) {
+			this.horsingaround$managedGeneration = generation;
+			this.horsingaround$managed = Mounts.manages(this);
+		}
 		return this.horsingaround$managed;
+	}
+
+	@Override
+	public boolean horsingaround$playerRidden() {
+		return this.horsingaround$managed() && this.getControllingPassenger() instanceof Player;
 	}
 
 	@Override
@@ -89,10 +105,10 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 	}
 
 	/** First ridden hook each tick: advance the ride simulation and hand vanilla a forward/back-only input. */
-	@Inject(method = "getRiddenInput", at = @At("HEAD"), cancellable = true)
-	private void horsingaround$riddenInput(final Player controller, final Vec3 selfInput, final CallbackInfoReturnable<Vec3> cir) {
-		if (!this.horsingaround$managed || !this.isLocalInstanceAuthoritative()) {
-			return;
+	@ModifyReturnValue(method = "getRiddenInput", at = @At("RETURN"))
+	private Vec3 horsingaround$riddenInput(final Vec3 vanilla, @Local(argsOnly = true) final Player controller) {
+		if (!this.horsingaround$managed() || !this.isLocalInstanceAuthoritative()) {
+			return vanilla;
 		}
 		final RideState s = this.horsingaround$ride;
 		final RiderBridge bridge = HorsingAround.bridge;
@@ -107,62 +123,40 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 			s.pendingJump = 0.0F;
 		}
 		if (this.onGround() && this.playerJumpPendingScale == 0.0F && this.isStanding() && !this.allowStandSliding) {
-			cir.setReturnValue(Vec3.ZERO);
-		} else {
-			final float sidestep = s.sidestep();
-			if (s.speed > MOVING && Math.abs(sidestep) > 0.01F) {
-				// Strafe input is positive to the left.
-				cir.setReturnValue(new Vec3(-sidestep, 0.0, 1.0));
-			} else {
-				cir.setReturnValue(s.speed > MOVING ? FORWARD : s.speed < -MOVING ? BACKWARD : Vec3.ZERO);
-			}
+			return Vec3.ZERO;
 		}
+		final float sidestep = s.sidestep();
+		if (s.speed > MOVING && Math.abs(sidestep) > 0.01F) {
+			// Strafe input is positive to the left.
+			return new Vec3(-sidestep, 0.0, 1.0);
+		}
+		return s.speed > MOVING ? FORWARD : s.speed < -MOVING ? BACKWARD : Vec3.ZERO;
 	}
 
 	@ModifyReturnValue(method = "getRiddenSpeed", at = @At("RETURN"))
 	private float horsingaround$riddenSpeed(final float attributeSpeed) {
-		return this.horsingaround$managed && this.isLocalInstanceAuthoritative() ? attributeSpeed * Math.abs(this.horsingaround$ride.speed) : attributeSpeed;
+		return this.horsingaround$managed() && this.isLocalInstanceAuthoritative() ? attributeSpeed * Math.abs(this.horsingaround$ride.speed) : attributeSpeed;
 	}
 
 	/**
 	 * The simulating side steers by the ride heading and keeps the head level instead of nodding with the camera.
 	 * Everyone else keeps the rotation the rider's client reported, instead of vanilla's snap to the rider's camera.
+	 * Wraps the whole method so that, on the horses this mod rides, other mods that turn the horse themselves (a free
+	 * camera that slowly swings the horse round, say) don't fight the steering; every other mount is untouched.
 	 */
-	@Inject(method = "getRiddenRotation", at = @At("HEAD"), cancellable = true)
-	private void horsingaround$riddenRotation(final LivingEntity controller, final CallbackInfoReturnable<Vec2> cir) {
-		if (!this.horsingaround$managed || !(controller instanceof Player)) {
-			return;
+	@WrapMethod(method = "getRiddenRotation")
+	private Vec2 horsingaround$riddenRotation(final LivingEntity controller, final Operation<Vec2> original) {
+		if (!(controller instanceof Player) || !this.horsingaround$managed()) {
+			return original.call(controller);
 		}
-		cir.setReturnValue(this.isLocalInstanceAuthoritative()
-			? new Vec2(0.0F, this.horsingaround$ride.heading())
-			: new Vec2(this.getXRot(), this.getYRot()));
+		return this.isLocalInstanceAuthoritative() ? new Vec2(0.0F, this.horsingaround$ride.heading()) : new Vec2(this.getXRot(), this.getYRot());
 	}
 
 	/** The head and neck lead into a turn before the body follows. */
 	@Inject(method = "tickRidden", at = @At("TAIL"))
 	private void horsingaround$headLead(final Player controller, final Vec3 riddenInput, final CallbackInfo ci) {
-		if (this.horsingaround$managed && this.isLocalInstanceAuthoritative()) {
+		if (this.horsingaround$managed() && this.isLocalInstanceAuthoritative()) {
 			this.yHeadRot = this.getYRot() + this.horsingaround$ride.headLead();
-		}
-	}
-
-	/**
-	 * Leg animation speed tracks the gait instead of vanilla's distance x 4, which maxes out at a slow trot. Keeps
-	 * cadence believable and lets Fresh Animations pick the matching walk, trot or gallop cycle. In the air (a jump or a
-	 * bigger fall) the stride stops: the legs take the jump's shape instead (see the equine model mixin).
-	 */
-	@Override
-	protected void updateWalkAnimation(final float distance) {
-		if (this.horsingaround$managed && this.getControllingPassenger() instanceof Player) {
-			final float scale = this.isBaby() ? 3.0F : 1.0F;
-			if (this.horsingaround$ride.inAir && !this.onGround()) {
-				this.walkAnimation.update(0.0F, RideTuning.AIR_STRIDE_STOP, scale);
-				return;
-			}
-			final float topSpeed = (float) this.getAttributeValue(Attributes.MOVEMENT_SPEED) * RideTuning.TERMINAL_VELOCITY_FACTOR;
-			this.walkAnimation.update(Math.min(distance / topSpeed * RideTuning.ANIMATION_SPEED_FACTOR, 1.0F), 0.4F, scale);
-		} else {
-			super.updateWalkAnimation(distance);
 		}
 	}
 
@@ -172,9 +166,10 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 	 * the takeoff tick as well. So take off airborne, with the push folded into the velocity (less the air push travel
 	 * adds this tick), plus a small extra forward kick instead of vanilla's fixed lunge.
 	 */
-	@Inject(method = "executeRidersJump", at = @At("HEAD"), cancellable = true)
-	private void horsingaround$jump(final float amount, final Vec3 input, final CallbackInfo ci) {
-		if (!this.horsingaround$managed) {
+	@WrapMethod(method = "executeRidersJump")
+	private void horsingaround$jump(final float amount, final Vec3 input, final Operation<Void> original) {
+		if (!this.horsingaround$managed()) {
+			original.call(amount, input);
 			return;
 		}
 		final Vec3 movement = this.getDeltaMovement();
@@ -190,80 +185,36 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 		this.setOnGround(false);
 		this.horsingaround$ride.jumpedOff = true;
 		this.needsSync = true;
-		ci.cancel();
 	}
 
 	/** Vanilla rears the horse when a jump starts. Just play the sound. */
-	@Inject(method = "handleStartJump", at = @At("HEAD"), cancellable = true)
-	private void horsingaround$startJump(final int jumpScale, final CallbackInfo ci) {
-		if (this.horsingaround$managed) {
+	@WrapMethod(method = "handleStartJump")
+	private void horsingaround$startJump(final int jumpScale, final Operation<Void> original) {
+		if (this.horsingaround$managed()) {
 			this.playJumpSound();
-			ci.cancel();
+		} else {
+			original.call(jumpScale);
 		}
-	}
-
-	/**
-	 * A player-ridden horse handles water itself (ride controller): it keeps its footing while wading and floats
-	 * when swimming, instead of vanilla's water physics, which stop it dead in any depth.
-	 */
-	@Override
-	protected boolean shouldTravelInFluid(final FluidState fluidState) {
-		if (this.horsingaround$managed && this.getControllingPassenger() instanceof Player && this.isInWater() && !this.isInLava()) {
-			return false;
-		}
-		return super.shouldTravelInFluid(fluidState);
-	}
-
-	/**
-	 * Footing: a ridden horse in the air (off a drop, or a jump a little short) moves as if it had a hoof down, so
-	 * vanilla's step-up puts it onto anything within a step of its hooves that it clips, instead of the collision
-	 * stopping it dead. The move itself works out the real ground contact again. Then {@link Footing} slips a shoulder
-	 * caught on a corner past it, and records how much of the move a collision took.
-	 */
-	@Override
-	public void move(final MoverType type, final Vec3 delta) {
-		final RideState s = this.horsingaround$ride;
-		if (type != MoverType.SELF || !s.narrow || !this.isLocalInstanceAuthoritative()) {
-			super.move(type, delta);
-			return;
-		}
-		// (Not while heaving out of the water: that rises smoothly onto the bank by itself.)
-		if (!this.onGround() && !this.isInWater() && s.bankTicks == 0) {
-			((EntityAccessor) (Object) this).horsingaround$setOnGroundFlag(true);
-		}
-		final double x = this.getX();
-		final double z = this.getZ();
-		super.move(type, delta);
-		Footing.afterMove((AbstractHorse) (Object) this, s, delta, x, z);
-	}
-
-	/** Ridden, a full block is a step even from a path, farmland or mud, or onto snow. */
-	@Override
-	public float maxUpStep() {
-		final float step = super.maxUpStep();
-		return this.horsingaround$ride.narrow ? Math.max(step, RideTuning.RIDDEN_STEP_HEIGHT) : step;
-	}
-
-	/** Vanilla air control is half of what is needed to hold ground speed, so every jump bled momentum. */
-	@Override
-	protected float getFlyingSpeed() {
-		return this.horsingaround$managed && this.getControllingPassenger() instanceof Player ? this.getSpeed() * RideTuning.AIR_CONTROL : super.getFlyingSpeed();
 	}
 
 	@Inject(method = "tick", at = @At("TAIL"))
 	private void horsingaround$tick(final CallbackInfo ci) {
 		final RideState s = this.horsingaround$ride;
-		final boolean narrow = this.horsingaround$managed && this.getControllingPassenger() instanceof Player;
+		final boolean managed = this.horsingaround$managed();
+		final boolean narrow = managed && this.getControllingPassenger() instanceof Player;
 		if (narrow != s.narrow) {
 			s.narrow = narrow;
 			this.refreshDimensions();
+		}
+		if (!managed) {
+			return;
 		}
 		if (this.getControllingPassenger() == null) {
 			RideController.tickUnridden(s);
 		}
 		if (this.level().isClientSide()) {
 			RideController.tickVisual((AbstractHorse) (Object) this, s);
-		} else if (this.horsingaround$managed && this.level() instanceof ServerLevel level) {
+		} else if (this.level() instanceof ServerLevel level) {
 			Trample.tick((AbstractHorse) (Object) this, s, level);
 		}
 	}
@@ -274,7 +225,7 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 	 */
 	@Inject(method = "playStepSound", at = @At("HEAD"))
 	private void horsingaround$gaitSound(final BlockPos pos, final BlockState blockState, final CallbackInfo ci) {
-		if (!this.horsingaround$managed || !this.canGallop || !this.isVehicle()) {
+		if (!this.canGallop || !this.isVehicle() || !this.horsingaround$managed()) {
 			return;
 		}
 		final double dx = this.getX() - this.xo;

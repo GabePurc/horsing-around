@@ -40,50 +40,31 @@ hazards with a snort and head toss) and jumps up 2-block ledges. Also early (pha
 
 ## Release: Modrinth readiness (before the first public version)
 
-Requirements in `mvp_requirements.md` (Release). Build portability is done (`completed_steps.md`, Release). Remaining,
-from a code audit on 2026-10-06:
+Requirements in `mvp_requirements.md` (Release). Done (see `completed_steps.md`, Release readiness): builds on any
+machine; modded-server handshake (clients switch off on servers without the mod; the user's target is servers with
+the mod, not vanilla servers); every vanilla mount checked; mixin hygiene; Shoulder Surfing step-aside; automated
+compatibility runs; license and store metadata.
 
-**Install mixes and servers**
-- Leaves: a vanilla server rejects a horse moving through leaves (it re-runs the move with normal collisions), so a
-  client-only install would rubber-band in forests. Register a network channel; the client rides through leaves only
-  when the server has it. Gameplay rules (leaves, trampling) come from the server's config, feel from the client's.
-- Server gametest (`runGameTest`, no EULA needed) to prove the mod loads and tramples on a dedicated-server
-  environment with no client classes.
-- Join a vanilla server with the mod client-only and check riding, jumping and water for rubber-banding.
+How to check a release candidate:
 
-- The ridden horse's collision box is narrowed (0.9 vs vanilla 1.4) on both sides when the server has the mod; on a
-  server without it the server keeps the wide box, so squeezing through tight gaps could rubber-band. Only narrow
-  when the server has the mod (same network-channel check as leaves).
+1. `./gradlew build runGameTest` (bare dedicated server) and `./gradlew runClientGameTest` (ride, terrain, mounts,
+   dedicated-server ride).
+2. `./gradlew runCompat --continue`: each pack of popular mods in a production game. Look at
+   `build/run/compat/<pack>/compat-findings.txt` and the reports.
+3. The add-on: `./gradlew runClientGameTest` in `../Over the Shoulder`.
 
-**Mixin hygiene** (so neither we nor other mods lose features silently)
-- `AbstractHorseMixin` adds overrides of `updateWalkAnimation`, `shouldTravelInFluid` and `getFlyingSpeed`;
-  `LeavesBlockMixin` adds `getCollisionShape`. If another mod adds the same method, Mixin skips one with only a log
-  warning. Move these to chainable injections (MixinExtras `@ModifyReturnValue` / `@WrapMethod`) on the declaring
-  class, with an early cheap type check.
-- Cancelling HEAD injections (`getRiddenInput`, `getRiddenRotation`, `executeRidersJump`, `handleStartJump`, camera
-  `alignWithEntity`, `JumpableVehicleBar.extractBackground`, add-on camera) stop other mods' hooks in those methods
-  while riding. Switch to `@WrapMethod` / return-value modifiers where possible.
-- `defaultRequire: 1` crashes the game if another mod removes an injection target. Keep it for core physics; make
-  cosmetic hooks (pose, camera bob, HUD, FA stirrups) `require = 0` with a logged fallback. The add-on's
-  `lambda$useItem$0` target is a compiler-generated name; target something stable.
-- Modded horses: every `AbstractHorse` subclass except camels and llamas gets the new controls. Use an entity type tag
-  (`horsingaround:managed`, vanilla horse, donkey, mule, skeleton and zombie horse by default) so mods and modpacks opt in.
+Still open:
 
-**Other mods to test with and, where needed, detect and back off from**
-- Performance: Sodium, Iris (shaders), Lithium (collision optimisations vs our leaves rule), FerriteCore, ModernFix,
-  ImmediatelyFast, Entity Culling, C2ME.
-- Player animation: Not Enough Animations (its own riding pose), Player Animator / Emotecraft, Better Combat,
-  First-person Model, Figura. Our rider pose may fight theirs; yield when they are animating.
-- Cameras: Shoulder Surfing Reloaded, Better Third Person, Freecam, Do a Barrel Roll, Replay Mod. Our riding camera
-  (and the add-on) must step aside when another camera mod is driving.
-- HUD: mods that redraw the mount bars (stamina bar) and AppleSkin / Raised style offsets.
-- Horses and mounts: mods that also change horse controls or speed (same mixin targets), and mods adding horse types.
-- Models: EMF packs other than Fresh Animations (our part lookups by name must quietly skip missing parts).
-
-**Automated compatibility run**
-- Loom production run (`ClientProductionRunTask`) of the built jars plus a pack of popular mods fetched from Modrinth,
-  running the ride test and failing on crashes, mixin conflict warnings or errors in the log.
-
-**Store**
-- Choose a license (both mods currently say All-Rights-Reserved), fill in authors and links in `fabric.mod.json`,
-  description, screenshots; publish from CI.
+- Publishing: create the Modrinth projects (client required, server required for Horsing Around; client only for the
+  add-on), upload the jars from `build/libs/`, gallery from `build/run/clientGameTest/gallery/`. Optionally publish
+  from CI once the projects exist (needs a Modrinth token as a GitHub secret).
+- When a pack mod updates or a new popular mod appears, add it to `compatPacks` in `build.gradle` (pin the Modrinth
+  version id, not the version number: some mods reuse numbers across Minecraft versions).
+- Known outside our control: Horseman crashes the second in-process server of the client test (its server config
+  isn't loaded there), so the horses pack skips the server test; a real server is unaffected.
+- Emotes (Emotecraft) and Better Combat attack animations while riding a managed horse: our rider pose is applied after
+  other mods' player-model hooks, so check those still play on horseback if players report otherwise.
+- Intermittent ride check: "trotting past a 2-block ledge that only catches the flank" failed 2 of 7 full ride runs on
+  the release branch (the horse hopped onto the ledge, 1.1-1.3 blocks off its line) and 0 of 3 on main, while passing
+  every time on its own. The physics paths are unchanged and no server corrections were logged; the lane now logs its
+  path, so the next failure shows what the horse did.

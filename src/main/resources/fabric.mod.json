@@ -3,8 +3,15 @@
 	"id": "horsingaround",
 	"version": "${version}",
 	"name": "Horsing Around",
-	"description": "Weighty, momentum-based horse riding with gaits, stamina and turning inertia, kept close to vanilla.",
-	"license": "All-Rights-Reserved",
+	"description": "Weighty, momentum-based horse riding in the spirit of Red Dead Redemption 2, kept close to vanilla: gaits and stamina, turning inertia, a riding camera, and horses that pick their way.",
+	"authors": [
+		"GabePurc"
+	],
+	"contact": {
+		"sources": "https://github.com/GabePurc/horsing-around",
+		"issues": "https://github.com/GabePurc/horsing-around/issues"
+	},
+	"license": "MIT",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
@@ -32,6 +39,7 @@
 	},
 	"icon": "assets/horsingaround/icon.png",
 	"suggests": {
-		"modmenu": "*"
+		"modmenu": "*",
+		"horsingaround_shoulder": "*"
 	}
 }

@@ -7,8 +7,11 @@ import org.jspecify.annotations.Nullable;
 public interface RideStateHolder {
 	RideState horsingaround$ride();
 
-	/** False for camels and llamas, which keep their vanilla controls. */
+	/** Whether this horse gets the new controls (see {@link Mounts}); false for camels and llamas. */
 	boolean horsingaround$managed();
+
+	/** Managed and ridden by a player. */
+	boolean horsingaround$playerRidden();
 
 	/** The horse's own angry snort (horse, donkey, mule...), or null. */
 	@Nullable SoundEvent horsingaround$angrySound();

@@ -1,5 +1,7 @@
 package dev.horsingaround.ride;
 
+import net.minecraft.world.phys.Vec3;
+
 /** Per-horse riding state. Movement fields are only meaningful on the instance simulating the ride (the rider's client). */
 public final class RideState {
 	public int gait = RideTuning.STOP;
@@ -179,6 +181,11 @@ public final class RideState {
 	float hindLegO;
 	/** Share of the last move's travel that a collision took (0 when nothing was hit). */
 	public float blocked;
+	/** The ridden move in progress (see the entity mixin): where it started and what it asked for. */
+	public boolean moving;
+	public double moveFromX;
+	public double moveFromZ;
+	public Vec3 moveDelta = Vec3.ZERO;
 	/** Corners slipped past (for tests). */
 	public int slips;
 	/** Where the rider is asking the horse to go this tick (view plus A/D offset), degrees; for the steering overlay. */

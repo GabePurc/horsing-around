@@ -28,8 +28,10 @@
 	"options.horsingaround.horse_lean": "Horse lean",
 	"options.horsingaround.rider_lean": "Rider lean",
 	"options.horsingaround.leaves": "Ride through leaves",
+	"options.horsingaround.leaves.tooltip": "Ridden horses push through leaves instead of being stopped by them. On a server, only if the server's own setting allows it too.",
 	"options.horsingaround.leaves_slowdown": "Leaves slowdown",
 	"options.horsingaround.trample": "Trample small animals",
+	"options.horsingaround.trample.tooltip": "A horse going faster than a walk hurts and knocks aside small animals it runs through (never players or your pets). On a server, the server's settings decide.",
 	"options.horsingaround.trample_damage": "Trample damage",
 	"options.horsingaround.horse_sounds": "Horse sounds",
 	"options.horsingaround.percent": "%s%%",
@@ -37,5 +39,7 @@
 	"options.horsingaround.seconds": "%ss",
 	"options.horsingaround.reset": "Reset to defaults",
 	"key.horsingaround.settings": "Open horse settings",
-	"key.category.horsingaround.horses": "Horsing Around"
+	"key.category.horsingaround.horses": "Horsing Around",
+	"message.horsingaround.server_missing": "This server doesn't have Horsing Around, so horses ride as in vanilla",
+	"message.horsingaround.server_mismatch": "This server runs Horsing Around %s, which doesn't match yours (%s), so horses ride as in vanilla"
 }

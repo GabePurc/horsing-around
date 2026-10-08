@@ -2,6 +2,8 @@ package dev.horsingaround.client.mixin;
 
 import dev.horsingaround.client.RideCamera;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.client.Camera;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -65,22 +67,22 @@ public abstract class CameraMixin {
 		}
 	}
 
-	/** Replaces vanilla's third-person placement while riding, so the wall-collision raycast runs only once. */
-	@Inject(method = "alignWithEntity", at = @At("HEAD"), cancellable = true)
-	private void horsingaround$rideCamera(final float partialTicks, final CallbackInfo ci) {
+	/**
+	 * Places the third-person camera while riding (instead of vanilla's placement, so the wall-collision raycast runs
+	 * only once), and in first person carries the eyes with the saddle. Another camera mod that is driving the camera
+	 * (see {@link RideCamera#isActive}) is left alone.
+	 */
+	@WrapMethod(method = "alignWithEntity")
+	private void horsingaround$rideCamera(final float partialTicks, final Operation<Void> original) {
 		final Entity e = this.entity;
-		if (!RideCamera.isActive(e, this.minecraft)) {
+		if (RideCamera.isActive(e, this.minecraft)) {
+			this.setRotation(e.getViewYRot(partialTicks), e.getViewXRot(partialTicks));
+			this.setPosition(Mth.lerp(partialTicks, e.xo, e.getX()), RideCamera.pivotY(partialTicks), Mth.lerp(partialTicks, e.zo, e.getZ()));
+			this.detached = true;
+			this.move(-this.getMaxZoom(RideCamera.distance(partialTicks)), 0.0F, 0.0F);
 			return;
 		}
-		this.setRotation(e.getViewYRot(partialTicks), e.getViewXRot(partialTicks));
-		this.setPosition(Mth.lerp(partialTicks, e.xo, e.getX()), RideCamera.pivotY(partialTicks), Mth.lerp(partialTicks, e.zo, e.getZ()));
-		this.detached = true;
-		this.move(-this.getMaxZoom(RideCamera.distance(partialTicks)), 0.0F, 0.0F);
-		ci.cancel();
-	}
-
-	@Inject(method = "alignWithEntity", at = @At("TAIL"))
-	private void horsingaround$firstPersonRide(final float partialTicks, final CallbackInfo ci) {
+		original.call(partialTicks);
 		if (this.detached || !RideCamera.isFirstPersonRide(this.entity, this.minecraft)) {
 			return;
 		}

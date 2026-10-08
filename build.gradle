@@ -28,11 +28,12 @@ loom {
 }
 
 // Automated in-game ride test: ./gradlew runClientGameTest (report and screenshots land in build/run/clientGameTest).
+// ./gradlew runGameTest starts a bare dedicated server (no client code) and rides a horse on it.
 fabricApi {
 	configureTests {
 		createSourceSet = true
 		modId = "horsingaround-gametest"
-		enableGameTests = false
+		enableGameTests = true
 		enableClientGameTests = true
 	}
 }
@@ -47,6 +48,8 @@ dependencies {
 	compileOnly "maven.modrinth:entitytexturefeatures:${project.etf_version}"
 	// Optional integration: settings screen in Mod Menu.
 	compileOnly "maven.modrinth:modmenu:${project.modmenu_version}"
+	// Optional integration: the riding camera steps aside while Shoulder Surfing Reloaded drives the camera.
+	compileOnly "maven.modrinth:shoulder-surfing-reloaded:${project.shoulder_surfing_version}"
 
 	// Dev-only: Mod Menu, to reach the add-on's settings screen in runClient.
 	localRuntime "maven.modrinth:modmenu:${project.modmenu_version}"
@@ -94,13 +97,21 @@ def installFreshAnimations = tasks.register("installFreshAnimations") {
 }
 installFreshAnimations.configure { mustRunAfter "deleteGameTestRunDir" }
 
-// Client tests: ./gradlew runClientGameTest runs both the ride test and the natural-terrain test; pick one with
-// -Ptests=ride or -Ptests=terrain, one terrain scenario with -Pscenario=<part of its name>, and only some sections of
-// the ride test with -Psections=<names> (core, stairs, picking, steps).
-def clientTests = project.findProperty("tests") ?: "ride,terrain"
+// Client tests: ./gradlew runClientGameTest runs the ride test, the natural-terrain test, every vanilla mount, and a ride
+// on a dedicated server; pick some with -Ptests=ride,terrain,mounts,server, one terrain scenario with
+// -Pscenario=<part of its name>, and only some sections of the ride test with -Psections=<names> (core, stairs,
+// picking, steps).
+def clientTests = project.findProperty("tests") ?: "ride,terrain,mounts,server"
 def terrainScenario = project.findProperty("scenario") ?: ""
 def rideSections = project.findProperty("sections") ?: ""
+// The server test starts a local dedicated server in the test run folder; the user accepted the Minecraft EULA
+// (https://aka.ms/MinecraftEULA) for it on 2026-10-07.
+def gameTestEula = layout.buildDirectory.file("run/clientGameTest/eula.txt").get().asFile
 tasks.matching { it.name == "runClientGameTest" }.configureEach {
+	doFirst {
+		gameTestEula.parentFile.mkdirs()
+		gameTestEula.text = "eula=true\n"
+	}
 	systemProperty "horsingaround.tests", clientTests
 	systemProperty "horsingaround.scenario", terrainScenario
 	systemProperty "horsingaround.sections", rideSections
@@ -116,6 +127,12 @@ processResources {
 	}
 }
 
+jar {
+	from("LICENSE") {
+		rename { "${it}_horsingaround" }
+	}
+}
+
 tasks.withType(JavaCompile).configureEach {
 	it.options.release = 25
 }
@@ -123,4 +140,145 @@ tasks.withType(JavaCompile).configureEach {
 java {
 	sourceCompatibility = JavaVersion.VERSION_25
 	targetCompatibility = JavaVersion.VERSION_25
+}
+
+// Compatibility runs: the built mod in a real (production) game alongside packs of popular mods from Modrinth, running
+// the client tests (mounts, the dedicated-server ride and the core ride sections). Each pack runs on its own:
+//   ./gradlew runCompatPerformance (or Animation, Camera, Horses), or ./gradlew runCompat --continue for all of them.
+// Reports, screenshots and the game log land in build/run/compat/<pack>/. A run fails on failed checks, a crash, a
+// mixin conflict, or a warning or error that names this mod; compat-findings.txt lists every mixin and mod warning
+// for review.
+
+// Always present: what the test setup needs (Fabric API, Mod Menu) and the user's Fresh Animations stack. Modrinth
+// version ids, not version numbers: some mods reuse a number across Minecraft versions.
+def compatBaseMods = [
+	"fabric-api:v2j28coa",            // 0.162.0+26.3
+	"modmenu:kyy7dbrZ",               // 21.0.0
+	"placeholder-api:lXytLqWj",       // 3.2.0+26.3
+	"entity-model-features:N7d5LddE", // 3.3.11
+	"entitytexturefeatures:O8J3sxxp", // 7.2.5
+]
+
+// 26.3 Fabric versions with their required dependencies (checked on Modrinth 2026-10-07).
+def compatPacks = [
+	performance: [
+		"sodium:v4PSXean",         // 0.9.3-alpha.1
+		"lithium:xS0Q8LSi",        // 0.26.2
+		"iris:vTN4NRGW",           // 1.11.7
+		"ferrite-core:d5ddUdiB",   // 9.0.0
+		"immediatelyfast:3MP9UR23", // 1.17.1
+		"entityculling:F4loCvYt",  // 1.11.2
+		"c2me-fabric:ODMLK8M9",    // 0.4.2-alpha.0.90
+		"moreculling:t7vAlfgO",    // 1.9.0
+		"cloth-config:fg2uyxOW",   // 26.3.159
+	],
+	animation: [
+		"not-enough-animations:EhSk2OTD",    // 1.12.6
+		"emotecraft:M17ZQBUj",               // 3.5.0-a.build.171
+		"player-animation-library:xJ30QmpE", // 1.2.8
+		"better-combat:8Vyq1h9a",            // 3.2.2
+		"cloth-config:fg2uyxOW",             // 26.3.159
+		"first-person-model:Z05WZTy2",       // 2.7.3
+	],
+	camera: [
+		"shoulder-surfing-reloaded:sEg9bfXx", // 5.2.0
+		"forge-config-api-port:JpKvrr9J",     // 26.3.1
+		"cameraoverhaul:7MLFDlIG",            // 2.1.2
+		"cloth-config:fg2uyxOW",              // 26.3.159
+		"freecam:fZPu4tiS",                   // 1.5.0-alpha.2
+		"do-a-barrel-roll:fmAJrjVS",          // 3.8.5
+		"cicada:f5sDzSl6",                    // 0.15.3
+		"appleskin:PHjDtQay",                 // 3.0.10
+		"raised:XeTvS6Rx",                    // 6.0.2
+		"jade:71CTWqdE",                      // 26.3.5
+		"xaeros-minimap:B2aG1aya",            // 26.6.0
+	],
+	horses: [
+		"horse-expert:qUjLS9C5",          // 26.3.1
+		"puzzles-lib:QeJZIb42",           // 26.3.12
+		"forge-config-api-port:JpKvrr9J", // 26.3.1
+		"horseman:SkbN0JlH",              // 1.7.5
+		"bareback-horse-riding:V9IYirdo", // 2.5
+		"collective:S1V3Trc7",            // 8.42
+		"mounts-stay-still:oeEmUoJn",     // 1.3.2
+	],
+]
+
+def compatTests = project.findProperty("compatTests")
+// (The horses pack skips the server test: Horseman's server config isn't loaded in the test's second, in-process server.)
+def compatPackTests = [horses: "ride,mounts"]
+def compatSections = project.findProperty("compatSections") ?: "core,cuts"
+
+configurations.register("compatBase") { transitive = false }
+compatPacks.each { name, mods ->
+	configurations.register("compat${name.capitalize()}") { transitive = false }
+}
+dependencies {
+	compatBaseMods.each { add("compatBase", "maven.modrinth:$it") }
+	// The client test runner isn't part of the Fabric API jar players install.
+	add("compatBase", fabricApi.module("fabric-client-gametest-api-v1", project.fabric_api_version))
+	compatPacks.each { name, mods ->
+		mods.each { add("compat${name.capitalize()}", "maven.modrinth:$it") }
+	}
+}
+
+// The client tests as a mod of their own (Minecraft 26 is unobfuscated, so no remapping).
+// (Outside build/libs, which holds only the jar players install.)
+def gametestJar = tasks.register("gametestJar", Jar) {
+	from sourceSets.gametest.output
+	archiveClassifier = "gametest"
+	destinationDirectory = layout.buildDirectory.dir("compat-libs")
+}
+
+def freshAnimationsPack = layout.projectDirectory.file(".gradle/dev-packs/${project.fresh_animations_file}").asFile
+// One game at a time: each run opens a window and its server test takes the default server port.
+abstract class CompatGame implements org.gradle.api.services.BuildService<org.gradle.api.services.BuildServiceParameters.None> {}
+def compatGame = gradle.sharedServices.registerIfAbsent("compatGame", CompatGame) { maxParallelUsages = 1 }
+def runCompat = tasks.register("runCompat") {
+	group = "verification"
+	description = "Runs the client tests in a production game with each pack of popular mods."
+}
+compatPacks.keySet().each { name ->
+	def runDir = layout.buildDirectory.dir("run/compat/$name").get().asFile
+	def task = tasks.register("runCompat${name.capitalize()}", net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+		group = "verification"
+		description = "Runs the client tests in a production game with the $name pack."
+		dependsOn "installFreshAnimations"
+		usesService(compatGame)
+		finalizedBy "compatFindings${name.capitalize()}"
+		mods.from(tasks.named("jar"))
+		mods.from(gametestJar)
+		mods.from(configurations.named("compatBase"))
+		mods.from(configurations.named("compat${name.capitalize()}"))
+		jvmArgs.add("-Dfabric.client.gametest")
+		jvmArgs.add("-Dhorsingaround.tests=" + (compatTests ?: compatPackTests[name] ?: "mounts,server,ride"))
+		jvmArgs.add("-Dhorsingaround.sections=$compatSections")
+		jvmArgs.add("-Dhorsingaround.scenario=")
+		getRunDir().set(runDir)
+		doFirst {
+			new File(runDir, "logs").deleteDir()
+			new File(runDir, "screenshots").deleteDir()
+			new File(runDir, "resourcepacks").mkdirs()
+			java.nio.file.Files.copy(freshAnimationsPack.toPath(), new File(runDir, "resourcepacks/" + freshAnimationsPack.name).toPath(),
+				java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+			// The server test starts a local dedicated server; the user accepted the Minecraft EULA for it (2026-10-07).
+			new File(runDir, "eula.txt").text = "eula=true\n"
+		}
+	}
+	// Runs after the game even when the tests failed, so the log is always checked.
+	tasks.register("compatFindings${name.capitalize()}") {
+		doLast {
+			def log = new File(runDir, "logs/latest.log")
+			def lines = log.exists() ? log.readLines() : []
+			def mixin = ~/(?i)(mixin apply failed|injection failure|critical injection|overwrite conflict|redirect conflict|conflict.*mixin|mixin.*conflict|InvalidInjectionException|InjectionError)/
+			def ours = ~/horsingaround(?!-gametest)/
+			def findings = lines.findAll { it =~ mixin || (it =~ ours && it =~ /(WARN|ERROR)\]/) || it =~ /\/(WARN|ERROR)\] \(FabricLoader\/Mixin\)/ }
+			new File(runDir, "compat-findings.txt").text = findings.join("\n") + "\n"
+			def blocking = lines.findAll { it =~ mixin || (it =~ ours && it =~ /(WARN|ERROR)\]/) }
+			if (!blocking.isEmpty()) {
+				throw new GradleException("Compatibility problems with the $name pack:\n" + blocking.take(40).join("\n"))
+			}
+		}
+	}
+	runCompat.configure { dependsOn task }
 }

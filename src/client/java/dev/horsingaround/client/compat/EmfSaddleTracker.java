@@ -37,8 +37,10 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 	public static void register() {
 		try {
 			EMFAnimationApi.registerAnimationHook(new EmfSaddleTracker());
+		} catch (final RuntimeException e) {
+			throw e;
 		} catch (final Exception e) {
-			throw new IllegalStateException("Could not hook Entity Model Features animations", e);
+			throw new IllegalStateException(e);
 		}
 	}
 

@@ -1,5 +1,7 @@
 package dev.horsingaround.client.mixin;
 
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
 import net.minecraft.client.DeltaTracker;
@@ -14,9 +16,7 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
 
 /** The horse jump bar becomes the stamina bar, drawn with the vanilla jump bar sprites. */
 @Mixin(JumpableVehicleBar.class)
@@ -38,9 +38,10 @@ public abstract class JumpableVehicleBarMixin implements ContextualBar {
 	@Final
 	private Minecraft minecraft;
 
-	@Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
-	private void horsingaround$staminaBar(final GuiGraphicsExtractor graphics, final DeltaTracker deltaTracker, final CallbackInfo ci) {
+	@WrapMethod(method = "extractBackground")
+	private void horsingaround$staminaBar(final GuiGraphicsExtractor graphics, final DeltaTracker deltaTracker, final Operation<Void> original) {
 		if (!(this.minecraft.player.getVehicle() instanceof RideStateHolder holder) || !holder.horsingaround$managed()) {
+			original.call(graphics, deltaTracker);
 			return;
 		}
 		final RideState s = holder.horsingaround$ride();
@@ -51,6 +52,5 @@ public abstract class JumpableVehicleBarMixin implements ContextualBar {
 		if (filled > 0) {
 			graphics.blitSprite(RenderPipelines.GUI_TEXTURED, PROGRESS, WIDTH, HEIGHT, 0, 0, left, top, filled, HEIGHT, s.exhausted ? EXHAUSTED_TINT : -1);
 		}
-		ci.cancel();
 	}
 }
