@@ -16,10 +16,10 @@ trap 'rm -rf "$tmp"' EXIT
 
 clip() {
 	name=$1
-	# One frame a game tick: 20 a second.
+	# The test films 30 frames a second.
 	rm -f "$tmp"/*.png
-	ffmpeg -loglevel error -framerate 20 -start_number "${2:-0}" -i "$src/$name/%04d.png" ${3:+-frames:v $3} -vf "scale=$width:-2:flags=lanczos" "$tmp/%04d.png"
-	img2webp -loop 0 -lossy -q $quality -m 6 -d 50 "$tmp"/*.png -o "$out/$name.webp" > /dev/null
+	ffmpeg -loglevel error -framerate 30 -start_number "${2:-0}" -i "$src/$name/%04d.png" ${3:+-frames:v $3} -vf "scale=$width:-2:flags=lanczos" "$tmp/%04d.png"
+	img2webp -loop 0 -lossy -q $quality -m 6 -d 33 "$tmp"/*.png -o "$out/$name.webp" > /dev/null
 	echo "$out/$name.webp $(du -h "$out/$name.webp" | cut -f1)"
 }
 

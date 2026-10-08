@@ -1,5 +1,6 @@
 package dev.horsingaround.gametest;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.datafixers.util.Pair;
 import dev.horsingaround.client.config.HorseSettingsScreen;
 import dev.horsingaround.client.cosmetic.Hats;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.IntConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -25,7 +27,10 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.InactivityFpsLimit;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -58,6 +63,8 @@ public final class StoreMediaTest implements FabricClientGameTest {
 	private static final String SEED = "mustang";
 	private static final int WIDTH = 1280;
 	private static final int HEIGHT = 720;
+	/** Clip frame rate: a frame every 2/3 of a tick. */
+	private static final int FPS = 30;
 	private static final int CANTER = 2;
 	private static final int GALLOP = 3;
 	/** Chestnut with white stockings and blaze; bay; dark brown with white spots (variant | markings << 8). */
@@ -272,12 +279,14 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		this.stop(ctx);
 	}
 
-	/** The riding camera through a gallop that swings wide one way and then the other. */
+	/** A gallop that swings wide one way and then the other, filmed from behind. */
 	private void turn(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
-		this.mount(ctx, world, spot, DARK, 10500);
+		final AbstractHorse horse = this.mount(ctx, world, spot, CHESTNUT, 10500);
 		final TestInput input = ctx.getInput();
 		this.gait(ctx, GALLOP);
 		ctx.waitTicks(25);
+		// From behind and a little above, following the turns gently, like the riding camera but without its per-frame easing.
+		FilmCamera.film(horse, 10.0F, 6.5F, 2.0F, 14.0F, 0.0F, 0.12F);
 		final float[] yaw = {spot.yaw};
 		this.record(ctx, "turn", 130, t -> {
 			if (t >= 20 && t < 40) {
@@ -458,7 +467,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		ctx.runOnClient(mc -> FilmCamera.stop());
 	}
 
-	/** {@code ticks} of play, a frame each, into store/{@code clip}/. */
+	/** {@code ticks} of play at {@link #FPS} frames a second into store/{@code clip}/. */
 	private void record(final ClientGameTestContext ctx, final String clip, final int ticks, final IntConsumer eachTick) {
 		final Path dir = this.out.resolve(clip);
 		try {
@@ -469,27 +478,74 @@ public final class StoreMediaTest implements FabricClientGameTest {
 					}
 				}
 			}
+			Files.createDirectories(dir);
 		} catch (final IOException e) {
 			throw new UncheckedIOException(e);
 		}
 		final double[] from = ctx.computeOnClient(mc -> new double[] {mc.player.getX(), mc.player.getZ()});
+		final AtomicInteger saving = new AtomicInteger();
+		int frame = 0;
 		for (int t = 0; t < ticks; t++) {
 			eachTick.accept(t);
+			ctx.waitTick();
 			ctx.runOnClient(mc -> FilmCamera.tick());
-			// Taking a screenshot draws the frame and then runs a game tick: one frame a tick, 20 a second.
-			ctx.takeScreenshot(TestScreenshotOptions.of(String.format(Locale.ROOT, "%04d", t)).withDeltaTicks(1.0F).disableCounterPrefix()
-				.withDestinationDir(dir));
+			// The frames whose moment falls in this tick, drawn at that point between its start and end. Not
+			// takeScreenshot: it runs ticks until the picture is back from the graphics card, one or several, so the
+			// frames come out unevenly spaced in time.
+			for (double at = frame * 20.0 / FPS; at < t + 1; at = ++frame * 20.0 / FPS) {
+				final float partialTick = (float) (at - t);
+				final Path file = dir.resolve(String.format(Locale.ROOT, "%04d.png", frame));
+				saving.incrementAndGet();
+				ctx.runOnClient(mc -> drawFrame(mc, partialTick, file, saving));
+			}
 		}
+		ctx.waitFor(mc -> saving.get() == 0, 20 * 60);
 		final double travelled = ctx.computeOnClient(mc -> Math.hypot(mc.player.getX() - from[0], mc.player.getZ() - from[1]));
-		this.log.add(String.format(Locale.ROOT, "%s: %d frames, rode %d blocks", clip, ticks, Math.round(travelled)));
-		LOGGER.info("[store] {}: {} frames, rode {} blocks", clip, ticks, Math.round(travelled));
+		this.log.add(String.format(Locale.ROOT, "%s: %d frames, rode %d blocks", clip, frame, Math.round(travelled)));
+		LOGGER.info("[store] {}: {} frames, rode {} blocks", clip, frame, Math.round(travelled));
+	}
+
+	/** Draws the world {@code partialTick} of the way through the current tick and saves it once the picture is back. */
+	private static void drawFrame(final Minecraft mc, final float partialTick, final Path file, final AtomicInteger saving) {
+		final DeltaTracker delta = new FrameDelta(partialTick);
+		mc.gameRenderer.update(delta);
+		mc.gameRenderer.extract(delta, true);
+		mc.gameRenderer.render();
+		RenderSystem.getDevice().createCommandEncoder().submit();
+		Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(), image -> {
+			try (image) {
+				image.writeToFile(file);
+			} catch (final IOException e) {
+				LOGGER.warn("[store] couldn't save {}", file, e);
+			} finally {
+				saving.decrementAndGet();
+			}
+		});
+	}
+
+	/** A frame {@code partialTick} into the tick, 1/FPS of a second after the one before. */
+	private record FrameDelta(float partialTick) implements DeltaTracker {
+		@Override
+		public float getGameTimeDeltaTicks() {
+			return 20.0F / FPS;
+		}
+
+		@Override
+		public float getGameTimeDeltaPartialTick(final boolean ignoreFrozenGame) {
+			return this.partialTick;
+		}
+
+		@Override
+		public float getRealtimeDeltaTicks() {
+			return 20.0F / FPS;
+		}
 	}
 
 	private void still(final ClientGameTestContext ctx, final String name) {
 		ctx.takeScreenshot(TestScreenshotOptions.of(name).withDeltaTicks(0.5F).disableCounterPrefix().withDestinationDir(this.out));
 	}
 
-	private static void hud(final net.minecraft.client.Minecraft mc, final boolean shown) {
+	private static void hud(final Minecraft mc, final boolean shown) {
 		if (mc.gui.hud.isHidden() == shown) {
 			mc.gui.hud.toggle();
 		}
