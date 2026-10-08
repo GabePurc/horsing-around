@@ -49,10 +49,13 @@ dedicated server (no client code) and rides there. `-Ptests=gallery` takes clean
 
 Test games run light (lowest settings, no sound, 20 frames a second, a 2 GB heap, and Sodium, Lithium, FerriteCore and
 ImmediatelyFast loaded only into test games; `-PplainGame` drops the mods, `-PfullGraphics` keeps normal settings, and
-the gallery always gets them). `./gradlew runClientGameTestParallel --configuration-cache` runs the client tests in three
-such games at once (ride split in two, the rest in a third; folders `build/run/clientGameTest-<shard>/`), then merges
-their reports into `build/run/clientGameTest/` and lists any failed check. Apart from that runner, run one game at a
-time (two separate test games at once, even from different repos, made ride checks flaky).
+the gallery always gets them). Prefer `./gradlew runClientGameTestParallel --continue` for full runs (user request,
+2026-10-08): it splits the client tests into five shards (`testShards` in `build.gradle`; folders
+`build/run/clientGameTest-<shard>/`), runs two such games at a time so the user's other work keeps room (`-PtestGames=N`
+for more or fewer; the machine has 11 cores and 18 GB), then merges their reports into `build/run/clientGameTest/` and
+lists any failed check. One shard alone: `./gradlew runClientGameTest<Shard>`. Leg and body easing runs on game time, so
+results don't depend on frame rate. Apart from that runner, don't start a second test game yourself (two separate games,
+even from different repos, made ride checks flaky).
 
 Compatibility: `./gradlew runCompat --continue` runs the tests in a production game with packs of popular mods
 (`compatPacks` in `build.gradle`); results in `build/run/compat/<pack>/`. Run it before a release and after touching

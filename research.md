@@ -396,10 +396,22 @@ kinematics, still driven by Fresh Animations' animation.
   not a jump: the hooves keep finding their ground and the legs don't take the jump's shape. All of it eases on game
   time, so it keeps pace with the horse at any frame rate. On level ground nothing is read and the pack's legs are
   untouched.
+- Climbing smoothly (play-test, 2026-10-08: going up was hitchy): the drawn body tracks its height with an alpha-beta
+  tracker (40% of the way each tick, carrying its climb), so up stairs and slopes it rises at an even rate instead of a
+  pulse each step; its sharpest change in climb rate went from ~0.19 to ~0.08 blocks/tick a tick up stairs.
+- Going down (play-test: a lot of phasing): walking down a slope of full blocks, the wide body stays on each block's
+  edge until its middle is over the block two down, which read as a fall: the tilt let go and the hindquarters sank
+  into the steps behind. A drop is a flight only when the ground under the hind hooves has gone too. On steep ground
+  the stride is shorter (half the pack's swing at 30 degrees), as a horse picks its way up and down stairs.
 - Known limit: on a slope of full blocks (a block up for every block along, 45 degrees), the stride still carries a
   hoof or a knee into the next block's face in roughly a fifth to a third of frames: a 0.76-block leg can't reach a
   1-block riser, so the hoof either stands short of it or touches it. Stairs (half-block steps) are clean going up and
   touch now and then going down.
+- Jump pressed over and over at a 2-block ledge (play-test, 2026-10-08: it went really high, buggy): vanilla's
+  charge-and-release jump still ran beside the ride's press-to-jump, firing the moment the horse touched ground after
+  each release, and nothing stopped a jump straight off the top. Now the ride's jump is the only one, a press while riding
+  at a ledge waits for its heave (from up to 5 blocks out) instead of hopping into its face, and up on top the horse
+  settles for 0.7 seconds before it will jump again.
 - Hurdles: pressing jump with a fence, a wall, a gate or anything else 1.125-1.6 blocks tall within 2.5 blocks of the
   chest (no deeper than 1.5, headroom over it, safe ground beyond) jumps 0.35 over it and far enough to clear it, at
   any pace, standing too, held at that speed in the air so meeting the face as it rises doesn't stop it. Lava or a
