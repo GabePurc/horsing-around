@@ -194,21 +194,22 @@ public final class RideState {
 	float inertiaO;
 	float inertiaVelocity;
 	float lastGroundSpeed;
+	float lastGroundSpeedO;
 	/**
-	 * Steps in two beats: world height of the ground carrying the front and the back of the body, eased in two stages
-	 * (the first stage in the *Ease fields), and the ground under each pair of hooves
-	 * (reused while the horse stands still, so probes only run when it moves). NaN until first placed.
+	 * The body carried on its legs: world height of the front and the back of the body (at hoof level) and how fast each
+	 * is moving (blocks/tick; see RideController.steps), and the ground each is carried toward (reused while the horse
+	 * stands still, so probes only run when it moves). NaN until first placed.
 	 */
 	double fore = Double.NaN;
 	double hind = Double.NaN;
-	double foreEase;
-	double hindEase;
+	float foreVelocity;
+	float hindVelocity;
 	double foreGround;
 	double hindGround;
 	/** How fast the drawn body rose last tick, blocks/tick. */
 	public float drawnRise;
-	/** The drawn body's climb the tracker carries (blocks/tick; see RideController.steps). */
-	float bodyClimb;
+	/** How far the front of the drawn body could come down before the chest meets the ground ahead of it (blocks). */
+	public float chestRoom = Float.MAX_VALUE;
 	/** The ground actually under the front and hind hooves (NaN on level ground or where there is none). */
 	double foreFoot = Double.NaN;
 	double hindFoot = Double.NaN;
@@ -224,9 +225,11 @@ public final class RideState {
 	float airRise;
 	float airRiseO;
 	float airRiseEase;
+	/** The legs' jump shape is from a jump (not a fall off a step): it eases out on landing rather than being dropped. */
+	boolean leapLegs;
 	/**
-	 * Hooves on the ground: how far (blocks) the front and the hind pairs of hooves come up, the knees bending, onto
-	 * ground higher than a straight leg reaches (on top of standing upright against the body's tilt).
+	 * Where the model hasn't been drawn yet: how far (blocks) the front and the hind pairs of legs draw up onto ground
+	 * higher than a straight leg reaches (on top of standing upright against the body's tilt).
 	 */
 	float foreLeg;
 	float foreLegO;
@@ -263,26 +266,25 @@ public final class RideState {
 	public double drawnCameraY;
 	public double drawnCameraZ;
 	public boolean drawnPoseSet;
-	/** Per leg (front left, front right, hind left, hind right): how far its hoof is drawn up onto the ground under it, blocks, eased. */
+	/** Per leg (front left, front right, hind left, hind right), the last frame: how far it was drawn up onto its ground, blocks. */
 	public final float[] legRise = new float[4];
-	/** Per leg: how far its hoof is moved back off a step's face it would stand in (blocks, toward the tail), eased. */
+	/** Per leg, the last frame: how far its hoof was moved back off a step's face it would stand in (blocks, toward the tail). */
 	public final float[] legShift = new float[4];
-	/** How fast each leg's rise and shift are changing (blocks a second), for easing them. */
-	public final float[] legRiseSpeed = new float[4];
-	public final float[] legShiftSpeed = new float[4];
-	/** What each leg's rise and shift were easing toward last frame (NaN, nothing yet), for how fast that moves. */
-	public final float[] legRiseTarget = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
-	public final float[] legShiftTarget = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
-	/** Per leg: where its sole was drawn last frame (world x, z; NaN, not yet), for where it is heading. */
-	public final double[] legSoleX = {Double.NaN, Double.NaN, Double.NaN, Double.NaN};
-	public final double[] legSoleZ = new double[4];
-	/** When the legs were last posed (game time in ticks, with the partial tick; NaN, not yet). */
+	/** Per leg, the last frame: how far it was swung back off a step's face (radians). */
+	public final float[] legBack = new float[4];
+	/** Whether any leg was drawn up or moved off a face last frame, whether the legs were left as the model's own, and whether some hoof found its ground. */
+	public boolean legsActive;
+	public boolean legsQuiet;
+	public boolean legsFound;
+	/** When the legs were last posed (game time in ticks, with the partial tick; NaN, not yet), for how long since. */
 	public double legRiseAt = Double.NaN;
 	/**
-	 * How far the drawn body is raised (blocks) so the standing leg on the lowest ground is straight, fitted to the ground
-	 * under each hoof where the model is drawn (see GroundLegs); added to {@link #heightOffset(float)}. Client only.
+	 * How far the drawn body is raised (blocks) because a leg would otherwise have to draw up further than it can, from
+	 * the ground under each hoof where the model is drawn (see GroundLegs); added to {@link #heightOffset(float)}. Client only.
 	 */
 	public float drawnFit;
+	/** How fast {@link #drawnFit} is changing, blocks a second. */
+	public float drawnFitVelocity;
 	/** Slow averages that remove the pack's rest-pose offset, leaving only the motion. */
 	public float animatedLiftBase;
 	public float animatedForwardBase;
@@ -343,6 +345,21 @@ public final class RideState {
 		return this.inertiaO + (this.inertia - this.inertiaO) * partialTicks;
 	}
 
+	/** The drawn body is below where the horse stands (landing, crouching): the legs take it up. */
+	public boolean lowered() {
+		return this.heightOffset < -1.0E-3F || this.heightOffsetO < -1.0E-3F;
+	}
+
+	/** How fast the horse moves over the ground, blocks/tick. */
+	public float groundSpeed(final float partialTicks) {
+		return this.lastGroundSpeedO + (this.lastGroundSpeed - this.lastGroundSpeedO) * partialTicks;
+	}
+
+	/** The legs' jump shape is from a jump, and eases out on landing. */
+	public boolean leapLegs() {
+		return this.leapLegs;
+	}
+
 	public float heightOffset(final float partialTicks) {
 		return this.heightOffsetO + (this.heightOffset - this.heightOffsetO) * partialTicks + this.drawnFit;
 	}
@@ -368,12 +385,12 @@ public final class RideState {
 		return this.airRiseO + (this.airRise - this.airRiseO) * partialTicks;
 	}
 
-	/** Front hooves brought up onto higher ground by the knees, blocks. */
+	/** Front legs drawn up onto higher ground (where the model hasn't been drawn yet), blocks. */
 	public float foreLeg(final float partialTicks) {
 		return this.foreLegO + (this.foreLeg - this.foreLegO) * partialTicks;
 	}
 
-	/** Hind hooves brought up onto higher ground by the knees (hocks), blocks. */
+	/** Hind legs drawn up onto higher ground (where the model hasn't been drawn yet), blocks. */
 	public float hindLeg(final float partialTicks) {
 		return this.hindLegO + (this.hindLeg - this.hindLegO) * partialTicks;
 	}

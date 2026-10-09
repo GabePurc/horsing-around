@@ -17,47 +17,54 @@ import org.joml.Vector3f;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Hooves on the ground on steps, stairs and slopes, on top of whatever posed the legs (vanilla model or an animation
- * pack, so the stride stays): every leg stands upright against the body's tilt, turned about its top (see {@link Knees})
- * and drawn up into the body by that swing so no gap shows at the hip or shoulder, and its knee bends to put the hoof on
- * the ground under it. Each hoof finds its own ground where it is drawn (one of a pair can be on a step while the other
- * is below it), eased so it steps up rather than jumps; without where the model was drawn, a pair comes up together by
- * the ride's own reckoning.
+ * Hooves on the ground, on top of whatever posed the legs (vanilla model or an animation pack, so the stride stays).
+ * Every leg stands upright against the body's tilt, turned about its top (see {@link Legs}), and each hoof goes exactly
+ * where its ground is, with no easing: the legs take up the ground and the body carries the smoothness (see
+ * {@code RideController#steps}). A hoof over higher ground draws its leg up into the body to stand on it; a hoof on the
+ * move lifts to clear ground rising ahead of it, the way a swinging hoof arcs over a step's edge (a planted hoof stays
+ * put); a hoof that would stand in a step's face swings back off it onto the tread. A leg that would have to draw up
+ * further than it can raises the body at once (a hard stop), which then settles back onto its legs.
  */
 public final class GroundLegs {
 	// Scratch; render thread only.
-	private static final Matrix4f MATRIX = new Matrix4f();
 	private static final Matrix4f ROOT = new Matrix4f();
-	private static final Matrix4f INVERSE = new Matrix4f();
+	private static final Matrix4f MATRIX = new Matrix4f();
 	private static final Vector3f POINT = new Vector3f();
 	private static final BlockPos.MutableBlockPos POS = new BlockPos.MutableBlockPos();
 	private static final ModelPart[] PARTS = new ModelPart[4];
-	private static final Knees.Leg[] LEGS = new Knees.Leg[4];
-	private static final float[] RISES = new float[4];
-	private static final float[] SHIFTS = new float[4];
-	private static final float[] SAMPLES = new float[3];
-	/** How far {@link #groundRise} moves the hoof off a step's face (pixels toward the tail along the leg). */
-	private static float SHIFT;
-	/** Per leg, the last frame: where the straight leg's sole was found (world x, y, z) and the ground it wanted (for tests). */
+	/** How far {@link #ground} moves the hoof off a step's face (pixels toward the tail along the leg). */
+	private static float shift;
+	/**
+	 * What {@link #ground} found ahead of a hoof (see {@link #ramp}): the lift a hoof in its swing takes for it, and the
+	 * last bit a hoof sliding along the ground takes (the animation's planted hooves slide a little).
+	 */
+	private static double ahead;
+	private static double aheadClose;
+	/** Where {@link #ground} found the middle of the sole (world height, before the leg is drawn up). */
+	private static double soleHeight;
+	/** The stretches of ground under a sole, front to back: where each ends (0..1 of the way) and its top. */
+	private static final double[] STRETCH_END = new double[8];
+	private static final double[] STRETCH_TOP = new double[8];
+	/** Per leg, the last frame: where its sole was (world x, y, z), how far it wanted to draw up (blocks) and how far the pack had lifted it (for tests). */
 	public static final double[] SOLES = new double[12];
 	public static final float[] WANTED = new float[4];
 	public static final float[] PACK_LIFTS = new float[4];
 	public static int groundFrames;
 	public static float DOWN;
-	/** Per leg, the last frame: the knee's fetlock target (world x, y, z), its reach and the reach asked for (for tests). */
+	/** Per leg, the last frame: the ground its hoof stands on (world x, y, z), the pixels it was drawn up and its swing back (for tests). */
 	public static final double[] TARGETS = new double[20];
 
 	private GroundLegs() {
 	}
 
 	/**
-	 * @param tilt     the body's tilt, radians, nose up positive (the legs stand upright against LEG_UPRIGHT of it)
-	 * @param fore     how far the front hooves come up, blocks (when each hoof can't find its own ground)
-	 * @param hind     how far the hind hooves come up, blocks (same)
+	 * @param tilt     the body's tilt on the ground, radians, nose up positive (the legs stand upright against LEG_UPRIGHT of it)
+	 * @param fore     how far the front legs draw up, blocks (only where the model hasn't been drawn yet)
+	 * @param hind     how far the hind legs draw up, blocks (same)
 	 * @param pixels   model pixels to a block in the legs' frame (16 over the model's scale)
 	 * @param ride     the ridden horse's state, with where it was drawn, for each hoof's own ground
 	 * @param root     the model's root part (the legs' parent)
-	 * @param grounded false in the air (no ground to find; the body's fit to the ground eases off)
+	 * @param grounded false in a jump (the hooves still stay out of the ground, but don't raise the body)
 	 * @return whether some hoof found its ground (then a step down, which is a short fall, needs no jump shape)
 	 */
 	public static boolean pose(
@@ -65,279 +72,455 @@ public final class GroundLegs {
 		final float tilt, final float fore, final float hind, final float pixels, final @Nullable RideState ride, final @Nullable ModelPart root,
 		final boolean grounded
 	) {
-		final Level level = Minecraft.getInstance().level;
-		final boolean drawn = ride != null && root != null && ride.drawnPoseSet && level != null;
-		float dt = 0.0F;
-		if (drawn) {
-			// Game time (ticks and the partial tick), so the legs keep pace with the horse however fast frames come.
-			final double now = level.getGameTime() + Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
-			dt = Double.isNaN(ride.legRiseAt) ? 0.0F : (float) Mth.clamp((now - ride.legRiseAt) / 20.0, 0.0, 0.1);
-			ride.legRiseAt = now;
-		}
-		final boolean ground = drawn && grounded;
-		final boolean settled = !drawn || ride.drawnFit == 0.0F && ride.legRise[0] == 0.0F && ride.legRise[1] == 0.0F && ride.legRise[2] == 0.0F
-			&& ride.legRise[3] == 0.0F && ride.legShift[0] == 0.0F && ride.legShift[1] == 0.0F && ride.legShift[2] == 0.0F && ride.legShift[3] == 0.0F;
 		PARTS[0] = leftFront;
 		PARTS[1] = rightFront;
 		PARTS[2] = leftHind;
 		PARTS[3] = rightHind;
-		if (tilt == 0.0F && fore == 0.0F && hind == 0.0F && settled || drawn && !grounded) {
-			// Level ground (or the air): nothing to do but undo what the last horse drawn did to the knees.
-			for (int i = 0; i < 4; i++) {
-				final Knees.Leg leg = PARTS[i] == null ? null : Knees.of(PARTS[i]);
-				if (leg != null) {
-					Knees.straighten(leg);
-				}
-				if (drawn) {
+		boolean legs = false;
+		for (final ModelPart part : PARTS) {
+			legs |= part != null && Legs.of(part) != null;
+		}
+		if (!legs) {
+			// (A layer with no leg boxes: nothing to pose, and it mustn't touch the ride's leg state.)
+			return false;
+		}
+		final Level level = Minecraft.getInstance().level;
+		final boolean drawn = ride != null && root != null && ride.drawnPoseSet && level != null;
+		float dt = 0.0F;
+		float partial = 1.0F;
+		// (Another layer of the same horse this frame (saddle, armour): its legs are posed exactly as the body's were.)
+		boolean again = false;
+		if (drawn) {
+			// Game time (ticks and the partial tick): how long since the legs were last posed, whatever the frame rate.
+			partial = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
+			final double now = level.getGameTime() + partial;
+			again = now == ride.legRiseAt;
+			dt = again || Double.isNaN(ride.legRiseAt) ? 0.0F : (float) Mth.clamp((now - ride.legRiseAt) / 20.0, 0.0, 0.1);
+			ride.legRiseAt = now;
+		}
+		if (again ? ride.legsQuiet
+			: tilt == 0.0F && fore == 0.0F && hind == 0.0F && (!drawn || !ride.narrow && !ride.legsActive && ride.drawnFit == 0.0F && !ride.lowered())) {
+			// A horse no one rides on level ground, its body at rest and nothing under a hoof last frame: the legs are the
+			// model's own. (A ridden horse's legs are always placed, so they never switch over mid-stride.)
+			if (drawn && !again) {
+				ride.legsQuiet = true;
+				for (int i = 0; i < 4; i++) {
 					ride.legRise[i] = 0.0F;
 					ride.legShift[i] = 0.0F;
-					ride.legRiseSpeed[i] = 0.0F;
-					ride.legShiftSpeed[i] = 0.0F;
-					ride.legRiseTarget[i] = Float.NaN;
-					ride.legShiftTarget[i] = Float.NaN;
-					ride.legSoleX[i] = Double.NaN;
+					ride.legBack[i] = 0.0F;
 				}
-			}
-			if (drawn) {
-				ride.drawnFit = fit(ride.drawnFit, -ride.drawnFit, dt);
 			}
 			return false;
 		}
+		if (drawn) {
+			ride.legsQuiet = false;
+		}
 		// Which way is down in the legs' frame: read off where the model is drawn (the body's tilt, and whatever else turns
 		// it), else the ride's tilt.
-		float down = tilt;
-		if (drawn) {
-			ROOT.set(ride.drawnPose)
-				.translate(root.x / 16.0F, root.y / 16.0F, root.z / 16.0F)
-				.rotateZYX(root.zRot, root.yRot, root.xRot)
-				.scale(root.xScale, root.yScale, root.zScale);
-			INVERSE.set(ROOT).invert().transformDirection(0.0F, -1.0F, 0.0F, POINT);
-			down = (float) Math.atan2(POINT.z, POINT.y);
-		}
+		final float down = drawn ? down(ride, root) : tilt;
 		DOWN = down;
-		final float upright = down * LEG_UPRIGHT;
-		final float stride = 1.0F - (1.0F - STRIDE_STEEP) * Mth.clamp(Math.abs(down) / STRIDE_STEEP_TILT, 0.0F, 1.0F);
-		// Each leg upright (turned about its top), and where it is drawn, how far the ground under its hoof is above it.
-		float standing = Float.POSITIVE_INFINITY;
-		float highest = Float.NEGATIVE_INFINITY;
+		// The legs stand upright against the ground's slope (the ride's tilt), not against the body's own sway with the
+		// gait or the breath (that is the animation's: countering it put a hitch in every step).
+		final float upright = tilt * LEG_UPRIGHT;
+		final float stride = 1.0F - (1.0F - STRIDE_STEEP) * Mth.clamp(Math.abs(tilt) / STRIDE_STEEP_TILT, 0.0F, 1.0F);
 		final float groundY = root == null ? 24.0F : (24.0F - root.y) / root.yScale;
+		// Moving on, any hoof may be sliding a little along the ground (the animation's stride doesn't match the ground
+		// exactly): it takes the last bit of lift to come up onto a step instead of popping up at its edge.
+		final float moving = drawn ? Mth.clamp(ride.groundSpeed(partial) / SLIDE_SPEED, 0.0F, 1.0F) : 0.0F;
+		// The most any leg would have to draw up past what it can (blocks; the body must come up by that), and the least
+		// any standing hoof is above its ground (the body may come down by that, onto its legs).
+		double missing = Double.NEGATIVE_INFINITY;
+		double hanging = Double.POSITIVE_INFINITY;
+		// The most a hoof on its way onto higher ground will need the body up, to land there (blocks).
+		double landing = Double.NEGATIVE_INFINITY;
+		boolean found = false;
+		boolean active = false;
 		for (int i = 0; i < 4; i++) {
 			final ModelPart part = PARTS[i];
-			final Knees.Leg leg = part == null ? null : Knees.of(part);
-			LEGS[i] = leg;
+			final Legs.Leg leg = part == null ? null : Legs.of(part);
 			if (leg == null) {
 				continue;
 			}
-			// Models are shared between horses: whatever the last horse drawn did to the knee is undone.
-			Knees.straighten(leg);
 			// (How high the pack has the hoof, before it is turned upright: lifted mid-stride, it isn't standing.)
-			final float packLift = (groundY - (part.y + leg.soleY * Mth.cos(part.xRot) - leg.soleZ * Mth.sin(part.xRot))) / pixels;
+			final float packLift = (groundY - (part.y + leg.soleY * Mth.cos(part.xRot) - leg.z * Mth.sin(part.xRot))) / pixels;
+			PACK_LIFTS[i] = packLift;
 			// On steep ground the stride is shorter (a horse picks its way up and down stairs): the pack's swing, turned
-			// about the top of the leg, is scaled down; then the leg stands upright against the tilt.
-			Knees.swing(part, leg, part.xRot * stride + upright);
-			if (ground) {
-				final float rise = groundRise(ride, root, part, leg, level, i, dt);
-				RISES[i] = rise;
-				SHIFTS[i] = SHIFT;
-				WANTED[i] = rise;
-				PACK_LIFTS[i] = packLift;
-				// (A hoof drawn in a step's face, too far down for a knee to bring it up, doesn't move the body.)
-				if (!Float.isNaN(rise)) {
-					if (packLift < PACK_LIFT && rise > Float.NEGATIVE_INFINITY) {
-						standing = Math.min(standing, rise);
-					}
-					highest = Math.max(highest, rise);
+			// about the top of the leg, is scaled down; then the leg stands upright against the tilt, its top's corner drawn
+			// up into the body by that swing so no gap shows there (the body is lowered to match).
+			Legs.swing(part, leg, part.xRot * stride + upright);
+			Legs.draw(part, LEG_HALF_DEPTH * Math.abs(Mth.sin(upright)));
+			if (!drawn) {
+				up(part, (i < 2 ? fore : hind) * pixels, down);
+				continue;
+			}
+			if (again) {
+				final float back = ride.legBack[i];
+				if (back != 0.0F) {
+					Legs.swing(part, leg, part.xRot + back);
+					Legs.draw(part, LEG_HALF_DEPTH * Math.max(Math.abs(Mth.sin(upright + back)) - Math.abs(Mth.sin(upright)), 0.0F));
+				}
+				up(part, ride.legRise[i] * pixels, down);
+				continue;
+			}
+			// In its swing (the gait has lifted it), a hoof lifts toward what rises ahead of it, the more the higher the gait
+			// has it (fully from PACK_LIFT up); a planted hoof stays on its ground.
+			final float swing = Mth.clamp(packLift / PACK_LIFT, 0.0F, 1.0F);
+			final double now = ground(ride, part, leg, level, i, swing > 0.0F || moving > 0.0F);
+			// (A hoof the body has lifted off the ground, in front of a step, is in the air too: as free to lift as a
+			// swinging one, fully once HOOF_FREE up.)
+			final float free = now == Double.NEGATIVE_INFINITY || Double.isNaN(now) ? 0.0F : Mth.clamp((float) (soleHeight - now) / HOOF_FREE, 0.0F, 1.0F) * moving;
+			final double swung = ahead > now ? now + (ahead - now) * swing : now;
+			final double target = Math.max(Math.max(swung, ahead > now ? now + (ahead - now) * free : now), aheadClose > now ? now + (aheadClose - now) * moving : now);
+			float back = 0.0F;
+			if (shift != 0.0F) {
+				// Off a step's face: the hoof swings back (or forward) onto the tread, its top's corner kept in the body.
+				back = (float) Math.atan2(shift, leg.length);
+				Legs.swing(part, leg, part.xRot + back);
+				Legs.draw(part, LEG_HALF_DEPTH * Math.max(Math.abs(Mth.sin(upright + back)) - Math.abs(Mth.sin(upright)), 0.0F));
+				active = true;
+			}
+			final double sole = sole(ride, part, leg);
+			final double want = Double.isNaN(target) ? LEG_DRAW_MAX : target == Double.NEGATIVE_INFINITY ? 0.0 : target - sole;
+			// (Past LEG_DRAW_MAX only for the frame before the body comes up for it, so the hoof isn't in the ground meanwhile.)
+			float draw = (float) Mth.clamp(want, 0.0, grounded ? LEG_RISE_MAX : LEG_DRAW_MAX);
+			if (dt > 0.0F && !Double.isNaN(target)) {
+				// A hoof lifts, and a leg straightens, only so fast; but never leaving the hoof in the ground under it now.
+				final float last = ride.legRise[i];
+				final float under = now == Double.NEGATIVE_INFINITY ? 0.0F : (float) Mth.clamp(now - sole, 0.0, grounded ? LEG_RISE_MAX : LEG_DRAW_MAX);
+				draw = Math.max(Mth.clamp(draw, last - LEG_STRAIGHTEN_SPEED * dt, last + HOOF_LIFT_SPEED * dt), under);
+			}
+			if (swung > now) {
+				// (Only from the gait's swing: a hoof the body lifted mustn't lift the body further.)
+				landing = Math.max(landing, swung - sole - LEG_DRAW_MAX);
+			}
+			if (!Double.isNaN(now) && now != Double.NEGATIVE_INFINITY) {
+				// (Only the ground under a hoof holds the body up at once; the lift to clear what is ahead doesn't.)
+				final double under = now - sole;
+				found = true;
+				missing = Math.max(missing, under - LEG_DRAW_MAX);
+				// Standing: not lifted by the stride, and over ground in reach (not stepping off a drop, or over the ground
+				// behind a ledge).
+				if (packLift < PACK_LIFT && under > -HANG_REACH) {
+					hanging = Math.min(hanging, -under);
 				}
 			}
+			if (draw > 0.0F) {
+				up(part, draw * pixels, down);
+				Legs.drawnFrames++;
+				active = true;
+			}
+			ride.legRise[i] = draw;
+			ride.legShift[i] = shift / pixels;
+			ride.legBack[i] = back;
+			WANTED[i] = (float) want;
+			TARGETS[i * 5] = SOLES[i * 3];
+			TARGETS[i * 5 + 1] = target;
+			TARGETS[i * 5 + 2] = SOLES[i * 3 + 2];
+			TARGETS[i * 5 + 3] = draw * pixels;
+			TARGETS[i * 5 + 4] = back;
 		}
-		final boolean levelBody = upright == 0.0F && fore == 0.0F && hind == 0.0F;
-		if (ground) {
+		if (again) {
+			return ride.legsFound;
+		}
+		if (drawn) {
 			groundFrames++;
-			// The body comes up (or down) until the standing leg on the lowest ground is straight, but never so low that a
-			// leg on higher ground would have to fold past what a knee can. (On level ground it settles back.)
-			if (levelBody) {
-				ride.drawnFit = fit(ride.drawnFit, -ride.drawnFit, dt);
-			} else if (standing != Float.POSITIVE_INFINITY) {
-				// (Held while the ride is already moving the body up or down fast, so the two never add up to a jolt.)
-				final float hold = Mth.clamp(1.0F - Math.abs(ride.drawnRise) / FIT_HOLD_RISE, 0.0F, 1.0F);
-				ride.drawnFit = fit(ride.drawnFit, Math.max(standing, highest - (LEG_RISE_MAX - FIT_MARGIN)), dt * hold);
+			ride.legsActive = active;
+			ride.legsFound = grounded && found;
+			// The body rests on its legs: where the ride carries it, unless that leaves every standing hoof above its ground
+			// (it comes down onto them) or a leg needing to draw up further than it can (it comes up, at once: a hard stop,
+			// in a jump too). Otherwise it settles back to where the ride carries it.
+			// (A leg can draw up past LEG_DRAW_MAX for a moment, to LEG_RISE_MAX: the body rises smoothly to bring it back, and
+			// only comes up at once for a leg that couldn't reach its ground at all.)
+			final float floor = missing == Double.NEGATIVE_INFINITY ? -FIT_DOWN_MAX : (float) Math.min(ride.drawnFit + missing, FIT_UP_MAX);
+			final float hardFloor = floor - (LEG_RISE_MAX - LEG_DRAW_MAX);
+			float wanted = 0.0F;
+			if (grounded) {
+				if (hanging != Double.POSITIVE_INFINITY) {
+					// (Never so low the chest meets a step ahead.)
+					wanted = Math.max(Math.min(wanted, ride.drawnFit - (float) hanging), -ride.chestRoom);
+				}
+				// A hoof about to land on higher ground than its leg can draw up for: the body rises for it as it comes (the
+				// other legs pushing), rather than all at once when it lands.
+				if (landing > 0.0) {
+					wanted = Math.max(wanted, ride.drawnFit + (float) landing);
+				}
+				wanted = Math.max(wanted, floor);
+			}
+			wanted = Mth.clamp(wanted, -FIT_DOWN_MAX, FIT_UP_MAX);
+			if (dt > 0.0F) {
+				// On its legs, a critically damped spring (solved implicitly), coming down no faster than it would fall.
+				final float w = 1.0F / FIT_TIME;
+				final float velocity = (ride.drawnFitVelocity + w * w * (wanted - ride.drawnFit) * dt) / (1.0F + 2.0F * w * dt + w * w * dt * dt);
+				ride.drawnFitVelocity = Math.max(velocity, ride.drawnFitVelocity - FIT_GRAVITY * dt);
+				ride.drawnFit += ride.drawnFitVelocity * dt;
+			}
+			if (grounded && ride.drawnFit < hardFloor) {
+				ride.drawnFit = hardFloor;
+				ride.drawnFitVelocity = Math.max(ride.drawnFitVelocity, 0.0F);
+			}
+			if (Math.abs(ride.drawnFit) < 1.0E-3F && wanted == 0.0F && Math.abs(ride.drawnFitVelocity) < 1.0E-2F) {
+				ride.drawnFit = 0.0F;
+				ride.drawnFitVelocity = 0.0F;
 			}
 		}
-		// Then each knee bends to bring its hoof onto its ground, eased in and out (never a snap).
-		// (The upper leg reaches up into the body far enough that standing it upright shows no gap at the top: nothing to
-		// draw up, so no knee bent just to put the hoof back.)
-		final float drawUp = 0.0F;
-		for (int i = 0; i < 4; i++) {
-			final ModelPart part = PARTS[i];
-			final Knees.Leg leg = LEGS[i];
+		return drawn && grounded && found;
+	}
+
+	/**
+	 * After the jump's shape is put on the legs (see {@link AirLegs}): any hoof it leaves in the ground (landing) draws its
+	 * leg up into the body onto it.
+	 */
+	public static void floor(
+		final @Nullable ModelPart leftFront, final @Nullable ModelPart rightFront, final @Nullable ModelPart leftHind, final @Nullable ModelPart rightHind,
+		final float pixels, final @Nullable RideState ride, final @Nullable ModelPart root
+	) {
+		final Level level = Minecraft.getInstance().level;
+		if (ride == null || root == null || !ride.drawnPoseSet || level == null) {
+			return;
+		}
+		final float down = down(ride, root);
+		PARTS[0] = leftFront;
+		PARTS[1] = rightFront;
+		PARTS[2] = leftHind;
+		PARTS[3] = rightHind;
+		for (final ModelPart part : PARTS) {
+			final Legs.Leg leg = part == null ? null : Legs.of(part);
 			if (leg == null) {
 				continue;
 			}
-			float rise = i < 2 ? fore : hind;
-			float shift = 0.0F;
-			if (ground) {
-				// (On level ground, the last hundredths settle to nothing so the legs go back to the pack's own.)
-				// (A lift of a hair isn't one: a near-straight leg shortens only by bending a lot, so it would flick.)
-				final float wanted = Float.isNaN(RISES[i]) ? LEG_RISE_MAX : RISES[i] < LEVEL_DEAD_ZONE ? 0.0F : Mth.clamp(RISES[i], 0.0F, LEG_RISE_MAX);
-				ride.legRise[i] = settle(Mth.clamp(
-					spring(ride.legRise[i], ride.legRiseSpeed, ride.legRiseTarget, i, wanted, wanted > ride.legRise[i] ? LEG_RISE_SPEED : LEG_DROP_SPEED, dt), 0.0F,
-					LEG_RISE_MAX
-				), wanted);
-				rise = ride.legRise[i];
-				final float wantedShift = SHIFTS[i] / pixels;
-				ride.legShift[i] = settle(spring(ride.legShift[i], ride.legShiftSpeed, ride.legShiftTarget, i, wantedShift, LEG_SHIFT_SPEED, dt), wantedShift);
-				shift = ride.legShift[i] * pixels;
-			}
-			// The hoof stands flat on its ground (fully once the body tilts or the hoof comes up a little).
-			final float flat = Mth.clamp(Math.max(Math.abs(upright) / HOOF_LEVEL_TILT, rise / HOOF_LEVEL_RISE), 0.0F, 1.0F);
-			Knees.TARGET[0] = Float.NaN;
-			// Every knee bends forward (the joint halfway down reads as a knee, front and hind alike; never flipping).
-			Knees.plant(part, leg, rise * pixels, shift, down, drawUp, flat, true);
-			if (drawn && !Float.isNaN(Knees.TARGET[0])) {
-				MATRIX.set(ride.drawnPose)
-					.translate(root.x / 16.0F, root.y / 16.0F, root.z / 16.0F)
-					.rotateZYX(root.zRot, root.yRot, root.xRot)
-					.scale(root.xScale, root.yScale, root.zScale)
-					.transformPosition(part.x / 16.0F, Knees.TARGET[0] / 16.0F, Knees.TARGET[1] / 16.0F, POINT);
-				TARGETS[i * 5] = ride.drawnCameraX + POINT.x;
-				TARGETS[i * 5 + 1] = ride.drawnCameraY + POINT.y;
-				TARGETS[i * 5 + 2] = ride.drawnCameraZ + POINT.z;
-				TARGETS[i * 5 + 3] = Knees.TARGET[2];
-				TARGETS[i * 5 + 4] = Knees.TARGET[3];
-			} else {
-				TARGETS[i * 5] = Double.NaN;
+			final double sole = sole(ride, part, leg);
+			final double ground = surface(level, ride.drawnCameraX + POINT.x, ride.drawnCameraZ + POINT.z, sole + 1.0, sole - 1.0);
+			if (ground > sole) {
+				up(part, (float) Math.min(ground - sole, LEG_RISE_MAX) * pixels, down);
 			}
 		}
-		return ground && highest > Float.NEGATIVE_INFINITY;
 	}
 
 	/**
-	 * A critically damped spring from {@code value} toward {@code target} over dt seconds (LEG_EASE a second; its speed,
-	 * per leg, in {@code speed}), never faster than {@code most} blocks a second: eases in and out, no overshoot, no snap.
-	 * It also follows how fast the target itself moves (from {@code last}, the target last frame; no faster than
-	 * {@code most}), so a target moving steadily (a step rising against a leg as the body goes down stairs) is kept up
-	 * with instead of trailed. Solved implicitly, so it is steady at any frame rate.
+	 * Draws a leg {@code pixels} straight up in the world into the body ({@code down} is which way is down in the legs'
+	 * frame), so its hoof comes straight up onto the ground under it whatever the leg's slant.
 	 */
-	private static float spring(
-		final float value, final float[] speed, final float[] last, final int index, final float target, final float most, final float dt
-	) {
-		if (dt <= 0.0F) {
-			return value;
-		}
-		final float w = LEG_EASE;
-		// (Only a steady drift counts: a jump in the target, a hoof crossing a step's edge, is eased like any change.)
-		final float drift = Float.isNaN(last[index]) ? 0.0F : (target - last[index]) / dt;
-		final float targetSpeed = Math.abs(drift) <= LEG_DRIFT_MAX ? drift : 0.0F;
-		last[index] = target;
-		float v = (speed[index] + (w * w * (target - value) + 2.0F * w * targetSpeed) * dt) / (1.0F + 2.0F * w * dt + w * w * dt * dt);
-		v = Mth.clamp(v, -most, most);
-		speed[index] = v;
-		return value + v * dt;
+	private static void up(final ModelPart part, final float pixels, final float down) {
+		part.y -= pixels * Mth.cos(down);
+		part.z -= pixels * Mth.sin(down);
 	}
 
-	/** Snaps an eased value onto a zero target once it is within a thousandth. */
-	private static float settle(final float value, final float target) {
-		return target == 0.0F && Math.abs(value) < 1.0E-3F ? 0.0F : value;
-	}
-
-	/**
-	 * The body's fit moved toward closing {@code error} (blocks): eased over FIT_TIME, never faster than FIT_RATE_MAX, and
-	 * snapped to nothing once within a thousandth of it.
-	 */
-	private static float fit(final float current, final float error, final float dt) {
-		final float step = Mth.clamp(error * (1.0F - (float) Math.exp(-dt / FIT_TIME)), -FIT_RATE_MAX * dt, FIT_RATE_MAX * dt);
-		final float next = Mth.clamp(current + step, -FIT_DOWN_MAX, FIT_UP_MAX);
-		return Math.abs(next) < 1.0E-3F && Math.abs(error + current) < 1.0E-3F ? 0.0F : next;
-	}
-
-	/**
-	 * How far (blocks) the ground under the straight leg's sole is above it (negative, below it), where the model is drawn:
-	 * the highest under its front, middle and back, so a hoof over a step's edge stands on it rather than in it. Searched
-	 * from a block above the sole (a hoof drawn deep in a step still finds its top) to a block below. Ground more
-	 * than LEG_RISE_MAX above is a step's face the hoof is up against: the hoof moves off it ({@link #SHIFT}, pixels
-	 * toward the tail along the leg) onto the ground it can stand on, as far back as LEG_FACE_SEARCH more half-depths if
-	 * it is in the face all over. Negative infinity if there is nothing there; NaN if there is nowhere to stand.
-	 */
-	private static float groundRise(
-		final RideState ride, final ModelPart root, final ModelPart part, final Knees.Leg leg, final Level level, final int index, final float dt
-	) {
-		MATRIX.set(ride.drawnPose)
+	/** Sets {@link #ROOT} to where the model's root is drawn and returns which way is down in it (radians toward the tail). */
+	private static float down(final RideState ride, final ModelPart root) {
+		ROOT.set(ride.drawnPose)
 			.translate(root.x / 16.0F, root.y / 16.0F, root.z / 16.0F)
 			.rotateZYX(root.zRot, root.yRot, root.xRot)
-			.scale(root.xScale, root.yScale, root.zScale)
+			.scale(root.xScale, root.yScale, root.zScale);
+		MATRIX.set(ROOT).invert().transformDirection(0.0F, -1.0F, 0.0F, POINT);
+		return (float) Math.atan2(POINT.z, POINT.y);
+	}
+
+	/** Sets {@link #MATRIX} to the leg part as drawn. */
+	private static void legMatrix(final ModelPart part) {
+		MATRIX.set(ROOT)
 			.translate(part.x / 16.0F, part.y / 16.0F, part.z / 16.0F)
 			.rotateZYX(part.zRot, part.yRot, part.xRot)
 			.scale(part.xScale, part.yScale, part.zScale);
-		// Where the hoof will be a moment from now, along the leg's own front-to-back (a swinging hoof gets to a step a
-		// little before it is there).
-		MATRIX.transformPosition(leg.soleX / 16.0F, leg.soleY / 16.0F, leg.soleZ / 16.0F, POINT);
-		final double nowX = ride.drawnCameraX + POINT.x;
-		final double nowZ = ride.drawnCameraZ + POINT.z;
-		float ahead = 0.0F;
-		if (dt > 0.0F && !Double.isNaN(ride.legSoleX[index])) {
-			MATRIX.transformDirection(0.0F, 0.0F, 1.0F, POINT);
-			final double along = ((nowX - ride.legSoleX[index]) * POINT.x + (nowZ - ride.legSoleZ[index]) * POINT.z) / (POINT.x * POINT.x + POINT.z * POINT.z);
-			ahead = Mth.clamp((float) along / dt * LEG_LOOKAHEAD, -LEG_LOOKAHEAD_MAX, LEG_LOOKAHEAD_MAX);
-		}
-		if (dt > 0.0F) {
-			ride.legSoleX[index] = nowX;
-			ride.legSoleZ[index] = nowZ;
-		}
-		MATRIX.transformPosition(leg.soleX / 16.0F, leg.soleY / 16.0F, leg.soleZ / 16.0F, POINT);
-		SOLES[index * 3 + 1] = ride.drawnCameraY + POINT.y;
-		// Front edge, middle, back edge: the higher of the ground under each now and where it will be (a step's face is
-		// judged only where the hoof is: one just ahead is something to come up for, not to back off).
-		for (int edge = -1; edge <= 1; edge++) {
-			final float now = sample(ride, leg, level, edge * leg.soleHalf);
-			float rise = now;
-			if (ahead != 0.0F && !Float.isNaN(now)) {
-				// (Halfway there too, so a step between here and there isn't missed.)
-				final float half = sample(ride, leg, level, edge * leg.soleHalf + ahead * 0.5F);
-				final float soon = sample(ride, leg, level, edge * leg.soleHalf + ahead);
-				rise = Math.max(rise, Float.isNaN(half) ? rise : half);
-				rise = Math.max(rise, Float.isNaN(soon) ? rise : soon);
-			}
-			SAMPLES[edge + 1] = rise;
-		}
-		SOLES[index * 3] = nowX;
-		SOLES[index * 3 + 2] = nowZ;
-		final boolean front = Float.isNaN(SAMPLES[0]);
-		final boolean middle = Float.isNaN(SAMPLES[1]);
-		final boolean back = Float.isNaN(SAMPLES[2]);
-		if (!front && !middle && !back) {
-			SHIFT = 0.0F;
-			return Math.max(SAMPLES[0], Math.max(SAMPLES[1], SAMPLES[2]));
-		}
-		if (front && !back) {
-			// Up against a step's face ahead: back off it.
-			SHIFT = middle ? 2.0F * leg.soleHalf : leg.soleHalf;
-			return middle ? SAMPLES[2] : Math.max(SAMPLES[1], SAMPLES[2]);
-		}
-		if (back && !front) {
-			SHIFT = middle ? -2.0F * leg.soleHalf : -leg.soleHalf;
-			return middle ? SAMPLES[0] : Math.max(SAMPLES[0], SAMPLES[1]);
-		}
-		// In a step's face all over: back along the leg to the first ground it can stand on, its front edge there.
-		for (int k = 1; k <= LEG_FACE_SEARCH; k++) {
-			final float rise = sample(ride, leg, level, (1 + k) * leg.soleHalf);
-			if (!Float.isNaN(rise)) {
-				SHIFT = (2 + k) * leg.soleHalf;
-				return rise;
-			}
-		}
-		SHIFT = 0.0F;
-		return Float.NaN;
 	}
 
 	/**
-	 * How far above the sole the ground is {@code along} pixels toward the tail of the straight leg's sole (with
-	 * {@link #MATRIX} set to the leg): negative infinity for nothing, NaN for a step's face (more than LEG_RISE_MAX up).
+	 * The world height of the middle of the leg's sole as it is posed now, and its camera-relative spot in {@link #POINT}.
+	 * (Not its lowest corner: a planted leg rocks through upright in every stride, and the lowest corner switching from
+	 * back to front there put a kink in every step. A rocking hoof's edge dips a pixel, as the animation draws it.)
 	 */
-	private static float sample(final RideState ride, final Knees.Leg leg, final Level level, final float along) {
-		MATRIX.transformPosition(leg.soleX / 16.0F, leg.soleY / 16.0F, (leg.soleZ + along) / 16.0F, POINT);
+	private static double sole(final RideState ride, final ModelPart part, final Legs.Leg leg) {
+		legMatrix(part);
+		MATRIX.transformPosition(leg.soleX / 16.0F, leg.soleY / 16.0F, leg.z / 16.0F, POINT);
+		return ride.drawnCameraY + POINT.y;
+	}
+
+	/**
+	 * The world height a hoof stands on, where the leg is posed now: the ground under its sole, front to back, worked out
+	 * exactly (the ground only changes where the half-block grid crosses it): a stretch of higher ground under the sole
+	 * holds it up, coming in over the first EDGE_BLEND blocks of it (so a hoof slipping onto a step's edge comes up onto
+	 * it, never popping at a single point), searched from a block above the sole to a block below. Ground more than
+	 * LEG_RISE_MAX above (or a wall) is a step's face: the hoof moves off it by exactly as far as it is in it
+	 * ({@link #shift}, pixels toward the tail along the leg), or if it is in the face all over, back along the leg to the
+	 * first ground it can stand on, as far as LEG_FACE_SEARCH more half-depths. Also finds what is ahead ({@link #ahead},
+	 * {@link #aheadClose}) if {@code look}. Negative infinity if there is nothing there; NaN if there is nowhere to stand.
+	 */
+	private static double ground(final RideState ride, final ModelPart part, final Legs.Leg leg, final Level level, final int index, final boolean look) {
+		final double y = sole(ride, part, leg);
+		soleHeight = y;
+		final double x = ride.drawnCameraX + POINT.x;
+		final double z = ride.drawnCameraZ + POINT.z;
+		SOLES[index * 3] = x;
+		SOLES[index * 3 + 1] = y;
+		SOLES[index * 3 + 2] = z;
+		// The sole's front and back edges, level.
+		MATRIX.transformPosition(leg.soleX / 16.0F, leg.soleY / 16.0F, (leg.z - leg.soleHalf) / 16.0F, POINT);
+		final double fx = ride.drawnCameraX + POINT.x;
+		final double fz = ride.drawnCameraZ + POINT.z;
+		MATRIX.transformPosition(leg.soleX / 16.0F, leg.soleY / 16.0F, (leg.z + leg.soleHalf) / 16.0F, POINT);
+		final double bx = ride.drawnCameraX + POINT.x;
+		final double bz = ride.drawnCameraZ + POINT.z;
+		final double length = Math.sqrt((bx - fx) * (bx - fx) + (bz - fz) * (bz - fz));
+		// Toward the tail, level.
+		final double ux = length < 1.0E-6 ? 0.0 : (bx - fx) / length;
+		final double uz = length < 1.0E-6 ? 1.0 : (bz - fz) / length;
+		final int stretches = stretches(level, fx, fz, bx, bz, y);
+		// A face at the front (or the back): how much of the sole is in it.
+		double front = 0.0;
+		for (int k = 0; k < stretches && face(STRETCH_TOP[k], y); k++) {
+			front = STRETCH_END[k];
+		}
+		double back = 0.0;
+		for (int k = stretches - 1; k >= 0 && face(STRETCH_TOP[k], y); k--) {
+			back = 1.0 - (k == 0 ? 0.0 : STRETCH_END[k - 1]);
+		}
+		double ground;
+		if (front >= 1.0 || back >= 1.0 || front > 0.0 && back > 0.0) {
+			// In a step's face all over: back along the leg to the first ground it can stand on, its front edge there.
+			shift = 0.0F;
+			ground = Double.NaN;
+			for (int k = 1; k <= LEG_FACE_SEARCH; k++) {
+				final float found = sample(ride, leg, level, (1 + k) * leg.soleHalf);
+				if (!Float.isNaN(found)) {
+					shift = (2 + k) * leg.soleHalf;
+					ground = found == Float.NEGATIVE_INFINITY ? Double.NEGATIVE_INFINITY : y + found;
+					break;
+				}
+			}
+			if (Double.isNaN(ground)) {
+				return Double.NaN;
+			}
+		} else {
+			// Off the face by exactly as far as the sole is in it; then the ground under what is left of the sole.
+			shift = (float) ((front - back) * 2.0 * leg.soleHalf);
+			final double from = front > 0.0 ? front : 0.0;
+			final double to = back > 0.0 ? 1.0 - back : 1.0;
+			double low = Double.POSITIVE_INFINITY;
+			for (int k = 0; k < stretches; k++) {
+				if (!face(STRETCH_TOP[k], y)) {
+					low = Math.min(low, base(STRETCH_TOP[k], y));
+				}
+			}
+			ground = low;
+			double start = 0.0;
+			for (int k = 0; k < stretches; k++) {
+				final double end = STRETCH_END[k];
+				final double over = (Math.min(end, to) - Math.max(start, from)) * length;
+				if (over > 0.0 && !face(STRETCH_TOP[k], y)) {
+					// (Coming in over its first EDGE_BLEND blocks.)
+					ground = Math.max(ground, low + (base(STRETCH_TOP[k], y) - low) * Math.min(over / EDGE_BLEND, 1.0));
+				}
+				start = end;
+			}
+			if (low == Double.POSITIVE_INFINITY || ground <= y - 1.0 && allNothing(stretches)) {
+				ground = Double.NEGATIVE_INFINITY;
+			}
+		}
+		// What rises ahead of it, the way the horse is going.
+		ahead = Double.NEGATIVE_INFINITY;
+		aheadClose = Double.NEGATIVE_INFINITY;
+		if (look && ground != Double.NEGATIVE_INFINITY) {
+			final boolean forward = ride.speed >= 0.0F;
+			MATRIX.transformPosition(leg.soleX / 16.0F, leg.soleY / 16.0F, (leg.z + shift + (forward ? -leg.soleHalf : leg.soleHalf)) / 16.0F, POINT);
+			final double sign = forward ? -1.0 : 1.0;
+			ramp(level, ride.drawnCameraX + POINT.x, ride.drawnCameraZ + POINT.z, ux * sign, uz * sign, y);
+		}
+		return ground;
+	}
+
+	/**
+	 * Splits the level line from (fx, fz) to (bx, bz) where the half-block grid crosses it into {@link #STRETCH_END} and
+	 * {@link #STRETCH_TOP} (each stretch's ground, read at its middle, against a sole at {@code y}); returns how many.
+	 */
+	private static int stretches(final Level level, final double fx, final double fz, final double bx, final double bz, final double y) {
+		int count = 0;
+		// The crossings, as shares of the way, in order (a sole is a quarter block deep: a crossing or two at most).
+		double[] cuts = STRETCH_END;
+		final double gx0 = fx * 2.0;
+		final double gx1 = bx * 2.0;
+		final double gz0 = fz * 2.0;
+		final double gz1 = bz * 2.0;
+		for (double m = Math.floor(Math.min(gx0, gx1)) + 1.0; m < Math.max(gx0, gx1) && count < 3; m += 1.0) {
+			cuts[count++] = (m - gx0) / (gx1 - gx0);
+		}
+		for (double m = Math.floor(Math.min(gz0, gz1)) + 1.0; m < Math.max(gz0, gz1) && count < 6; m += 1.0) {
+			cuts[count++] = (m - gz0) / (gz1 - gz0);
+		}
+		java.util.Arrays.sort(cuts, 0, count);
+		cuts[count++] = 1.0;
+		double start = 0.0;
+		for (int k = 0; k < count; k++) {
+			final double middle = (start + cuts[k]) * 0.5;
+			STRETCH_TOP[k] = surface(level, fx + (bx - fx) * middle, fz + (bz - fz) * middle, y + 1.0, y - 1.0);
+			start = cuts[k];
+		}
+		return count;
+	}
+
+	/** A stretch's top is a step's face for a sole at {@code y}: a wall, or more than LEG_RISE_MAX up. */
+	private static boolean face(final double top, final double y) {
+		return Double.isNaN(top) || top - y > LEG_RISE_MAX;
+	}
+
+	/** A stretch's top to stand on (nothing there counts as a block below the sole). */
+	private static double base(final double top, final double y) {
+		return top == Double.NEGATIVE_INFINITY ? y - 1.0 : top;
+	}
+
+	/** Whether there is nothing under any of the stretches. */
+	private static boolean allNothing(final int stretches) {
+		for (int k = 0; k < stretches; k++) {
+			if (STRETCH_TOP[k] != Double.NEGATIVE_INFINITY) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * The height a hoof at (x, z) (its leading edge) moving along (dx, dz) lifts to, to clear the ground ahead, into
+	 * {@link #ahead}: for each stretch of ground within RAMP_REACH blocks, its top less RAMP_SLOPE for every block away it
+	 * is, the highest of them (so the hoof comes up steadily as it nears a step, never all at once); and the same with
+	 * SLIDE_RAMP_SLOPE into {@link #aheadClose}. The ground only changes where the half-block grid is crossed, so it is
+	 * read just past each crossing. Negative infinity if nothing ahead.
+	 */
+	private static void ramp(final Level level, final double x, final double z, final double dx, final double dz, final double sole) {
+		double best = Double.NEGATIVE_INFINITY;
+		double close = Double.NEGATIVE_INFINITY;
+		final double gx = x * 2.0;
+		final double gz = z * 2.0;
+		double tx = dx > 1.0E-6 ? (Math.floor(gx) + 1.0 - gx) / (2.0 * dx) : dx < -1.0E-6 ? (Math.ceil(gx) - 1.0 - gx) / (2.0 * dx) : Double.POSITIVE_INFINITY;
+		double tz = dz > 1.0E-6 ? (Math.floor(gz) + 1.0 - gz) / (2.0 * dz) : dz < -1.0E-6 ? (Math.ceil(gz) - 1.0 - gz) / (2.0 * dz) : Double.POSITIVE_INFINITY;
+		final double stepX = Math.abs(dx) > 1.0E-6 ? 0.5 / Math.abs(dx) : Double.POSITIVE_INFINITY;
+		final double stepZ = Math.abs(dz) > 1.0E-6 ? 0.5 / Math.abs(dz) : Double.POSITIVE_INFINITY;
+		for (int k = 0; k < 10; k++) {
+			final double t = Math.min(tx, tz);
+			if (t > RAMP_REACH) {
+				break;
+			}
+			final double ground = surface(level, x + dx * (t + 1.0E-3), z + dz * (t + 1.0E-3), sole + RAMP_HIGHEST, sole - 1.0);
+			if (!Double.isNaN(ground) && ground != Double.NEGATIVE_INFINITY) {
+				best = Math.max(best, ground - RAMP_SLOPE * t);
+				close = Math.max(close, ground - SLIDE_RAMP_SLOPE * t);
+			}
+			if (tx <= tz) {
+				tx += stepX;
+			} else {
+				tz += stepZ;
+			}
+		}
+		ahead = best;
+		aheadClose = close;
+	}
+
+	/**
+	 * How far above the sole the ground is {@code along} pixels toward the tail of the sole (with {@link #MATRIX} set to the
+	 * leg): negative infinity for nothing, NaN for a step's face (a wall, or more than LEG_RISE_MAX up).
+	 */
+	private static float sample(final RideState ride, final Legs.Leg leg, final Level level, final float along) {
+		MATRIX.transformPosition(leg.soleX / 16.0F, leg.soleY / 16.0F, (leg.z + along) / 16.0F, POINT);
 		final double y = ride.drawnCameraY + POINT.y;
 		final double ground = surface(level, ride.drawnCameraX + POINT.x, ride.drawnCameraZ + POINT.z, y + 1.0, y - 1.0);
-		return ground - y > LEG_RISE_MAX ? Float.NaN : Double.isNaN(ground) ? Float.NEGATIVE_INFINITY : (float) (ground - y);
+		return face(ground, y) ? Float.NaN : ground == Double.NEGATIVE_INFINITY ? Float.NEGATIVE_INFINITY : (float) (ground - y);
 	}
 
 	/**

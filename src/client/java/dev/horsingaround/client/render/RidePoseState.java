@@ -52,10 +52,13 @@ public interface RidePoseState {
 	float horsingaround$neckPitch();
 
 	/**
-	 * Hooves on the ground (see {@link GroundLegs}): the body's tilt (radians), and how far the front and hind hooves come
-	 * up onto higher ground (blocks); vanilla model only.
+	 * Hooves on the ground (see {@link GroundLegs}): whether the model's own hook poses them (the vanilla model; an
+	 * animation pack's hook poses them after the pack has run), the body's tilt (radians), and how far the front and hind
+	 * legs draw up onto higher ground where the model hasn't been drawn yet (blocks).
 	 */
-	void horsingaround$setLegs(float tilt, float fore, float hind);
+	void horsingaround$setLegs(boolean here, float tilt, float fore, float hind);
+
+	boolean horsingaround$legsHere();
 
 	float horsingaround$legTilt();
 

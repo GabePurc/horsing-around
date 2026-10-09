@@ -58,8 +58,8 @@ mods. It replaces vanilla entity animation with its own, driven by vanilla value
 speeds feed straight into its leg cycles. Compatibility rules for this mod:
 
 - Never replace the horse model or its animation; only add whole-body transforms (lean) on the render pose stack.
-  (Revised 2026-10-08, user direction: each leg gets a knee. The leg box is cut into upper leg, cannon and hoof,
-  texture and all, and the pack still animates the leg; the knee and fetlock are ours. See "Knees and hurdles".)
+  (A knee cut into each leg was tried on 2026-10-08 and taken out the same day, user direction: it strayed too far
+  from vanilla. Legs are vanilla's one-piece legs again; see "Exact hooves, a body on its legs".)
 - Keep vanilla animation inputs truthful (speed, onGround, ridden state).
 - Dev runs and the ride test load EMF, ETF and FA so every change is checked against the target look.
 
@@ -364,6 +364,9 @@ so every leg can reach, then swing each leg so its hoof lands on the ground actu
 
 ## Knees and hurdles (user direction, 2026-10-08)
 
+(The knees, the leg springs and the body's easing below were replaced the same day: see "Exact hooves, a body on its
+legs". The hurdles stand.)
+
 Play-test feedback on the hooves-on-the-ground version: at moments the legs detached from the body; horse armour no
 longer followed the head; there was weirdness going down stairs and at walls and fences, and the horse should be able to
 jump walls and fences while ridden. The user asked to try legs in two sections, with a knee, joined up by inverse
@@ -427,3 +430,67 @@ kinematics, still driven by Fresh Animations' animation.
 - Vanilla keys only: W/S/A/D, sprint, jump. No new keybinds for the core loop.
 - Vanilla jumping (charge with space) is untouched.
 - Camels and llamas keep their vanilla controls.
+
+## Exact hooves, a body on its legs (user direction, 2026-10-08)
+
+Play-test feedback on the knees: the legs clipped into the ground, snapped between bent and straight (on Fresh
+Animations and vanilla alike), and landing a jump the horse sank into the ground and came back up; stepping up a block
+it waited too long, so its chest went into the block. Everything was smoothed too much. The user's direction: make it
+physically make sense first and smooth only if needed; the legs don't need smoothing, the body is smoothed by the legs
+absorbing the force. At a walk the legs should go up a step one at a time, at speed nearly together. And no knee or
+hoof joint: it strays too far from vanilla. References: slow-motion gallops (planted hooves stay put and straight,
+swinging legs fold, the body glides).
+
+Causes: each leg's height followed its ground on a spring, so a hoof was in the ground until the spring caught up; a
+near-straight two-bone leg only shortens by bending a lot, so a hair of ground under a hoof flicked the knee (a dead
+zone hid that, then let go of it all at once); on level ground the legs weren't posed at all, so the landing dip put
+the hooves under; the forehand read the ground at the front hooves, but the chest is ahead of them and only ~0.7 above
+them, so it reached a 1-block step before the body rose.
+
+- Legs: vanilla's one-piece legs, never changed. Each stands upright against the ground's slope (turned about its top;
+  not against the body's own sway with the gait or the breath, which put a hitch in every step), and its hoof goes
+  where the ground under it is: over higher ground the leg draws up into the body (up to 0.35 blocks, for a moment
+  0.55), as a horse folds at the shoulder, elbow and knee. The ground under the sole is worked out exactly, front to
+  back (where the half-block grid crosses it): higher ground under part of the sole holds it up, coming in over the first
+  ~0.06 blocks of it, so a hoof slipping onto a step's edge comes up onto it instead of flickering on and off it; a hoof
+  in a step's face moves off it by exactly as far as it is in it. Measured at the middle of the sole (a planted leg rocks
+  through upright every stride; the lowest corner switching there kinked every step).
+- Lifting for what is ahead: a hoof in its swing (lifted by the gait) lifts toward ground rising ahead of it, by that
+  ground's top less 1.5 for every block it still has to go (the arc of a swinging hoof over a step's edge); a hoof the
+  body has lifted off the ground in front of a step is as free to; and moving on, any hoof takes the last bit of it (the
+  animation's planted hooves slide a little, and would pop up a step's edge). Read from the gait's own lift and the
+  horse's speed, never a hoof's speed frame by frame (that flickered with the animation). One leg at a time at a walk and
+  nearly together at speed comes from the stride itself.
+- A hoof lifts no faster than 10 blocks a second and a drawn-up leg straightens no faster than 4, but no hoof is ever left
+  in the ground under it.
+- Body: a mass carried on its legs. The front and the back each follow the ground under their own hooves on a
+  critically damped spring (stiffer at speed), read as far ahead as the spring lags; that is the only smoothing. The legs
+  push it up as hard as they need to, but nothing pulls it down faster than gravity (the game's own): stepping off a
+  block, an end falls until its hooves meet the ground below and the legs take it up (play-test: it dropped as if
+  gravity were a thousand times stronger). The forehand also rises to keep the chest clear of a step before the chest
+  reaches it (worked out at the body's tilt). The tilt is simply the line between the two ends (no separate easing or
+  rate cap, no tracker or catch-up on top). The body sits on its lower end, the legs at the other drawing up to fit, but
+  no more than 0.3.
+- Where the model is drawn, the body then rests on the hooves actually standing: it comes down onto them while every
+  standing hoof is above its ground (falling no faster than gravity, so it doesn't snap down after a climb), comes up
+  smoothly as a hoof on its way onto higher ground nears it or a leg is drawn up past 0.35, and never so low that the
+  chest meets a step ahead.
+- Hard stops: the legs give no more than 0.3 blocks under either pair (the body never sinks further); a leg that couldn't
+  reach its ground even drawn up 0.55 raises the body at once. (Snapping the body up for anything less, and letting it
+  settle back, fought frame by frame: on an edge the body crept down in a hitchy way.)
+- Running off a drop bigger than a step at a canter or faster, the body carries over the edge level, in one piece, as a
+  short leap (the forehand used to pitch down into it, ~30 degrees, while the hindquarters were still on the edge); at a
+  walk it steps down front first.
+- Landing: the body keeps coming down as fast as it fell and the legs take it up (they draw up into the body), so it
+  sinks a little and comes back up with every hoof on the ground. The jump's shape eases out over the landing instead of
+  being dropped, and any hoof it would leave in the ground comes up onto it.
+- Every layer of the model (body, saddle, armour) gets exactly the same legs each frame, measured once (the other layers
+  were posed as if no time had passed, so legs differed between layers; a layer without leg boxes now leaves the ride's
+  state alone, and leg boxes are measured as built, before an armour layer grows them). The ridden horse's legs are
+  always placed, so they never switch over to the model's own mid-stride.
+- Measuring the snaps: a test watches a horse standing still, at the edge of a block, walking then stopping, and walking
+  slowly up and down a single step, tick by tick and frame by frame at 120 frames a second, for any sudden change in the
+  body or a leg (`-Psections=slowstep`).
+- Known limit: on a slope of full blocks (a block up for every block along) the risers are taller than a leg can reach
+  or draw up for, so the horse scrambles: a hoof is off the ground on its way up, or hanging over the next block down,
+  more often than on stairs. Off the ground, never in it.

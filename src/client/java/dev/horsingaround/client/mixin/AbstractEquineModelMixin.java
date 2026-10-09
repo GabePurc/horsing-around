@@ -54,17 +54,21 @@ public abstract class AbstractEquineModelMixin {
 		}
 		// (Legs an animation pack poses get all of this in its hook, after it has run; here they come with nothing to do,
 		// and must leave the ride's leg state alone.)
-		final float air = pose.horsingaround$airLegs();
-		final boolean posedHere = pose.horsingaround$legTilt() != 0.0F || pose.horsingaround$foreLeg() != 0.0F || pose.horsingaround$hindLeg() != 0.0F || air != 0.0F;
-		final RideState ride = posedHere ? pose.horsingaround$rideState() : null;
-		final boolean footing = GroundLegs.pose(
-			this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, pose.horsingaround$legTilt(), pose.horsingaround$foreLeg(),
-			pose.horsingaround$hindLeg(), 16.0F / ((Model<?>) (Object) this).root().yScale, ride, ((Model<?>) (Object) this).root(),
-			air < RideTuning.AIR_GROUNDED || ride != null && !ride.leapt()
-		);
-		// (A step down is a short fall, not a jump: with the hooves finding their ground, no jump shape.)
-		if (!(footing && ride != null && !ride.leapt())) {
-			AirLegs.pose(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, air, pose.horsingaround$airRise());
+		if (pose.horsingaround$legsHere()) {
+			final float air = pose.horsingaround$airLegs();
+			final RideState ride = pose.horsingaround$rideState();
+			final float pixels = 16.0F / ((Model<?>) (Object) this).root().yScale;
+			final ModelPart root = ((Model<?>) (Object) this).root();
+			final boolean footing = GroundLegs.pose(
+				this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, pose.horsingaround$legTilt(), pose.horsingaround$foreLeg(),
+				pose.horsingaround$hindLeg(), pixels, ride, root, air < RideTuning.AIR_GROUNDED || ride != null && !ride.leapt()
+			);
+			// (A step down is a short fall, not a jump: with the hooves finding their ground, no jump shape. Landing a jump,
+			// the jump's shape eases out, and any hoof it leaves in the ground comes up onto it.)
+			if (air > 0.0F && !(footing && ride != null && !ride.leapLegs())) {
+				AirLegs.pose(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, air, pose.horsingaround$airRise());
+				GroundLegs.floor(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, pixels, ride, root);
+			}
 		}
 		this.tail.xRot += pose.horsingaround$tail();
 	}

@@ -66,7 +66,7 @@ public abstract class LivingEntityRendererMixin {
 			pose.horsingaround$clearPose();
 			pose.horsingaround$setNeck(0.0F);
 			pose.horsingaround$setHeadShake(0.0F, 0.0F);
-			pose.horsingaround$setLegs(0.0F, 0.0F, 0.0F);
+			pose.horsingaround$setLegs(false, 0.0F, 0.0F, 0.0F);
 			pose.horsingaround$setRide(null);
 			pose.horsingaround$setAirLegs(0.0F, 0.0F);
 			pose.horsingaround$setTail(0.0F);
@@ -116,9 +116,9 @@ public abstract class LivingEntityRendererMixin {
 			pose.horsingaround$setNeck(packAnimated ? 0.0F : neckCounter(pitch) + s.neckReach);
 			// Hooves on the ground; a pack-animated model gets them in the Entity Model Features hook too.
 			if (packAnimated) {
-				pose.horsingaround$setLegs(0.0F, 0.0F, 0.0F);
+				pose.horsingaround$setLegs(false, 0.0F, 0.0F, 0.0F);
 			} else {
-				pose.horsingaround$setLegs(slope, s.foreLeg(partialTicks), s.hindLeg(partialTicks));
+				pose.horsingaround$setLegs(true, slope, s.foreLeg(partialTicks), s.hindLeg(partialTicks));
 			}
 			pose.horsingaround$setAirLegs(packAnimated ? 0.0F : s.airLegs(partialTicks), s.airRise(partialTicks));
 			pose.horsingaround$setTail(packAnimated ? 0.0F : s.tailLift(partialTicks));
