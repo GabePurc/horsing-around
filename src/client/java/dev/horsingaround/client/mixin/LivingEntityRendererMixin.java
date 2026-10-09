@@ -4,6 +4,7 @@ import static dev.horsingaround.ride.RideTuning.*;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.horsingaround.client.render.RidePoseState;
+import dev.horsingaround.client.render.RiderPose;
 import dev.horsingaround.client.render.SaddleMotion;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
@@ -13,6 +14,7 @@ import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemUseAnimation;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.spongepowered.asm.mixin.Mixin;
@@ -200,7 +202,33 @@ public abstract class LivingEntityRendererMixin {
 		state.yRot = Mth.clamp(Mth.wrapDegrees(headYaw - horseYaw), -LOOK_LIMIT, LOOK_LIMIT);
 		final float twist = Mth.clamp(state.yRot * TORSO_TWIST, -TORSO_TWIST_MAX, TORSO_TWIST_MAX) * Mth.DEG_TO_RAD;
 		final float lift = saddle.lift * (0.5F + 0.5F * saddle.limbSpeed);
-		pose.horsingaround$setRider(-lift * HAND_BOB, legPitch, legRoll, twist, pelvis, s.shield(partialTicks));
+		final float release = horsingaround$bowRelease(entity, s, horse.tickCount + partialTicks, partialTicks);
+		pose.horsingaround$setRider(-lift * HAND_BOB, legPitch, legRoll, twist, pelvis, s.shield(partialTicks), release, s.bowPull);
+	}
+
+	/**
+	 * The rider's bow: while it is drawn, how far is noted; once loosed (or let down), how far through the follow-through
+	 * the rider is, 1 just loosed to 0 (also 0 with no bow loosed).
+	 */
+	@Unique
+	private static float horsingaround$bowRelease(final LivingEntity rider, final RideState s, final float now, final float partialTicks) {
+		if (rider.isUsingItem() && rider.getUseItem().getUseAnimation() == ItemUseAnimation.BOW) {
+			s.bowPull = RiderPose.pull(rider.getTicksUsingItem(partialTicks));
+			s.bowLoosedAt = Float.NaN;
+			return 0.0F;
+		}
+		if (s.bowPull <= 0.0F) {
+			return 0.0F;
+		}
+		if (Float.isNaN(s.bowLoosedAt)) {
+			s.bowLoosedAt = now;
+		}
+		final float release = 1.0F - (now - s.bowLoosedAt) / BOW_RELEASE_TICKS;
+		if (release <= 0.0F) {
+			s.bowPull = 0.0F;
+			return 0.0F;
+		}
+		return release;
 	}
 
 	/**
