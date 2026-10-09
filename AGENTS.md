@@ -27,6 +27,8 @@ add-on if it has been built in `../Over the Shoulder`).
 Builds must work on any machine: never commit machine-specific paths. Gradle picks JDK 25 through
 `gradle/gradle-daemon-jvm.properties` (downloads one if needed); local JDK locations go in `~/.gradle/gradle.properties`.
 Release-readiness work (Modrinth, compatibility with other mods) is planned in `development_plan.md`, Release.
+Every release gets an entry at the top of `CHANGELOG.md`, written for players (no internal names, no Red Dead) so it can be
+pasted straight into the Modrinth version page; the GitHub release notes say the same.
 
 Verify every gameplay change with `./gradlew runClientGameTest`, which runs four client tests (pick some with
 `-Ptests=ride,terrain,mounts,server`, one terrain scenario with `-Pscenario=<part of its name>`, some ride sections with
