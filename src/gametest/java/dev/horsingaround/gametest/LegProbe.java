@@ -47,6 +47,8 @@ public final class LegProbe {
 	public static double kneeSnapMost;
 	public static double soleSnapMost;
 	public static int snaps;
+	/** The first snaps since {@link #reset}, what each was. */
+	public static final StringBuilder snapLog = new StringBuilder();
 	static final double KNEE_SNAP = 25.0;
 	static final double SOLE_SNAP = 0.2;
 	private static final double[] lastBend = new double[4];
@@ -60,7 +62,7 @@ public final class LegProbe {
 	public static double chestInside;
 	/** How far the rest of the leg (the knee, the cannon) is in the ground at its deepest corner (blocks, the shortest way out). */
 	public static final double[] legInside = new double[4];
-	/** How far the top of the leg is up inside the body, at its shallowest corner (blocks; negative, a gap shows). */
+	/** How far the middle of the top of the leg is up inside the body (blocks; negative, a gap shows). */
 	public static final double[] hip = new double[4];
 	/** How far the knee juts toward the head from the line from the top of the leg to the fetlock (blocks; NaN, no knee). */
 	public static final double[] jut = new double[4];
@@ -98,6 +100,7 @@ public final class LegProbe {
 		kneeSnapMost = 0.0;
 		soleSnapMost = 0.0;
 		snaps = 0;
+		snapLog.setLength(0);
 		haveLast = false;
 	}
 
@@ -196,15 +199,14 @@ public final class LegProbe {
 			sole[leg][1] = cy;
 			sole[leg][2] = cz;
 			final double[] t = topCorners[leg];
-			double depth = Double.MAX_VALUE;
 			double tx = 0.0, ty = 0.0, tz = 0.0;
 			for (int i = 0; i < 4; i++) {
-				depth = Math.min(depth, (t[i * 3] - ax) * nx + (t[i * 3 + 1] - ay) * ny + (t[i * 3 + 2] - az) * nz);
 				tx += t[i * 3] * 0.25;
 				ty += t[i * 3 + 1] * 0.25;
 				tz += t[i * 3 + 2] * 0.25;
 			}
-			hip[leg] = bellyVolume > 0.0 ? depth : Double.NaN;
+			// (The middle of the leg's top: it reaches far enough up that a corner may poke out of the belly with no gap.)
+			hip[leg] = bellyVolume > 0.0 ? (tx - ax) * nx + (ty - ay) * ny + (tz - az) * nz : Double.NaN;
 			top[leg][0] = tx;
 			top[leg][1] = ty;
 			top[leg][2] = tz;
@@ -238,6 +240,11 @@ public final class LegProbe {
 				soleSnapMost = Math.max(soleSnapMost, dSole);
 				if (dBend > KNEE_SNAP || dSole > SOLE_SNAP) {
 					snaps++;
+					if (snapLog.length() < 1500) {
+						final dev.horsingaround.ride.RideState ride = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
+						snapLog.append(String.format(Locale.ROOT, "[t%d %s bend %.0f->%.0f sole %.2f rise %.2f shift %.2f tilt %.1f air %.2f] ", horse.tickCount,
+							new String[] {"FL", "FR", "HL", "HR"}[leg], lastBend[leg], bend, dSole, ride.legRise[leg], ride.legShift[leg], ride.pitch(1.0F), ride.airLegs(1.0F)));
+					}
 				}
 			}
 			lastBend[leg] = bend;

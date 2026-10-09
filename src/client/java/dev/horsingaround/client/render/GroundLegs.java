@@ -93,6 +93,8 @@ public final class GroundLegs {
 					ride.legShift[i] = 0.0F;
 					ride.legRiseSpeed[i] = 0.0F;
 					ride.legShiftSpeed[i] = 0.0F;
+					ride.legRiseTarget[i] = Float.NaN;
+					ride.legShiftTarget[i] = Float.NaN;
 					ride.legSoleX[i] = Double.NaN;
 				}
 			}
@@ -162,7 +164,9 @@ public final class GroundLegs {
 			}
 		}
 		// Then each knee bends to bring its hoof onto its ground, eased in and out (never a snap).
-		final float drawUp = LEG_HALF_DEPTH * Math.abs(Mth.sin(upright));
+		// (The upper leg reaches up into the body far enough that standing it upright shows no gap at the top: nothing to
+		// draw up, so no knee bent just to put the hoof back.)
+		final float drawUp = 0.0F;
 		for (int i = 0; i < 4; i++) {
 			final ModelPart part = PARTS[i];
 			final Knees.Leg leg = LEGS[i];
@@ -173,17 +177,18 @@ public final class GroundLegs {
 			float shift = 0.0F;
 			if (ground) {
 				// (On level ground, the last hundredths settle to nothing so the legs go back to the pack's own.)
-				final float wanted = Float.isNaN(RISES[i]) ? LEG_RISE_MAX
-					: levelBody && RISES[i] < LEVEL_DEAD_ZONE ? 0.0F : Mth.clamp(RISES[i], 0.0F, LEG_RISE_MAX);
-				ride.legRise[i] = settle(spring(ride.legRise[i], ride.legRiseSpeed, i, wanted, wanted > ride.legRise[i] ? LEG_RISE_SPEED : LEG_DROP_SPEED, dt), wanted);
+				// (A lift of a hair isn't one: a near-straight leg shortens only by bending a lot, so it would flick.)
+				final float wanted = Float.isNaN(RISES[i]) ? LEG_RISE_MAX : RISES[i] < LEVEL_DEAD_ZONE ? 0.0F : Mth.clamp(RISES[i], 0.0F, LEG_RISE_MAX);
+				ride.legRise[i] = settle(Mth.clamp(
+					spring(ride.legRise[i], ride.legRiseSpeed, ride.legRiseTarget, i, wanted, wanted > ride.legRise[i] ? LEG_RISE_SPEED : LEG_DROP_SPEED, dt), 0.0F,
+					LEG_RISE_MAX
+				), wanted);
 				rise = ride.legRise[i];
 				final float wantedShift = SHIFTS[i] / pixels;
-				ride.legShift[i] = settle(spring(ride.legShift[i], ride.legShiftSpeed, i, wantedShift, LEG_SHIFT_SPEED, dt), wantedShift);
+				ride.legShift[i] = settle(spring(ride.legShift[i], ride.legShiftSpeed, ride.legShiftTarget, i, wantedShift, LEG_SHIFT_SPEED, dt), wantedShift);
 				shift = ride.legShift[i] * pixels;
 			}
-			// Drawn up so the top's corner stays in the body; the knee takes the hoof back down to where it stood, and the hoof
-			// stands flat on its ground (fully once the body tilts or the hoof comes up a little).
-			part.y -= drawUp;
+			// The hoof stands flat on its ground (fully once the body tilts or the hoof comes up a little).
 			final float flat = Mth.clamp(Math.max(Math.abs(upright) / HOOF_LEVEL_TILT, rise / HOOF_LEVEL_RISE), 0.0F, 1.0F);
 			Knees.TARGET[0] = Float.NaN;
 			// Every knee bends forward (the joint halfway down reads as a knee, front and hind alike; never flipping).
@@ -209,14 +214,22 @@ public final class GroundLegs {
 	/**
 	 * A critically damped spring from {@code value} toward {@code target} over dt seconds (LEG_EASE a second; its speed,
 	 * per leg, in {@code speed}), never faster than {@code most} blocks a second: eases in and out, no overshoot, no snap.
-	 * Solved implicitly, so it is steady at any frame rate.
+	 * It also follows how fast the target itself moves (from {@code last}, the target last frame; no faster than
+	 * {@code most}), so a target moving steadily (a step rising against a leg as the body goes down stairs) is kept up
+	 * with instead of trailed. Solved implicitly, so it is steady at any frame rate.
 	 */
-	private static float spring(final float value, final float[] speed, final int index, final float target, final float most, final float dt) {
+	private static float spring(
+		final float value, final float[] speed, final float[] last, final int index, final float target, final float most, final float dt
+	) {
 		if (dt <= 0.0F) {
 			return value;
 		}
 		final float w = LEG_EASE;
-		float v = (speed[index] + w * w * (target - value) * dt) / (1.0F + 2.0F * w * dt + w * w * dt * dt);
+		// (Only a steady drift counts: a jump in the target, a hoof crossing a step's edge, is eased like any change.)
+		final float drift = Float.isNaN(last[index]) ? 0.0F : (target - last[index]) / dt;
+		final float targetSpeed = Math.abs(drift) <= LEG_DRIFT_MAX ? drift : 0.0F;
+		last[index] = target;
+		float v = (speed[index] + (w * w * (target - value) + 2.0F * w * targetSpeed) * dt) / (1.0F + 2.0F * w * dt + w * w * dt * dt);
 		v = Mth.clamp(v, -most, most);
 		speed[index] = v;
 		return value + v * dt;
@@ -276,8 +289,15 @@ public final class GroundLegs {
 		// judged only where the hoof is: one just ahead is something to come up for, not to back off).
 		for (int edge = -1; edge <= 1; edge++) {
 			final float now = sample(ride, leg, level, edge * leg.soleHalf);
-			final float soon = ahead == 0.0F ? now : sample(ride, leg, level, edge * leg.soleHalf + ahead);
-			SAMPLES[edge + 1] = Float.isNaN(now) || Float.isNaN(soon) ? now : Math.max(now, soon);
+			float rise = now;
+			if (ahead != 0.0F && !Float.isNaN(now)) {
+				// (Halfway there too, so a step between here and there isn't missed.)
+				final float half = sample(ride, leg, level, edge * leg.soleHalf + ahead * 0.5F);
+				final float soon = sample(ride, leg, level, edge * leg.soleHalf + ahead);
+				rise = Math.max(rise, Float.isNaN(half) ? rise : half);
+				rise = Math.max(rise, Float.isNaN(soon) ? rise : soon);
+			}
+			SAMPLES[edge + 1] = rise;
 		}
 		SOLES[index * 3] = nowX;
 		SOLES[index * 3 + 2] = nowZ;

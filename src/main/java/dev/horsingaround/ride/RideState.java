@@ -270,6 +270,9 @@ public final class RideState {
 	/** How fast each leg's rise and shift are changing (blocks a second), for easing them. */
 	public final float[] legRiseSpeed = new float[4];
 	public final float[] legShiftSpeed = new float[4];
+	/** What each leg's rise and shift were easing toward last frame (NaN, nothing yet), for how fast that moves. */
+	public final float[] legRiseTarget = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
+	public final float[] legShiftTarget = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
 	/** Per leg: where its sole was drawn last frame (world x, z; NaN, not yet), for where it is heading. */
 	public final double[] legSoleX = {Double.NaN, Double.NaN, Double.NaN, Double.NaN};
 	public final double[] legSoleZ = new double[4];

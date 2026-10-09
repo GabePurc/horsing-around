@@ -2208,8 +2208,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 				final double jut = legs[8 + leg];
 				if (!Double.isNaN(jut) && Math.abs(jut) > 0.03) {
 					bentFrames++;
-					// Front knees jut forward, hind hocks back.
-					if (leg < 2 ? jut < 0.0 : jut > 0.0) {
+					// Every knee juts forward (user direction: a hind joint bending back read as the leg bending the wrong way).
+					if (jut < 0.0) {
 						wrongKnee++;
 					}
 				}
@@ -2231,7 +2231,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		final double frontTypical = percentile(front, 0.5);
 		final double hindTypical = percentile(hind, 0.5);
 		final double[] snap = ctx.computeOnClient(mc -> new double[] {LegProbe.kneeSnapMost, LegProbe.soleSnapMost, LegProbe.snaps});
-		log("  snaps: most a knee's bend changed in a tick %.0f deg, most a sole moved against the horse %.2f blocks, %d snaps", snap[0], snap[1], (int) snap[2]);
+		log("  snaps: most a knee's bend changed in a tick %.0f deg, most a sole moved against the horse %.2f blocks, %d snaps %s", snap[0], snap[1], (int) snap[2],
+			ctx.computeOnClient(mc -> LegProbe.snapLog.toString()));
 		log("  planted hoof of each pair off the ground (blocks): front median %.3f 90%% %.3f, hind median %.3f 90%% %.3f; most sunk %.3f; "
 			+ "leg tops in the body at least %.3f; knees bent %d frames, the wrong way %d", frontTypical, percentile(front, 0.9), hindTypical,
 			percentile(hind, 0.9), sunk, hipLow, bentFrames, wrongKnee);
@@ -2243,7 +2244,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			check("front hooves on the ground nearly always (90th percentile, blocks)", percentile(front, 0.9), -0.03, 0.2);
 			check("hind hooves on the ground nearly always (90th percentile, blocks)", percentile(hind, 0.9), -0.03, 0.2);
 			check("no hoof sunk into the ground (most, blocks)", sunk, -0.06, 1.0);
-			check("knees bend the way a horse's do (front forward, hind back; frames wrong)", wrongKnee, 0, 0);
+			check("knees bend forward (frames wrong)", wrongKnee, 0, 0);
 		}
 	}
 

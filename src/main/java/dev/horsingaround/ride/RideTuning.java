@@ -421,7 +421,7 @@ public final class RideTuning {
 	public static final float HOOF_PIXELS = 2.0F;
 	public static final float KNEE_OVERLAP = 1.0F;
 	/** The upper leg reaches this many pixels further up into the body than the model's box, so a big swing shows no gap. */
-	public static final float HIP_EXTEND = 3.0F;
+	public static final float HIP_EXTEND = 4.0F;
 	public static final float KNEE_LIFT_MAX = 0.45F;
 	static final float KNEE_LIFT_RATE = 0.15F;
 	/**
@@ -434,17 +434,19 @@ public final class RideTuning {
 	public static final float LEG_EASE = 20.0F;
 	public static final float LEG_RISE_SPEED = 6.0F;
 	public static final float LEG_DROP_SPEED = 3.0F;
+	/** A leg's target drifting no faster than LEG_DRIFT_MAX blocks a second is followed as it goes (no lag on a steady change). */
+	public static final float LEG_DRIFT_MAX = 2.5F;
 	/** A hoof up against a step's face moves off it (back onto the tread), eased the same way, at up to LEG_SHIFT_SPEED blocks a second. */
 	public static final float LEG_SHIFT_SPEED = 2.0F;
 	/**
 	 * Each hoof reads the ground where it will be LEG_LOOKAHEAD seconds on at the speed it is drawn moving (up to
 	 * LEG_LOOKAHEAD_MAX model pixels along the leg), so a swinging hoof clears a step's edge instead of catching on it.
 	 */
-	public static final float LEG_LOOKAHEAD = 0.25F;
+	public static final float LEG_LOOKAHEAD = 0.3F;
 	/** On ground tilting STRIDE_STEEP_TILT radians or more, the legs swing only STRIDE_STEEP of the animation's stride (eased in up to there). */
 	public static final float STRIDE_STEEP = 0.5F;
 	public static final float STRIDE_STEEP_TILT = 0.52F;
-	public static final float LEG_LOOKAHEAD_MAX = 6.0F;
+	public static final float LEG_LOOKAHEAD_MAX = 12.0F;
 	/** A hoof in a step's face all over looks up to LEG_FACE_SEARCH half its depth further back for a tread to stand on. */
 	public static final int LEG_FACE_SEARCH = 5;
 	/**
@@ -462,8 +464,11 @@ public final class RideTuning {
 	public static final float FIT_DOWN_MAX = 0.0F;
 	public static final float PACK_LIFT = 0.06F;
 	public static final float FIT_MARGIN = 0.05F;
-	/** On level ground a hoof comes up for ground no less than LEVEL_DEAD_ZONE blocks above it (the pack's own hooves sit a little in it). */
-	public static final float LEVEL_DEAD_ZONE = 0.04F;
+	/**
+	 * A hoof comes up for ground no less than LEVEL_DEAD_ZONE blocks above it (the pack's own hooves sit a little in it, and
+	 * a near-straight leg shortens a hair only by bending a lot).
+	 */
+	public static final float LEVEL_DEAD_ZONE = 0.05F;
 	/** A hoof stands flat on its ground once the body tilts HOOF_LEVEL_TILT radians or the hoof comes up HOOF_LEVEL_RISE blocks, eased in up to there. */
 	public static final float HOOF_LEVEL_TILT = 0.1F;
 	public static final float HOOF_LEVEL_RISE = 0.05F;
