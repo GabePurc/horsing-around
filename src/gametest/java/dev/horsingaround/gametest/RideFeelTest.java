@@ -90,6 +90,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 			// -Psections=<names> runs only some sections (core, cuts, stairs, picking, steps); all of them by default.
 			final String sections = System.getProperty("horsingaround.sections", "");
+			if (sections.isEmpty() || sections.contains("core") || sections.contains("icons")) {
+				blockItemIcons(ctx);
+			}
 			if (sections.isEmpty() || sections.contains("core")) {
 				mounting(ctx);
 				freeLook(ctx, input);
@@ -160,6 +163,33 @@ public final class RideFeelTest implements FabricClientGameTest {
 			writeReport();
 		}
 		TestSummary.failed(this.failures, "horsingaround-ride-report.txt");
+	}
+
+	/**
+	 * Entity Model Features animates more than entities: with Fresh Animations it animates shulker boxes, also drawn as
+	 * item icons, and then calls every animation hook with no entity at all (a player's game crashed in the hotbar). Shulker
+	 * boxes in the hotbar and in hand for a while, riding, with nothing logged against the hook.
+	 */
+	private void blockItemIcons(final ClientGameTestContext ctx) {
+		section("Shulker boxes drawn as items (Entity Model Features animating with no entity)");
+		try (LogWatch watch = LogWatch.begin()) {
+			for (int slot = 0; slot < 9; slot++) {
+				this.server.runCommand("item replace entity @p hotbar." + slot + " with minecraft:" + (slot % 2 == 0 ? "shulker_box" : "red_shulker_box"));
+			}
+			ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+			ctx.waitTicks(20);
+			ctx.runOnClient(mc -> mc.gui.hud.getChat().clearMessages(false));
+			screenshot(ctx, "00b_shulker_boxes");
+			ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.FIRST_PERSON));
+			ctx.waitTicks(10);
+			ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+			ctx.waitTicks(10);
+			final List<String> errors = watch.matching("horsingaround", "Exception", "animation hook", "EmfSaddleTracker");
+			check("drawn for 2 s with no error from the animation hook (" + errors + ")", errors.isEmpty());
+		} finally {
+			this.server.runCommand("clear @p");
+			ctx.waitTicks(2);
+		}
 	}
 
 	private void mounting(final ClientGameTestContext ctx) {
@@ -382,7 +412,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		final double before = averageSpeed(ctx, 3);
 		final double startY = sample(ctx).y;
 		final float staminaBefore = sample(ctx).stamina;
-		int elapsed = 0;
+		// (Counted in the horse's own ticks: a screenshot can let the game run a tick or two between samples.)
+		final int startTick = horseTick(ctx);
 		input.pressKey(o -> o.keyJump);
 		double peak = startY;
 		double slowest = Double.MAX_VALUE;
@@ -405,7 +436,6 @@ public final class RideFeelTest implements FabricClientGameTest {
 		float headGap = Float.MAX_VALUE;
 		for (int i = 1; i <= 40; i++) {
 			ctx.waitTick();
-			elapsed++;
 			final Sample s = sample(ctx);
 			peak = Math.max(peak, s.y);
 			headGap = Math.min(headGap, ride(ctx, r -> r.headGap));
@@ -496,9 +526,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("the stride picks up again after landing (leg-animation speed)", sample(ctx).limbSpeed, 0.85, 1.0);
 		check("legs back in the stride (jump shape, 0..1)", ride(ctx, r -> r.airLegs(1.0F)), 0.0, 0.01);
 		ctx.waitTicks(20);
-		elapsed += 20;
 		check("tail settles after landing (radians)", Math.abs((double) ride(ctx, r -> r.tailLift(1.0F))), 0.0, 0.1);
-		final float gallopDrain = elapsed * RideTuning.STAMINA_DRAIN_GALLOP;
+		final float gallopDrain = (horseTick(ctx) - startTick) * RideTuning.STAMINA_DRAIN_GALLOP;
 		check("jump stamina cost beyond gallop drain", staminaBefore - sample(ctx).stamina - gallopDrain, RideTuning.JUMP_STAMINA_COST - 0.02, RideTuning.JUMP_STAMINA_COST + 0.03);
 		ctx.waitTicks(10);
 	}
