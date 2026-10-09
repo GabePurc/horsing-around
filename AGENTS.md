@@ -30,7 +30,9 @@ Release-readiness work (Modrinth, compatibility with other mods) is planned in `
 
 Verify every gameplay change with `./gradlew runClientGameTest`, which runs four client tests (pick some with
 `-Ptests=ride,terrain,mounts,server`, one terrain scenario with `-Pscenario=<part of its name>`, some ride sections with
-`-Psections=core,cuts,stairs,picking,steps`; `legs` takes close shots of the legs in a jump):
+`-Psections=core,cuts,stairs,picking,steps`; `legs` takes close shots of the legs in a jump, `slopes` and `face` run just
+the slope-and-stairs lanes and the jump-at-a-wall lanes, `knees` measures the legs exactly as drawn on slopes, stairs and
+steps and shoots them up close):
 `RideFeelTest` rides a horse with simulated keys through every mechanic in hand-built lanes and writes
 `build/run/clientGameTest/horsingaround-ride-report.txt`; `TerrainRideTest` rides procedurally built natural terrain
 (forests, mountains, hills, hazards, river, badlands) like a player would and writes
@@ -39,7 +41,9 @@ Verify every gameplay change with `./gradlew runClientGameTest`, which runs four
 mod (the target setup: a family server) and checks the server accepts every move. All of them log server corrections
 ("moved wrongly" = rubber-banding) and warnings. Screenshots land in
 `build/run/clientGameTest/screenshots/` (view them; with hitboxes on, F3+B, the ridden horse also draws its steering
-and step state). Don't test only perfect cases: generated worlds are messy. When
+and step state). In the client tests horses wear colour-coded test textures (`src/gametest/debugpack`: upper leg blue,
+knee white, cannon orange, hoof black, sole magenta; `-PplainTextures` for real ones), and `LegProbe` measures the legs
+as the renderer drew them: judge leg work by those numbers and close shots, not by formulas. Don't test only perfect cases: generated worlds are messy. When
 feel numbers change on purpose, update the test targets too. `./gradlew runGameTest` loads the mod on a bare
 dedicated server (no client code) and rides there. `-Ptests=gallery` takes clean store screenshots. `-Ptests=store` films
 the README's clips and stills in a generated world (`StoreMediaTest`; `-Pscenario=gaits,river` for some; add
@@ -48,7 +52,15 @@ shaders, which are easier to see), and
 `scripts/store-media.sh` turns them into `docs/media/`. The README is also the Modrinth description: its images load
 from `raw.githubusercontent.com/.../main/docs/media/`, so they show only once merged to main.
 
-Run one game at a time (two test games at once, even from different repos, made ride checks flaky).
+Test games run light (lowest settings, no sound, 20 frames a second, a 2 GB heap, and Sodium, Lithium, FerriteCore and
+ImmediatelyFast loaded only into test games; `-PplainGame` drops the mods, `-PfullGraphics` keeps normal settings, and
+the gallery always gets them). Prefer `./gradlew runClientGameTestParallel --continue` for full runs (user request,
+2026-10-08): it splits the client tests into five shards (`testShards` in `build.gradle`; folders
+`build/run/clientGameTest-<shard>/`), runs two such games at a time so the user's other work keeps room (`-PtestGames=N`
+for more or fewer; the machine has 11 cores and 18 GB), then merges their reports into `build/run/clientGameTest/` and
+lists any failed check. One shard alone: `./gradlew runClientGameTest<Shard>`. Leg and body easing runs on game time, so
+results don't depend on frame rate. Apart from that runner, don't start a second test game yourself (two separate games,
+even from different repos, made ride checks flaky).
 
 Compatibility: `./gradlew runCompat --continue` runs the tests in a production game with packs of popular mods
 (`compatPacks` in `build.gradle`); results in `build/run/compat/<pack>/`. Run it before a release and after touching

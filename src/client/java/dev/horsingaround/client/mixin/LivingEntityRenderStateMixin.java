@@ -2,8 +2,10 @@ package dev.horsingaround.client.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.horsingaround.client.render.RidePoseState;
+import dev.horsingaround.ride.RideState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import org.joml.Quaternionf;
+import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
@@ -25,6 +27,10 @@ public class LivingEntityRenderStateMixin implements RidePoseState {
 	private float horsingaround$legRoll;
 	@Unique
 	private float horsingaround$neck;
+	@Unique
+	private float horsingaround$legTilt;
+	@Unique
+	private @Nullable RideState horsingaround$ride;
 	@Unique
 	private float horsingaround$foreLeg;
 	@Unique
@@ -116,9 +122,25 @@ public class LivingEntityRenderStateMixin implements RidePoseState {
 	}
 
 	@Override
-	public void horsingaround$setLegs(final float fore, final float hind) {
+	public void horsingaround$setLegs(final float tilt, final float fore, final float hind) {
+		this.horsingaround$legTilt = tilt;
 		this.horsingaround$foreLeg = fore;
 		this.horsingaround$hindLeg = hind;
+	}
+
+	@Override
+	public float horsingaround$legTilt() {
+		return this.horsingaround$legTilt;
+	}
+
+	@Override
+	public void horsingaround$setRide(final @Nullable RideState ride) {
+		this.horsingaround$ride = ride;
+	}
+
+	@Override
+	public @Nullable RideState horsingaround$rideState() {
+		return this.horsingaround$ride;
 	}
 
 	@Override

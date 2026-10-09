@@ -33,10 +33,13 @@ public final class AirLegs {
 		final float foreLead = FORE_AIR_STAGGER * 0.5F;
 		final float hindLead = HIND_AIR_STAGGER * 0.5F;
 		final float foreLift = FORE_AIR_LIFT * tuck(rise);
-		leg(leftFront, blend, fore - foreLead, foreLift, FORE_AIR_FORWARD);
-		leg(rightFront, blend, fore + foreLead, foreLift, FORE_AIR_FORWARD);
-		leg(leftHind, blend, hind - hindLead, 0.0F, HIND_AIR_FORWARD);
-		leg(rightHind, blend, hind + hindLead, 0.0F, HIND_AIR_FORWARD);
+		// The front knees fold up tight with the tuck and open to reach for the ground; the hocks fold as the hind legs gather.
+		final float foreKnee = FORE_AIR_KNEE * tuck(rise);
+		final float hindKnee = -HIND_AIR_KNEE * (1.0F - smoothstep(rise + 0.1F));
+		leg(leftFront, blend, fore - foreLead, foreLift, FORE_AIR_FORWARD, foreKnee);
+		leg(rightFront, blend, fore + foreLead, foreLift, FORE_AIR_FORWARD, foreKnee);
+		leg(leftHind, blend, hind - hindLead, 0.0F, HIND_AIR_FORWARD, hindKnee);
+		leg(rightHind, blend, hind + hindLead, 0.0F, HIND_AIR_FORWARD, hindKnee);
 	}
 
 	/**
@@ -57,15 +60,28 @@ public final class AirLegs {
 	}
 
 	/**
-	 * Swings a leg to {@code xRot}, draws it {@code lift} up into the body and nudges it {@code forward} (model pixels),
-	 * plus as far up as the swing tips its top's corner out of the body, so no gap shows where it hangs.
+	 * Swings a leg to {@code xRot} about its top (wherever the model pivots it; see {@link Knees}), draws it {@code lift}
+	 * up into the body and nudges it {@code forward} (model pixels), plus as far up as the swing tips its top's corner out
+	 * of the body, so no gap shows where it hangs; and bends its knee {@code knee} radians (cannon toward the tail
+	 * positive).
 	 */
-	private static void leg(final @Nullable ModelPart leg, final float air, final float xRot, final float lift, final float forward) {
-		if (leg != null) {
-			leg.xRot = Mth.lerp(air, leg.xRot, xRot);
-			leg.y -= (lift + AIR_LEG_HALF_DEPTH * Math.abs(Mth.sin(xRot))) * air;
-			leg.z -= forward * air;
+	private static void leg(final @Nullable ModelPart part, final float air, final float xRot, final float lift, final float forward, final float knee) {
+		if (part == null) {
+			return;
 		}
+		final Knees.Leg leg = Knees.of(part);
+		final float swing = Mth.lerp(air, part.xRot, xRot);
+		if (leg != null) {
+			Knees.swing(part, leg, swing);
+			if (leg.lower != null) {
+				leg.lower.xRot = Mth.lerp(air, leg.lower.xRot, knee);
+				leg.hoof.xRot *= 1.0F - air;
+			}
+		} else {
+			part.xRot = swing;
+		}
+		part.y -= (lift + AIR_LEG_HALF_DEPTH * Math.abs(Mth.sin(xRot))) * air;
+		part.z -= forward * air;
 	}
 
 	private static float smoothstep(final float t) {

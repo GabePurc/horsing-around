@@ -175,16 +175,35 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 		final Vec3 movement = this.getDeltaMovement();
 		double x = movement.x;
 		double z = movement.z;
-		if (input.z > 0.0) {
+		final RideState s = this.horsingaround$ride;
+		if (s.hurdleForward > 0.0F) {
+			// Over a hurdle: as fast as clears it (the push of this tick's move comes on top).
+			final float yaw = s.hurdleYaw * Mth.DEG_TO_RAD;
+			final float forward = Math.max(s.hurdleForward - this.getSpeed() * RideTuning.AIR_CONTROL, 0.0F);
+			x = -Mth.sin(yaw) * forward;
+			z = Mth.cos(yaw) * forward;
+		} else if (input.z > 0.0) {
 			final float yaw = this.getYRot() * Mth.DEG_TO_RAD;
 			final float push = this.getSpeed() * (1.0F - RideTuning.AIR_CONTROL) + RideTuning.JUMP_FORWARD_BOOST * amount;
 			x -= Mth.sin(yaw) * push;
 			z += Mth.cos(yaw) * push;
 		}
-		this.setDeltaMovement(x, Math.max(this.getJumpPower(amount), RideTuning.JUMP_MIN_VELOCITY), z);
+		this.setDeltaMovement(x, Math.max(Math.max(this.getJumpPower(amount), RideTuning.JUMP_MIN_VELOCITY), s.jumpLift), z);
+		s.jumpLift = 0.0F;
 		this.setOnGround(false);
 		this.horsingaround$ride.jumpedOff = true;
 		this.needsSync = true;
+	}
+
+	/**
+	 * The ride jumps on the press (see RideController); vanilla's charge-and-release jump would come on top of it, firing
+	 * the moment the horse touches ground after the release (a bounce straight back up, past the ride's own pauses).
+	 */
+	@WrapMethod(method = "onPlayerJump")
+	private void horsingaround$noReleaseJump(final int jumpAmount, final Operation<Void> original) {
+		if (!this.horsingaround$managed()) {
+			original.call(jumpAmount);
+		}
 	}
 
 	/** Vanilla rears the horse when a jump starts. Just play the sound. */

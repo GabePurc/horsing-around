@@ -3,7 +3,9 @@
 	"package": "dev.horsingaround.gametest.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"FilmCameraMixin"
+		"FilmCameraMixin",
+		"ModelFeatureRendererMixin",
+		"OptionsMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

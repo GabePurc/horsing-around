@@ -58,6 +58,8 @@ mods. It replaces vanilla entity animation with its own, driven by vanilla value
 speeds feed straight into its leg cycles. Compatibility rules for this mod:
 
 - Never replace the horse model or its animation; only add whole-body transforms (lean) on the render pose stack.
+  (Revised 2026-10-08, user direction: each leg gets a knee. The leg box is cut into upper leg, cannon and hoof,
+  texture and all, and the pack still animates the leg; the knee and fetlock are ours. See "Knees and hurdles".)
 - Keep vanilla animation inputs truthful (speed, onGround, ridden state).
 - Dev runs and the ride test load EMF, ETF and FA so every change is checked against the target look.
 
@@ -163,7 +165,8 @@ Translation (`RideController.steps`, `Footing`, tuning in `RideTuning`):
   behind. The tilt levels off softly toward 10 degrees (about 6 on a single block at a walk, less at speed) and is
   eased once more so quick bumps at speed rock the body rather than jolt it: at most ~1-2.5 degrees a tick anywhere.
   At a gallop the two beats run together, as they would.
-- The weight stays on the hindquarters: the body sits 30% of the way up toward the front's height (20% going down).
+- (Revised 2026-10-08, see "Hooves on the ground": the tilt follows the ground and the legs plant.) The weight stays on
+  the hindquarters: the body sits 30% of the way up toward the front's height (20% going down).
   The front legs fold up and forward onto the step (or reach down for it), the hind legs drive back as the
   hindquarters rise. A block is about as tall as a Minecraft horse's legs, so with rigid model legs the front hooves
   pass through the edge of a step for a moment; the body hides it from the riding camera.
@@ -325,6 +328,96 @@ Translation:
   the pitch back to a riding angle (that moved the player's aim), and this mod's camera distance and height settings
   don't reach it (the add-on gets the designed riding distance and has its own settings; they're greyed out here, with
   a note). Its riding height came down too (0.35 above the eyes, was 0.7).
+
+## Hooves on the ground, and no clipping (user direction, 2026-10-08)
+
+Play-test feedback: going up stairs or 1-block slopes the horse's angle was wrong and its back legs floated; going down
+it didn't lean forward and its legs floated. The user asked for inverse kinematics, or anything else that keeps the
+hooves planted (except where they obviously shouldn't be) while keeping Fresh Animations' animation. Separately, in
+jumps the horse's head went through the rider's; the user first asked for the rider to lean their head aside, then
+decided against any sideways lean: horse and rider just shouldn't clip.
+
+Causes: the body tilted at most ~10 degrees and sat with its weight on the hindquarters, so on a slope of one block per
+block (45 degrees) the back of the body was far above the hind hooves' ground; downhill, ground more than 1.25 blocks
+below the hooves was read as level, so the front saw no slope at all; stair blocks were read as full blocks. And Fresh
+Animations' neck isn't vanilla's: it leaves vanilla's neck part empty and animates its own ("neck2", inside the body),
+so the neck reaching forward on climbs (and the tired head toss) never reached the Fresh Animations model.
+
+Both the vanilla horse and Fresh Animations have rigid one-piece legs (no knee joint), so "IK" here is: place the body
+so every leg can reach, then swing each leg so its hoof lands on the ground actually under it.
+
+- Tilt: along the line between the ground under the front and the hind hooves (95% of it, up to 40 degrees), eased and
+  never more than 4 degrees a tick, pivoting at the leg joints so the hooves stay under them (pivoting at the ground,
+  a 40-degree tilt slid the body half a block back).
+- Height: as high as the body can sit with every leg still reaching its ground.
+- Legs: stand upright against the tilt; each pair then finds its footing, trying swings forward and back (up to ~50
+  degrees) for where its hoof meets the ground actually there (a swung leg reaches less far down), weighing a floating
+  hoof more than one sunk into the ground, and big or sudden swings against it. On level ground nothing is read. On top
+  of Fresh Animations' stride, so its animation is kept; each leg's top is drawn into the body so no gap shows.
+- Ground: read at the hoof's exact spot (the low half of a stair is itself); down a slope the ground may fall away a
+  block for every block along (plus half a block where the steps fall).
+- Climbing, the neck reaches forward and down by 85% of the tilt (going down it comes up by 60%), so the head stays low
+  and forward instead of the horse looking like it rears; on Fresh Animations this goes on its own neck.
+- No clipping: when the horse's head would come within reach of the rider's head or chest (a jump, a steep climb), the
+  horse stretches its neck further forward (up to 35 degrees, as a jumping horse does), and if that isn't enough the
+  rider folds less over the neck (up to 30 degrees), only as far as needed, quickly in and easing back out.
+
+## Knees and hurdles (user direction, 2026-10-08)
+
+Play-test feedback on the hooves-on-the-ground version: at moments the legs detached from the body; horse armour no
+longer followed the head; there was weirdness going down stairs and at walls and fences, and the horse should be able to
+jump walls and fences while ridden. The user asked to try legs in two sections, with a knee, joined up by inverse
+kinematics, still driven by Fresh Animations' animation.
+
+- The detaching legs came from swinging a rigid one-piece leg up to ~90 degrees to find footing: its top swung out of
+  the body. The armour came from the neck reach going only on the body layer's neck; Fresh Animations gives the armour
+  and the bridle their own copy of the neck, animated the same way, so it goes on every layer now.
+- Knees: the first time a leg is posed its box is cut into the upper leg (left on the leg part the model or the pack
+  swings), the cannon (from 41% of the way down, on a child part that bends at the knee) and the hoof (its last 2
+  pixels, as the horse texture paints it, bending at the fetlock), the texture cut with it, each piece capped and
+  reaching a little into the one above so no gap opens on a bend. The upper leg also reaches 2.5 pixels further up into
+  the body, so a big swing at the top shows no gap. Each hoof stands flat on the ground where it is drawn (the hoof
+  turns at the fetlock to stay upright, as a horse's pastern lets it), the knee bent the way a horse's is (front knees
+  jut forward, hind hocks back) and the leg turning at its top to suit (two-bone IK, top of the leg to fetlock).
+- Pivots (found 2026-10-08 by measuring the legs as drawn, see Tooling): Fresh Animations pivots each leg near the
+  hoof, not the hip (it animates the stride by moving the hoof and turning the leg about it). Everything that swings a
+  leg (standing it upright on a slope, the knee, the jump's shape) turned the leg about the pack's pivot, so its top
+  swung out of the body: the legs that "detached" and went wonky. Every swing now turns a leg about the top of its box
+  and moves the pivot to keep the top where the pack put it, whatever the model's pivot.
+- Each hoof's own ground: one of a pair can be on a step while the other is below it (on stairs, the stride puts them
+  half a block apart), so each hoof reads the ground under its front, middle and back where the model is drawn (the
+  render pose is kept from the frame), a moment ahead along its own motion so a swinging hoof clears a step's edge
+  instead of catching on it, and comes up onto it quickly (down more gently). A hoof against a step's face it can't
+  climb onto (more than 0.55 above) moves back off it onto the tread. Up is read off the drawn model's own transform,
+  so the hoof rises straight up whatever tilts the body. The drawn body then fits itself: it comes up or down (slowly,
+  never jolting) until the standing leg on the lowest ground is straight (a leg the pack has lifted mid-stride doesn't
+  count), but never so low that a leg on higher ground would have to fold past what a knee can. A knee that would bend
+  into the ground (a hock going down stairs, into the step behind) bends the other way. A step down is a short fall,
+  not a jump: the hooves keep finding their ground and the legs don't take the jump's shape. All of it eases on game
+  time, so it keeps pace with the horse at any frame rate. On level ground nothing is read and the pack's legs are
+  untouched.
+- Climbing smoothly (play-test, 2026-10-08: going up was hitchy): the drawn body tracks its height with an alpha-beta
+  tracker (40% of the way each tick, carrying its climb), so up stairs and slopes it rises at an even rate instead of a
+  pulse each step; its sharpest change in climb rate went from ~0.19 to ~0.08 blocks/tick a tick up stairs.
+- Going down (play-test: a lot of phasing): walking down a slope of full blocks, the wide body stays on each block's
+  edge until its middle is over the block two down, which read as a fall: the tilt let go and the hindquarters sank
+  into the steps behind. A drop is a flight only when the ground under the hind hooves has gone too. On steep ground
+  the stride is shorter (half the pack's swing at 30 degrees), as a horse picks its way up and down stairs.
+- Known limit: on a slope of full blocks (a block up for every block along, 45 degrees), the stride still carries a
+  hoof or a knee into the next block's face in roughly a fifth to a third of frames: a 0.76-block leg can't reach a
+  1-block riser, so the hoof either stands short of it or touches it. Stairs (half-block steps) are clean going up and
+  touch now and then going down.
+- Jump pressed over and over at a 2-block ledge (play-test, 2026-10-08: it went really high, buggy): vanilla's
+  charge-and-release jump still ran beside the ride's press-to-jump, firing the moment the horse touched ground after
+  each release, and nothing stopped a jump straight off the top. Now the ride's jump is the only one, a press while riding
+  at a ledge waits for its heave (from up to 5 blocks out) instead of hopping into its face, and up on top the horse
+  settles for 0.7 seconds before it will jump again.
+- Hurdles: pressing jump with a fence, a wall, a gate or anything else 1.125-1.6 blocks tall within 2.5 blocks of the
+  chest (no deeper than 1.5, headroom over it, safe ground beyond) jumps 0.35 over it and far enough to clear it, at
+  any pace, standing too, held at that speed in the air so meeting the face as it rises doesn't stop it. Lava or a
+  drop it won't take beyond: it refuses. Ridden straight at one from a trot up, it doesn't go round it and slows only to
+  a trot by the time it's in reach; without a jump it stops short with a snort. Pens still hold horses: nothing jumps a
+  fence unless the rider asks.
 
 ## Staying vanilla
 

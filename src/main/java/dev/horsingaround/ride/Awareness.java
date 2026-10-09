@@ -238,12 +238,18 @@ public final class Awareness {
 		final float flank = side + DETOUR_MARGIN;
 		final float blocked = probe(horse, horse.getX(), horse.getY(), horse.getZ(), targetYaw, range, fall, going ? flank : side);
 		s.ledgeOnLine = false;
+		s.hurdleOnLine = false;
 		if (kind == CLEAR) {
 			return 0.0F;
 		}
 		if (kind == WALL && wallLedge && LEDGE_CLIMB && jumpableLedge(horse, targetYaw, blocked)) {
 			// Ridden straight at a ledge it can jump up: it jumps it rather than going round.
 			s.ledgeOnLine = true;
+			return 0.0F;
+		}
+		if (kind == WALL && wallLedge && jumpableHurdle(horse, targetYaw, blocked)) {
+			// Ridden straight at a fence or a wall the rider can jump: it is theirs to jump, not to go round.
+			s.hurdleOnLine = true;
 			return 0.0F;
 		}
 		// The obstacle's near face is within the last sample step. Aim just past it, on a straight line that grazes its
@@ -411,6 +417,14 @@ public final class Awareness {
 		return !Double.isNaN(ledge(horse, box, yaw, 2.0F));
 	}
 
+	/** Whether the wall the last probe met {@code blocked} along yaw is a hurdle the rider can jump from just short of it. */
+	private static boolean jumpableHurdle(final AbstractHorse horse, final float yaw, final float blocked) {
+		final float rad = yaw * Mth.DEG_TO_RAD;
+		final double start = Math.max(blocked - STEP - half - 1.0F, 0.0F);
+		final AABB box = horse.getBoundingBox().move(-Mth.sin(rad) * start, endGround - horse.getY(), Mth.cos(rad) * start);
+		return !Double.isNaN(hurdle(horse, box, yaw, 2.0F));
+	}
+
 	/** Fastest speed (multiple of the speed attribute) that still stops short of, or lands safely past, what lies along yaw. */
 	private static float limit(
 		final AbstractHorse horse, final RideState s, final float yaw, final float range, final double fall, final float blocksPerUnit, final boolean slopes
@@ -429,6 +443,17 @@ public final class Awareness {
 		if (kind == WALL && wallLedge && s.ledgeOnLine && Math.abs(Mth.wrapDegrees(yaw - s.riderYaw)) < LEDGE_LINE_ANGLE) {
 			// The ledge on the rider's line it will jump: down to a trot by the time it is in reach, then it jumps.
 			return Math.min(limit, brakeTo(ahead - STEP - half - LEDGE_REACH, GAIT_SPEED[TROT] * blocksPerUnit, decel) / blocksPerUnit);
+		}
+		if (kind == WALL && wallLedge && s.hurdleOnLine && Math.abs(Mth.wrapDegrees(yaw - s.riderYaw)) < LEDGE_LINE_ANGLE) {
+			// A hurdle on the rider's line: down to a trot by the time it is in jumping reach; then, unless the rider
+			// jumps, it stops short of it (with a snort, if the rider is still pushing on when it gets there).
+			final float room = ahead - STEP - half;
+			final float trot = brakeTo(room - HURDLE_REACH, GAIT_SPEED[TROT] * blocksPerUnit, decel) / blocksPerUnit;
+			final float stop = brakeTo(room - STOP_MARGIN, 0.0F, decel) / blocksPerUnit;
+			if (room < STOP_MARGIN + 0.25F && s.gait != STOP && s.jumpBuffer == 0) {
+				refuse(horse, s);
+			}
+			return Math.min(limit, Math.min(trot, stop));
 		}
 		// The obstacle starts somewhere in the last sample step; keep the body clear of it. Past a step down the horse
 		// may be in the air, so slowing for what lies beyond has to be done by then.
@@ -852,13 +877,18 @@ public final class Awareness {
 	 * allocation; {@link #ledge} then checks properly.
 	 */
 	static boolean ledgeAhead(final AbstractHorse horse) {
+		return ledgeAhead(horse, LEDGE_REACH);
+	}
+
+	/** Something in the way at the height of a ledge's top within {@code reach} of the chest straight ahead. */
+	static boolean ledgeAhead(final AbstractHorse horse, final float reach) {
 		body(horse);
 		final Level level = horse.level();
 		final float rad = horse.getYRot() * Mth.DEG_TO_RAD;
 		final double fx = -Mth.sin(rad);
 		final double fz = Mth.cos(rad);
 		final int y = Mth.floor(horse.getY() + 1.5);
-		for (float d = half + 0.25F; d <= half + LEDGE_REACH; d += 0.5F) {
+		for (float d = half + 0.25F; d <= half + reach; d += 0.5F) {
 			final BlockState state = level.getBlockState(POS.set(Mth.floor(horse.getX() + fx * d), y, Mth.floor(horse.getZ() + fz * d)));
 			if (!state.isAir() && !(Foliage.leavesOpen(level) && state.is(BlockTags.LEAVES)) && !state.getCollisionShape(level, POS).isEmpty()) {
 				return true;
@@ -957,6 +987,92 @@ public final class Awareness {
 		}
 		ledgeFace = face;
 		ledgeRejection = LEDGE_OK;
+		return top;
+	}
+
+	/** Whether the horse is standing on top of a fence, a wall or a gate. */
+	static boolean onHurdle(final AbstractHorse horse) {
+		final AABB box = horse.getBoundingBox();
+		final int y = Mth.floor(box.minY - 0.6);
+		for (int x = Mth.floor(box.minX); x <= Mth.floor(box.maxX - 1.0E-7); x++) {
+			for (int z = Mth.floor(box.minZ); z <= Mth.floor(box.maxZ - 1.0E-7); z++) {
+				final BlockState state = horse.level().getBlockState(POS.set(x, y, z));
+				if (state.is(BlockTags.FENCES) || state.is(BlockTags.WALLS) || state.is(BlockTags.FENCE_GATES)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/** The last hurdle found: its face and how far the body must go to be clear past it (blocks), and whether one was too risky to land beyond. */
+	static float hurdleFace;
+	static float hurdleClear;
+	static boolean hurdleUnsafe;
+
+	/**
+	 * A hurdle straight ahead along yaw, its face within {@code reach} of the chest: something HURDLE_LOW to HURDLE_HEIGHT
+	 * tall (a fence, a wall, a gate; not a step it walks up, nor a ledge it climbs), no deeper than HURDLE_DEPTH, with
+	 * headroom over it and ground beyond within the fall the horse takes. Returns its top, or NaN (with
+	 * {@link #hurdleUnsafe} set when it was only the landing that ruled it out).
+	 */
+	static double hurdle(final AbstractHorse horse, final float yaw, final float reach) {
+		return hurdle(horse, horse.getBoundingBox(), yaw, reach);
+	}
+
+	private static double hurdle(final AbstractHorse horse, final AABB box, final float yaw, final float reach) {
+		hurdleUnsafe = false;
+		final Level level = horse.level();
+		final float rad = yaw * Mth.DEG_TO_RAD;
+		final double fx = -Mth.sin(rad);
+		final double fz = Mth.cos(rad);
+		float face = -1.0F;
+		for (float m = 0.0F; m <= reach + 1.0E-3F; m += 0.125F) {
+			if (!level.noBlockCollision(horse, box.move(fx * (m + 0.02), 0.0, fz * (m + 0.02)))) {
+				face = m;
+				break;
+			}
+		}
+		if (face < 0.0F) {
+			return Double.NaN;
+		}
+		final AABB at = box.move(fx * (face + 0.05), 0.0, fz * (face + 0.05));
+		// Not a step it walks up, and nothing taller than a hurdle (or overhead) there.
+		if (level.noBlockCollision(horse, at.move(0.0, HURDLE_LOW, 0.0)) || !level.noBlockCollision(horse, at.move(0.0, HURDLE_HEIGHT + 0.01, 0.0))) {
+			return Double.NaN;
+		}
+		// Its top: the least lift that clears it.
+		double low = HURDLE_LOW;
+		double high = HURDLE_HEIGHT + 0.01;
+		for (int i = 0; i < 6; i++) {
+			final double mid = (low + high) * 0.5;
+			if (level.noBlockCollision(horse, at.move(0.0, mid, 0.0))) {
+				high = mid;
+			} else {
+				low = mid;
+			}
+		}
+		final double top = box.minY + high;
+		// Where the body is clear past it, at its own height.
+		float clear = -1.0F;
+		for (float m = face + 0.125F; m <= face + HURDLE_DEPTH + 2.0F * half + 1.0E-3F; m += 0.125F) {
+			if (level.noBlockCollision(horse, box.move(fx * m, 0.0, fz * m))) {
+				clear = m;
+				break;
+			}
+		}
+		if (clear < 0.0F || !level.noBlockCollision(horse, box.move(fx * face, high + HURDLE_CLEARANCE, fz * face).expandTowards(fx * (clear - face), 0.0, fz * (clear - face)))) {
+			return Double.NaN;
+		}
+		// Ground to land on beyond, no further down than it falls.
+		final AABB beyond = box.move(fx * clear, 0.0, fz * clear);
+		final double fall = acceptableFall(horse);
+		if (level.noBlockCollision(horse, beyond.expandTowards(0.0, -fall, 0.0)) || entersHazard(horse, fx * clear, fz * clear)) {
+			hurdleUnsafe = true;
+			return Double.NaN;
+		}
+		hurdleFace = face;
+		hurdleClear = clear;
 		return top;
 	}
 

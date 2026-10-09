@@ -1,6 +1,7 @@
 package dev.horsingaround.ride;
 
 import net.minecraft.world.phys.Vec3;
+import org.joml.Matrix4f;
 
 /** Per-horse riding state. Movement fields are only meaningful on the instance simulating the ride (the rider's client). */
 public final class RideState {
@@ -50,6 +51,16 @@ public final class RideState {
 	public int cuts;
 	/** The rider's line meets a 2-block ledge the horse will jump rather than go round. */
 	boolean ledgeOnLine;
+	/** The rider's line meets a hurdle (a fence, a wall) the rider can jump: the horse doesn't go round it. */
+	boolean hurdleOnLine;
+	/**
+	 * A hurdle jump: the least climb speed the takeoff needs (blocks/tick; 0 for a plain jump), and the forward speed and
+	 * heading it holds in the air until it lands (0 when not hurdling). Hurdles cleared so far (for tests).
+	 */
+	public float jumpLift;
+	public float hurdleForward;
+	public float hurdleYaw;
+	public int hurdles;
 	int rustleCooldown;
 	/** Ground contact at the start of the last ridden tick, to keep speed continuous through drops and landings. */
 	boolean wasGrounded = true;
@@ -57,6 +68,11 @@ public final class RideState {
 	public boolean jumpedOff;
 	/** In the air from a jump (the rider's or up a ledge) rather than from stepping off something. */
 	boolean leapt;
+
+	/** Whether the horse jumped (rather than stepped or fell off something) into the flight it is in. */
+	public boolean leapt() {
+		return this.leapt;
+	}
 	/** Stride count at the last huff. */
 	int lastHuffStride;
 	/** Server side: where the horse was last tick, and its smoothed ground speed, for trampling. */
@@ -105,6 +121,12 @@ public final class RideState {
 	public double debugHind() {
 		return this.hind;
 	}
+
+	/** Ground read under the front and hind hooves, the drawn height offset, and whether in flight (for tests). */
+	public String debugGround() {
+		return String.format(java.util.Locale.ROOT, "g%.2f/%.2f e%.2f/%.2f off%.2f%s", this.foreGround, this.hindGround, this.fore, this.hind, this.heightOffset,
+			this.flying ? " FLY" : "");
+	}
 	/** Distance along the way ahead to a wall this tick; MAX_VALUE when none. */
 	float wallAhead = Float.MAX_VALUE;
 	/**
@@ -115,12 +137,24 @@ public final class RideState {
 	public int ledgeTicks;
 	public boolean ledgeAir;
 	boolean ledgeAsked;
+	/** How far ahead the ledge was spotted from (blocks): the run-up keeps looking that far. */
+	float ledgeReach;
 	double ledgeTop;
 	float ledgeYaw;
 	float ledgeForward;
 	float ledgeLift;
 	int ledgeAirTicks;
 	float ledgeCrouch;
+	/**
+	 * Room between the horse's head and its rider (render thread): how far the horse stretches its neck forward and the
+	 * rider sits back from folding over it (radians), when they were last eased (nanos), and how far apart the heads were
+	 * in the last frame drawn (centre to centre, blocks; for tests).
+	 */
+	public float neckReach;
+	public float sitBack;
+	public long roomAt;
+	public float headGap = Float.MAX_VALUE;
+
 	/** Rising up a ledge (the climb, before it comes down onto the top). */
 	public boolean climbingLedge() {
 		return this.ledgeAir && this.ledgeLift > 0.0F;
@@ -162,16 +196,22 @@ public final class RideState {
 	float lastGroundSpeed;
 	/**
 	 * Steps in two beats: world height of the ground carrying the front and the back of the body, eased in two stages
-	 * (the first stage in the *Ease fields), how far the back rose last tick, and the ground under each pair of hooves
+	 * (the first stage in the *Ease fields), and the ground under each pair of hooves
 	 * (reused while the horse stands still, so probes only run when it moves). NaN until first placed.
 	 */
 	double fore = Double.NaN;
 	double hind = Double.NaN;
 	double foreEase;
 	double hindEase;
-	float hindRise;
 	double foreGround;
 	double hindGround;
+	/** How fast the drawn body rose last tick, blocks/tick. */
+	public float drawnRise;
+	/** The drawn body's climb the tracker carries (blocks/tick; see RideController.steps). */
+	float bodyClimb;
+	/** The ground actually under the front and hind hooves (NaN on level ground or where there is none). */
+	double foreFoot = Double.NaN;
+	double hindFoot = Double.NaN;
 	/** In the air from a jump or a fall bigger than a step: the body follows its flight instead of the ground. */
 	boolean flying;
 	/**
@@ -184,7 +224,10 @@ public final class RideState {
 	float airRise;
 	float airRiseO;
 	float airRiseEase;
-	/** Leg poses for steps, -1..1: front legs folded up (+) or reaching down (-); hind legs driving (+) or gathered (-). */
+	/**
+	 * Hooves on the ground: how far (blocks) the front and the hind pairs of hooves come up, the knees bending, onto
+	 * ground higher than a straight leg reaches (on top of standing upright against the body's tilt).
+	 */
 	float foreLeg;
 	float foreLegO;
 	float hindLeg;
@@ -211,6 +254,35 @@ public final class RideState {
 	public long animatedAt;
 	/** Frames the head toss was applied through the animation pack (for tests). */
 	public int animatedShakeFrames;
+	/**
+	 * Where the model was last drawn (the model root's parent frame to camera-relative world) and the camera then, so the
+	 * legs can find the ground under each hoof as it is drawn. Client only.
+	 */
+	public final Matrix4f drawnPose = new Matrix4f();
+	public double drawnCameraX;
+	public double drawnCameraY;
+	public double drawnCameraZ;
+	public boolean drawnPoseSet;
+	/** Per leg (front left, front right, hind left, hind right): how far its hoof is drawn up onto the ground under it, blocks, eased. */
+	public final float[] legRise = new float[4];
+	/** Per leg: how far its hoof is moved back off a step's face it would stand in (blocks, toward the tail), eased. */
+	public final float[] legShift = new float[4];
+	/** How fast each leg's rise and shift are changing (blocks a second), for easing them. */
+	public final float[] legRiseSpeed = new float[4];
+	public final float[] legShiftSpeed = new float[4];
+	/** What each leg's rise and shift were easing toward last frame (NaN, nothing yet), for how fast that moves. */
+	public final float[] legRiseTarget = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
+	public final float[] legShiftTarget = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
+	/** Per leg: where its sole was drawn last frame (world x, z; NaN, not yet), for where it is heading. */
+	public final double[] legSoleX = {Double.NaN, Double.NaN, Double.NaN, Double.NaN};
+	public final double[] legSoleZ = new double[4];
+	/** When the legs were last posed (game time in ticks, with the partial tick; NaN, not yet). */
+	public double legRiseAt = Double.NaN;
+	/**
+	 * How far the drawn body is raised (blocks) so the standing leg on the lowest ground is straight, fitted to the ground
+	 * under each hoof where the model is drawn (see GroundLegs); added to {@link #heightOffset(float)}. Client only.
+	 */
+	public float drawnFit;
 	/** Slow averages that remove the pack's rest-pose offset, leaving only the motion. */
 	public float animatedLiftBase;
 	public float animatedForwardBase;
@@ -272,7 +344,7 @@ public final class RideState {
 	}
 
 	public float heightOffset(final float partialTicks) {
-		return this.heightOffsetO + (this.heightOffset - this.heightOffsetO) * partialTicks;
+		return this.heightOffsetO + (this.heightOffset - this.heightOffsetO) * partialTicks + this.drawnFit;
 	}
 
 	/** Tail lifted by its swing (radians, up positive), its speed, and the drawn body's climb last tick. */
@@ -296,12 +368,12 @@ public final class RideState {
 		return this.airRiseO + (this.airRise - this.airRiseO) * partialTicks;
 	}
 
-	/** Front legs on a step, -1..1: folded up onto it (+) or reaching down for it (-). */
+	/** Front hooves brought up onto higher ground by the knees, blocks. */
 	public float foreLeg(final float partialTicks) {
 		return this.foreLegO + (this.foreLeg - this.foreLegO) * partialTicks;
 	}
 
-	/** Hind legs on a step, -1..1: driving the hindquarters up (+) or gathered under the body going down (-). */
+	/** Hind hooves brought up onto higher ground by the knees (hocks), blocks. */
 	public float hindLeg(final float partialTicks) {
 		return this.hindLegO + (this.hindLeg - this.hindLegO) * partialTicks;
 	}
@@ -326,6 +398,9 @@ public final class RideState {
 		this.ledgeAsked = false;
 		this.ledgeCrouch = 0.0F;
 		this.ledgeOnLine = false;
+		this.hurdleOnLine = false;
+		this.jumpLift = 0.0F;
+		this.hurdleForward = 0.0F;
 		this.bankTicks = 0;
 		this.cut = 0.0F;
 		this.cutSquat = 0.0F;
