@@ -2151,6 +2151,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		section("Legs as drawn: " + name.replace('_', ' '));
 		lane(ctx, input, world, x + 0.5, y, "legs_" + name, build);
 		sideCamera(world, x + 3.5, y - 1.2, 0.5, 90.0F);
+		ctx.runOnClient(mc -> LegProbe.reset());
 		final boolean firstLane = ctx.computeOnClient(mc -> LegProbe.tree == null);
 		if (firstLane) {
 			ctx.runOnClient(mc -> LegProbe.requestTree());
@@ -2229,6 +2230,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		hind.sort(null);
 		final double frontTypical = percentile(front, 0.5);
 		final double hindTypical = percentile(hind, 0.5);
+		final double[] snap = ctx.computeOnClient(mc -> new double[] {LegProbe.kneeSnapMost, LegProbe.soleSnapMost, LegProbe.snaps});
+		log("  snaps: most a knee's bend changed in a tick %.0f deg, most a sole moved against the horse %.2f blocks, %d snaps", snap[0], snap[1], (int) snap[2]);
 		log("  planted hoof of each pair off the ground (blocks): front median %.3f 90%% %.3f, hind median %.3f 90%% %.3f; most sunk %.3f; "
 			+ "leg tops in the body at least %.3f; knees bent %d frames, the wrong way %d", frontTypical, percentile(front, 0.9), hindTypical,
 			percentile(hind, 0.9), sunk, hipLow, bentFrames, wrongKnee);
@@ -2500,6 +2503,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 		}
 		hitboxes(ctx, false);
+		final double[] snap = ctx.computeOnClient(mc -> new double[] {LegProbe.kneeSnapMost, LegProbe.soleSnapMost, LegProbe.snaps});
 		ctx.runOnClient(mc -> LegProbe.arm(false));
 		input.releaseKey(o -> o.keyUp);
 		log("  %s", trace);
@@ -2510,6 +2514,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		final double share = frames == 0 ? 1.0 : 1.0 / frames;
 		log("  climb: sharpest change in the drawn body's rise %.3f blocks/tick a tick, typical (rms) %.3f; frames: a leg in a block %d of %d, the body %d",
 			sharpest, jerks == 0 ? 0.0 : Math.sqrt(jerkSum / jerks), phaseFrames, frames, bodyFrames);
+		log("  snaps: most a knee's bend changed in a tick %.0f deg, most a sole moved against the horse %.2f blocks, %d snaps", snap[0], snap[1], (int) snap[2]);
 		check("tilts with the slope, nose " + (up ? "up" : "down") + " (max tilt, deg)", maxTilt, stairs ? 15.0 : 20.0, 40.5);
 		check("smoothly (max tilt change per tick, deg)", maxTiltRate, 0.2, 4.1);
 		check("hooves on the ground: typically (blocks off it, median)", typical, 0.0, 0.12);

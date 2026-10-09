@@ -40,6 +40,18 @@ public final class LegProbe {
 
 	/** Frames measured since {@link #reset}. */
 	public static int frames;
+	/**
+	 * Snaps since {@link #reset}: the most a knee's bend changed from one frame to the next (degrees), the most a sole moved
+	 * against the horse (blocks), and how often either jumped past KNEE_SNAP / SOLE_SNAP.
+	 */
+	public static double kneeSnapMost;
+	public static double soleSnapMost;
+	public static int snaps;
+	static final double KNEE_SNAP = 25.0;
+	static final double SOLE_SNAP = 0.2;
+	private static final double[] lastBend = new double[4];
+	private static final double[][] lastSole = new double[4][3];
+	private static boolean haveLast;
 	/** Per leg, the last frame drawn: the hoof's lowest point above the ground under its sole (blocks; negative is sunk in). */
 	public static final double[] gap = new double[4];
 	/** How far the body's underside is in the ground at its deepest corner (blocks, the shortest way out). */
@@ -83,6 +95,10 @@ public final class LegProbe {
 
 	public static void reset() {
 		frames = 0;
+		kneeSnapMost = 0.0;
+		soleSnapMost = 0.0;
+		snaps = 0;
+		haveLast = false;
 	}
 
 	public static void requestTree() {
@@ -205,6 +221,31 @@ public final class LegProbe {
 				jut[leg] = length < 1.0E-6 ? 0.0 : (du * (knee[leg][1] - ty) - dv * (ku - au)) / length;
 			}
 		}
+		// Snaps: a knee's bend, and where the sole is against the horse, from the last frame.
+		for (int leg = 0; leg < 4; leg++) {
+			double bend = 0.0;
+			if (!Double.isNaN(knee[leg][0]) && !Double.isNaN(fetlock[leg][0])) {
+				final double ux = knee[leg][0] - top[leg][0], uy = knee[leg][1] - top[leg][1], uz = knee[leg][2] - top[leg][2];
+				final double lx = fetlock[leg][0] - knee[leg][0], ly = fetlock[leg][1] - knee[leg][1], lz = fetlock[leg][2] - knee[leg][2];
+				final double cos = (ux * lx + uy * ly + uz * lz) / Math.max(Math.sqrt((ux * ux + uy * uy + uz * uz) * (lx * lx + ly * ly + lz * lz)), 1.0E-9);
+				bend = Math.toDegrees(Math.acos(Mth.clamp(cos, -1.0, 1.0)));
+			}
+			final double rx = sole[leg][0] - s.x, ry = sole[leg][1] - s.y, rz = sole[leg][2] - s.z;
+			if (haveLast && !Double.isNaN(gap[leg])) {
+				final double dBend = Math.abs(bend - lastBend[leg]);
+				final double dSole = Math.sqrt(Mth.square(rx - lastSole[leg][0]) + Mth.square(ry - lastSole[leg][1]) + Mth.square(rz - lastSole[leg][2]));
+				kneeSnapMost = Math.max(kneeSnapMost, dBend);
+				soleSnapMost = Math.max(soleSnapMost, dSole);
+				if (dBend > KNEE_SNAP || dSole > SOLE_SNAP) {
+					snaps++;
+				}
+			}
+			lastBend[leg] = bend;
+			lastSole[leg][0] = rx;
+			lastSole[leg][1] = ry;
+			lastSole[leg][2] = rz;
+		}
+		haveLast = true;
 		frames++;
 	}
 

@@ -968,7 +968,8 @@ public final class RideController {
 		final double before = horse.yo + s.heightOffsetO;
 		if (Math.abs(y + offset - before) < STEP_SNAP) {
 			if (!s.wasOnGround) {
-				s.bodyClimb = s.drawnRise;
+				// (Touching down, the fall isn't carried on into the ground.)
+				s.bodyClimb = Math.max(s.drawnRise, 0.0F);
 			}
 			final double predicted = before + s.bodyClimb;
 			final double residual = y + offset - predicted;
@@ -1031,8 +1032,9 @@ public final class RideController {
 
 	private static double supportAt(final AbstractHorse horse, final double fx, final double fz, final double reach, final double y, final double climb) {
 		// Down a slope the ground falls away a block for every block along (half a block more where the steps fall), so
-		// further out it may be further down; a wall or a deeper drop reads as level.
-		final double drop = STEP_REACH + Math.abs(reach) + 0.5;
+		// further out ahead it may be further down; a wall or a deeper drop reads as level. Behind, only a step down counts
+		// (just up a ledge, the ground at its foot isn't where the hind hooves stand).
+		final double drop = reach < 0.0 ? STEP_REACH : STEP_REACH + reach + 0.5;
 		final double ground = surface(horse, horse.getX() + fx * reach, horse.getZ() + fz * reach, y + climb + RIDDEN_STEP_HEIGHT + 0.01, y - drop);
 		return Double.isNaN(ground) || ground < y - drop ? y : ground;
 	}

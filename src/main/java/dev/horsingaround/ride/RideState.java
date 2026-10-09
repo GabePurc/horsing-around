@@ -267,6 +267,9 @@ public final class RideState {
 	public final float[] legRise = new float[4];
 	/** Per leg: how far its hoof is moved back off a step's face it would stand in (blocks, toward the tail), eased. */
 	public final float[] legShift = new float[4];
+	/** How fast each leg's rise and shift are changing (blocks a second), for easing them. */
+	public final float[] legRiseSpeed = new float[4];
+	public final float[] legShiftSpeed = new float[4];
 	/** Per leg: where its sole was drawn last frame (world x, z; NaN, not yet), for where it is heading. */
 	public final double[] legSoleX = {Double.NaN, Double.NaN, Double.NaN, Double.NaN};
 	public final double[] legSoleZ = new double[4];

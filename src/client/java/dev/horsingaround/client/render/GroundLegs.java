@@ -29,7 +29,6 @@ public final class GroundLegs {
 	private static final Matrix4f MATRIX = new Matrix4f();
 	private static final Matrix4f ROOT = new Matrix4f();
 	private static final Matrix4f INVERSE = new Matrix4f();
-	private static final float[] KNEE = new float[2];
 	private static final Vector3f POINT = new Vector3f();
 	private static final BlockPos.MutableBlockPos POS = new BlockPos.MutableBlockPos();
 	private static final ModelPart[] PARTS = new ModelPart[4];
@@ -92,6 +91,8 @@ public final class GroundLegs {
 				if (drawn) {
 					ride.legRise[i] = 0.0F;
 					ride.legShift[i] = 0.0F;
+					ride.legRiseSpeed[i] = 0.0F;
+					ride.legShiftSpeed[i] = 0.0F;
 					ride.legSoleX[i] = Double.NaN;
 				}
 			}
@@ -160,7 +161,7 @@ public final class GroundLegs {
 				ride.drawnFit = fit(ride.drawnFit, Math.max(standing, highest - (LEG_RISE_MAX - FIT_MARGIN)), dt * hold);
 			}
 		}
-		// Then each knee bends to bring its hoof onto its ground, stepping up quickly and down more gently.
+		// Then each knee bends to bring its hoof onto its ground, eased in and out (never a snap).
 		final float drawUp = LEG_HALF_DEPTH * Math.abs(Mth.sin(upright));
 		for (int i = 0; i < 4; i++) {
 			final ModelPart part = PARTS[i];
@@ -174,10 +175,10 @@ public final class GroundLegs {
 				// (On level ground, the last hundredths settle to nothing so the legs go back to the pack's own.)
 				final float wanted = Float.isNaN(RISES[i]) ? LEG_RISE_MAX
 					: levelBody && RISES[i] < LEVEL_DEAD_ZONE ? 0.0F : Mth.clamp(RISES[i], 0.0F, LEG_RISE_MAX);
-				ride.legRise[i] = settle(ride.legRise[i] + Mth.clamp(wanted - ride.legRise[i], -LEG_RISE_DOWN * dt, LEG_RISE_UP * dt), wanted);
+				ride.legRise[i] = settle(spring(ride.legRise[i], ride.legRiseSpeed, i, wanted, wanted > ride.legRise[i] ? LEG_RISE_SPEED : LEG_DROP_SPEED, dt), wanted);
 				rise = ride.legRise[i];
 				final float wantedShift = SHIFTS[i] / pixels;
-				ride.legShift[i] = settle(ride.legShift[i] + Mth.clamp(wantedShift - ride.legShift[i], -LEG_SHIFT_RATE * dt, LEG_SHIFT_RATE * dt), wantedShift);
+				ride.legShift[i] = settle(spring(ride.legShift[i], ride.legShiftSpeed, i, wantedShift, LEG_SHIFT_SPEED, dt), wantedShift);
 				shift = ride.legShift[i] * pixels;
 			}
 			// Drawn up so the top's corner stays in the body; the knee takes the hoof back down to where it stood, and the hoof
@@ -185,14 +186,8 @@ public final class GroundLegs {
 			part.y -= drawUp;
 			final float flat = Mth.clamp(Math.max(Math.abs(upright) / HOOF_LEVEL_TILT, rise / HOOF_LEVEL_RISE), 0.0F, 1.0F);
 			Knees.TARGET[0] = Float.NaN;
-			// The knee bends the way a horse's does (front knees forward, hind hocks back), unless that would put it in
-			// the ground (a hock going down stairs, into the step behind): then the other way.
-			boolean front = i < 2;
-			if (ground && Knees.knee(part, leg, rise * pixels, shift, down, drawUp, front, KNEE) && kneeInGround(ride, part, leg, level)
-				&& Knees.knee(part, leg, rise * pixels, shift, down, drawUp, !front, KNEE) && !kneeInGround(ride, part, leg, level)) {
-				front = !front;
-			}
-			Knees.plant(part, leg, rise * pixels, shift, down, drawUp, flat, front);
+			// Every knee bends forward (the joint halfway down reads as a knee, front and hind alike; never flipping).
+			Knees.plant(part, leg, rise * pixels, shift, down, drawUp, flat, true);
 			if (drawn && !Float.isNaN(Knees.TARGET[0])) {
 				MATRIX.set(ride.drawnPose)
 					.translate(root.x / 16.0F, root.y / 16.0F, root.z / 16.0F)
@@ -212,44 +207,19 @@ public final class GroundLegs {
 	}
 
 	/**
-	 * Whether the knee {@link Knees#knee} last found ({@link #KNEE}, in the legs' frame) is in the ground where the model
-	 * is drawn ({@link #ROOT}): its middle, or its edge on the side it juts to.
+	 * A critically damped spring from {@code value} toward {@code target} over dt seconds (LEG_EASE a second; its speed,
+	 * per leg, in {@code speed}), never faster than {@code most} blocks a second: eases in and out, no overshoot, no snap.
+	 * Solved implicitly, so it is steady at any frame rate.
 	 */
-	private static boolean kneeInGround(final RideState ride, final ModelPart part, final Knees.Leg leg, final Level level) {
-		final float x = (part.x + leg.soleX) / 16.0F;
-		ROOT.transformPosition(x, KNEE[0] / 16.0F, KNEE[1] / 16.0F, POINT);
-		if (solid(level, ride.drawnCameraX + POINT.x, ride.drawnCameraY + POINT.y, ride.drawnCameraZ + POINT.z)) {
-			return true;
+	private static float spring(final float value, final float[] speed, final int index, final float target, final float most, final float dt) {
+		if (dt <= 0.0F) {
+			return value;
 		}
-		// Its edge: half the leg's depth further out from the line between the top of the leg and the hoof.
-		final float cos = Mth.cos(part.xRot);
-		final float sin = Mth.sin(part.xRot);
-		final float midY = part.y + (leg.hipY + leg.fetlockY) * 0.5F * cos - leg.hipZ * sin;
-		final float midZ = part.z + (leg.hipY + leg.fetlockY) * 0.5F * sin + leg.hipZ * cos;
-		final float outY = KNEE[0] - midY;
-		final float outZ = KNEE[1] - midZ;
-		final float out = Mth.length(outY, outZ);
-		if (out < 1.0E-3F) {
-			return false;
-		}
-		ROOT.transformPosition(x, (KNEE[0] + outY / out * leg.soleHalf) / 16.0F, (KNEE[1] + outZ / out * leg.soleHalf) / 16.0F, POINT);
-		return solid(level, ride.drawnCameraX + POINT.x, ride.drawnCameraY + POINT.y, ride.drawnCameraZ + POINT.z);
-	}
-
-	/** Whether (x, y, z) is in something solid standing up from its block's floor (a full block, a slab, a stair's step). */
-	private static boolean solid(final Level level, final double x, final double y, final double z) {
-		final int bx = Mth.floor(x);
-		final int by = Mth.floor(y);
-		final int bz = Mth.floor(z);
-		final BlockState state = level.getBlockState(POS.set(bx, by, bz));
-		if (state.isAir()) {
-			return false;
-		}
-		final VoxelShape shape = state.getCollisionShape(level, POS);
-		if (shape.isEmpty()) {
-			return false;
-		}
-		return (shape == Shapes.block() ? 1.0 : shape.max(Direction.Axis.Y, z - bz, x - bx)) > y - by;
+		final float w = LEG_EASE;
+		float v = (speed[index] + w * w * (target - value) * dt) / (1.0F + 2.0F * w * dt + w * w * dt * dt);
+		v = Mth.clamp(v, -most, most);
+		speed[index] = v;
+		return value + v * dt;
 	}
 
 	/** Snaps an eased value onto a zero target once it is within a thousandth. */
