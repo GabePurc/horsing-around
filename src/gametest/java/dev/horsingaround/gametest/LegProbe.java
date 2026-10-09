@@ -24,14 +24,13 @@ import org.joml.Vector3f;
  * Measures the ridden horse's legs exactly as they are drawn, after the model and any animation pack (Fresh Animations)
  * and this mod posed them: hooked in after the model renderer draws a model (see the gametest {@code ModelFeatureRendererMixin}),
  * it walks the drawn parts with the same pose the renderer used. Per leg: how far the hoof's sole is off the ground under it,
- * whether the top of the leg is still up inside the body (a gap there is a leg come off), and which way the knee juts.
+ * whether the top of the leg is still up inside the body (a gap there is a leg come off), and whether any of the leg is in a
+ * block.
  * Test-only; nothing here runs in play.
  */
 public final class LegProbe {
 	/** Front left, front right, hind left, hind right (vanilla's part names, which animation packs keep). */
 	public static final String[] LEGS = {"left_front_leg", "right_front_leg", "left_hind_leg", "right_hind_leg"};
-	private static final String KNEE = "horsingaround_lower_leg";
-	private static final String FETLOCK = "horsingaround_hoof";
 
 	private static volatile boolean armed;
 	private static volatile boolean wantTree;
@@ -40,18 +39,12 @@ public final class LegProbe {
 
 	/** Frames measured since {@link #reset}. */
 	public static int frames;
-	/**
-	 * Snaps since {@link #reset}: the most a knee's bend changed from one frame to the next (degrees), the most a sole moved
-	 * against the horse (blocks), and how often either jumped past KNEE_SNAP / SOLE_SNAP.
-	 */
-	public static double kneeSnapMost;
+	/** Snaps since {@link #reset}: the most a sole moved against the horse from one frame to the next (blocks), and how often past SOLE_SNAP. */
 	public static double soleSnapMost;
 	public static int snaps;
 	/** The first snaps since {@link #reset}, what each was. */
 	public static final StringBuilder snapLog = new StringBuilder();
-	static final double KNEE_SNAP = 25.0;
 	static final double SOLE_SNAP = 0.2;
-	private static final double[] lastBend = new double[4];
 	private static final double[][] lastSole = new double[4][3];
 	private static boolean haveLast;
 	/** Per leg, the last frame drawn: the hoof's lowest point above the ground under its sole (blocks; negative is sunk in). */
@@ -60,17 +53,12 @@ public final class LegProbe {
 	public static double bodyInside;
 	/** The same for the chest end of it alone (the rest is the hindquarters). */
 	public static double chestInside;
-	/** How far the rest of the leg (the knee, the cannon) is in the ground at its deepest corner (blocks, the shortest way out). */
+	/** How far the rest of the leg, above the sole, is in a block at its deepest (blocks, the shortest way out). */
 	public static final double[] legInside = new double[4];
 	/** How far the middle of the top of the leg is up inside the body (blocks; negative, a gap shows). */
 	public static final double[] hip = new double[4];
-	/** How far the knee juts toward the head from the line from the top of the leg to the fetlock (blocks; NaN, no knee). */
-	public static final double[] jut = new double[4];
 	/** The sole's centre (world). */
 	public static final double[][] sole = new double[4][3];
-	/** Where the knee and the fetlock are (world; NaN, no knee). */
-	public static final double[][] knee = new double[4][3];
-	public static final double[][] fetlock = new double[4][3];
 	/** The top of the leg (world). */
 	public static final double[][] top = new double[4][3];
 
@@ -95,9 +83,21 @@ public final class LegProbe {
 		reset();
 	}
 
+	/**
+	 * Frame by frame: the frames where the body (the middle of its underside) or a sole (against the body) jumped much
+	 * faster than it moved the frame before (a snap or a hitch between ticks), what each was, and how many.
+	 */
+	public static final StringBuilder spikes = new StringBuilder();
+	public static int spikeCount;
+	private static final double[] lastHeights = new double[5];
+	private static final double[] lastSpeeds = new double[5];
+	private static double lastTime = Double.NaN;
+
 	public static void reset() {
+		spikes.setLength(0);
+		spikeCount = 0;
+		lastTime = Double.NaN;
 		frames = 0;
-		kneeSnapMost = 0.0;
 		soleSnapMost = 0.0;
 		snaps = 0;
 		snapLog.setLength(0);
@@ -126,10 +126,6 @@ public final class LegProbe {
 		Arrays.fill(topY, -Double.MAX_VALUE);
 		Arrays.fill(legInside, 0.0);
 		level = horse.level();
-		for (int i = 0; i < 4; i++) {
-			Arrays.fill(knee[i], Double.NaN);
-			Arrays.fill(fetlock[i], Double.NaN);
-		}
 		bellyVolume = 0.0;
 		final boolean dumping = wantTree;
 		if (dumping) {
@@ -174,11 +170,10 @@ public final class LegProbe {
 			if (lowest[leg] == Double.MAX_VALUE) {
 				gap[leg] = Double.NaN;
 				hip[leg] = Double.NaN;
-				jut[leg] = Double.NaN;
 				continue;
 			}
 			final double[] c = soleCorners[leg];
-			// (The sole's lowest corner: with a knee folded below the hoof, the leg's lowest point isn't the hoof.)
+			// (The sole's lowest corner.)
 			lowest[leg] = Math.min(Math.min(c[1], c[4]), Math.min(c[7], c[10]));
 			double ground = Double.NEGATIVE_INFINITY;
 			double inside = 0.0;
@@ -210,50 +205,63 @@ public final class LegProbe {
 			top[leg][0] = tx;
 			top[leg][1] = ty;
 			top[leg][2] = tz;
-			if (Double.isNaN(knee[leg][0]) || Double.isNaN(fetlock[leg][0])) {
-				jut[leg] = Double.NaN;
-			} else {
-				// In the horse's side view (along its heading, and up): the knee's side of the line from the top to the fetlock.
-				final double au = tx * fx + tz * fz;
-				final double bu = fetlock[leg][0] * fx + fetlock[leg][2] * fz;
-				final double ku = knee[leg][0] * fx + knee[leg][2] * fz;
-				final double du = bu - au;
-				final double dv = fetlock[leg][1] - ty;
-				final double length = Math.sqrt(du * du + dv * dv);
-				jut[leg] = length < 1.0E-6 ? 0.0 : (du * (knee[leg][1] - ty) - dv * (ku - au)) / length;
-			}
 		}
-		// Snaps: a knee's bend, and where the sole is against the horse, from the last frame.
+		// Snaps: where the sole is against the horse, from the last frame.
 		for (int leg = 0; leg < 4; leg++) {
-			double bend = 0.0;
-			if (!Double.isNaN(knee[leg][0]) && !Double.isNaN(fetlock[leg][0])) {
-				final double ux = knee[leg][0] - top[leg][0], uy = knee[leg][1] - top[leg][1], uz = knee[leg][2] - top[leg][2];
-				final double lx = fetlock[leg][0] - knee[leg][0], ly = fetlock[leg][1] - knee[leg][1], lz = fetlock[leg][2] - knee[leg][2];
-				final double cos = (ux * lx + uy * ly + uz * lz) / Math.max(Math.sqrt((ux * ux + uy * uy + uz * uz) * (lx * lx + ly * ly + lz * lz)), 1.0E-9);
-				bend = Math.toDegrees(Math.acos(Mth.clamp(cos, -1.0, 1.0)));
-			}
 			final double rx = sole[leg][0] - s.x, ry = sole[leg][1] - s.y, rz = sole[leg][2] - s.z;
 			if (haveLast && !Double.isNaN(gap[leg])) {
-				final double dBend = Math.abs(bend - lastBend[leg]);
 				final double dSole = Math.sqrt(Mth.square(rx - lastSole[leg][0]) + Mth.square(ry - lastSole[leg][1]) + Mth.square(rz - lastSole[leg][2]));
-				kneeSnapMost = Math.max(kneeSnapMost, dBend);
 				soleSnapMost = Math.max(soleSnapMost, dSole);
-				if (dBend > KNEE_SNAP || dSole > SOLE_SNAP) {
+				if (dSole > SOLE_SNAP) {
 					snaps++;
 					if (snapLog.length() < 1500) {
 						final dev.horsingaround.ride.RideState ride = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
-						snapLog.append(String.format(Locale.ROOT, "[t%d %s bend %.0f->%.0f sole %.2f rise %.2f shift %.2f tilt %.1f air %.2f] ", horse.tickCount,
-							new String[] {"FL", "FR", "HL", "HR"}[leg], lastBend[leg], bend, dSole, ride.legRise[leg], ride.legShift[leg], ride.pitch(1.0F), ride.airLegs(1.0F)));
+						snapLog.append(String.format(Locale.ROOT, "[t%d %s sole %.2f drawn up %.2f back %.2f tilt %.1f air %.2f] ", horse.tickCount,
+							new String[] {"FL", "FR", "HL", "HR"}[leg], dSole, ride.legRise[leg], ride.legBack[leg], ride.pitch(1.0F), ride.airLegs(1.0F)));
 					}
 				}
 			}
-			lastBend[leg] = bend;
 			lastSole[leg][0] = rx;
 			lastSole[leg][1] = ry;
 			lastSole[leg][2] = rz;
 		}
 		haveLast = true;
 		frames++;
+		spikes(horse, mc);
+	}
+
+	/** Compares this frame's heights (the body, and each sole against it) with the last two frames' (see {@link #spikes}). */
+	private static void spikes(final AbstractHorse horse, final Minecraft mc) {
+		if (bellyVolume <= 0.0) {
+			return;
+		}
+		final double time = horse.level().getGameTime() + mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+		final double body = (belly[1] + belly[4] + belly[7] + belly[10]) * 0.25;
+		final double dt = (time - lastTime) / 20.0;
+		final String[] names = {"body", "FL", "FR", "HL", "HR"};
+		for (int i = 0; i < 5; i++) {
+			final double height = i == 0 ? body : sole[i - 1][1] - body;
+			if (dt > 1.0E-4 && !Double.isNaN(height) && !Double.isNaN(lastHeights[i])) {
+				final double speed = (height - lastHeights[i]) / dt;
+				// A jump: moving more than 3 blocks a second faster than the frame before, and by more than a hundredth.
+				if (Math.abs(speed - lastSpeeds[i]) > 3.0 && Math.abs(height - lastHeights[i]) > 0.01 && spikes.length() < 4000) {
+					spikeCount++;
+					final dev.horsingaround.ride.RideState ride = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
+					spikes.append(String.format(Locale.ROOT, "%n      t%.2f %s %+.3f in a frame (%.1f -> %.1f blocks/s); tilt %.2f fit %.3f offset %.3f drawn up %.2f %.2f %.2f %.2f",
+						time, names[i], height - lastHeights[i], lastSpeeds[i], speed, ride.pitch(1.0F), ride.drawnFit, ride.heightOffset(1.0F) - ride.drawnFit,
+						ride.legRise[0], ride.legRise[1], ride.legRise[2], ride.legRise[3]));
+				}
+				lastSpeeds[i] = speed;
+			} else if (dt > 1.0E-4) {
+				lastSpeeds[i] = 0.0;
+			}
+			if (dt > 1.0E-4 || Double.isNaN(lastTime)) {
+				lastHeights[i] = height;
+			}
+		}
+		if (dt > 1.0E-4 || Double.isNaN(lastTime)) {
+			lastTime = time;
+		}
 	}
 
 	private static void walk(
@@ -297,17 +305,10 @@ public final class LegProbe {
 		stack.pushPose();
 		part.translateAndRotate(stack);
 		final Matrix4f matrix = stack.last().pose();
-		if (leg >= 0 && (KNEE.equals(name) || FETLOCK.equals(name))) {
-			matrix.transformPosition(0.0F, 0.0F, 0.0F, point);
-			final double[] joint = KNEE.equals(name) ? knee[leg] : fetlock[leg];
-			joint[0] = point.x + cam.x;
-			joint[1] = point.y + cam.y;
-			joint[2] = point.z + cam.z;
-		}
 		if (!part.skipDraw && (leg >= 0 || body)) {
 			for (final ModelPart.Cube cube : access.horsingaround$cubes()) {
 				if (leg >= 0) {
-					leg(cube, matrix, leg, cam, !hasHoof(part) || FETLOCK.equals(name));
+					leg(cube, matrix, leg, cam);
 				} else {
 					belly(cube, matrix, cam);
 				}
@@ -319,22 +320,11 @@ public final class LegProbe {
 		stack.popPose();
 	}
 
-	/** A leg's box: its lowest point, its lowest end face (the sole), and its highest end face (the top of the leg). */
-	/** Whether a leg's part has the hoof below it (then only the hoof's own end faces count as the sole). */
-	private static boolean hasHoof(final ModelPart part) {
-		final Map<String, ModelPart> children = ((ModelPartAccessor) (Object) part).horsingaround$children();
-		if (children.containsKey(FETLOCK)) {
-			return true;
-		}
-		for (final ModelPart child : children.values()) {
-			if (hasHoof(child)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	private static void leg(final ModelPart.Cube cube, final Matrix4f matrix, final int leg, final Vec3 cam, final boolean soleHere) {
+	/**
+	 * A leg's box: its lowest point, its lowest end face (the sole), its highest end face (the top of the leg), and how far
+	 * its sides are in a block (read a quarter, half and three quarters of the way down each corner edge).
+	 */
+	private static void leg(final ModelPart.Cube cube, final Matrix4f matrix, final int leg, final Vec3 cam) {
 		float minY = Float.MAX_VALUE;
 		float maxY = -Float.MAX_VALUE;
 		for (final ModelPart.Polygon polygon : cube.polygons) {
@@ -355,19 +345,23 @@ public final class LegProbe {
 				lowest[leg] = Math.min(lowest[leg], point.y + cam.y);
 				centreY += (point.y + cam.y) / vertices.length;
 			}
-			if (!soleHere) {
-				for (final ModelPart.Vertex vertex : vertices) {
-					matrix.transformPosition(vertex.worldX(), vertex.worldY(), vertex.worldZ(), point);
-					legInside[leg] = Math.max(legInside[leg], insideAt(level, point.x + cam.x, point.z + cam.z, point.y + cam.y));
-				}
-			}
-			if (soleHere && atBottom && centreY < soleY[leg]) {
+			if (atBottom && centreY < soleY[leg]) {
 				soleY[leg] = centreY;
 				corners(vertices, matrix, cam, soleCorners[leg]);
 			}
 			if (atTop && centreY > topY[leg]) {
 				topY[leg] = centreY;
 				corners(vertices, matrix, cam, topCorners[leg]);
+			}
+			if (atBottom) {
+				// Up each corner edge from the sole.
+				for (final ModelPart.Vertex vertex : vertices) {
+					for (int k = 1; k <= 3; k++) {
+						final float y = (maxY + (minY - maxY) * k * 0.25F) / 16.0F;
+						matrix.transformPosition(vertex.worldX(), y, vertex.worldZ(), point);
+						legInside[leg] = Math.max(legInside[leg], insideAt(level, point.x + cam.x, point.z + cam.z, point.y + cam.y));
+					}
+				}
 			}
 		}
 	}
@@ -471,7 +465,7 @@ public final class LegProbe {
 		final StringBuilder out = new StringBuilder();
 		final String[] names = {"FL", "FR", "HL", "HR"};
 		for (int i = 0; i < 4; i++) {
-			out.append(String.format(Locale.ROOT, "%s gap%+.2f knee%+.2f hip%+.2f jut%+.2f  ", names[i], gap[i], -legInside[i], hip[i], jut[i]));
+			out.append(String.format(Locale.ROOT, "%s gap%+.2f leg%+.2f hip%+.2f  ", names[i], gap[i], -legInside[i], hip[i]));
 		}
 		out.append(String.format(Locale.ROOT, "body in %.2f (chest %.2f)  ", bodyInside, chestInside));
 		return out.toString();

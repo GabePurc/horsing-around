@@ -189,16 +189,45 @@
 ## Knees and hurdles (user request, 2026-10-08)
 
 - [x] Legs turned about their tops whatever the model's pivot (Fresh Animations pivots at the hoof: swinging about it was what made legs detach and go wonky), in standing upright on slopes, the knees and the jump's shape
-- [x] Jointed legs: each leg box cut into upper leg, cannon and hoof (texture and all, capped, the upper leg reaching further up into the body); each hoof stands flat on the ground under it where it is drawn (front knees jut forward, hind hocks back), reads a moment ahead along its own motion, moves back off a step's face it can't climb, and the drawn body fits so the standing leg on the lowest ground is straight
+- [x] (Replaced 2026-10-09 by one-piece legs, see below.) Jointed legs: each leg box cut into upper leg, cannon and hoof (texture and all, capped, the upper leg reaching further up into the body); each hoof stands flat on the ground under it where it is drawn (front knees jut forward, hind hocks back), reads a moment ahead along its own motion, moves back off a step's face it can't climb, and the drawn body fits so the standing leg on the lowest ground is straight
 - [x] Horse armour and bridle follow the head on Fresh Animations (the neck reach and head toss go on every layer's neck)
-- [x] Play-test fixes: smoother climbing (the drawn body tracks its height and carries the climb), walking down a slope of full blocks no longer reads as falls (the tilt holds, no hindquarters in the steps), shorter strides on steep ground, step faces judged where the hoof is
+- [x] (Body model replaced 2026-10-09, see below.) Play-test fixes: smoother climbing (the drawn body tracks its height and carries the climb), walking down a slope of full blocks no longer reads as falls (the tilt holds, no hindquarters in the steps), shorter strides on steep ground, step faces judged where the hoof is
 - [x] Jump spam at a 2-block ledge: vanilla's release jump no longer fires on landing, a press waits for the heave, and the horse settles on top before jumping again
 - [x] Hurdles: jump fences, walls and gates (1.125-1.6 tall, within 2.5 blocks, safe landing) at any pace or standing; refuses lava or drops beyond; slows to a trot, or stops with a snort without a jump; pens still hold horses
+
+## Exact hooves, a body on its legs (user request, 2026-10-08/09)
+
+- [x] Knee and hoof joints taken out (user direction: too far from vanilla): legs are vanilla's one-piece legs again,
+  never changed (only measured, as built, so every model layer agrees); a leg shortens by drawing up into the body
+- [x] Each hoof on its own ground exactly, every frame, no easing: the ground under the whole sole worked out where the
+  block grid crosses it (higher ground coming in over its first ~0.06 blocks, so a hoof never flickers on a step's edge),
+  backing off a step's face by exactly as far as it is in it; measured at the middle of the sole (the lowest corner kinked
+  every step); legs stand upright against the ground's slope only (not the gait's or the breath's sway, which hitched
+  every step); a hoof lifts no faster than 10 blocks/s and a leg straightens no faster than 4, never leaving a hoof in the
+  ground
+- [x] Lifting for what is ahead: a hoof in its swing (from the gait's own lift), one the body has lifted off the ground,
+  and moving on any hoof for the last bit (the animation's planted hooves slide), never from a hoof's speed frame by frame
+- [x] The body as a mass on its legs: each end on a critically damped spring to the ground under its hooves, read ahead
+  only going up; it falls no faster than gravity when its hooves step off (going down a block was far too fast); the
+  forehand rises to keep the chest clear of a step before it gets there (stepping up no longer puts the chest in the
+  block); the legs give 0.3 and push the body up at most 0.15 a tick past that; landing keeps the fall's speed and the
+  legs take it up (no more sinking into the ground on landing); the tilt is the line between the ends, no extra easing;
+  running off a drop at a canter or faster carries the body over level, as a short leap
+- [x] The body rests on its standing hooves (comes down onto them under gravity, up smoothly as a leg draws past 0.35,
+  at once only for a leg that couldn't reach at all), never so low the chest meets a step ahead
+- [x] Snaps found and fixed: model layers (body, saddle, armour) posed their legs differently in a frame; a layer without
+  leg boxes let the body settle; the ridden horse's legs switching to the model's own on flat ground; a hard stop and a
+  settle spring fighting frame by frame (on a block's edge the body crept down, hitchy)
+- [x] Tests: `-Psections=slowstep` watches standing still, at a block's edge, walking then stopping, and slow single
+  steps up and down, tick by tick and frame by frame at 120 fps (no jumps standing, at an edge or stopping; on a single
+  step no leg jumps more than ~0.08 a frame, was 0.44); step tests check the chest clears the step and no hoof or leg is
+  in it; the running jump checks no hoof sinks on landing; natural terrain checks the tilt steadily (99th percentile, at
+  most 10 degrees a tick) and at worst, landings included (18)
 
 ## Tooling
 
 - [x] Automated client ride test (`./gradlew runClientGameTest`, `-Ptests=ride`, `-Psections=core,cuts,stairs,picking,steps`): checks covering 19 messy 2-block ledges, legs in the air (the stride stops, front legs fold then reach for the ground, at most ~0.1 rad a tick), the 2-block ledge bound, hard cuts (20, 60, 90 and 150 degrees off at a gallop, against cuts switched off; standing pivot), A or D alone riding across the view, the rider pushed back and shielding their face in leaves, climbing out onto a 1-block bank and not a 2-block one, narrow 2-block ledges jumped at a trot and a gallop, a ledge catching the flank and a 2-block pillar gone round, a row of trunks threaded (the 12 shoulder-camera checks moved to the add-on repo), steps in two beats (up and down, walk and trot), footing (across a ditch at a gallop and a trot, past a trunk that catches the shoulder), a leafy 2-block ledge, the horse picking its way (tree detour at pace, long wall slow-down, beside a wall and along a cliff edge at full pace, cliff and lava refusal, safe drop, gap jumped and refused, ledge jump at a walk and from a gallop, fence left alone), gradual and smooth climbing out of water, wading pace, swimming (speed, head above water, rider kept, climbing out), saddle side-sway follow, rider inertia (surge and braking), Fresh Animations stirrups held, trampling (walk vs gallop), horse settings in Mod Menu and live apply, downhill speed continuity, landing surge, jump arc, huff rhythm, head toss on the FA model, mouse steering, A/D 45-degree offset without view pull, riding through leaves, free aim and look limit, aiming while turning, Fresh Animations body sync, staircase climbing (smoothness, pitch), weight-shift timing, gait animation speeds, first-person bob, mounting camera, free look, walk/gallop speed, spur timing, A/D turn rate and lean, running and standing jumps, stamina and exhaustion, coasting, braking, reversing, mouse steering, dismount; writes `build/run/clientGameTest/horsingaround-ride-report.txt` and screenshots (back, front and side views)
-- [x] Legs as drawn (`-Psections=knees`): a test-only probe measures the ridden horse's legs exactly as the model renderer drew them (after Fresh Animations and this mod posed them): each hoof against the ground under it, each leg's top against the body, which way each knee juts; on flat ground (the pack's own baseline), up and down slopes and stairs, and standing on stairs and a step, with close shots against a white wall
+- [x] Legs as drawn (`-Psections=drawn`): a test-only probe measures the ridden horse's legs exactly as the model renderer drew them (after Fresh Animations and this mod posed them): each hoof against the ground under it, each leg's top against the body, which way each knee juts; on flat ground (the pack's own baseline), up and down slopes and stairs, and standing on stairs and a step, with close shots against a white wall
 - [x] Light, parallel test games: lowest settings, 20 fps, 2 GB heap, Sodium/Lithium/FerriteCore/ImmediatelyFast in test games only; `runClientGameTestParallel --continue` runs five shards two at a time (`-PtestGames=N`) and merges the reports
 - [x] Test colours: in the client tests horses wear colour-coded textures (`src/gametest/debugpack`: upper leg blue, knee white, cannon orange, hoof black, sole magenta) so screenshots show what each piece of each leg is doing; `-PplainTextures` turns them off, the store gallery never uses them
 - [x] Dedicated-server ride test (`-Ptests=server`; the user accepted the Minecraft EULA for the local test server on 2026-10-07) and a bare dedicated-server game test (`./gradlew runGameTest`); every client test logs server corrections ("moved wrongly") and warnings, and one failing test no longer stops the others (`TestSummary` fails the run at the end)

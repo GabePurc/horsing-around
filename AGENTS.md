@@ -31,8 +31,8 @@ Release-readiness work (Modrinth, compatibility with other mods) is planned in `
 Verify every gameplay change with `./gradlew runClientGameTest`, which runs four client tests (pick some with
 `-Ptests=ride,terrain,mounts,server`, one terrain scenario with `-Pscenario=<part of its name>`, some ride sections with
 `-Psections=core,cuts,stairs,picking,steps`; `legs` takes close shots of the legs in a jump, `slopes` and `face` run just
-the slope-and-stairs lanes and the jump-at-a-wall lanes, `knees` measures the legs exactly as drawn on slopes, stairs and
-steps and shoots them up close):
+the slope-and-stairs lanes and the jump-at-a-wall lanes, `drawn` measures the legs exactly as drawn on slopes, stairs and
+steps and shoots them up close, `slowstep` watches standing, stopping and single steps frame by frame for snaps):
 `RideFeelTest` rides a horse with simulated keys through every mechanic in hand-built lanes and writes
 `build/run/clientGameTest/horsingaround-ride-report.txt`; `TerrainRideTest` rides procedurally built natural terrain
 (forests, mountains, hills, hazards, river, badlands) like a player would and writes
@@ -42,7 +42,7 @@ mod (the target setup: a family server) and checks the server accepts every move
 ("moved wrongly" = rubber-banding) and warnings. Screenshots land in
 `build/run/clientGameTest/screenshots/` (view them; with hitboxes on, F3+B, the ridden horse also draws its steering
 and step state). In the client tests horses wear colour-coded test textures (`src/gametest/debugpack`: upper leg blue,
-knee white, cannon orange, hoof black, sole magenta; `-PplainTextures` for real ones), and `LegProbe` measures the legs
+a white band, cannon orange, hoof black, sole magenta; `-PplainTextures` for real ones), and `LegProbe` measures the legs
 as the renderer drew them: judge leg work by those numbers and close shots, not by formulas. Don't test only perfect cases: generated worlds are messy. When
 feel numbers change on purpose, update the test targets too. `./gradlew runGameTest` loads the mod on a bare
 dedicated server (no client code) and rides there. `-Ptests=gallery` takes clean store screenshots. `-Ptests=store` films

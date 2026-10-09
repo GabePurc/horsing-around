@@ -97,11 +97,13 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		final boolean footing = GroundLegs.pose(
 			parts[0], parts[1], parts[2], parts[3], tilt, fore, hind, 16.0F / root.yScale, ride, root, air < RideTuning.AIR_GROUNDED || !ride.leapt()
 		);
-		// (A step down is a short fall, not a jump: with the hooves finding their ground, no jump shape.)
-		if (air <= 0.0F || footing && !ride.leapt()) {
+		// (A step down is a short fall, not a jump: with the hooves finding their ground, no jump shape. Landing a jump,
+		// the jump's shape eases out, and any hoof it leaves in the ground comes up onto it.)
+		if (air <= 0.0F || footing && !ride.leapLegs()) {
 			return;
 		}
 		AirLegs.pose(parts[0], parts[1], parts[2], parts[3], air, ride.airRise(partialTicks));
+		GroundLegs.floor(parts[0], parts[1], parts[2], parts[3], 16.0F / root.yScale, ride, root);
 	}
 
 	/** The neck part per model: the pack's own (Fresh Animations' "neck2", inside the body) or vanilla's (searched once). */
