@@ -16,6 +16,7 @@ import net.minecraft.world.entity.Entity;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import traben.entity_model_features.EMFAnimationApi;
+import traben.entity_model_features.models.animation.state.EMFEntityRenderState;
 import traben.entity_model_features.models.parts.EMFModelPartRoot;
 
 /**
@@ -167,7 +168,10 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 
 	@Override
 	public void onAnimationEnd(final AnimationContext context, final boolean unused) {
-		if (!(context.activeState().emfEntity() instanceof RideStateHolder holder) || !holder.horsingaround$managed()) {
+		// Entity Model Features animates more than entities (with Fresh Animations, a shulker box drawn as an item icon) and
+		// then hands every hook no state at all: nothing of ours to do there.
+		final EMFEntityRenderState state = context.activeState();
+		if (state == null || !(state.emfEntity() instanceof RideStateHolder holder) || !holder.horsingaround$managed()) {
 			return;
 		}
 		final EMFModelPartRoot root = context.animatingModelRoot();

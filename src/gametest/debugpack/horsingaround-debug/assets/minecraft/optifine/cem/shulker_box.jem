@@ -1,0 +1,16 @@
+{
+	"credit": "Horsing Around test pack: a shulker box whose lid sways, so Entity Model Features animates shulker boxes (also drawn as items, with no entity)",
+	"textureSize": [64, 64],
+	"models": [
+		{
+			"part": "lid",
+			"id": "lid",
+			"attach": "true",
+			"animations": [
+				{
+					"lid.ry": "sin(age / 10) / 4"
+				}
+			]
+		}
+	]
+}

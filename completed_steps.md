@@ -224,6 +224,15 @@
   in it; the running jump checks no hoof sinks on landing; natural terrain checks the tilt steadily (99th percentile, at
   most 10 degrees a tick) and at worst, landings included (18)
 
+## Crash fix: shulker boxes with Entity Model Features (user report, 2026-10-09)
+
+- [x] The game crashed (a player's, on Fabulously Optimized with Fresh Animations) when Entity Model Features animated a
+  shulker box drawn as an item, in the hotbar or in hand: EMF calls every animation hook even with no entity behind the
+  model, handing it no state, and the saddle tracker assumed there was one. It now leaves anything without a state
+  alone. Verified by `RideFeelTest` (`-Psections=icons`, part of `core`): shulker boxes in the hotbar and in hand while
+  riding, with a test-only shulker box animation in the debug pack (Fresh Animations 1.10.5 has none); the old code
+  crashed there with the player's error
+
 ## Tooling
 
 - [x] Automated client ride test (`./gradlew runClientGameTest`, `-Ptests=ride`, `-Psections=core,cuts,stairs,picking,steps`): checks covering 19 messy 2-block ledges, legs in the air (the stride stops, front legs fold then reach for the ground, at most ~0.1 rad a tick), the 2-block ledge bound, hard cuts (20, 60, 90 and 150 degrees off at a gallop, against cuts switched off; standing pivot), A or D alone riding across the view, the rider pushed back and shielding their face in leaves, climbing out onto a 1-block bank and not a 2-block one, narrow 2-block ledges jumped at a trot and a gallop, a ledge catching the flank and a 2-block pillar gone round, a row of trunks threaded (the 12 shoulder-camera checks moved to the add-on repo), steps in two beats (up and down, walk and trot), footing (across a ditch at a gallop and a trot, past a trunk that catches the shoulder), a leafy 2-block ledge, the horse picking its way (tree detour at pace, long wall slow-down, beside a wall and along a cliff edge at full pace, cliff and lava refusal, safe drop, gap jumped and refused, ledge jump at a walk and from a gallop, fence left alone), gradual and smooth climbing out of water, wading pace, swimming (speed, head above water, rider kept, climbing out), saddle side-sway follow, rider inertia (surge and braking), Fresh Animations stirrups held, trampling (walk vs gallop), horse settings in Mod Menu and live apply, downhill speed continuity, landing surge, jump arc, huff rhythm, head toss on the FA model, mouse steering, A/D 45-degree offset without view pull, riding through leaves, free aim and look limit, aiming while turning, Fresh Animations body sync, staircase climbing (smoothness, pitch), weight-shift timing, gait animation speeds, first-person bob, mounting camera, free look, walk/gallop speed, spur timing, A/D turn rate and lean, running and standing jumps, stamina and exhaustion, coasting, braking, reversing, mouse steering, dismount; writes `build/run/clientGameTest/horsingaround-ride-report.txt` and screenshots (back, front and side views)

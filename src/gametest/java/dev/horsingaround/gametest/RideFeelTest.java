@@ -90,6 +90,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 			// -Psections=<names> runs only some sections (core, cuts, stairs, picking, steps); all of them by default.
 			final String sections = System.getProperty("horsingaround.sections", "");
+			if (sections.isEmpty() || sections.contains("core") || sections.contains("icons")) {
+				blockItemIcons(ctx);
+			}
 			if (sections.isEmpty() || sections.contains("core")) {
 				mounting(ctx);
 				freeLook(ctx, input);
@@ -160,6 +163,33 @@ public final class RideFeelTest implements FabricClientGameTest {
 			writeReport();
 		}
 		TestSummary.failed(this.failures, "horsingaround-ride-report.txt");
+	}
+
+	/**
+	 * Entity Model Features animates more than entities: with Fresh Animations it animates shulker boxes, also drawn as
+	 * item icons, and then calls every animation hook with no entity at all (a player's game crashed in the hotbar). Shulker
+	 * boxes in the hotbar and in hand for a while, riding, with nothing logged against the hook.
+	 */
+	private void blockItemIcons(final ClientGameTestContext ctx) {
+		section("Shulker boxes drawn as items (Entity Model Features animating with no entity)");
+		try (LogWatch watch = LogWatch.begin()) {
+			for (int slot = 0; slot < 9; slot++) {
+				this.server.runCommand("item replace entity @p hotbar." + slot + " with minecraft:" + (slot % 2 == 0 ? "shulker_box" : "red_shulker_box"));
+			}
+			ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+			ctx.waitTicks(20);
+			ctx.runOnClient(mc -> mc.gui.hud.getChat().clearMessages(false));
+			screenshot(ctx, "00b_shulker_boxes");
+			ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.FIRST_PERSON));
+			ctx.waitTicks(10);
+			ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+			ctx.waitTicks(10);
+			final List<String> errors = watch.matching("horsingaround", "Exception", "animation hook", "EmfSaddleTracker");
+			check("drawn for 2 s with no error from the animation hook (" + errors + ")", errors.isEmpty());
+		} finally {
+			this.server.runCommand("clear @p");
+			ctx.waitTicks(2);
+		}
 	}
 
 	private void mounting(final ClientGameTestContext ctx) {
