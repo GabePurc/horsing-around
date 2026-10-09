@@ -130,7 +130,7 @@ public final class GalleryTest implements FabricClientGameTest {
 			.withDestinationDir(FabricLoader.getInstance().getGameDir().resolve("gallery")));
 	}
 
-	private static void enableFreshAnimations(final ClientGameTestContext ctx) {
+	static void enableFreshAnimations(final ClientGameTestContext ctx) {
 		final CompletableFuture<Void> reload = ctx.computeOnClient(mc -> {
 			final PackRepository packs = mc.getResourcePackRepository();
 			packs.reload();
