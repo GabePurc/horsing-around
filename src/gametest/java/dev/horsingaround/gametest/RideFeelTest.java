@@ -412,7 +412,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		final double before = averageSpeed(ctx, 3);
 		final double startY = sample(ctx).y;
 		final float staminaBefore = sample(ctx).stamina;
-		int elapsed = 0;
+		// (Counted in the horse's own ticks: a screenshot can let the game run a tick or two between samples.)
+		final int startTick = horseTick(ctx);
 		input.pressKey(o -> o.keyJump);
 		double peak = startY;
 		double slowest = Double.MAX_VALUE;
@@ -435,7 +436,6 @@ public final class RideFeelTest implements FabricClientGameTest {
 		float headGap = Float.MAX_VALUE;
 		for (int i = 1; i <= 40; i++) {
 			ctx.waitTick();
-			elapsed++;
 			final Sample s = sample(ctx);
 			peak = Math.max(peak, s.y);
 			headGap = Math.min(headGap, ride(ctx, r -> r.headGap));
@@ -526,9 +526,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("the stride picks up again after landing (leg-animation speed)", sample(ctx).limbSpeed, 0.85, 1.0);
 		check("legs back in the stride (jump shape, 0..1)", ride(ctx, r -> r.airLegs(1.0F)), 0.0, 0.01);
 		ctx.waitTicks(20);
-		elapsed += 20;
 		check("tail settles after landing (radians)", Math.abs((double) ride(ctx, r -> r.tailLift(1.0F))), 0.0, 0.1);
-		final float gallopDrain = elapsed * RideTuning.STAMINA_DRAIN_GALLOP;
+		final float gallopDrain = (horseTick(ctx) - startTick) * RideTuning.STAMINA_DRAIN_GALLOP;
 		check("jump stamina cost beyond gallop drain", staminaBefore - sample(ctx).stamina - gallopDrain, RideTuning.JUMP_STAMINA_COST - 0.02, RideTuning.JUMP_STAMINA_COST + 0.03);
 		ctx.waitTicks(10);
 	}
