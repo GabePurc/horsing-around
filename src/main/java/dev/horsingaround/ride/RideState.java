@@ -285,6 +285,12 @@ public final class RideState {
 	public float drawnFit;
 	/** How fast {@link #drawnFit} is changing, blocks a second. */
 	public float drawnFitVelocity;
+	/**
+	 * The rider's bow (client only): how far it was drawn last frame (0 when not drawing), and when it was loosed (the
+	 * horse's ticks with the partial tick; NaN while drawing or none), for the follow-through.
+	 */
+	public float bowPull;
+	public float bowLoosedAt = Float.NaN;
 	/** Slow averages that remove the pack's rest-pose offset, leaving only the motion. */
 	public float animatedLiftBase;
 	public float animatedForwardBase;

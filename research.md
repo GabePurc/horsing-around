@@ -494,3 +494,38 @@ them, so it reached a 1-block step before the body rose.
 - Known limit: on a slope of full blocks (a block up for every block along) the risers are taller than a leg can reach
   or draw up for, so the horse scrambles: a hoof is off the ground on its way up, or hanging over the next block down,
   more often than on stairs. Off the ground, never in it.
+
+## The rider's hands: a weapon held ready, and a bow drawn (GitHub issues #17 and #18, 2026-10-09)
+
+Requests: while mounted with a tool or weapon in the main hand, the rider takes that hand off the reins and holds the item
+a little out to the side, relaxed and ready (it looks good with a sword), the other hand on the reins; a swing starts
+from where the item is held and returns to it instead of snapping back to the reins. And the vanilla third-person bow
+draw looks wonky (arms stuck straight out, the bow and string hands not lined up): a believable draw instead, the bow arm
+out toward the target, the string hand pulled back toward the cheek as the draw charges, body and head lined up with the
+aim, following the charge (nock, pull, full draw, release). Still blocky and vanilla in style; left-handed players
+mirrored; the crossbow shouldn't clash; first person untouched.
+
+Reference: mounted archers and riders with a sword carry the reins in one hand and the weapon low and a little out from
+the body; an archer stands side-on to the target with the bow arm straight toward it and draws the string back along the
+arrow to an anchor at the jaw or cheek, the draw hand flying back past it as the arrow goes.
+
+Translation (`RiderPose`; numbers in `RideTuning`):
+
+- Tools and weapons (anything with a tool or weapon component, so modded ones too, and bows and crossbows) in the main
+  hand: that arm low at the rider's side, forward ~23 degrees, ~23 out from the body and turned ~31 out, so the blade (or
+  the tool's head) points forward and away from the horse's neck; the other hand on the reins. Other items (food, blocks)
+  stay in the rein hand, as before. (First tries, forward 26 and 46 degrees with little turn, laid the sword along the
+  neck or held it out like a lance past the horse's ears.)
+- Any swing (vanilla's whack) is vanilla's own motion added on top of wherever the arm rests, reins or ready, so it
+  starts and ends there; the torso's turn in the swing is added to the rider's look twist instead of replacing it. A
+  spear's thrust stays vanilla's.
+- The bow (Minecraft draws it in the hand that holds it, so for a right-handed rider the right arm holds the bow and the
+  left draws): the torso turns side-on to the aim (the bow arm's shoulder toward it, as far as a rider can twist in the
+  saddle), the bow arm points along the aim, and the string arm points from its shoulder at the string hand's place:
+  from the arrow's nock at the bow back to the cheek on the bow's side as the draw charges (the bow's own power curve,
+  full at one second). The arms come up into the draw from where they rest; loosed, the string hand flies back past the
+  cheek, the bow stays up a moment, and both come back down to rest over half a second.
+- A loaded crossbow is held square to the aim (vanilla's arms already follow the head's aim; the torso's twist used to be
+  added on top and pointed them past it); loading, the arms turn with the torso.
+- Riders only: the bow on foot is left to vanilla here (this mod is about riding; a nicer draw on foot would suit the
+  Over the Shoulder add-on, which frames on-foot aiming).

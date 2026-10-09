@@ -20,8 +20,12 @@ public interface RidePoseState {
 	 *                 torso rocks, leans and pumps
 	 * @param legRoll  same for roll (top-right positive)
 	 * @param shield   how far a hand is up in front of the face against leaves, 0..1
+	 * @param bowRelease how far through the follow-through of a bow just loosed, 1 (just loosed) to 0 (none)
+	 * @param bowPull  how far that bow was drawn, 0..1
 	 */
-	void horsingaround$setRider(float handBob, float legPitch, float legRoll, float twistRadians, float pelvis, float shield);
+	void horsingaround$setRider(
+		float handBob, float legPitch, float legRoll, float twistRadians, float pelvis, float shield, float bowRelease, float bowPull
+	);
 
 	boolean horsingaround$isRider();
 
@@ -38,6 +42,12 @@ public interface RidePoseState {
 
 	/** Torso swing from the shoulders (radians, negative slides the pelvis forward). */
 	float horsingaround$pelvis();
+
+	/** How far through the follow-through of a bow just loosed, 1 to 0 (0: none). */
+	float horsingaround$bowRelease();
+
+	/** How far the bow just loosed was drawn, 0..1. */
+	float horsingaround$bowPull();
 
 	/** Head toss for a horse that just ran out of stamina: neck yaw and roll, radians. */
 	void horsingaround$setHeadShake(float yaw, float roll);
