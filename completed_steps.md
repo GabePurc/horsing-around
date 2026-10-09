@@ -233,6 +233,19 @@
   riding, with a test-only shulker box animation in the debug pack (Fresh Animations 1.10.5 has none); the old code
   crashed there with the player's error
 
+## Out of the water, and stopping after A/D (GitHub issues #15 and #16, 2026-10-09)
+
+- [x] Leaving water no longer launches the horse: stepping out of a wade, the drawn body took the box's one-block step as
+  its upward speed and flew ~2.6 blocks up before snapping back; now it carries its own speed. Wading uses the ground's
+  steps (stepping out onto a bank is an ordinary step, forehand first), a bank too high to step up is climbed in the same
+  heave as out of deep water (no ledge jump in water), and the drawn body never rises above the bank it ends up on.
+  Verified by `-Psections=exits` (wading and swimming out onto banks level with the water, a slab and a block above it):
+  highest above the bank 0.00-0.03 (was up to 2.6), at most 0.03 down in a tick settling. Front hooves meeting the bank's
+  top mid-heave lift at a hoof's speed (the biggest sole jump in a frame 0.52 -> 0.34; the rest is still open, logged)
+- [x] Stopping after riding with A or D alone no longer sinks the body: letting go made a 90-degree hard cut back to the
+  view, so the horse sat on its haunches as it stopped; hard cuts are now only while riding on, and letting go stands it
+  up out of one. Verified by `-Psections=strafe` (D, A, D at a trot, against W): lowest body -0.001 (was -0.12)
+
 ## The rider's hands: a weapon held ready, and a bow drawn (GitHub issues #17 and #18, 2026-10-09)
 
 - [x] A tool or weapon in the main hand (anything with a tool or weapon component, modded ones too, plus bows and

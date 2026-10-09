@@ -157,6 +157,12 @@ public final class RideFeelTest implements FabricClientGameTest {
 				bank(ctx, input, world, 940, 1);
 				bank(ctx, input, world, 960, 2);
 			}
+			if (sections.isEmpty() || sections.contains("stairs") || sections.contains("exits")) {
+				waterExits(ctx, input, world);
+			}
+			if (sections.isEmpty() || sections.contains("cuts") || sections.contains("strafe")) {
+				strafeStops(ctx, input, world);
+			}
 			if (sections.isEmpty() || sections.contains("picking")) {
 				pickingItsWay(ctx, input, world);
 			}
@@ -1137,7 +1143,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 				steepestRise = Math.max(steepestRise, (s.y - previous.y) / ticks);
 				steepestVisualRise = Math.max(steepestVisualRise, (s.visualY - previous.visualY) / ticks);
 				steepestTilt = Math.max(steepestTilt, Math.abs(s.pitch - previous.pitch) / ticks);
-				trace.append(String.format(Locale.ROOT, "%d: z%.2f y%.2f vis%.2f tilt%.1f heave%d | ", i, horseZ(ctx), s.y, s.visualY, s.pitch, bankTicks));
+				trace.append(String.format(Locale.ROOT, "%d: t%d z%.2f y%.2f vis%.3f fit%.3f tilt%.1f heave%d | ", i, tick, horseZ(ctx), s.y, s.visualY,
+					ride(ctx, r -> r.drawnFit), s.pitch, bankTicks));
 			}
 			if (bankTicks > 0 && heaveStart < 0) {
 				heaveStart = i;
@@ -1166,6 +1173,192 @@ public final class RideFeelTest implements FabricClientGameTest {
 		}
 		input.releaseKey(o -> o.keyUp);
 		ctx.waitTicks(20);
+	}
+
+	/**
+	 * Out of the water onto banks like generated rivers' and lakes': wading out of 1-deep water onto ground level with
+	 * the water's block layer, a slab on it and a block above it, then swimming out of deep water onto the same. The
+	 * body should rise only as far as the bank it ends up on and settle there with no snap: every tick the drawn body
+	 * against the bank's top, and frame by frame any snap.
+	 */
+	private void waterExits(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		ctx.runOnClient(mc -> LegProbe.arm(true));
+		// (At a real frame rate: a snap between ticks only shows frame by frame.)
+		final int frameLimit = ctx.computeOnClient(mc -> mc.options.framerateLimit().get());
+		ctx.runOnClient(mc -> mc.options.framerateLimit().set(120));
+		try {
+			waterExit(ctx, input, world, 3400, false, 0.0);
+			waterExit(ctx, input, world, 3420, false, 0.5);
+			waterExit(ctx, input, world, 3440, false, 1.0);
+			waterExit(ctx, input, world, 3460, true, 0.0);
+			waterExit(ctx, input, world, 3480, true, 0.5);
+			waterExit(ctx, input, world, 3500, true, 1.0);
+		} finally {
+			ctx.runOnClient(mc -> {
+				LegProbe.arm(false);
+				mc.options.framerateLimit().set(frameLimit);
+			});
+		}
+	}
+
+	/**
+	 * Walks north out of water ({@code deep}: three deep, swimming; else one deep, wading) onto a bank {@code rise} blocks
+	 * above the top of the water's block layer.
+	 */
+	private void waterExit(
+		final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final int x, final boolean deep, final double rise
+	) {
+		section((deep ? "Swimming" : "Wading") + " out onto a bank " + (rise == 0.0 ? "level with the water" : rise == 0.5 ? "a slab above the water"
+			: "a block above the water"));
+		// The ground's top layer is y=-61 (its top at -60); the water's top layer takes its place from z=-2 to the bank.
+		final int bankZ = deep ? -25 : -13;
+		final double top = -60.0 + rise;
+		final List<String> build = new ArrayList<>();
+		build.add(String.format(Locale.ROOT, "fill %d %d -2 %d -61 %d minecraft:water", x - 4, deep ? -63 : -61, x + 4, bankZ + 1));
+		if (rise > 0.0) {
+			build.add(String.format(Locale.ROOT, "fill %d -60 %d %d -60 %d minecraft:%s", x - 4, bankZ, x + 4, bankZ - 12, rise < 1.0 ? "stone_slab" : "stone"));
+		}
+		lane(ctx, input, world, x + 0.5, -60, "exit_" + x, build.toArray(String[]::new));
+		sideCamera(world, x + 6.5, top + 0.8, bankZ + 0.5, 90.0F);
+		ctx.runOnClient(mc -> LegProbe.reset());
+		input.holdKey(o -> o.keyUp);
+		hitboxes(ctx, true);
+		double peak = Double.NEGATIVE_INFINITY;
+		double peakBox = Double.NEGATIVE_INFINITY;
+		double drop = 0.0;
+		double jolt = 0.0;
+		double sunk = 0.0;
+		int climbStart = -1;
+		int shots = 0;
+		final List<double[]> history = new ArrayList<>();
+		final StringBuilder trace = new StringBuilder();
+		for (int i = 0; i < 400 && horseZ(ctx) > bankZ - 6.0; i++) {
+			ctx.waitTick();
+			final double[] now = ctx.computeOnClient(mc -> {
+				final AbstractHorse horse = (AbstractHorse) mc.player.getVehicle();
+				final RideState r = ((RideStateHolder) horse).horsingaround$ride();
+				return new double[] {
+					horse.tickCount, horse.getZ(), horse.getY(), horse.getY() + r.heightOffset(1.0F), r.pitch(1.0F), r.drawnFit, horse.onGround() ? 1 : 0,
+					horse.isInWater() ? 1 : 0, r.bankTicks, r.swimming ? 1 : 0, Math.min(Math.min(LegProbe.gap[0], LegProbe.gap[1]), Math.min(LegProbe.gap[2], LegProbe.gap[3]))
+				};
+			});
+			if (!history.isEmpty() && now[0] == history.get(history.size() - 1)[0]) {
+				continue;
+			}
+			history.add(now);
+			if (now[1] > bankZ + 4.0) {
+				continue;
+			}
+			// From nearing the bank on: how far the body (drawn, and the physics box) gets above the bank's top, how far it
+			// falls in a tick coming down onto it, and how sharply its rise changes.
+			peak = Math.max(peak, now[3] - top);
+			peakBox = Math.max(peakBox, now[2] - top);
+			final int n = history.size();
+			if (n >= 2 && history.get(n - 2)[0] + 1 == now[0]) {
+				drop = Math.max(drop, history.get(n - 2)[3] - now[3]);
+			}
+			if (n >= 3 && history.get(n - 3)[0] + 2 == now[0]) {
+				jolt = Math.max(jolt, Math.abs(now[3] - 2.0 * history.get(n - 2)[3] + history.get(n - 3)[3]));
+			}
+			if (now[1] < bankZ && now[6] > 0.0 && now[7] == 0.0 && !Double.isNaN(now[10])) {
+				sunk = Math.min(sunk, now[10]);
+			}
+			if (climbStart < 0 && (now[8] > 0.0 || now[2] > (deep ? -61.0 : -60.95))) {
+				climbStart = i;
+			}
+			if (climbStart >= 0 && shots < 6 && (i - climbStart) % 3 == 0) {
+				cameraShot(ctx, String.format(Locale.ROOT, "19b_exit_%s_%.1f_%d", deep ? "swim" : "wade", rise, shots++));
+			}
+			trace.append(String.format(Locale.ROOT, "%n    t%d z%.2f y%.3f drawn%.3f tilt%.1f fit%.3f %s%s%s heave%d gap%+.3f", (int) now[0], now[1], now[2] - top,
+				now[3] - top, now[4], now[5], now[6] > 0.0 ? "g" : "a", now[7] > 0.0 ? " wet" : "", now[9] > 0.0 ? " swim" : "", (int) now[8], now[10]));
+		}
+		hitboxes(ctx, false);
+		check("climbs out onto the bank", Math.abs(sample(ctx).y - top) < 0.05 && horseZ(ctx) < bankZ - 1.0);
+		check("the drawn body rises no higher than the bank (most above where it stands, blocks)", peak, -1.0, 0.08);
+		check("settles onto the bank with no snap (most the drawn body falls in a tick, blocks)", drop, 0.0, 0.08);
+		check("no jolt (most the drawn body's rise changes in a tick, blocks/tick)", jolt, 0.0, 0.12);
+		check("no hoof in the ground on the bank (most, blocks)", sunk, -0.08, 0.0);
+		// (Not checked yet: mid-heave the front soles still jump ~0.34 against the horse in a frame, mostly forward and back,
+		// on Fresh Animations and the plain model alike; it was ~0.5 with each hoof popping up onto the bank at its lip.)
+		log("  physics box highest above the bank %.3f; most a sole moved against the horse in a frame %.2f %s; frame by frame, the body or a sole"
+			+ " jumping (%d frames of %d):%s", peakBox, ctx.computeOnClient(mc -> LegProbe.soleSnapMost), ctx.computeOnClient(mc -> LegProbe.snapLog.toString()),
+			ctx.computeOnClient(mc -> LegProbe.spikeCount), ctx.computeOnClient(mc -> LegProbe.frames), ctx.computeOnClient(mc -> LegProbe.spikes.toString()));
+		log("  every tick (heights against the bank's top):%s", trace);
+		input.releaseKey(o -> o.keyUp);
+		stop(ctx, input);
+	}
+
+	/**
+	 * Riding across the view with D (or A) alone, then letting go: the horse must stop at its normal height, not sink
+	 * toward the ground. Every tick until it has stood still a second and a half: the drawn body against where it stood
+	 * before setting off, each hoof against the ground, and how hard it cut round; against riding on with W and stopping.
+	 */
+	private void strafeStops(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		ctx.runOnClient(mc -> LegProbe.arm(true));
+		try {
+			strafeStop(ctx, input, world, 3600, "D", false);
+			strafeStop(ctx, input, world, 3700, "A", false);
+			strafeStop(ctx, input, world, 3800, "D at a trot", true);
+			strafeStop(ctx, input, world, 3900, "W", false);
+		} finally {
+			ctx.runOnClient(mc -> LegProbe.arm(false));
+		}
+	}
+
+	private void strafeStop(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final int x, final String key, final boolean trot) {
+		section("Riding with " + key + " alone, then letting go");
+		lane(ctx, input, world, x + 0.5, -60, "strafe_" + x);
+		ctx.waitTicks(10);
+		final double standing = ctx.computeOnClient(mc -> (double) ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().heightOffset(1.0F));
+		ctx.runOnClient(mc -> LegProbe.reset());
+		final java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping> keyOf =
+			key.startsWith("D") ? o -> o.keyRight : key.startsWith("A") ? o -> o.keyLeft : o -> o.keyUp;
+		input.holdKey(keyOf);
+		ctx.waitTicks(5);
+		if (trot) {
+			input.pressKey(o -> o.keySprint);
+		}
+		ctx.waitTicks(35);
+		input.releaseKey(keyOf);
+		double lowest = Double.POSITIVE_INFINITY;
+		double sunk = 0.0;
+		double settled = Double.NaN;
+		int still = 0;
+		int last = -1;
+		final StringBuilder trace = new StringBuilder();
+		for (int i = 0; i < 160 && still < 30; i++) {
+			ctx.waitTick();
+			final double[] now = ctx.computeOnClient(mc -> {
+				final AbstractHorse horse = (AbstractHorse) mc.player.getVehicle();
+				final RideState r = ((RideStateHolder) horse).horsingaround$ride();
+				return new double[] {
+					horse.tickCount, r.heightOffset(1.0F), r.drawnFit, r.pitch(1.0F), r.cut, LegProbe.gap[0], LegProbe.gap[1], LegProbe.gap[2], LegProbe.gap[3],
+					Math.hypot(horse.getX() - horse.xo, horse.getZ() - horse.zo), Mth.wrapDegrees(horse.getYRot() - 180.0F), horse.getY() + 60.0, LegProbe.bodyInside
+				};
+			});
+			if (now[0] == last) {
+				continue;
+			}
+			last = (int) now[0];
+			final double body = now[1] + now[11] - standing;
+			lowest = Math.min(lowest, body);
+			for (int leg = 5; leg <= 8; leg++) {
+				if (!Double.isNaN(now[leg])) {
+					sunk = Math.min(sunk, now[leg]);
+				}
+			}
+			still = now[9] < 1.0E-4 ? still + 1 : 0;
+			if (still == 20) {
+				settled = body;
+			}
+			trace.append(String.format(Locale.ROOT, "%n    t%d body%+.3f fit%+.3f tilt%.1f cut%.2f gaps %+.3f %+.3f %+.3f %+.3f belly%.3f speed%.3f yaw%.0f", (int) now[0], body, now[2],
+				now[3], now[4], now[5], now[6], now[7], now[8], now[12], now[9], now[10]));
+		}
+		check("stopping, the body stays at its standing height (lowest against standing, blocks)", lowest, -0.03, 0.05);
+		check("no hoof in the ground as it stops (most, blocks)", sunk, -0.08, 0.0);
+		check("stood still, the body is back at its standing height (blocks)", settled, -0.01, 0.01);
+		sideScreenshot(ctx, "19c_stopped_after_" + key.replace(' ', '_'));
+		log("  every tick from letting go:%s", trace);
 	}
 
 	// ---- The rider's hands: the reins, a weapon held ready, swings, a bow drawn ----

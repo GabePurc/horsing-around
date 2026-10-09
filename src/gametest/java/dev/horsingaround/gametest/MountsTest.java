@@ -300,11 +300,15 @@ public final class MountsTest implements FabricClientGameTest {
 		server.runCommand("difficulty easy");
 		final int x = nextLane();
 		server.runCommand(String.format(Locale.ROOT, "tp @p %d %d 7 180 15", x, GROUND));
+		// Glass between them: a zombie horseman's spear knocks whatever it hits off its mount (vanilla), and wandering into the
+		// skeleton horseman it did, now and then.
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d -12 %d %d 6 minecraft:glass", x - 2, GROUND, x - 2, GROUND + 3));
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d -12 %d %d 6 minecraft:glass", x + 2, GROUND, x + 2, GROUND + 3));
 		ctx.waitTicks(10);
 		// (Helmets on the riders and fire resistance on the horses: the undead burn, and flee, in the sun.)
 		server.runCommand(String.format(Locale.ROOT,
 			"summon minecraft:zombie_horse %d %d 0 {Tags:[\"horseman\"],PersistenceRequired:1b,%s,Passengers:[{id:\"minecraft:zombie\",PersistenceRequired:1b,%s,"
-				+ "equipment:{mainhand:{id:\"minecraft:iron_spear\",count:1},head:{id:\"minecraft:iron_helmet\",count:1}}}]}", x - 3, GROUND, FIREPROOF, FIREPROOF));
+				+ "equipment:{mainhand:{id:\"minecraft:iron_spear\",count:1},head:{id:\"minecraft:iron_helmet\",count:1}}}]}", x - 4, GROUND, FIREPROOF, FIREPROOF));
 		server.runCommand(String.format(Locale.ROOT,
 			"summon minecraft:skeleton_horse %d %d 0 {Tags:[\"horseman\"],PersistenceRequired:1b,%s,Passengers:[{id:\"minecraft:skeleton\",PersistenceRequired:1b,%s,"
 				+ "equipment:{mainhand:{id:\"minecraft:bow\",count:1},head:{id:\"minecraft:iron_helmet\",count:1}}}]}", x, GROUND, FIREPROOF, FIREPROOF));

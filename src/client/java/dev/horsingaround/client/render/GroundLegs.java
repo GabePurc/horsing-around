@@ -127,6 +127,10 @@ public final class GroundLegs {
 		// Moving on, any hoof may be sliding a little along the ground (the animation's stride doesn't match the ground
 		// exactly): it takes the last bit of lift to come up onto a step instead of popping up at its edge.
 		final float moving = drawn ? Mth.clamp(ride.groundSpeed(partial) / SLIDE_SPEED, 0.0F, 1.0F) : 0.0F;
+		// Heaving out of the water up a bank, the body rises onto it on its own: a front hoof that meets the bank's top on
+		// the way lifts onto it at a hoof's speed and doesn't jerk the body up (it popped up onto it as it crossed the lip),
+		// and no hoof reaching for it lifts the body on top of the heave.
+		final boolean heave = drawn && ride.bankTicks > 0;
 		// The most any leg would have to draw up past what it can (blocks; the body must come up by that), and the least
 		// any standing hoof is above its ground (the body may come down by that, onto its legs).
 		double missing = Double.NEGATIVE_INFINITY;
@@ -186,18 +190,22 @@ public final class GroundLegs {
 			if (dt > 0.0F && !Double.isNaN(target)) {
 				// A hoof lifts, and a leg straightens, only so fast; but never leaving the hoof in the ground under it now.
 				final float last = ride.legRise[i];
-				final float under = now == Double.NEGATIVE_INFINITY ? 0.0F : (float) Mth.clamp(now - sole, 0.0, grounded ? LEG_RISE_MAX : LEG_DRAW_MAX);
+				final float under = now == Double.NEGATIVE_INFINITY || heave && i < 2 ? 0.0F
+					: (float) Mth.clamp(now - sole, 0.0, grounded ? LEG_RISE_MAX : LEG_DRAW_MAX);
 				draw = Math.max(Mth.clamp(draw, last - LEG_STRAIGHTEN_SPEED * dt, last + HOOF_LIFT_SPEED * dt), under);
 			}
-			if (swung > now) {
-				// (Only from the gait's swing: a hoof the body lifted mustn't lift the body further.)
+			if (swung > now && !heave) {
+				// (Only from the gait's swing: a hoof the body lifted mustn't lift the body further, nor one reaching for a bank
+				// the heave is lifting it onto.)
 				landing = Math.max(landing, swung - sole - LEG_DRAW_MAX);
 			}
 			if (!Double.isNaN(now) && now != Double.NEGATIVE_INFINITY) {
 				// (Only the ground under a hoof holds the body up at once; the lift to clear what is ahead doesn't.)
 				final double under = now - sole;
 				found = true;
-				missing = Math.max(missing, under - LEG_DRAW_MAX);
+				if (!heave || i >= 2) {
+					missing = Math.max(missing, under - LEG_DRAW_MAX);
+				}
 				// Standing: not lifted by the stride, and over ground in reach (not stepping off a drop, or over the ground
 				// behind a ledge).
 				if (packLift < PACK_LIFT && under > -HANG_REACH) {

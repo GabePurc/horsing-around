@@ -112,7 +112,7 @@ public final class RideController {
 		final int steer = (in.right() ? 1 : 0) - (in.left() ? 1 : 0);
 		float targetYaw = rider.getYRot() + steer * (across ? ACROSS_OFFSET : STEER_OFFSET);
 		s.riderYaw = targetYaw;
-		if (AVOID_DANGER && horse.onGround() && !s.swimming && s.ledgeTicks == 0 && (forward || s.speed > 0.02F)) {
+		if (AVOID_DANGER && horse.onGround() && !s.swimming && s.ledgeTicks == 0 && s.bankTicks == 0 && (forward || s.speed > 0.02F)) {
 			final float limit = Awareness.look(horse, s, targetYaw, forward);
 			target = Math.min(target, limit);
 			if (s.speed > limit) {
@@ -123,9 +123,10 @@ public final class RideController {
 		}
 		targetYaw += s.avoidOffset;
 
-		// Hard cuts: the further off it the rider looks, the more the horse sits back and slows to cut round tighter.
+		// Hard cuts: the further off it the rider looks, the more the horse sits back and slows to cut round tighter. Only
+		// riding on: a horse let go of (or braked) comes round to the view as it stops, but doesn't sit back to cut.
 		final float turn = Math.abs(Mth.wrapDegrees(targetYaw - horse.getYRot()));
-		final boolean footing = horse.onGround() && !s.swimming && s.ledgeTicks == 0 && (forward || back || steer != 0 || Math.abs(s.speed) > 0.02F);
+		final boolean footing = horse.onGround() && !s.swimming && s.ledgeTicks == 0 && forward;
 		final float ask = HARD_CUT && footing ? smoothstep((turn - CUT_START) / (CUT_FULL - CUT_START)) : 0.0F;
 		s.cut = ask >= s.cut ? ask : Math.max(ask, s.cut - CUT_RELEASE);
 		if (s.cut > 0.0F && s.speed > 0.0F) {
@@ -144,7 +145,8 @@ public final class RideController {
 		} else if (s.cut < 0.2F) {
 			s.scuffReady = true;
 		}
-		s.cutSquat += (s.cut - s.cutSquat) * CUT_SQUAT_EASE;
+		// (Let go of, it stands up out of the cut as it stops instead of standing squatted while the cut eases off.)
+		s.cutSquat += ((forward ? s.cut : 0.0F) - s.cutSquat) * CUT_SQUAT_EASE;
 
 		s.speed = s.speed < target ? Math.min(s.speed + rate, target) : Math.max(s.speed - rate, target);
 
@@ -173,16 +175,21 @@ public final class RideController {
 			// Hooves on the bank: out of the water.
 			s.bankTicks = 0;
 			s.bankClimbs++;
+		} else if (depth > 0.0 && (forward || jumps > 0)) {
+			// Wading at a bank too high to step up onto: it heaves itself out as a swimming horse does (no leap out of the water).
+			if (lookForBank(horse, s, depth, true)) {
+				heave(horse, s);
+			}
 		}
 
 		// Ledges up to 2 blocks: riding at one at a walk or trot, the horse jumps up it in its stride; pressing jump at one
-		// (standing at its face, say) asks for the same jump, since a plain jump can't clear it.
+		// (standing at its face, say) asks for the same jump, since a plain jump can't clear it. Not out of the water.
 		final boolean asked = (jumps > 0 || s.jumpBuffer > 0) && s.jumpRecovery == 0;
 		// (Asked while riding at it, from further out: the press waits for the ledge's jump instead of hopping into its face.)
 		final float reach = asked && forward && s.speed >= GAIT_SPEED[WALK] * 0.5F ? LEDGE_ASKED_REACH : LEDGE_REACH;
 		if (s.ledgeTicks > 0) {
 			ledgeJump(horse, s, forward);
-		} else if (LEDGE_CLIMB && horse.onGround() && !s.swimming
+		} else if (LEDGE_CLIMB && horse.onGround() && !s.swimming && depth == 0.0 && s.bankTicks == 0
 			&& (asked || forward && s.speed > 0.0F && s.speed <= GAIT_SPEED[TROT] + 0.05F) && Awareness.ledgeAhead(horse, reach)) {
 			final double top = Awareness.ledge(horse, horse.getYRot(), reach);
 			if (!Double.isNaN(top)) {
@@ -198,10 +205,10 @@ public final class RideController {
 		}
 
 		// Jumping: fires on press (or on landing if pressed just before), no charging.
-		if (jumps > 0 && !s.swimming && s.ledgeTicks == 0) {
+		if (jumps > 0 && !s.swimming && s.ledgeTicks == 0 && s.bankTicks == 0) {
 			s.jumpBuffer = JUMP_BUFFER_TICKS;
 		}
-		if (horse.onGround()) {
+		if (horse.onGround() && s.bankTicks == 0) {
 			if (s.jumpRecovery > 0) {
 				s.jumpRecovery--;
 			} else if (s.jumpBuffer > 0) {
@@ -284,7 +291,7 @@ public final class RideController {
 		s.sidestep = (s.turnIntent - s.yawVelocity / maxTurn) * SIDESTEP * (1.0F - Math.min(speedFraction * 1.4F, 1.0F));
 
 		// The guard also watches a drop off a step (not a jump: a leap is meant to clear things).
-		if (AVOID_DANGER && !s.swimming && s.ledgeTicks == 0 && (horse.onGround() || !s.leapt)) {
+		if (AVOID_DANGER && !s.swimming && s.ledgeTicks == 0 && s.bankTicks == 0 && (horse.onGround() || !s.leapt)) {
 			Awareness.guard(horse, s);
 		}
 		if (profile) {
@@ -569,24 +576,34 @@ public final class RideController {
 	 * @param pressing riding forward (or jumping) at whatever is ahead
 	 */
 	private static void swim(final AbstractHorse horse, final RideState s, final double depth, final boolean pressing) {
-		final Vec3 movement = horse.getDeltaMovement();
-		if (s.bankTicks == 0 && pressing && --s.bankLook <= 0 && (horse.horizontalCollision || Awareness.bankAhead(horse))) {
-			// Something to climb out onto ahead; a bank too high is looked at again only every few ticks.
-			s.bankLook = 4;
-			final double top = Awareness.bank(horse, horse.getYRot(), depth);
-			if (!Double.isNaN(top)) {
-				s.bankTicks = 1;
-				s.bankFrom = horse.getY();
-				s.bankTop = top + BANK_CLEARANCE;
-				s.bankYaw = horse.getYRot();
-				s.bankDuration = BANK_HEAVE_TICKS + BANK_HEAVE_TICKS_PER_BLOCK * (float) (s.bankTop - s.bankFrom);
-			}
-		}
-		if (s.bankTicks > 0) {
+		if (s.bankTicks > 0 || pressing && lookForBank(horse, s, depth, false)) {
 			heave(horse, s);
 			return;
 		}
+		final Vec3 movement = horse.getDeltaMovement();
 		horse.setDeltaMovement(movement.x, Mth.clamp((depth - SWIM_FLOAT_DEPTH) * SWIM_BUOYANCY, -SWIM_SINK_MAX, SWIM_RISE_MAX), movement.z);
+	}
+
+	/**
+	 * Something to climb out onto ahead, no more than a block above the water: starts the heave out up it. A bank too high
+	 * is looked at again only every few ticks. Wading, a bank it can step up onto is walked up instead.
+	 */
+	private static boolean lookForBank(final AbstractHorse horse, final RideState s, final double depth, final boolean wading) {
+		if (--s.bankLook > 0 || !(horse.horizontalCollision || Awareness.bankAhead(horse))) {
+			return false;
+		}
+		s.bankLook = 4;
+		final double top = Awareness.bank(horse, horse.getYRot(), depth);
+		if (Double.isNaN(top) || wading && top - horse.getY() <= RIDDEN_STEP_HEIGHT) {
+			return false;
+		}
+		s.bankTicks = 1;
+		s.bankFrom = horse.getY();
+		s.bankTop = top + BANK_CLEARANCE;
+		s.bankYaw = horse.getYRot();
+		s.bankDuration = BANK_HEAVE_TICKS + BANK_HEAVE_TICKS_PER_BLOCK * (float) (s.bankTop - s.bankFrom);
+		s.jumpBuffer = 0;
+		return true;
 	}
 
 	/**
@@ -763,15 +780,16 @@ public final class RideController {
 			s.flying = true;
 		} else if (s.bankTicks > 0) {
 			// Heaving out of the water: the forehand gets onto the bank first, so the nose is up most mid-heave, and the
-			// body levels as the hindquarters come up after it.
+			// body levels as the hindquarters come up after it. It rises no higher than the bank it ends up standing on (the
+			// lift past it that gets the box over the lip doesn't show).
 			final float progress = Math.min((s.bankTicks - 1) / s.bankDuration, 1.0F);
 			s.pitch += (HEAVE_PITCH * Mth.sin(progress * Mth.PI) - s.pitch) * HEAVE_PITCH_EASE;
 			final double previous = horse.yo + s.heightOffset;
-			s.heightOffset = (float) (previous + (y - previous) * WATER_HEIGHT_SMOOTHING - y);
+			s.heightOffset = (float) (Math.min(previous + (y - previous) * WATER_HEIGHT_SMOOTHING, s.bankTop - BANK_CLEARANCE) - y);
 			s.flying = true;
-		} else if (horse.isInWater()) {
-			// Afloat or wading: ease height changes (climbing out, bobbing) in world space, and raise the nose as the
-			// horse climbs.
+		} else if (horse.isInWater() && !onGround) {
+			// Afloat: ease height changes (climbing out, bobbing) in world space, and raise the nose as the horse climbs.
+			// (Wading, its hooves are on the bottom: steps and slopes as on dry land, and out up a step onto the bank.)
 			final float climb = (float) Math.toDegrees(Math.atan2(dy, Math.sqrt(horizontalSq) + 1.0E-3)) * AIR_PITCH_SCALE;
 			s.pitch += (Mth.clamp(climb, -AIR_PITCH_MAX, AIR_PITCH_MAX) - s.pitch) * WATER_PITCH_EASE;
 			final double previous = horse.yo + s.heightOffset;
@@ -804,8 +822,10 @@ public final class RideController {
 			}
 		}
 		if (s.flying) {
-			// Off the ground the hooves follow the body, so the next step starts from where it is drawn, moving as it moves.
-			carry(s, y, (float) dy);
+			// Off the ground the hooves follow the body, so the next step starts from where it is drawn, moving as it moves:
+			// at the drawn body's own speed (afloat or heaving out it is eased, and a step up out of the water lifted the box
+			// a whole block in a tick, which as a speed launched the body blocks high once it landed).
+			carry(s, y, (float) (y + s.heightOffset - horse.yo - s.heightOffsetO));
 			s.chestRoom = Float.MAX_VALUE;
 			s.foreLeg *= 0.5F;
 			s.hindLeg *= 0.5F;
