@@ -233,6 +233,19 @@
   riding, with a test-only shulker box animation in the debug pack (Fresh Animations 1.10.5 has none); the old code
   crashed there with the player's error
 
+## Out of the water, and stopping after A/D (GitHub issues #15 and #16, 2026-10-09)
+
+- [x] Leaving water no longer launches the horse: stepping out of a wade, the drawn body took the box's one-block step as
+  its upward speed and flew ~2.6 blocks up before snapping back; now it carries its own speed. Wading uses the ground's
+  steps (stepping out onto a bank is an ordinary step, forehand first), a bank too high to step up is climbed in the same
+  heave as out of deep water (no ledge jump in water), and the drawn body never rises above the bank it ends up on.
+  Verified by `-Psections=exits` (wading and swimming out onto banks level with the water, a slab and a block above it):
+  highest above the bank 0.00-0.03 (was up to 2.6), at most 0.03 down in a tick settling. Front hooves meeting the bank's
+  top mid-heave lift at a hoof's speed (the biggest sole jump in a frame 0.52 -> 0.34; the rest is still open, logged)
+- [x] Stopping after riding with A or D alone no longer sinks the body: letting go made a 90-degree hard cut back to the
+  view, so the horse sat on its haunches as it stopped; hard cuts are now only while riding on, and letting go stands it
+  up out of one. Verified by `-Psections=strafe` (D, A, D at a trot, against W): lowest body -0.001 (was -0.12)
+
 ## Tooling
 
 - [x] Automated client ride test (`./gradlew runClientGameTest`, `-Ptests=ride`, `-Psections=core,cuts,stairs,picking,steps`): checks covering 19 messy 2-block ledges, legs in the air (the stride stops, front legs fold then reach for the ground, at most ~0.1 rad a tick), the 2-block ledge bound, hard cuts (20, 60, 90 and 150 degrees off at a gallop, against cuts switched off; standing pivot), A or D alone riding across the view, the rider pushed back and shielding their face in leaves, climbing out onto a 1-block bank and not a 2-block one, narrow 2-block ledges jumped at a trot and a gallop, a ledge catching the flank and a 2-block pillar gone round, a row of trunks threaded (the 12 shoulder-camera checks moved to the add-on repo), steps in two beats (up and down, walk and trot), footing (across a ditch at a gallop and a trot, past a trunk that catches the shoulder), a leafy 2-block ledge, the horse picking its way (tree detour at pace, long wall slow-down, beside a wall and along a cliff edge at full pace, cliff and lava refusal, safe drop, gap jumped and refused, ledge jump at a walk and from a gallop, fence left alone), gradual and smooth climbing out of water, wading pace, swimming (speed, head above water, rider kept, climbing out), saddle side-sway follow, rider inertia (surge and braking), Fresh Animations stirrups held, trampling (walk vs gallop), horse settings in Mod Menu and live apply, downhill speed continuity, landing surge, jump arc, huff rhythm, head toss on the FA model, mouse steering, A/D 45-degree offset without view pull, riding through leaves, free aim and look limit, aiming while turning, Fresh Animations body sync, staircase climbing (smoothness, pitch), weight-shift timing, gait animation speeds, first-person bob, mounting camera, free look, walk/gallop speed, spur timing, A/D turn rate and lean, running and standing jumps, stamina and exhaustion, coasting, braking, reversing, mouse steering, dismount; writes `build/run/clientGameTest/horsingaround-ride-report.txt` and screenshots (back, front and side views)

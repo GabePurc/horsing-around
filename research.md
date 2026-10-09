@@ -494,3 +494,34 @@ them, so it reached a 1-block step before the body rose.
 - Known limit: on a slope of full blocks (a block up for every block along) the risers are taller than a leg can reach
   or draw up for, so the horse scrambles: a hoof is off the ground on its way up, or hanging over the next block down,
   more often than on stairs. Off the ground, never in it.
+
+## Out of the water, and stopping after riding across the view (GitHub issues #15 and #16, 2026-10-09)
+
+Play-test reports: riding out of water onto a bank, the horse and rider rose higher than they should and then snapped
+down onto the ground; and riding with D (or A) alone and then letting go, the horse sank a little into the ground as it
+stopped. Climbing out should look like stepping up the bank (rising only as far as the ground it lands on and settling
+smoothly), and the body should stay at its normal height when stopping, whatever key moved it.
+
+Causes, measured with new ride-test lanes (`-Psections=exits,strafe`):
+
+- Wading out up a step, the physics box steps up a whole block in a tick while the drawn body eases after it; when the
+  horse came out of the water the drawn body was handed that step as its upward speed, and flew about 2.6 blocks up
+  until the teleport guard snapped it back. A wading or swimming horse leaving the water onto a slab or a block-high bank
+  took the ballistic ledge jump instead (0.3 above the lip, then a drop of 0.16 in a tick as it landed).
+- Letting go of A or D, the target heading swings back to the view, 90 degrees away: a hard cut, so the horse sat back on
+  its haunches (body 0.12 lower) as it coasted to a stop and stood that way for a second.
+
+Translation:
+
+- The drawn body always carries its own speed into a step or a landing (not the physics box's).
+- Wading, the hooves are on the bottom: steps and slopes as on dry land, so stepping out of the water up onto the bank is
+  an ordinary step (forehand first). A bank too high to step up (up to a block above the water, as for swimming) is
+  climbed in the same heave as out of deep water, never the ledge jump; the drawn body never shows the extra lift the
+  heave takes to get the box over the lip (test: highest above the bank 0.00-0.03, was up to 2.6; no fall of more than
+  0.03 in a tick settling onto it).
+- Heaving out, a front hoof meeting the bank's top lifts onto it at a hoof's speed instead of popping up in one frame,
+  and doesn't jerk the body up (a front sole's biggest jump in a frame 0.52 -> 0.34). Still open: the front soles still
+  jump about 0.34 mid-heave, mostly forward and back, on Fresh Animations and the plain model alike; logged by the lanes.
+- Hard cuts only while riding on (W, or A/D held): a horse let go of, or braked, comes round to the view as it stops but
+  doesn't sit back for it, and stands up out of any cut as soon as it is let go of (test: lowest body stopping after D or
+  A -0.001, was -0.12).
