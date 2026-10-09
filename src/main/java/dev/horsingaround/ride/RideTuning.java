@@ -419,9 +419,9 @@ public final class RideTuning {
 	public static final float KNEE_MIN_LEG = 8.0F;
 	public static final float KNEE_SHARE = 0.41F;
 	public static final float HOOF_PIXELS = 2.0F;
-	public static final float KNEE_OVERLAP = 0.75F;
+	public static final float KNEE_OVERLAP = 1.0F;
 	/** The upper leg reaches this many pixels further up into the body than the model's box, so a big swing shows no gap. */
-	public static final float HIP_EXTEND = 2.5F;
+	public static final float HIP_EXTEND = 3.0F;
 	public static final float KNEE_LIFT_MAX = 0.45F;
 	static final float KNEE_LIFT_RATE = 0.15F;
 	/**

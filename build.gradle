@@ -143,6 +143,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	systemProperty "horsingaround.scenario", terrainScenario
 	systemProperty "horsingaround.sections", rideSections
 	systemProperty "horsingaround.plainTextures", project.hasProperty("plainTextures")
+	systemProperty "horsingaround.vanillaModel", project.hasProperty("vanillaModel")
 	dependsOn installDebugPack
 	lightTestGame(it)
 }

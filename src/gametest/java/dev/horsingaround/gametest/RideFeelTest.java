@@ -2900,7 +2900,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 			packs.reload();
 			boolean changed = false;
 			for (final String id : packs.getAvailableIds()) {
-				if (id.contains("FreshAnimations")) {
+				// (-PvanillaModel: the plain horse model, no animation pack.)
+				if (id.contains("FreshAnimations") && !Boolean.getBoolean("horsingaround.vanillaModel")) {
 					packs.addPack(id);
 					changed = true;
 				}

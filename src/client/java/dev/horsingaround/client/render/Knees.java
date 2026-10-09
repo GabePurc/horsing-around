@@ -260,15 +260,17 @@ public final class Knees {
 		final float middleZ = (extent(cube, true, true) + extent(cube, false, true)) * 0.5F;
 		final float soleX = dx + (extent(cube, true, 0) + extent(cube, false, 0)) * 0.5F;
 		final float soleHalf = (extent(cube, false, true) - extent(cube, true, true)) * 0.5F;
-		final float kneeY = top + (bottom - top) * KNEE_SHARE;
+		// (On whole pixels from the top, so each piece's texture lines up with the box's as Sodium redraws it.)
+		final float kneeY = top + Math.round((bottom - top) * KNEE_SHARE);
 		final float fetlockY = bottom - HOOF_PIXELS;
 		if (bottom - top < KNEE_MIN_LEG) {
 			return new Leg(null, null, soleX, soleHalf, dy + top, dy + kneeY, dy + fetlockY, dy + bottom, dz + middleZ);
 		}
 		// (The upper leg reaches HIP_EXTEND further up into the body, so a big swing at the top shows no gap there.)
-		final ModelPart.Cube upper = slice(cube, top, bottom, top - HIP_EXTEND, kneeY, 0.0F, 0.0F);
-		final ModelPart.Cube cannon = slice(cube, top, bottom, kneeY - KNEE_OVERLAP, fetlockY, kneeY, middleZ);
-		final ModelPart.Cube hoof = slice(cube, top, bottom, fetlockY - KNEE_OVERLAP, bottom, fetlockY, middleZ);
+		final Texture texture = texture(cube, top);
+		final ModelPart.Cube upper = slice(cube, texture, top, bottom, top - HIP_EXTEND, kneeY, 0.0F, 0.0F);
+		final ModelPart.Cube cannon = slice(cube, texture, top, bottom, kneeY - KNEE_OVERLAP, fetlockY, kneeY, middleZ);
+		final ModelPart.Cube hoof = slice(cube, texture, top, bottom, fetlockY - KNEE_OVERLAP, bottom, fetlockY, middleZ);
 		final ModelPart hoofPart = new ModelPart(List.of(hoof), new HashMap<>());
 		final PartPose hoofPose = PartPose.offset(0.0F, fetlockY - kneeY, 0.0F);
 		hoofPart.setInitialPose(hoofPose);
@@ -295,7 +297,8 @@ public final class Knees {
 	 * {@code originY}, {@code originZ}) is its origin.
 	 */
 	private static ModelPart.Cube slice(
-		final ModelPart.Cube cube, final float top, final float bottom, final float from, final float to, final float originY, final float originZ
+		final ModelPart.Cube cube, final Texture texture, final float top, final float bottom, final float from, final float to, final float originY,
+		final float originZ
 	) {
 		final ModelPart.Polygon[] faces = new ModelPart.Polygon[cube.polygons.length];
 		for (int f = 0; f < faces.length; f++) {
@@ -325,17 +328,96 @@ public final class Knees {
 			}
 			faces[f] = new ModelPart.Polygon(cut, face.normal());
 		}
-		// A cube of the right face count, its faces then swapped for the cut ones.
+		// Built as the box's own slice (its texture net moved down to the slice, so a renderer that redraws boxes from how
+		// they were built, as Sodium does, draws the same), then given the exact cut faces.
 		final EnumSet<Direction> sides = EnumSet.noneOf(Direction.class);
 		for (int i = 0; i < faces.length; i++) {
 			sides.add(Direction.values()[i]);
 		}
 		final ModelPart.Cube piece = new ModelPart.Cube(
-			0, 0, cube.minX, from - originY, cube.minZ - originZ, cube.maxX - cube.minX, to - from, cube.maxZ - cube.minZ, 0.0F, 0.0F, 0.0F, false, 64.0F, 64.0F,
-			sides
+			texture.u, texture.v + Math.round(from - top), texture.minX, from - originY + texture.growY, texture.minZ - originZ, texture.width,
+			to - from - 2.0F * texture.growY, texture.depth, texture.growX, texture.growY, texture.growZ, texture.mirror, texture.textureWidth,
+			texture.textureHeight, sides
 		);
-		System.arraycopy(faces, 0, piece.polygons, 0, faces.length);
+		if (piece.polygons.length == faces.length) {
+			System.arraycopy(faces, 0, piece.polygons, 0, faces.length);
+		}
 		return piece;
+	}
+
+	/** How a box was built: its texture net's corner, mirrored or not, the texture's size, and how far it was grown. */
+	private static final class Texture {
+		int u;
+		int v;
+		boolean mirror;
+		float textureWidth;
+		float textureHeight;
+		float minX;
+		float minZ;
+		float width;
+		float depth;
+		float growX;
+		float growY;
+		float growZ;
+	}
+
+	/** Works out how {@code cube} was built (vanilla's box layout) from its corners and texture coordinates. */
+	private static Texture texture(final ModelPart.Cube cube, final float top) {
+		final Texture texture = new Texture();
+		final float x0 = extent(cube, true, 0);
+		final float x1 = extent(cube, false, 0);
+		final float z0 = extent(cube, true, 2);
+		final float z1 = extent(cube, false, 2);
+		final float fieldWidth = cube.maxX - cube.minX;
+		final float fieldDepth = cube.maxZ - cube.minZ;
+		final boolean fields = fieldWidth > 0.0F && fieldDepth > 0.0F && fieldWidth <= x1 - x0 + 1.0E-3F;
+		texture.width = fields ? fieldWidth : x1 - x0;
+		texture.depth = fields ? fieldDepth : z1 - z0;
+		texture.growX = fields ? (x1 - x0 - fieldWidth) * 0.5F : 0.0F;
+		texture.growZ = fields ? (z1 - z0 - fieldDepth) * 0.5F : 0.0F;
+		texture.growY = texture.growX;
+		texture.minX = x0 + texture.growX;
+		texture.minZ = z0 + texture.growZ;
+		float uMin = Float.MAX_VALUE;
+		float vMin = Float.MAX_VALUE;
+		float topU0 = Float.MAX_VALUE;
+		float topU1 = -Float.MAX_VALUE;
+		float topV0 = Float.MAX_VALUE;
+		float topV1 = -Float.MAX_VALUE;
+		ModelPart.Polygon leftmost = null;
+		for (final ModelPart.Polygon face : cube.polygons) {
+			boolean atTop = true;
+			for (final ModelPart.Vertex vertex : face.vertices()) {
+				atTop &= vertex.y() == top;
+				if (vertex.u() < uMin) {
+					uMin = vertex.u();
+					leftmost = face;
+				}
+				vMin = Math.min(vMin, vertex.v());
+			}
+			if (atTop) {
+				for (final ModelPart.Vertex vertex : face.vertices()) {
+					topU0 = Math.min(topU0, vertex.u());
+					topU1 = Math.max(topU1, vertex.u());
+					topV0 = Math.min(topV0, vertex.v());
+					topV1 = Math.max(topV1, vertex.v());
+				}
+			}
+		}
+		// The box's top face spans its width and depth on the texture.
+		texture.textureWidth = topU1 > topU0 ? texture.width / (topU1 - topU0) : 64.0F;
+		texture.textureHeight = topV1 > topV0 ? texture.depth / (topV1 - topV0) : 64.0F;
+		texture.u = Math.round(uMin * texture.textureWidth);
+		texture.v = Math.round(vMin * texture.textureHeight);
+		// The net's leftmost column is the box's west side; mirrored, that side is drawn at the box's east.
+		boolean east = leftmost != null;
+		if (leftmost != null) {
+			for (final ModelPart.Vertex vertex : leftmost.vertices()) {
+				east &= vertex.x() == x1;
+			}
+		}
+		texture.mirror = east;
+		return texture;
 	}
 
 	/** The corner at the other end of a side's vertical edge from {@code vertex}. */
