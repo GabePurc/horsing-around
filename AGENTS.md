@@ -45,7 +45,12 @@ and step state). In the client tests horses wear colour-coded test textures (`sr
 knee white, cannon orange, hoof black, sole magenta; `-PplainTextures` for real ones), and `LegProbe` measures the legs
 as the renderer drew them: judge leg work by those numbers and close shots, not by formulas. Don't test only perfect cases: generated worlds are messy. When
 feel numbers change on purpose, update the test targets too. `./gradlew runGameTest` loads the mod on a bare
-dedicated server (no client code) and rides there. `-Ptests=gallery` takes clean store screenshots.
+dedicated server (no client code) and rides there. `-Ptests=gallery` takes clean store screenshots. `-Ptests=store` films
+the README's clips and stills in a generated world (`StoreMediaTest`; `-Pscenario=gaits,river` for some; add
+`-PshaderPack=<path to a shader pack zip>` to shoot with Iris and that pack: stills only, the user wants clips without
+shaders, which are easier to see), and
+`scripts/store-media.sh` turns them into `docs/media/`. The README is also the Modrinth description: its images load
+from `raw.githubusercontent.com/.../main/docs/media/`, so they show only once merged to main.
 
 Test games run light (lowest settings, no sound, 20 frames a second, a 2 GB heap, and Sodium, Lithium, FerriteCore and
 ImmediatelyFast loaded only into test games; `-PplainGame` drops the mods, `-PfullGraphics` keeps normal settings, and

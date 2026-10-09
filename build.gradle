@@ -123,7 +123,8 @@ dependencies {
 	testPerformanceMods "maven.modrinth:ferrite-core:d5ddUdiB"    // 9.0.0
 	testPerformanceMods "maven.modrinth:immediatelyfast:3MP9UR23" // 1.17.1+26.3
 }
-def performanceMods = project.hasProperty("plainGame") ? null : configurations.testPerformanceMods
+// (Not with -PshaderPack, below: that loads its own Sodium.)
+def performanceMods = project.hasProperty("plainGame") || project.hasProperty("shaderPack") ? null : configurations.testPerformanceMods
 // The server test starts a local dedicated server in the test run folder; the user accepted the Minecraft EULA
 // (https://aka.ms/MinecraftEULA) for it on 2026-10-07.
 def gameTestEula = layout.buildDirectory.file("run/clientGameTest/eula.txt").get().asFile
@@ -236,6 +237,32 @@ tasks.register("runClientGameTestParallel") {
 	finalizedBy collectShardReports
 }
 testShards.keySet().each { name -> tasks.matching { it.name == "runClientGameTest${name}" }.configureEach { finalizedBy collectShardReports } }
+
+// Store filming (-Ptests=store) with shaders, to match store screenshots taken with them: -PshaderPack=<path to a shader
+// pack zip> also loads Sodium and Iris (the compatibility pack's versions) and turns that pack on, with its settings
+// file (<pack>.txt) when there is one. Dev-only; nothing here ships.
+def storeShaderPack = project.findProperty("shaderPack")
+if (storeShaderPack) {
+	dependencies {
+		localRuntime "maven.modrinth:sodium:v4PSXean"
+		localRuntime "maven.modrinth:iris:vTN4NRGW"
+	}
+	def pack = file(storeShaderPack)
+	def packSettings = new File(pack.path + ".txt")
+	def shaderPacks = layout.buildDirectory.dir("run/clientGameTest/shaderpacks").get().asFile
+	def irisConfig = layout.buildDirectory.file("run/clientGameTest/config/iris.properties").get().asFile
+	tasks.matching { it.name == "runClientGameTest" }.configureEach {
+		doFirst {
+			shaderPacks.mkdirs()
+			java.nio.file.Files.copy(pack.toPath(), new File(shaderPacks, pack.name).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+			if (packSettings.exists()) {
+				java.nio.file.Files.copy(packSettings.toPath(), new File(shaderPacks, packSettings.name).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+			}
+			irisConfig.parentFile.mkdirs()
+			irisConfig.text = "enableShaders=true\nshaderPack=${pack.name}\ndisableUpdateMessage=true\n"
+		}
+	}
+}
 
 processResources {
 	def version = project.version

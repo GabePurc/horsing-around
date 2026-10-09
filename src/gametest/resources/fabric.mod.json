@@ -12,6 +12,7 @@
 			"dev.horsingaround.gametest.ServerRideTest",
 			"dev.horsingaround.gametest.HatTest",
 			"dev.horsingaround.gametest.GalleryTest",
+			"dev.horsingaround.gametest.StoreMediaTest",
 			"dev.horsingaround.gametest.TestSummary"
 		],
 		"fabric-gametest": [

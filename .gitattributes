@@ -4,3 +4,5 @@
 *.jar binary
 *.png binary
 *.zip binary
+*.webp binary
+*.jpg binary
