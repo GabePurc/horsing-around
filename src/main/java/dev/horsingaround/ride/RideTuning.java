@@ -621,6 +621,36 @@ public final class RideTuning {
 	public static final float REINS_ARM_FORWARD = 0.55F;
 	public static final float REINS_ARM_INWARD = 0.28F;
 	/**
+	 * A tool or weapon in the main hand (a sword, an axe, a pickaxe, a mace, a trident, a spear, a bow) is held off the
+	 * reins, a little out to the side and ready: the arm forward, out from the body and turned out a little, radians. The
+	 * other hand keeps the reins; a swing is played from there and comes back to it.
+	 */
+	public static final float READY_ARM_FORWARD = 0.4F;
+	public static final float READY_ARM_OUT = 0.4F;
+	public static final float READY_ARM_YAW = 0.55F;
+	/**
+	 * Drawing a bow: the rider turns side-on to the aim, BOW_SIDE_ON radians past facing it (the bow arm's shoulder toward
+	 * it), and no further than BOW_TWIST_MAX from square in the saddle; the bow arm out along the aim, BOW_ARM_IN in toward
+	 * the eye line. The string hand comes from the arrow's nock (BOW_NOCK pixels back from the grip) to the anchor at the
+	 * cheek on the bow's side (head pixels out, up and forward) as the draw charges, along the bow's own power curve (full
+	 * at BOW_FULL_DRAW_TICKS); the arms come up into the draw from where they rest over BOW_RAISE_TICKS. Loosed, the string
+	 * hand flies BOW_FLICK pixels back past the cheek over the first BOW_FLICK_SHARE of BOW_RELEASE_TICKS, the bow held up
+	 * for BOW_HOLD_SHARE of it, and both arms come down to where they rest by the end.
+	 */
+	public static final float BOW_SIDE_ON = 0.6F;
+	public static final float BOW_TWIST_MAX = 1.3F;
+	public static final float BOW_ARM_IN = 0.1F;
+	public static final float BOW_NOCK = 2.0F;
+	public static final float BOW_ANCHOR_X = 2.5F;
+	public static final float BOW_ANCHOR_Y = -1.5F;
+	public static final float BOW_ANCHOR_Z = -4.5F;
+	public static final float BOW_FULL_DRAW_TICKS = 20.0F;
+	public static final float BOW_RAISE_TICKS = 4.0F;
+	public static final float BOW_FLICK = 3.0F;
+	public static final float BOW_FLICK_SHARE = 0.2F;
+	public static final float BOW_HOLD_SHARE = 0.3F;
+	public static final float BOW_RELEASE_TICKS = 10.0F;
+	/**
 	 * Loose hands lag the body: they drop as the horse lands and lift as it rises (radians per block of saddle lift,
 	 * applied against the lift).
 	 */

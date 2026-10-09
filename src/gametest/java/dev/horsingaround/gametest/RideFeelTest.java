@@ -24,9 +24,13 @@ import net.minecraft.client.CameraType;
 import net.minecraft.client.gui.components.debug.DebugScreenEntries;
 import net.minecraft.client.gui.components.debug.DebugScreenEntryStatus;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
+import net.minecraft.client.model.player.PlayerModel;
+import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import net.minecraft.server.packs.repository.PackRepository;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.item.ItemStack;
@@ -107,6 +111,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 				freeAim(ctx, input);
 				standingJump(ctx);
 				dismount(ctx, input);
+			}
+			if (sections.isEmpty() || sections.contains("core") || sections.contains("hands")) {
+				riderHands(ctx, input, world);
 			}
 			if (sections.isEmpty() || sections.contains("ledges")) {
 				messyLedges(ctx, input, world);
@@ -1352,6 +1359,241 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("stood still, the body is back at its standing height (blocks)", settled, -0.01, 0.01);
 		sideScreenshot(ctx, "19c_stopped_after_" + key.replace(' ', '_'));
 		log("  every tick from letting go:%s", trace);
+	}
+
+	// ---- The rider's hands: the reins, a weapon held ready, swings, a bow drawn ----
+
+	/**
+	 * The rider's arms on a standing horse, read off the player model as last drawn: both hands on the reins when empty (or
+	 * holding something that isn't a tool or weapon); a sword, an axe or a pickaxe held out ready in the main hand with the
+	 * other on the reins, and a swing played from there back to there; mirrored for a left-handed player; drawing a bow
+	 * side-on to the aim with the string hand coming back from the bow to the cheek as it charges and flying back on release;
+	 * a loaded crossbow held square to the aim. Shots from behind, in front and the side of each, and frames mid-swing and
+	 * through the draw.
+	 */
+	private void riderHands(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Rider's hands: reins, a weapon held ready, swings, a bow drawn");
+		lane(ctx, input, world, 4000.5, -60, "hands_test");
+		ctx.waitTicks(10);
+		hold(ctx, "air");
+		float[] arms = riderArms(ctx);
+		check("empty hands: right hand on the reins (forward reach, rad)", -arms[0], RideTuning.REINS_ARM_FORWARD - 0.25, RideTuning.REINS_ARM_FORWARD + 0.25);
+		check("empty hands: left hand on the reins (forward reach, rad)", -arms[3], RideTuning.REINS_ARM_FORWARD - 0.25, RideTuning.REINS_ARM_FORWARD + 0.25);
+		check("empty hands: neither arm held out (most out to the side, rad)", Math.max(Math.abs(arms[2]), Math.abs(arms[5])), 0.0, 0.05);
+		handShots(ctx, "20a_hands_empty");
+		hold(ctx, "bread");
+		arms = riderArms(ctx);
+		check("bread: both hands still on the reins (most out to the side, rad)", Math.max(Math.abs(arms[2]), Math.abs(arms[5])), 0.0, 0.05);
+		for (final String item : new String[] {"iron_sword", "iron_axe", "iron_pickaxe"}) {
+			hold(ctx, item);
+			arms = riderArms(ctx);
+			check(item + ": right arm off the reins, held out to the side (rad)", arms[2], RideTuning.READY_ARM_OUT - 0.05, RideTuning.READY_ARM_OUT + 0.05);
+			check(item + ": right arm reaching forward, ready (rad)", -arms[0], RideTuning.READY_ARM_FORWARD - 0.25, RideTuning.READY_ARM_FORWARD + 0.25);
+			check(item + ": left hand on the reins (out to the side, rad)", Math.abs(arms[5]), 0.0, 0.05);
+			handShots(ctx, "20b_hands_" + item);
+		}
+		hold(ctx, "iron_sword");
+		swing(ctx, "20c_swing_sword", 0);
+
+		// Left-handed: the same, mirrored.
+		ctx.runOnClient(mc -> {
+			mc.options.mainHand().set(HumanoidArm.LEFT);
+			mc.options.broadcastOptions();
+		});
+		ctx.waitFor(mc -> mc.player.getMainArm() == HumanoidArm.LEFT, 100);
+		ctx.waitTicks(2);
+		arms = riderArms(ctx);
+		check("left-handed, sword: left arm held out to the side (rad)", -arms[5], RideTuning.READY_ARM_OUT - 0.05, RideTuning.READY_ARM_OUT + 0.05);
+		check("left-handed, sword: right hand on the reins (out to the side, rad)", Math.abs(arms[2]), 0.0, 0.05);
+		handShots(ctx, "20d_hands_sword_left_handed");
+		swing(ctx, "20e_swing_sword_left_handed", 3);
+		ctx.runOnClient(mc -> {
+			mc.options.mainHand().set(HumanoidArm.RIGHT);
+			mc.options.broadcastOptions();
+		});
+		ctx.waitFor(mc -> mc.player.getMainArm() == HumanoidArm.RIGHT, 100);
+
+		bowDraw(ctx, input, 0.0F, "20f_bow");
+		bowDraw(ctx, input, 60.0F, "20g_bow_aim_right");
+
+		// A loaded crossbow: square to the aim, both arms along it.
+		this.server.runCommand("item replace entity @p weapon.mainhand with minecraft:crossbow[minecraft:charged_projectiles=[{id:\"minecraft:arrow\"}]]");
+		input.lookAt(180.0F + 40.0F, 10.0F);
+		ctx.waitTicks(5);
+		arms = riderArms(ctx);
+		check("loaded crossbow: the torso turns square to the aim (body against the aim, rad)", Math.abs(arms[6] - Mth.clamp(arms[7], -RideTuning.BOW_TWIST_MAX,
+			RideTuning.BOW_TWIST_MAX)), 0.0, 0.02);
+		check("loaded crossbow: the holding arm points along the aim (rad)", Math.abs(arms[1] - (arms[7] - 0.3F)), 0.0, 0.05);
+		handShots(ctx, "20h_crossbow_loaded");
+		input.lookAt(180.0F, 10.0F);
+		hold(ctx, "air");
+		ctx.runOnClient(mc -> FilmCamera.stop());
+		ctx.waitTicks(5);
+	}
+
+	/** Puts {@code item} in the player's main hand and lets a couple of frames draw. */
+	private void hold(final ClientGameTestContext ctx, final String item) {
+		this.server.runCommand("item replace entity @p weapon.mainhand with minecraft:" + item);
+		ctx.waitTicks(4);
+	}
+
+	/**
+	 * The rider's arms as last drawn: right arm x/y/z rotation, left arm x/y/z, the torso's turn, the head's yaw and pitch,
+	 * then the right and left shoulders' pivots (x, z), radians and model pixels.
+	 */
+	private static float[] riderArms(final ClientGameTestContext ctx) {
+		return ctx.computeOnClient(mc -> {
+			final PlayerModel model = ((AvatarRenderer<?>) mc.getEntityRenderDispatcher().getRenderer(mc.player)).getModel();
+			return new float[] {
+				model.rightArm.xRot, model.rightArm.yRot, model.rightArm.zRot, model.leftArm.xRot, model.leftArm.yRot, model.leftArm.zRot, model.body.yRot,
+				model.head.yRot, model.head.xRot, model.rightArm.x, model.rightArm.z, model.leftArm.x, model.leftArm.z, model.rightArm.y, model.leftArm.y,
+				model.head.x, model.head.y, model.head.z
+			};
+		});
+	}
+
+	/** Close shots of the rider without the HUD: three-quarters in front, three-quarters behind, and the right side. */
+	private void handShots(final ClientGameTestContext ctx, final String name) {
+		riderView(ctx, 225.0F);
+		riderShot(ctx, name + "_front");
+		riderView(ctx, 45.0F);
+		riderShot(ctx, name + "_back");
+		riderView(ctx, 270.0F);
+		riderShot(ctx, name + "_side");
+		riderView(ctx, 225.0F);
+	}
+
+	/**
+	 * Films the rider's chest from 3 blocks away, {@code angle} degrees round the horse's heading (0 from behind, 90 from its
+	 * left, 180 from in front), with the test camera (the game draws your own player only from its own camera, so a fixed
+	 * camera entity can't show the rider).
+	 */
+	private static void riderView(final ClientGameTestContext ctx, final float angle) {
+		riderView(ctx, angle, 10.0F);
+	}
+
+	/** {@link #riderView(ClientGameTestContext, float)} looking down at {@code pitch} degrees. */
+	private static void riderView(final ClientGameTestContext ctx, final float angle, final float pitch) {
+		ctx.runOnClient(mc -> FilmCamera.film(mc.player.getVehicle(), angle, 3.0F, 2.1F, pitch, 0.0F, 0.0F));
+	}
+
+	/** A screenshot without the HUD or chat; no tick passes. */
+	private void riderShot(final ClientGameTestContext ctx, final String name) {
+		ctx.runOnClient(mc -> {
+			mc.gui.hud.getChat().clearMessages(false);
+			mc.gui.hud.toggle();
+		});
+		screenshot(ctx, name);
+		ctx.runOnClient(mc -> mc.gui.hud.toggle());
+	}
+
+	/**
+	 * Swings the main hand and watches the arm (index {@code arm}: 0 right, 3 left) frame by frame: it should start from
+	 * where it is held, rise, and come back to exactly there, with no jump between frames. A shot every other tick.
+	 */
+	private void swing(final ClientGameTestContext ctx, final String name, final int arm) {
+		final float[] before = riderArms(ctx);
+		ctx.runOnClient(mc -> mc.player.swing(InteractionHand.MAIN_HAND, net.minecraft.world.item.component.SwingAnimation.DEFAULT, true));
+		float highest = 0.0F;
+		float jump = 0.0F;
+		float last = before[arm];
+		for (int i = 0; i < 10; i++) {
+			ctx.waitTick();
+			final float[] now = riderArms(ctx);
+			highest = Math.max(highest, before[arm] - now[arm]);
+			jump = Math.max(jump, Math.abs(now[arm] - last));
+			last = now[arm];
+			if (i % 2 == 0 && i < 6) {
+				riderShot(ctx, name + "_" + i);
+			}
+		}
+		final float[] after = riderArms(ctx);
+		check(name + ": the swing raises the arm from where it is held (rad)", highest, 0.6, 3.0);
+		check(name + ": and brings it back to where it was held (rad)", Math.abs(after[arm] - before[arm]) + Math.abs(after[arm + 2] - before[arm + 2]), 0.0, 0.08);
+		check(name + ": no jump between ticks (most the arm turned in a tick, rad)", jump, 0.0, 1.2);
+	}
+
+	/**
+	 * Draws a bow for a second and a half looking {@code aim} degrees right of the horse, then looses: the bow arm out along
+	 * the aim, the torso side-on to it, the string hand from the bow back to the cheek as it charges, and after the loose
+	 * both arms back where they rest. Shots through the draw and the loose.
+	 */
+	private void bowDraw(final ClientGameTestContext ctx, final TestInput input, final float aim, final String name) {
+		hold(ctx, "bow");
+		input.lookAt(180.0F + aim, 10.0F);
+		ctx.waitTicks(5);
+		riderView(ctx, 225.0F);
+		final float[] rest = riderArms(ctx);
+		check(name + ": a bow in hand is held ready, off the reins (out to the side, rad)", rest[2], RideTuning.READY_ARM_OUT - 0.05, RideTuning.READY_ARM_OUT + 0.05);
+		input.holdKey(o -> o.keyUse);
+		// (Timed by the draw itself: the press can take a tick or two to start it.)
+		double first = Double.NaN;
+		double full = Double.NaN;
+		float[] drawn = rest;
+		int using = 0;
+		int shot = 0;
+		final int[] stages = {2, 6, 12};
+		for (int tick = 1; tick <= 60 && using < 25; tick++) {
+			ctx.waitTick();
+			using = ctx.computeOnClient(mc -> mc.player.getTicksUsingItem());
+			drawn = riderArms(ctx);
+			if (Double.isNaN(first) && using >= 2) {
+				first = stringToCheek(drawn);
+			}
+			if (shot < stages.length && using >= stages[shot]) {
+				riderShot(ctx, name + "_draw_" + stages[shot]);
+				shot++;
+			}
+		}
+		check(name + ": the bow is drawn (ticks drawing)", using, 25, 60);
+		full = stringToCheek(drawn);
+		log("  %s full draw: head yaw %.3f pitch %.3f, torso %.3f, string arm x %.3f y %.3f, shoulder %.2f %.2f %.2f", name, drawn[7], drawn[8], drawn[6], drawn[3],
+			drawn[4], drawn[11], drawn[14], drawn[12]);
+		handShots(ctx, name + "_full_draw");
+		// (Straight ahead, and from above on the right: the bow arm along the aim and the string hand at the cheek.)
+		riderView(ctx, 180.0F + aim);
+		riderShot(ctx, name + "_full_draw_ahead");
+		riderView(ctx, 250.0F, 50.0F);
+		riderShot(ctx, name + "_full_draw_above");
+		riderView(ctx, 225.0F);
+		check(name + ": the bow arm points along the aim (yaw off it, rad)", Math.abs(drawn[1] - (drawn[7] - RideTuning.BOW_ARM_IN)), 0.0, 0.05);
+		check(name + ": and is raised to it (pitch off it, rad)", Math.abs(drawn[0] - (-Mth.HALF_PI + drawn[8])), 0.0, 0.05);
+		check(name + ": side-on to the aim (torso against the aim, rad)", Math.abs(drawn[6] - Mth.clamp(drawn[7] - RideTuning.BOW_SIDE_ON, -RideTuning.BOW_TWIST_MAX,
+			RideTuning.BOW_TWIST_MAX)), 0.0, 0.02);
+		check(name + ": at full draw the string hand is at the cheek (pixels from it)", full, 0.0, 2.0);
+		check(name + ": it came back from the bow as the draw charged (pixels nearer the cheek)", first - full, 4.0, 30.0);
+		input.releaseKey(o -> o.keyUse);
+		float jump = 0.0F;
+		float last = drawn[3];
+		for (int tick = 1; tick <= (int) RideTuning.BOW_RELEASE_TICKS + 3; tick++) {
+			ctx.waitTick();
+			final float[] now = riderArms(ctx);
+			jump = Math.max(jump, Math.abs(now[3] - last));
+			last = now[3];
+			if (tick == 1 || tick == 4 || tick == 8) {
+				riderShot(ctx, name + "_loosed_" + tick);
+			}
+		}
+		final float[] after = riderArms(ctx);
+		check(name + ": loosed, the arms come back to where they rest (rad)", Math.abs(after[0] - rest[0]) + Math.abs(after[3] - rest[3]) + Math.abs(after[5] - rest[5]),
+			0.0, 0.1);
+		check(name + ": with no jump (most the string arm turned in a tick, rad)", jump, 0.0, 1.0);
+	}
+
+	/**
+	 * How far the string hand (the arm opposite the bow, the right arm's in {@code arms}) ends from the anchor at the cheek,
+	 * pixels: the hand ARM_REACH along the arm from its shoulder against the anchor turned with the head.
+	 */
+	private static double stringToCheek(final float[] arms) {
+		// (A right-handed rider: the bow in the right hand, the string drawn with the left to the right cheek.)
+		final float reach = 10.0F;
+		final float sx = Mth.sin(arms[3]);
+		final double hx = arms[11] + sx * Mth.sin(arms[4]) * reach;
+		final double hy = arms[14] + Mth.cos(arms[3]) * reach;
+		final double hz = arms[12] + sx * Mth.cos(arms[4]) * reach;
+		final org.joml.Vector3f anchor = new org.joml.Vector3f(-RideTuning.BOW_ANCHOR_X, RideTuning.BOW_ANCHOR_Y, RideTuning.BOW_ANCHOR_Z).rotateX(arms[8])
+			.rotateY(arms[7]).add(arms[15], arms[16], arms[17]);
+		return Math.sqrt((hx - anchor.x) * (hx - anchor.x) + (hy - anchor.y) * (hy - anchor.y) + (hz - anchor.z) * (hz - anchor.z));
 	}
 
 	/** Spawned with the tag minus those still alive at full health. */

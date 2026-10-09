@@ -246,6 +246,23 @@
   view, so the horse sat on its haunches as it stopped; hard cuts are now only while riding on, and letting go stands it
   up out of one. Verified by `-Psections=strafe` (D, A, D at a trot, against W): lowest body -0.001 (was -0.12)
 
+## The rider's hands: a weapon held ready, and a bow drawn (GitHub issues #17 and #18, 2026-10-09)
+
+- [x] A tool or weapon in the main hand (anything with a tool or weapon component, modded ones too, plus bows and
+  crossbows) comes off the reins and is held low at the rider's side, blade forward and turned away from the neck; the
+  other hand keeps the reins; food, blocks and other items stay in the rein hand. Any swing (vanilla's whack) is played
+  from wherever the arm rests and comes back to it, and the torso's turn in it adds to the rider's look twist; a spear's
+  thrust stays vanilla's. Left-handed riders mirrored
+- [x] Drawing a bow, the rider turns side-on to the aim, the bow arm out along it and the string hand coming back from the
+  bow to the cheek as the draw charges (the bow's own power curve); the arms come up into the draw from rest, and once
+  loosed the string hand flies back past the cheek and the arms come down over half a second. A loaded crossbow is held
+  square to the aim (the look twist used to be added on top of vanilla's aim, pointing the arms past it)
+- [x] Riders only; the bow on foot is left to vanilla. Verified by `-Psections=hands` (part of `core`): 39 checks on the
+  player model as drawn (reins, ready pose for sword, axe and pickaxe, bread on the reins, swings start and end where held,
+  left-handed, the bow's arm and torso on the aim, string hand within 0.4 pixels of the cheek at full draw and 5-6 nearer
+  than at the nock, back to rest after the loose with no jump, the crossbow on the aim) and close shots from three sides
+  through the test's film camera (a fixed camera entity can't show your own player)
+
 ## Tooling
 
 - [x] Automated client ride test (`./gradlew runClientGameTest`, `-Ptests=ride`, `-Psections=core,cuts,stairs,picking,steps`): checks covering 19 messy 2-block ledges, legs in the air (the stride stops, front legs fold then reach for the ground, at most ~0.1 rad a tick), the 2-block ledge bound, hard cuts (20, 60, 90 and 150 degrees off at a gallop, against cuts switched off; standing pivot), A or D alone riding across the view, the rider pushed back and shielding their face in leaves, climbing out onto a 1-block bank and not a 2-block one, narrow 2-block ledges jumped at a trot and a gallop, a ledge catching the flank and a 2-block pillar gone round, a row of trunks threaded (the 12 shoulder-camera checks moved to the add-on repo), steps in two beats (up and down, walk and trot), footing (across a ditch at a gallop and a trot, past a trunk that catches the shoulder), a leafy 2-block ledge, the horse picking its way (tree detour at pace, long wall slow-down, beside a wall and along a cliff edge at full pace, cliff and lava refusal, safe drop, gap jumped and refused, ledge jump at a walk and from a gallop, fence left alone), gradual and smooth climbing out of water, wading pace, swimming (speed, head above water, rider kept, climbing out), saddle side-sway follow, rider inertia (surge and braking), Fresh Animations stirrups held, trampling (walk vs gallop), horse settings in Mod Menu and live apply, downhill speed continuity, landing surge, jump arc, huff rhythm, head toss on the FA model, mouse steering, A/D 45-degree offset without view pull, riding through leaves, free aim and look limit, aiming while turning, Fresh Animations body sync, staircase climbing (smoothness, pitch), weight-shift timing, gait animation speeds, first-person bob, mounting camera, free look, walk/gallop speed, spur timing, A/D turn rate and lean, running and standing jumps, stamina and exhaustion, coasting, braking, reversing, mouse steering, dismount; writes `build/run/clientGameTest/horsingaround-ride-report.txt` and screenshots (back, front and side views)
