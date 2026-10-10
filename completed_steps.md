@@ -263,6 +263,27 @@
   than at the nock, back to rest after the loose with no jump, the crossbow on the aim) and close shots from three sides
   through the test's film camera (a fixed camera entity can't show your own player)
 
+## Reliable 2-block climbs (GitHub issue #24, 2026-10-09)
+
+- [x] Any 2-block rise is climbed from any angle up to 60 degrees and whatever is round it: the ledge check looks for a
+  landing straight on, then up to a block to either side and nearer or further in, then straight up the face, and heads
+  the heave toward the spot it found; anything taller than a ledge where the body meets it is a wall (a 3-block wall
+  beside a rise was heaved up as if it were 2); a face ridden along or glanced (more than 70 degrees off square) isn't a
+  climb; the quick look reads every block between a step and a ledge's height (a slab at the foot hid the face)
+- [x] No more double-height jumps: in the air a hoof put down steps up only 0.6 (was a full 1.125, so a plain jump plus a
+  step reached a 2-block top, and in a corner stepped on up the 3-block wall beside it)
+- [x] Verified by `-Psections=climbs` (now part of the default run, in the `steps` shard): 38 lanes, 144 checks: angles
+  0-60 at a walk and trot, cantering straight and at 30, pressed against the face or a block out (riding at it and
+  pressing jump), walls 2 and 3 tall beside it and both sides, inside and outside corners, a block on top, a slab at the
+  foot, stairs along the lip, snow, the reported corner (riding and stuck-then-pressing jump), 3-block faces and riding
+  along a face (both stay below), and three noisy mountain staircases (all reach the top, longest stall 8 ticks); every
+  climb peaks 0.30 over the lip (snow 0.43)
+- [x] Diagonal rises stacked with one-block treads (a saw-tooth edge across the grid, as on mountainsides) are climbed:
+  the landing is found by carrying the lifted box toward each spot through the world, stopping at what it meets (so it
+  settles into the pocket of a one-block tread), and a climbable ledge in front counts as ground for the body's length.
+  Verified: 66 climb lanes, including diagonal faces met square and at angles and diagonal terraces 1, 2, 3 and 6 deep,
+  five rises, all up with one heave a rise, 0.30 over the lip
+
 ## Tooling
 
 - [x] Automated client ride test (`./gradlew runClientGameTest`, `-Ptests=ride`, `-Psections=core,cuts,stairs,picking,steps`): checks covering 19 messy 2-block ledges, legs in the air (the stride stops, front legs fold then reach for the ground, at most ~0.1 rad a tick), the 2-block ledge bound, hard cuts (20, 60, 90 and 150 degrees off at a gallop, against cuts switched off; standing pivot), A or D alone riding across the view, the rider pushed back and shielding their face in leaves, climbing out onto a 1-block bank and not a 2-block one, narrow 2-block ledges jumped at a trot and a gallop, a ledge catching the flank and a 2-block pillar gone round, a row of trunks threaded (the 12 shoulder-camera checks moved to the add-on repo), steps in two beats (up and down, walk and trot), footing (across a ditch at a gallop and a trot, past a trunk that catches the shoulder), a leafy 2-block ledge, the horse picking its way (tree detour at pace, long wall slow-down, beside a wall and along a cliff edge at full pace, cliff and lava refusal, safe drop, gap jumped and refused, ledge jump at a walk and from a gallop, fence left alone), gradual and smooth climbing out of water, wading pace, swimming (speed, head above water, rider kept, climbing out), saddle side-sway follow, rider inertia (surge and braking), Fresh Animations stirrups held, trampling (walk vs gallop), horse settings in Mod Menu and live apply, downhill speed continuity, landing surge, jump arc, huff rhythm, head toss on the FA model, mouse steering, A/D 45-degree offset without view pull, riding through leaves, free aim and look limit, aiming while turning, Fresh Animations body sync, staircase climbing (smoothness, pitch), weight-shift timing, gait animation speeds, first-person bob, mounting camera, free look, walk/gallop speed, spur timing, A/D turn rate and lean, running and standing jumps, stamina and exhaustion, coasting, braking, reversing, mouse steering, dismount; writes `build/run/clientGameTest/horsingaround-ride-report.txt` and screenshots (back, front and side views)

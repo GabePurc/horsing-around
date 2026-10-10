@@ -36,6 +36,7 @@ abstract class EntityMixin {
 				// and a step-up partway would pop the horse up.)
 				if (!this.onGround && !horse.isInWater() && s.bankTicks == 0 && !s.climbingLedge() && s.hurdleForward == 0.0F) {
 					this.onGround = true;
+					s.airFooting = true;
 				}
 				s.moving = true;
 				s.moveFromX = horse.getX();
@@ -51,6 +52,7 @@ abstract class EntityMixin {
 		if ((Object) this instanceof RideStateHolder holder && holder.horsingaround$ride().moving) {
 			final RideState s = holder.horsingaround$ride();
 			s.moving = false;
+			s.airFooting = false;
 			Footing.afterMove((AbstractHorse) (Object) this, s, s.moveDelta, s.moveFromX, s.moveFromZ);
 		}
 	}

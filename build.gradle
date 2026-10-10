@@ -158,7 +158,7 @@ tasks.matching { it.name in ["runClient", "runClientGameTest"] }.configureEach {
 def testShards = [
 	RideA  : [tests: "ride", sections: "core,ledges,cuts"],
 	RideB  : [tests: "ride", sections: "stairs,picking"],
-	RideC  : [tests: "ride", sections: "steps"],
+	RideC  : [tests: "ride", sections: "steps,climbs"],
 	Terrain: [tests: "terrain", sections: ""],
 	Others : [tests: "mounts,server,hat", sections: ""],
 ]

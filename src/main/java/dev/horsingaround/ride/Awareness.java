@@ -98,6 +98,11 @@ public final class Awareness {
 	private static boolean profileFallsAway;
 	/** Distance to the face of the last ledge found, blocks. */
 	static float ledgeFace;
+	/** The heading the last ledge found is climbed along, toward where it lands (degrees). */
+	static float ledgeClimbYaw;
+	/** Test hook: while set, each climb looked at notes why each place to land was turned down in {@link #climbLog}. */
+	public static boolean logClimbs;
+	public static final StringBuilder climbLog = new StringBuilder();
 	/** Why the last ledge looked at can't be jumped (for tests and the steering overlay); LEDGE_OK when it can. */
 	public static int ledgeRejection;
 	public static final int LEDGE_OK = 0;
@@ -414,7 +419,7 @@ public final class Awareness {
 		final float rad = yaw * Mth.DEG_TO_RAD;
 		final double start = Math.max(blocked - STEP - half - 1.0F, 0.0F);
 		final AABB box = horse.getBoundingBox().move(-Mth.sin(rad) * start, endGround - horse.getY(), Mth.cos(rad) * start);
-		return !Double.isNaN(ledge(horse, box, yaw, 2.0F));
+		return !Double.isNaN(ledge(horse, box, yaw, 2.0F, false));
 	}
 
 	/** Whether the wall the last probe met {@code blocked} along yaw is a hurdle the rider can jump from just short of it. */
@@ -880,40 +885,91 @@ public final class Awareness {
 		return ledgeAhead(horse, LEDGE_REACH);
 	}
 
-	/** Something in the way at the height of a ledge's top within {@code reach} of the chest straight ahead. */
+	/**
+	 * Something in the way above a step's height and up to a ledge's within {@code reach} of the chest straight ahead
+	 * (both block rows, so standing on a slab or a snow layer the face still shows).
+	 */
 	static boolean ledgeAhead(final AbstractHorse horse, final float reach) {
 		body(horse);
 		final Level level = horse.level();
 		final float rad = horse.getYRot() * Mth.DEG_TO_RAD;
 		final double fx = -Mth.sin(rad);
 		final double fz = Mth.cos(rad);
-		final int y = Mth.floor(horse.getY() + 1.5);
+		final int y0 = Mth.floor(horse.getY() + STEP_UP + 0.05);
+		final int y1 = Mth.floor(horse.getY() + LEDGE_HEIGHT - 0.05);
 		for (float d = half + 0.25F; d <= half + reach; d += 0.5F) {
-			final BlockState state = level.getBlockState(POS.set(Mth.floor(horse.getX() + fx * d), y, Mth.floor(horse.getZ() + fz * d)));
-			if (!state.isAir() && !(Foliage.leavesOpen(level) && state.is(BlockTags.LEAVES)) && !state.getCollisionShape(level, POS).isEmpty()) {
-				return true;
+			final int x = Mth.floor(horse.getX() + fx * d);
+			final int z = Mth.floor(horse.getZ() + fz * d);
+			for (int y = y0; y <= y1; y++) {
+				final BlockState state = level.getBlockState(POS.set(x, y, z));
+				if (!state.isAir() && !(Foliage.leavesOpen(level) && state.is(BlockTags.LEAVES)) && !state.getCollisionShape(level, POS).isEmpty()) {
+					return true;
+				}
 			}
 		}
 		return false;
 	}
 
 	/**
-	 * A ledge the horse could jump up, its face within {@code reach} of the chest straight ahead along yaw: too high to
-	 * step, no higher than LEDGE_HEIGHT, with headroom for the jump, and a solid top under most of where it would land
-	 * (not leaves it falls through, not a lone log in a bush). Never a fence, wall or gate (or anything taller than a
-	 * block), so pens still hold horses. Returns the top of the ledge, or NaN; the face's distance goes in {@link #ledgeFace}.
+	 * A ledge the horse could jump up, its face within {@code reach} of the chest straight ahead along yaw (met square
+	 * enough: not ridden along or glanced): too high to step, no higher than LEDGE_HEIGHT where the body meets it, with
+	 * headroom for the jump, and room and a solid top under most of where it would land (not leaves it falls through, not
+	 * a lone log in a bush). Where landing straight ahead won't do (a wall beside it, a corner, a ragged edge, too little
+	 * of the top under it), it looks a little to either side and nearer or further in, and then climbs straight up the
+	 * face instead of along its heading. Never a fence, wall or gate (or anything taller than a block), so pens still hold
+	 * horses. Returns the top of the ledge, or NaN; the face's distance goes in {@link #ledgeFace} and the heading to climb
+	 * along (toward where it lands) in {@link #ledgeClimbYaw}.
 	 */
 	static double ledge(final AbstractHorse horse, final float yaw, final float reach) {
-		return ledge(horse, horse.getBoundingBox(), yaw, reach);
+		return ledge(horse, horse.getBoundingBox(), yaw, reach, true);
 	}
 
-	/** {@link #ledge(AbstractHorse, float, float)} for the body at {@code box}. */
-	private static double ledge(final AbstractHorse horse, final AABB box, final float yaw, final float reach) {
+	/**
+	 * {@link #ledge(AbstractHorse, float, float)} for the body at {@code box}; {@code wide}: looking to either side and up
+	 * the face too (at the face itself), else only straight on (planning ahead whether a ledge is on the rider's line: one
+	 * that only catches the flank is gone round, not climbed).
+	 */
+	private static double ledge(final AbstractHorse horse, final AABB box, final float yaw, final float reach, final boolean wide) {
 		final Level level = horse.level();
-		final CollisionContext context = CollisionContext.of(horse);
 		final float rad = yaw * Mth.DEG_TO_RAD;
 		final double fx = -Mth.sin(rad);
 		final double fz = Mth.cos(rad);
+		final float face = face(level, horse, box, fx, fz, reach);
+		if (face < 0.0F) {
+			return reject(LEDGE_NO_FACE);
+		}
+		if (level.noBlockCollision(horse, box.move(fx * (face + 0.05), STEP_UP + 0.05, fz * (face + 0.05)))) {
+			return reject(LEDGE_ONLY_A_STEP);
+		}
+		// Met square enough to climb it: not ridden along it, glancing it (which way it faces: whichever way alone stops the box).
+		final boolean stopsX = !level.noBlockCollision(horse, box.move(fx * (face + 0.05), 0.0, 0.0));
+		final boolean stopsZ = !level.noBlockCollision(horse, box.move(0.0, 0.0, fz * (face + 0.05)));
+		final double square = stopsX && !stopsZ ? Math.abs(fx) : stopsZ && !stopsX ? Math.abs(fz) : Math.max(Math.abs(fx), Math.abs(fz));
+		if (square < Mth.cos(LEDGE_FACE_ANGLE * Mth.DEG_TO_RAD)) {
+			return reject(LEDGE_NO_FACE);
+		}
+		final double top = climb(level, horse, box, yaw, face, wide ? LAND_SIDE : STRAIGHT_ON);
+		if (!wide || !Double.isNaN(top) || ledgeRejection == LEDGE_FENCE || ledgeRejection == LEDGE_NO_HEADROOM) {
+			return top;
+		}
+		// Straight up the face instead (which way it faces; a corner, whichever way the heading is nearer).
+		final float normal = stopsX && (!stopsZ || Math.abs(fx) >= Math.abs(fz)) ? (fx > 0.0 ? -90.0F : 90.0F) : (fz > 0.0 ? 0.0F : 180.0F);
+		if (Math.abs(Mth.wrapDegrees(normal - yaw)) < 5.0F) {
+			return top;
+		}
+		final int why = ledgeRejection;
+		final float nrad = normal * Mth.DEG_TO_RAD;
+		final float normalFace = face(level, horse, box, -Mth.sin(nrad), Mth.cos(nrad), reach);
+		final double up = normalFace < 0.0F ? Double.NaN : climb(level, horse, box, normal, normalFace, LAND_SIDE);
+		if (Double.isNaN(up)) {
+			// (The reason it couldn't climb along its heading, which is what the rider asked for.)
+			return reject(why);
+		}
+		return up;
+	}
+
+	/** How far along (fx, fz) the box first meets something, to a few hundredths (0 touching it); -1 if nothing within {@code reach}. */
+	private static float face(final Level level, final AbstractHorse horse, final AABB box, final double fx, final double fz, final float reach) {
 		float face = -1.0F;
 		for (float m = 0.0F; m <= reach + 1.0E-3F; m += 0.25F) {
 			if (!level.noBlockCollision(horse, box.move(fx * (m + 0.05), 0.0, fz * (m + 0.05)))) {
@@ -921,10 +977,7 @@ public final class Awareness {
 				break;
 			}
 		}
-		if (face < 0.0F) {
-			return reject(LEDGE_NO_FACE);
-		}
-		// Pin the face down to a few hundredths, so where it lands and when it takes off don't jump about as it walks in.
+		// Pin it down, so where it lands and when it takes off don't jump about as it walks in.
 		float clear = Math.max(face - 0.25F, -0.05F);
 		for (int i = 0; i < 3 && face > 0.0F; i++) {
 			final float mid = (clear + face) * 0.5F;
@@ -934,16 +987,106 @@ public final class Awareness {
 				face = mid;
 			}
 		}
-		final AABB at = box.move(fx * (face + 0.05), 0.0, fz * (face + 0.05));
-		if (level.noBlockCollision(horse, at.move(0.0, STEP_UP + 0.05, 0.0))) {
-			return reject(LEDGE_ONLY_A_STEP);
+		return face;
+	}
+
+	/** Sideways offsets (blocks, right positive) and distances past the face (blocks) where a climb may land, the likeliest first. */
+	private static final double[] LAND_SIDE = {0.0, 0.3, -0.3, 0.6, -0.6, 1.0, -1.0};
+	private static final double[] STRAIGHT_ON = {0.0};
+	private static final double[] LAND_IN = {1.0, 0.6, 1.4};
+
+	/**
+	 * A climb up the face {@code face} blocks along {@code yaw}: where the body meets it, it rises to a top no higher than
+	 * a ledge, with headroom over the horse, and somewhere straight on or a little to either side, nearer or further in,
+	 * the body gets onto it with solid ground to land on. Where it gets to is found the way the jump will take it: lifted
+	 * over the lip where it stands and carried toward the spot, stopping at whatever it meets (so it settles into a notch
+	 * or the corner of a one-block step, and a taller wall right there keeps it off the top). The top, or NaN; on success
+	 * {@link #ledgeFace} and {@link #ledgeClimbYaw} (toward where it lands).
+	 */
+	private static double climb(final Level level, final AbstractHorse horse, final AABB box, final float yaw, final float face, final double[] sides) {
+		final CollisionContext context = CollisionContext.of(horse);
+		final float rad = yaw * Mth.DEG_TO_RAD;
+		final double fx = -Mth.sin(rad);
+		final double fz = Mth.cos(rad);
+		// Right of the heading.
+		final double rx = -fz;
+		final double rz = fx;
+		// Up to a thin layer (snow, a carpet) on top of the second block.
+		final double highest = box.minY + LEDGE_HEIGHT + LEDGE_TOP_LAYER;
+		final double centreX = (box.minX + box.maxX) * 0.5;
+		final double centreZ = (box.minZ + box.maxZ) * 0.5;
+		int why = LEDGE_TOO_HIGH;
+		boolean headroomChecked = false;
+		for (final double side : sides) {
+			final AABB at = box.move(fx * (face + 0.05) + rx * side, 0.0, fz * (face + 0.05) + rz * side);
+			final double top = top(level, context, at, box.minY + 0.5, highest);
+			if (Double.isNaN(top)) {
+				return reject(LEDGE_FENCE);
+			}
+			if (!(top > box.minY + STEP_UP)) {
+				continue;
+			}
+			if (!headroomChecked) {
+				headroomChecked = true;
+				if (!level.noBlockCollision(horse, box.expandTowards(0.0, top - box.minY + LEDGE_CLEARANCE + 0.05, 0.0))) {
+					return reject(LEDGE_NO_HEADROOM);
+				}
+			}
+			// (Lifted where it stands: the headroom just checked is room for that.)
+			final AABB lifted = box.move(0.0, top - box.minY + 0.01, 0.0);
+			for (final double in : LAND_IN) {
+				final AABB landing = sweep(level, horse, lifted, fx * (face + in) + rx * side, fz * (face + in) + rz * side);
+				// The body is about two blocks long whatever its collision box: it needs that much ledge to land on. (Ground a
+				// step higher counts: a horse that lands with a step in front walks up it; so does another ledge it can climb
+				// next, its chest against that face, as up a staircase of one-block steps.)
+				// (And the box itself has to get onto the top, not stop at a taller wall on the way.)
+				final boolean onTop = support(level, context, landing, top, STEP_UP) >= LEDGE_SUPPORT;
+				if (!onTop || support(level, context, landing.expandTowards(fx * BODY_LENGTH_EXTRA, 0.0, fz * BODY_LENGTH_EXTRA), top, LEDGE_HEIGHT + LEDGE_TOP_LAYER)
+					< LEDGE_SUPPORT) {
+					why = onTop ? LEDGE_NOTHING_TO_LAND_ON : LEDGE_NO_ROOM_ON_TOP;
+					if (logClimbs) {
+						climbLog.append(String.format(java.util.Locale.ROOT, "[yaw%.0f side%.1f in%.1f top%.2f got to %.2f,%.2f %s] ", yaw, side, in, top - box.minY,
+							(landing.minX + landing.maxX) * 0.5 - centreX, (landing.minZ + landing.maxZ) * 0.5 - centreZ, LEDGE_REASONS[why]));
+					}
+					continue;
+				}
+				ledgeFace = face;
+				ledgeClimbYaw = (float) (Mth.atan2(-((landing.minX + landing.maxX) * 0.5 - centreX), (landing.minZ + landing.maxZ) * 0.5 - centreZ) * Mth.RAD_TO_DEG);
+				ledgeRejection = LEDGE_OK;
+				return top;
+			}
 		}
+		return reject(why);
+	}
+
+	/** Where {@code box} gets to moved (dx, dz) through the world, stopping at what it meets: the longer way first, as entities move. */
+	private static AABB sweep(final Level level, final AbstractHorse horse, final AABB box, final double dx, final double dz) {
+		if (Math.abs(dx) >= Math.abs(dz)) {
+			final AABB moved = box.move(clip(level, horse, box, Direction.Axis.X, dx), 0.0, 0.0);
+			return moved.move(0.0, 0.0, clip(level, horse, moved, Direction.Axis.Z, dz));
+		}
+		final AABB moved = box.move(0.0, 0.0, clip(level, horse, box, Direction.Axis.Z, dz));
+		return moved.move(clip(level, horse, moved, Direction.Axis.X, dx), 0.0, 0.0);
+	}
+
+	private static double clip(final Level level, final AbstractHorse horse, final AABB box, final Direction.Axis axis, final double distance) {
+		if (Math.abs(distance) < 1.0E-7) {
+			return 0.0;
+		}
+		final AABB reach = axis == Direction.Axis.X ? box.expandTowards(distance, 0.0, 0.0) : box.expandTowards(0.0, 0.0, distance);
+		return Shapes.collide(axis, box, level.getBlockCollisions(horse, reach), distance);
+	}
+
+	/**
+	 * The top of what is in {@code at} from {@code from} up to {@code highest} (blocks reaching higher are left out:
+	 * the caller checks nothing is above the top), or NaN where there is a fence, a wall, a gate or anything taller than a
+	 * block; negative infinity for nothing.
+	 */
+	private static double top(final Level level, final CollisionContext context, final AABB at, final double from, final double highest) {
 		double top = Double.NEGATIVE_INFINITY;
 		final int x1 = Mth.floor(at.maxX - 1.0E-7);
 		final int z1 = Mth.floor(at.maxZ - 1.0E-7);
-		final int y0 = Mth.floor(box.minY + 0.5);
-		// Up to a thin layer (snow, a carpet) on top of the second block; anything taller is a wall the landing check finds.
-		final double highest = box.minY + LEDGE_HEIGHT + LEDGE_TOP_LAYER;
+		final int y0 = Mth.floor(from);
 		final int y1 = Mth.floor(highest);
 		for (int x = Mth.floor(at.minX); x <= x1; x++) {
 			for (int z = Mth.floor(at.minZ); z <= z1; z++) {
@@ -953,7 +1096,7 @@ public final class Awareness {
 						continue;
 					}
 					if (state.is(BlockTags.FENCES) || state.is(BlockTags.WALLS) || state.is(BlockTags.FENCE_GATES)) {
-						return reject(LEDGE_FENCE);
+						return Double.NaN;
 					}
 					final VoxelShape shape = state.getCollisionShape(level, POS, context);
 					if (shape.isEmpty()) {
@@ -961,7 +1104,7 @@ public final class Awareness {
 					}
 					final double height = shape.max(Direction.Axis.Y);
 					if (height > 1.0) {
-						return reject(LEDGE_FENCE);
+						return Double.NaN;
 					}
 					if (y + height <= highest) {
 						top = Math.max(top, y + height);
@@ -969,24 +1112,6 @@ public final class Awareness {
 				}
 			}
 		}
-		if (!(top > box.minY + STEP_UP)) {
-			return reject(LEDGE_TOO_HIGH);
-		}
-		// Room to jump and to land, and solid ground to land on.
-		final AABB landing = box.move(fx * (face + 1.0), top - box.minY + 0.01, fz * (face + 1.0));
-		// The body is about two blocks long whatever its collision box: it needs that much ledge to land on.
-		if (!level.noBlockCollision(horse, landing)) {
-			return reject(LEDGE_NO_ROOM_ON_TOP);
-		}
-		if (!level.noBlockCollision(horse, box.expandTowards(0.0, top - box.minY + LEDGE_CLEARANCE + 0.05, 0.0))) {
-			return reject(LEDGE_NO_HEADROOM);
-		}
-		// (Ground a step higher counts: a horse that lands with a step in front walks up it.)
-		if (support(level, context, landing.expandTowards(fx * BODY_LENGTH_EXTRA, 0.0, fz * BODY_LENGTH_EXTRA), top, STEP_UP) < LEDGE_SUPPORT) {
-			return reject(LEDGE_NOTHING_TO_LAND_ON);
-		}
-		ledgeFace = face;
-		ledgeRejection = LEDGE_OK;
 		return top;
 	}
 
@@ -1182,15 +1307,15 @@ public final class Awareness {
 		double area = 0.0;
 		for (int x = Mth.floor(box.minX); x <= x1; x++) {
 			for (int z = Mth.floor(box.minZ); z <= z1; z++) {
+				// The top of the ground, from below: a gap above it (a branch overhead) is room, not more ground.
 				double surface = Double.NEGATIVE_INFINITY;
 				for (int y = y0; y <= y1; y++) {
 					final BlockState state = level.getBlockState(POS.set(x, y, z));
-					if (state.isAir()) {
-						continue;
-					}
-					final VoxelShape shape = state.getCollisionShape(level, POS, context);
+					final VoxelShape shape = state.isAir() ? Shapes.empty() : state.getCollisionShape(level, POS, context);
 					if (!shape.isEmpty()) {
 						surface = Math.max(surface, y + shape.max(Direction.Axis.Y));
+					} else if (surface > Double.NEGATIVE_INFINITY && y >= surface) {
+						break;
 					}
 				}
 				if (surface >= top - 0.05 && surface <= highest) {
