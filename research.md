@@ -660,3 +660,25 @@ was 50%), the long wall (still slows on the line), riding beside a wall, the pil
 two staggered trunks and three seeded forests (95-99% pace, never touching, back within 0.3 of the line). One forest has
 a cluster with only 1-block gaps across the line; it goes 8 blocks round it at 92% pace.
 
+Follow-up the same day (play-testing in a downloaded medieval city): the horse swayed left and right in tight streets,
+mostly when changing direction; walls and fences gave it trouble; and was elevation understood? A tight-streets test
+(walled 3-wide streets and 2-wide alleys with right-angle corners turned at like a player, fence-lined streets, a step up
+and down) reproduced it: heading wandering 34 degrees with swings in alleys, 43 between fences, scraping walls. Causes
+and fixes:
+
+- Turning was taken for drifting off the line: the horse then steered back against the rider's turn. The line is now
+  only kept once the rider's view has held still and the horse has come round to it; while the rider turns, it moves
+  with the horse (and a turn of more than 25 degrees starts afresh).
+- After a corner the horse ends up beside or against a wall, and the room to spare round its body made every way seem
+  to meet that wall at once; the fallback then stepped it 85 degrees aside, swinging it across the street. The room to
+  spare now grows from nothing over the first blocks of a way, and the step-aside fallback is gone.
+- Fences, walls and panes were read as whole blocks; now by their real shape (a fence along the middle of its block
+  leaves room beside it).
+- A fence or wall on the rider's line was always "theirs to jump" (no going round, slowing and refusing at it), even
+  ridden along or glanced down a fenced street; now only one met within 45 degrees of square.
+- Elevation: ways follow the ground, stepping up a block and down what the horse takes; a 2-block rise is gone round
+  unless the rider rides at it to climb (met by the rider's centre line, with the full climb check, so a steep angle
+  still climbs). A way that only runs off sideways along a cliff edge or a wall, getting nowhere, isn't taken.
+
+Streets now: no touching, no swings, heading within 4 degrees down the streets, about 70% of a gallop through them with
+the corners (the old detour scraped alleys for 287 ticks at 36%).
