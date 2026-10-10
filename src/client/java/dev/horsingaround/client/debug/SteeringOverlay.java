@@ -15,7 +15,7 @@ import net.minecraft.world.phys.Vec3;
 /**
  * With entity hitboxes shown (F3+B), draws how the ridden horse is picking its way, for play-testing: its collision box
  * (green, at the tick's position), the rider's line
- * (white), where the horse is heading (yellow), its detour round something (aqua), what its look-ahead found along the
+ * (white), where the horse is heading (yellow), its detour round something and the way it planned (aqua), what its look-ahead found along the
  * rider's line (red: a wall, orange: danger, blue: a jumpable gap), the ledge it is jumping (green), and the ground
  * carrying its front and back on a step (magenta); how hard it is cutting round, while it does. Debug only, so it may allocate.
  */
@@ -39,6 +39,12 @@ public final class SteeringOverlay {
 		arrow(chest, horse.getYRot(), 1.5 + Math.abs(s.speed) * 2.0, 0xFFFFE040);
 		if (s.avoidOffset != 0.0F) {
 			arrow(chest.add(0.0, 0.15, 0.0), s.riderYaw + s.avoidOffset, 3.0, 0xFF40E0FF);
+		}
+		// The way it planned through (aqua; orange where it can't see a way through yet and will stop short).
+		for (int i = 1; i < s.wayPoints; i++) {
+			final double y = horse.getY() + 0.1;
+			Gizmos.line(new Vec3(s.wayX[i - 1], y, s.wayZ[i - 1]), new Vec3(s.wayX[i], y, s.wayZ[i]), s.way == 2 ? 0xFFFFA020 : 0xFF40E0FF, 3.0F)
+				.setAlwaysOnTop();
 		}
 		mark(chest, s.riderYaw, s.debugWall(), 0xFFFF4040);
 		mark(chest, s.riderYaw, s.debugDanger(), 0xFFFFA020);

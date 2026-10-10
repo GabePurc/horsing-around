@@ -230,42 +230,68 @@ public final class RideTuning {
 	static final float LOOK_AHEAD_MIN = 2.0F;
 	static final float LOOK_AHEAD_MAX = 12.0F;
 	/**
-	 * Going round obstacles: when the rider asks for a trot or more (never at a walk, so the rider has precise control)
-	 * and there is a way round in reach, the horse takes the straightest one: it looks along the obstacle, up to
-	 * DETOUR_REACH blocks either side, for the least it has to move over (to within DETOUR_RESOLUTION) for the rider's
-	 * line to be clear past it (preferring a lane clear through anything else in a row behind it), and steers a straight
-	 * line for the point beside it DETOUR_PAST beyond its near face (the rider's line clear DETOUR_CLEARANCE further), no
-	 * more than AVOID_MAX_ANGLE off the rider's line; once the
-	 * rider's line is clear it heads where the rider looks again. A
-	 * wall with no way round in reach it slows for instead of veering along it. A 2-block ledge the rider rides straight
-	 * at, that it can jump, it doesn't go round: it jumps it.
+	 * Ways through: when the rider asks for a trot or more (never at a walk, so the rider has precise control) and
+	 * something is on the rider's line within PATH_AHEAD_FACTOR of the look-ahead (PATH_AHEAD_MIN to PATH_AHEAD_MAX
+	 * blocks), the horse plans its way through the way a rider picks a line. It plays out candidate ways with its own
+	 * steering and momentum at the pace it is going (the ground's grip as vanilla moves it, so it drifts wide through a
+	 * turn), each turning off the line by one of PATH_ANGLES degrees for one of PATH_HOLD_TICKS and then heading back for
+	 * the line (aiming PATH_BACK_TICKS of travel ahead on it, PATH_BACK_MIN to PATH_BACK_MAX blocks), its body checked
+	 * every PATH_CHECK blocks with PATH_CLEAR to spare round the box, never more than PATH_REACH off the line or
+	 * PATH_LONGEST times the distance along it; the best is then fine-tuned. It takes the cheapest: PATH_COST_OFF_LINE per
+	 * block off the line (counted up to PATH_OFF_LINE_CAP) per block gone, PATH_COST_TURN per block gone with its weight
+	 * fully in a turn (what costs a horse its pace), PATH_COST_TIGHT each check that finds something within PATH_MARGIN of
+	 * the box, and at the end PATH_COST_END per block (up to the cap) and PATH_COST_END_TURN per degree off the line. A way
+	 * that meets something costs PATH_COST_MEET and PATH_COST_SHORT per block short, and counts only with room to stop
+	 * before it (PATH_COMMIT to spare). Changing sides costs up to PATH_COST_SWITCH (more the further over it is); the way
+	 * it is already on gets PATH_COST_KEEP off, so it doesn't dither. Only when no way at its pace is clear and what the
+	 * best meets is within PATH_SLOW_ROOM stopping distances does it try the PATH_SLOWER paces (PATH_COST_PACE for all of
+	 * the pace). With nothing that leaves room to stop, it brakes along the way that gets furthest along the line (if
+	 * PATH_PARTIAL_GAIN further than straight on), else on the line. Past what it went round, with nothing on the line, it
+	 * heads straight back onto it, until within LINE_SNAP and LINE_SNAP_ANGLE of it; a rider who turns more than
+	 * LINE_FORGET_ANGLE away has picked a new line. A 2-block ledge or a hurdle the rider rides straight at isn't gone
+	 * round: it is theirs to jump.
 	 */
-	static final float DETOUR_REACH = 12.0F;
+	static final float[] PATH_ANGLES = {0.0F, 4.0F, 8.0F, 13.0F, 20.0F, 30.0F, 45.0F, 60.0F, 80.0F};
+	static final int[] PATH_HOLD_TICKS = {4, 10, 20, 35};
+	static final float PATH_BACK_TICKS = 12.0F;
+	static final float PATH_BACK_MIN = 3.0F;
+	static final float PATH_BACK_MAX = 8.0F;
+	static final float PATH_CHECK = 0.7F;
+	static final float PATH_REACH = 10.0F;
+	static final float PATH_AHEAD_MIN = 6.0F;
+	static final float PATH_AHEAD_MAX = 18.0F;
+	static final float PATH_AHEAD_FACTOR = 1.5F;
+	static final float PATH_LONGEST = 1.6F;
+	static final int PATH_POINTS = 64;
+	static final float PATH_COMMIT = 1.0F;
+	static final float PATH_COST_SHORT = 1.5F;
+	static final float PATH_COST_MEET = 20.0F;
+	static final float PATH_SLOW_ROOM = 2.0F;
+	static final float PATH_CLEAR = 0.2F;
+	static final float PATH_MARGIN = 0.35F;
+	static final float PATH_COST_OFF_LINE = 0.15F;
+	static final float PATH_OFF_LINE_CAP = 2.5F;
+	static final float PATH_COST_TURN = 0.3F;
+	static final float PATH_COST_TIGHT = 0.4F;
+	static final float PATH_COST_END = 2.0F;
+	static final float PATH_COST_END_TURN = 0.02F;
+	static final float PATH_COST_SWITCH = 2.0F;
+	static final float PATH_COST_KEEP = 3.0F;
+	static final float[] PATH_SLOWER = {0.75F, 0.5F};
+	static final float PATH_COST_PACE = 20.0F;
+	static final float PATH_PARTIAL_GAIN = 1.5F;
+	static final float LINE_SNAP = 0.15F;
+	static final float LINE_SNAP_ANGLE = 1.0F;
+	static final float LINE_FORGET_ANGLE = 25.0F;
+	/**
+	 * Nose to something (within ASIDE_CLOSE) with every way out at an angle clipping it: the horse steps aside along it
+	 * (up to ASIDE_REACH blocks, checked with lines SLIDE_FLANK either side of its middle, inside the body that slides
+	 * along the face), if the rider's line is clear ASIDE_PAST past the face from there, and turns AVOID_MAX_ANGLE that way.
+	 */
+	static final float ASIDE_CLOSE = 1.5F;
+	static final float ASIDE_REACH = 10.0F;
+	static final float ASIDE_PAST = 2.5F;
 	static final float AVOID_MAX_ANGLE = 85.0F;
-	static final float DETOUR_PAST = 1.5F;
-	static final float DETOUR_CLEARANCE = 1.0F;
-	static final float DETOUR_STEP = 0.5F;
-	static final float DETOUR_RESOLUTION = 0.125F;
-	/**
-	 * Things in a row: the way round one is better a lane clear on through what lies behind it, at least DETOUR_LANE
-	 * blocks past it (or to the end of what the horse can see), taken if no more than DETOUR_LANE_EXTRA further over than
-	 * the nearest way just past it. So going round one thing doesn't take the horse into the next.
-	 */
-	static final float DETOUR_LANE = 5.0F;
-	static final float DETOUR_LANE_EXTRA = 2.0F;
-	/**
-	 * A way round must be clear this much wider than the body on each side, so the horse doesn't clip the obstacle
-	 * despite the time it takes to shift its weight and come round.
-	 */
-	static final float DETOUR_MARGIN = 0.2F;
-	/**
-	 * Swinging round at speed: the horse needs ~TURN_LAG_TICKS to shift its weight, then turns at about TURN_EFFICIENCY
-	 * of its grip-limited rate; it slows as much as that takes to come round before what is ahead.
-	 */
-	static final float TURN_LAG_TICKS = 4.0F;
-	/** Turned off the rider's line going round something, it keeps a pace that can come back round within this, blocks. */
-	static final float DETOUR_RETURN_ROOM = 6.0F;
-	static final float TURN_EFFICIENCY = 0.7F;
 	/** The detour eases in and out by this many degrees per tick; detours are re-planned every few ticks. */
 	static final float AVOID_RATE = 5.0F;
 	static final int AVOID_REPLAN_TICKS = 2;

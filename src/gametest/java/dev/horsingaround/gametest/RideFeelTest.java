@@ -169,6 +169,37 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 			if (sections.isEmpty() || sections.contains("picking")) {
 				pickingItsWay(ctx, input, world);
+			} else if (sections.contains("ways")) {
+				// Only on request (it is part of picking): going round things and threading trunks (-Pscenario=tree, wall,
+				// long, alongside, pillar, row, forest, ledge for one), with every plan logged.
+				final String only = System.getProperty("horsingaround.scenario", "");
+				ctx.runOnClient(mc -> dev.horsingaround.ride.Awareness.logPlans = true);
+				if ("tree".contains(only)) {
+					treeInThePath(ctx, input, world);
+				}
+				if ("wall".contains(only)) {
+					wallWithAWayRound(ctx, input, world);
+				}
+				if ("long".contains(only)) {
+					longWall(ctx, input, world);
+				}
+				if ("alongside".contains(only)) {
+					alongsideWall(ctx, input, world);
+				}
+				if ("pillar".contains(only)) {
+					pillar(ctx, input, world);
+				}
+				if ("row".contains(only)) {
+					treesInARow(ctx, input, world);
+				}
+				if ("forest".contains(only)) {
+					forests(ctx, input, world);
+				}
+				if ("ledge".contains(only)) {
+					ledgeStraightAhead(ctx, input, world);
+				}
+				ctx.runOnClient(mc -> dev.horsingaround.ride.Awareness.logPlans = false);
+				section("(end of the ways)");
 			}
 			if (sections.isEmpty() || sections.contains("steps")) {
 				stepsAndFooting(ctx, input, world);
@@ -2038,6 +2069,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		hurdles(ctx, input, world);
 		pillar(ctx, input, world);
 		treesInARow(ctx, input, world);
+		forests(ctx, input, world);
 		bushes(ctx, input, world);
 		fence(ctx, input, world);
 		input.releaseKey(o -> o.keyUp);
@@ -2076,9 +2108,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("rides past the tree", horseZ(ctx) < -45.0 && sample(ctx).y > -60.1);
 		check("never touches the trunk", !touched);
 		check("swerves round it, no more than it needs (blocks off the line)", maxSide, 0.9, 2.0);
-		check("keeps its pace going round (slowest / gallop)", slowest / GALLOP_SPEED, 0.75, 1.1);
+		check("keeps its pace going round (slowest / gallop)", slowest / GALLOP_SPEED, 0.85, 1.1);
 		check("heads where the rider looks again after (deg off)", Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - 180.0F)), 0.0, 3.0);
 		check("detour eased out after (deg)", ride(ctx, r -> Math.abs(r.avoidOffset)), 0.0, 0.5);
+		check("back on the rider's line after (blocks off it)", Math.abs(horseX(ctx) - 300.5), 0.0, 0.5);
 		stop(ctx, input);
 	}
 
@@ -2107,7 +2140,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("goes round it", horseZ(ctx) < -55.0);
 		check("never runs into it", !touched);
 		check("swings out past its end (blocks off the line; its end is 6.5 out)", maxSide, 7.0, 13.0);
-		check("keeps moving going round (slowest / gallop)", slowest / GALLOP_SPEED, 0.4, 1.1);
+		check("keeps moving going round (slowest / gallop)", slowest / GALLOP_SPEED, 0.75, 1.1);
 		ctx.waitTicks(40);
 		check("then heads where the rider looks again (deg off)", Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - 180.0F)), 0.0, 5.0);
 		stop(ctx, input);
@@ -2826,7 +2859,87 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("rides through", horseZ(ctx) < -44.9);
 		check("never touches any of them", !touched);
 		check("threads them without swinging wide (blocks off the line)", maxSide, 0.5, 2.5);
-		check("keeps its pace (slowest / gallop)", slowest / GALLOP_SPEED, 0.6, 1.1);
+		check("keeps its pace (slowest / gallop)", slowest / GALLOP_SPEED, 0.8, 1.1);
+		stop(ctx, input);
+	}
+
+	/**
+	 * Ways through: galloping straight through scattered trunks (seeded, so the same each run), and two trunks staggered
+	 * either side of the line. It should thread them at nearly its full pace, never touch one, never sit back into a cut,
+	 * and once through come back onto the line the rider was on.
+	 */
+	private void forests(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		forest(ctx, input, world, "two trunks staggered across the line", 4400, List.of(new int[] {0, -25}, new int[] {2, -31}));
+		for (int seed = 1; seed <= 3; seed++) {
+			final java.util.Random random = new java.util.Random(seed * 104729L);
+			final List<int[]> trunks = new ArrayList<>();
+			// A trunk in about a third of 3x3 cells, anywhere in its cell, 10 blocks either side of the line.
+			for (int cz = -18; cz >= -56; cz -= 3) {
+				for (int cx = -10; cx <= 10; cx += 3) {
+					if (random.nextInt(3) == 0) {
+						trunks.add(new int[] {cx + random.nextInt(3) - 1, cz - random.nextInt(3)});
+					}
+				}
+			}
+			forest(ctx, input, world, "scattered trunks " + seed, 4400 + seed * 40, trunks);
+		}
+	}
+
+	private void forest(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String name, final int x,
+		final List<int[]> trunks) {
+		section("Galloping through " + name);
+		final List<String> build = new ArrayList<>();
+		for (final int[] t : trunks) {
+			build.add(String.format(Locale.ROOT, "fill %d -60 %d %d -57 %d minecraft:oak_log", x + t[0], t[1], x + t[0], t[1]));
+		}
+		lane(ctx, input, world, x + 0.5, -60, "forest_" + x, build.toArray(String[]::new));
+		final int cuts = ride(ctx, r -> r.cuts);
+		ctx.runOnClient(mc -> {
+			dev.horsingaround.ride.Awareness.plans = 0;
+			dev.horsingaround.ride.Awareness.planNanos = 0L;
+			dev.horsingaround.ride.Awareness.planNanosMost = 0L;
+			dev.horsingaround.ride.RideController.profile = true;
+		});
+		gallopNorth(ctx, input);
+		int touches = 0;
+		double slowest = Double.MAX_VALUE;
+		double pace = 0.0;
+		int paceTicks = 0;
+		double maxSide = 0.0;
+		final StringBuilder trace = new StringBuilder();
+		for (int i = 0; i < 400 && horseZ(ctx) > -82.0; i++) {
+			ctx.waitTick();
+			final double z = horseZ(ctx);
+			if (z < -12.0 && z > -62.0) {
+				final double speed = sample(ctx).speed;
+				slowest = Math.min(slowest, speed);
+				pace += speed;
+				paceTicks++;
+				maxSide = Math.max(maxSide, Math.abs(horseX(ctx) - (x + 0.5)));
+				if (ctx.computeOnClient(mc -> mc.player.getVehicle().horizontalCollision)) {
+					touches++;
+				}
+			}
+			if (i % 3 == 0 && z < -10.0) {
+				trace.append(String.format(Locale.ROOT, "z%.1f x%.2f v%.2f o%.0f w%d | ", z, horseX(ctx) - x - 0.5, sample(ctx).speed, ride(ctx, r -> r.avoidOffset),
+					(int) ride(ctx, r -> r.way)));
+			}
+		}
+		final double offLine = Math.abs(horseX(ctx) - (x + 0.5));
+		ctx.runOnClient(mc -> dev.horsingaround.ride.RideController.profile = false);
+		final int plans = ctx.computeOnClient(mc -> dev.horsingaround.ride.Awareness.plans);
+		final double planMicros = ctx.computeOnClient(mc -> dev.horsingaround.ride.Awareness.planNanos) / 1000.0 / Math.max(plans, 1);
+		final double planMostMicros = ctx.computeOnClient(mc -> dev.horsingaround.ride.Awareness.planNanosMost) / 1000.0;
+		log("  %d plans, %.0f us each on average, %.0f us at most", plans, planMicros, planMostMicros);
+		check("plans its way quickly (average per plan, microseconds)", planMicros, 0.0, 400.0);
+		log("  through at %.0f%% of a gallop on average, slowest %.0f%%, %d ticks touching, most %.1f off the line, %.2f off it after; path: %s",
+			pace / Math.max(paceTicks, 1) / GALLOP_SPEED * 100.0, slowest / GALLOP_SPEED * 100.0, touches, maxSide, offLine, trace);
+		check("rides through", horseZ(ctx) < -81.0);
+		check("never touches a trunk (ticks)", touches, 0, 0);
+		check("keeps its pace through (average / gallop)", pace / Math.max(paceTicks, 1) / GALLOP_SPEED, 0.85, 1.1);
+		check("never slows much (slowest / gallop)", slowest / GALLOP_SPEED, 0.6, 1.1);
+		check("doesn't sit back into a cut going round", ride(ctx, r -> r.cuts) == cuts);
+		check("back on the rider's line after (blocks off it)", offLine, 0.0, 0.5);
 		stop(ctx, input);
 	}
 
@@ -3091,6 +3204,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 		}
 		input.releaseKey(o -> o.keyUp);
+		ctx.runOnClient(mc -> FilmCamera.stop());
 		log("  frame by frame, the body or a sole jumping (%d frames of %d):%s", ctx.computeOnClient(mc -> LegProbe.spikeCount),
 			ctx.computeOnClient(mc -> LegProbe.frames), ctx.computeOnClient(mc -> LegProbe.spikes.toString()));
 		log("  sudden changes (in how fast the body rises, tilts or fits, or a leg draws up), %d ticks:%s", flagged, flags);
@@ -4024,6 +4138,11 @@ public final class RideFeelTest implements FabricClientGameTest {
 	}
 
 	private void section(final String name) {
+		// (The plans of the lane before, when they are being noted.)
+		if (dev.horsingaround.ride.Awareness.planLog.length() > 0) {
+			log("  plans:%s", dev.horsingaround.ride.Awareness.planLog);
+			dev.horsingaround.ride.Awareness.planLog.setLength(0);
+		}
 		log("== %s", name);
 	}
 

@@ -88,6 +88,27 @@ public final class RideState {
 	public float avoidOffset;
 	float avoidTarget;
 	int avoidReplan;
+	/**
+	 * The way the horse is taking through what is on the rider's line (Awareness.WAY_*), the pace the way allows (speed
+	 * units; MAX_VALUE for its full pace), and with no way through in sight, how far the best one goes before it meets
+	 * something (blocks) and whether that is a danger.
+	 */
+	public byte way;
+	float wayPace = Float.MAX_VALUE;
+	float wayRoom;
+	boolean wayDanger;
+	/** How the way taken steers: degrees off the line, held for this many ticks (then back for the line). */
+	float wayAngle;
+	int wayHold;
+	/** While it goes round something: how far right of the rider's line it is (blocks), the line's heading, and where the horse was last tick. */
+	public float lineOffset;
+	float lineYaw;
+	double lineLastX = Double.NaN;
+	double lineLastZ;
+	/** The way planned, for the steering overlay: world x and z of points along it every half block, and how many. */
+	public float[] wayX;
+	public float[] wayZ;
+	public int wayPoints;
 	/** Distance along the heading to the first danger, and to the first jumpable gap, this tick; MAX_VALUE when none. */
 	float dangerAhead = Float.MAX_VALUE;
 	/** The danger ahead is a hazard with safe ground just beyond, so the rider may jump it. */
@@ -416,6 +437,10 @@ public final class RideState {
 		this.pendingJump = 0.0F;
 		this.avoidOffset = 0.0F;
 		this.avoidTarget = 0.0F;
+		this.way = 0;
+		this.wayPoints = 0;
+		this.lineOffset = 0.0F;
+		this.lineLastX = Double.NaN;
 		this.dangerAhead = Float.MAX_VALUE;
 		this.gapAhead = Float.MAX_VALUE;
 		this.wallAhead = Float.MAX_VALUE;

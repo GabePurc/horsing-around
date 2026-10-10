@@ -615,3 +615,48 @@ pocket, and a taller wall right there keeps it off the top). The box itself must
 climb next, in front of it, counts as ground for the body's length, as up a staircase. Tested by diagonal faces met
 square and at angles, and diagonal terraces one, two, three and six blocks deep, five rises high, ridden square up them
 and straight north at a walk and a trot.
+
+## Ways through: planning a line instead of dodging (play-test feedback, 2026-10-09)
+
+Play-test report: the horse slowed down a lot to dodge things it could simply have gone round, and it should find an
+efficient path through what it is dodging. The path should keep the line the rider meant to take and favour the way
+that loses the least momentum, and it must stay cheap to run.
+
+Causes in the old detour (one obstacle at a time, aim just past its near corner):
+
+- It braked for whatever lay along the detour heading for the full look-ahead, beyond the point it was aiming for, so a
+  tree further along that heading slowed it even though it would turn back before reaching it.
+- Turned well off the line, it capped its pace to one it could come back from, and an aim angle over 40 degrees made
+  it sit back into a hard cut.
+- It aimed late and steeply at the nearest corner, and afterwards it carried on parallel to the rider's line instead of
+  coming back to it (1.8 to 4.6 blocks off in the tests).
+- In a dense forest it went round one trunk into the next and could wedge itself (one seeded forest: 11% pace, stuck
+  touching trunks for 300 ticks).
+
+Translation (`Awareness.plan`/`rollout`, tuning `PATH_*` in `RideTuning`):
+
+- Engagement: something on the rider's line within 1.5x the look-ahead (up to 18 blocks at a gallop), so big things are
+  started round early enough to keep the pace.
+- Candidates: turn off the line by 0-80 degrees for 4-35 ticks, then head back for the line. Each is played out with
+  the horse's real steering (the detour easing in, weight shift, grip-limited turn rate at its pace, the sidestep below a
+  gallop) and real momentum (vanilla's ground grip, so it drifts wide through a turn and slides on ice). The body is
+  checked against cached block columns along the way. The best is then fine-tuned.
+- Cost: what loses momentum (time with the weight in a turn), distance off the rider's line, passing close to things,
+  ending off the line. Meeting something is a big cost, but a way that meets something far off is still taken if it
+  leaves room to stop (receding horizon: replanned every 2 ticks, so in a forest it threads trunk by trunk). Slower paces
+  are tried only when what lies ahead is getting close and no way at the current pace is clear. The way it is on gets a
+  bonus, so it commits instead of dithering between sides.
+- Speed: on a planned way only slopes (the flight over steps down) still slow it, not the thing it is turning away
+  from; with no clear way, it can stop short of where the best one meets something; with none, it slows on the line as
+  before (a long wall).
+- The line: while going round something it tracks how far off the rider's line it is, and once past, it heads back onto
+  that line. The line turns with the rider's view; turning more than 25 degrees (or A/D) picks a new line.
+- Hard cuts come only from the rider looking away, never from the horse's own avoidance.
+- Cost to run: about 110-170 microseconds per plan, every other tick, only while something is in the way; no allocation
+  (scratch arrays, a per-plan cache of block columns).
+
+Tested by `-Psections=ways` (and `picking`): the tree, the wall with a way round (now 89% of a gallop at its slowest,
+was 50%), the long wall (still slows on the line), riding beside a wall, the pillar, trunks in a row, the ledge cases,
+two staggered trunks and three seeded forests (95-99% pace, never touching, back within 0.3 of the line). One forest has
+a cluster with only 1-block gaps across the line; it goes 8 blocks round it at 92% pace.
+
