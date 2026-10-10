@@ -660,3 +660,20 @@ was 50%), the long wall (still slows on the line), riding beside a wall, the pil
 two staggered trunks and three seeded forests (95-99% pace, never touching, back within 0.3 of the line). One forest has
 a cluster with only 1-block gaps across the line; it goes 8 blocks round it at 92% pace.
 
+## Running up a step without the pop (play-test feedback, 2026-10-09)
+
+Play-test report: running up a block, the horse shifted forward too quickly and looked snappy.
+
+Measured frame by frame (`-Psections=slowstep`, new cantering and galloping lanes): at a gallop the drawn climb changed
+by up to 0.15 blocks/tick from one tick to the next and the nose flicked up 9 degrees/tick, to 21 degrees. The cause: the
+ground each end of the body is carried toward is read ahead of its hooves, and at speed that point crosses the step's
+edge within a tick, so the target jumped a whole block at once and the stiff running legs kicked the body up. At a
+gallop the read-ahead was also capped short (1.5 blocks), so when the box stepped up the forehand was still low and the
+"legs only give so far" stop shoved it up.
+
+Translation (`RideController.steps`, `STEP_RAMP_PER_SPEED`, `STEP_LEAD_MAX`): at a run a step up comes in over a few
+ticks (5 ticks per block/tick of speed: ~2 at a canter, ~3 at a gallop, next to nothing at a walk), read that much
+further ahead (up to 4.5 blocks), so the climb picks up through the stride. Going down is unchanged (each end still
+falls as soon as its hooves step off). Gallop: sharpest change in the climb 0.019, tilt 0.7 degrees/tick, most tilt 10
+degrees; canter: 0.040, 1.9, 14.
+

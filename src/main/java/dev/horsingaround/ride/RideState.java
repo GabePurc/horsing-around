@@ -230,6 +230,9 @@ public final class RideState {
 	float hindVelocity;
 	double foreGround;
 	double hindGround;
+	/** The ground each end is carried toward: a step up eased in over a few ticks at a run (NaN until first set). */
+	double foreRise = Double.NaN;
+	double hindRise = Double.NaN;
 	/** How fast the drawn body rose last tick, blocks/tick. */
 	public float drawnRise;
 	/** How far the front of the drawn body could come down before the chest meets the ground ahead of it (blocks). */

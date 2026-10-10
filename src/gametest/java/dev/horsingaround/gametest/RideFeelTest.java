@@ -3094,6 +3094,12 @@ public final class RideFeelTest implements FabricClientGameTest {
 	 * the drawn horse's height, its tilt, its fit to its legs and each leg's draw up, flagging every tick any of them changes
 	 * how fast it moves more than a little (a snap, a hitch), and every tick a hoof is in the ground.
 	 */
+	/** Spurs pressed after starting to walk, in {@link #watch} (0: a walk). */
+	private int watchSpurs;
+	/** Running up a single step, the most the drawn climb (blocks/tick) and tilt (deg/tick) may change from one tick to the next. */
+	private static final double RUN_STEP_KICK = 0.06;
+	private static final double RUN_STEP_FLICK = 3.0;
+
 	private void slowSteps(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
 		ctx.runOnClient(mc -> LegProbe.arm(true));
 		// (At a real frame rate: a snap between ticks only shows frame by frame.)
@@ -3109,6 +3115,15 @@ public final class RideFeelTest implements FabricClientGameTest {
 				String.format(Locale.ROOT, "fill %d -60 -30 %d -60 -6 minecraft:stone", 3200, 3200), backdrop(3200));
 			watch(ctx, input, world, "walking down a single step, on, then stopping", 3220, -59, -11.0, -16.0,
 				String.format(Locale.ROOT, "fill %d -60 -6 %d -60 12 minecraft:stone", 3220, 3220), backdrop(3220));
+			// Running up a single step: the body should come up onto it in a stride, not pop forward and up (side shots
+			// "runstep_<gait>_<tick>" round the step).
+			this.watchSpurs = 2;
+			watch(ctx, input, world, "cantering up a single step", 3300, -60, -24.0, -30.0,
+				String.format(Locale.ROOT, "fill %d -60 -40 %d -60 -14 minecraft:stone", 3297, 3303), backdrop(3300));
+			this.watchSpurs = 3;
+			watch(ctx, input, world, "galloping up a single step", 3320, -60, -30.0, -36.0,
+				String.format(Locale.ROOT, "fill %d -60 -46 %d -60 -20 minecraft:stone", 3317, 3323), backdrop(3320));
+			this.watchSpurs = 0;
 		} finally {
 			ctx.runOnClient(mc -> {
 				LegProbe.arm(false);
@@ -3132,7 +3147,13 @@ public final class RideFeelTest implements FabricClientGameTest {
 		final boolean walking = !Double.isNaN(release);
 		if (walking) {
 			input.holdKey(o -> o.keyUp);
+			for (int sp = 0; sp < this.watchSpurs; sp++) {
+				ctx.waitTicks(2);
+				input.pressKey(o -> o.keySprint);
+			}
 		}
+		final double stepAt = this.watchSpurs == 2 ? -14.0 : this.watchSpurs == 3 ? -20.0 : Double.NaN;
+		final List<double[]> stepTicks = new ArrayList<>();
 		final StringBuilder flags = new StringBuilder();
 		final StringBuilder rows = new StringBuilder();
 		final List<double[]> history = new ArrayList<>();
@@ -3159,6 +3180,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 			if (!history.isEmpty() && now[0] == history.get(history.size() - 1)[0]) {
 				continue;
+			}
+			if (!Double.isNaN(stepAt) && now[1] < stepAt + 3.5 && now[1] > stepAt - 2.5) {
+				// Through the step: how sharply the drawn body's climb and tilt change from tick to tick.
+				stepTicks.add(now);
 			}
 			history.add(now);
 			rows.append(String.format(Locale.ROOT, "%n    t%d z%.2f y%.3f drawn%.4f tilt%.2f fit%.3f draws %.3f %.3f %.3f %.3f gaps %+.3f %+.3f %+.3f %+.3f speed%.3f",
@@ -3204,7 +3229,30 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 		}
 		input.releaseKey(o -> o.keyUp);
-		ctx.runOnClient(mc -> FilmCamera.stop());
+		if (!stepTicks.isEmpty()) {
+			// Running up the step: the body comes up onto it in a stride, the climb picking up and easing off gradually, the
+			// nose rising and settling without a flick (both as drawn, tick to tick).
+			double kick = 0.0;
+			double flick = 0.0;
+			double tiltMost = 0.0;
+			double climbMost = 0.0;
+			for (int i = 2; i < stepTicks.size(); i++) {
+				final double[] a = stepTicks.get(i - 2);
+				final double[] b = stepTicks.get(i - 1);
+				final double[] c = stepTicks.get(i);
+				if (a[0] + 2 != c[0]) {
+					continue;
+				}
+				kick = Math.max(kick, Math.abs(c[3] - 2.0 * b[3] + a[3]));
+				flick = Math.max(flick, Math.abs(c[4] - 2.0 * b[4] + a[4]));
+				climbMost = Math.max(climbMost, c[3] - b[3]);
+				tiltMost = Math.max(tiltMost, Math.abs(c[4]));
+			}
+			log("  up the step: sharpest change in the climb %.3f blocks/tick a tick, fastest climb %.3f blocks/tick, sharpest change in tilt %.2f deg/tick a tick, most tilt %.1f deg",
+				kick, climbMost, flick, tiltMost);
+			check("comes up the step smoothly (sharpest change in the climb, blocks/tick a tick)", kick, 0.0, RUN_STEP_KICK);
+			check("no flick of the nose (sharpest change in tilt, deg/tick a tick)", flick, 0.0, RUN_STEP_FLICK);
+		}
 		log("  frame by frame, the body or a sole jumping (%d frames of %d):%s", ctx.computeOnClient(mc -> LegProbe.spikeCount),
 			ctx.computeOnClient(mc -> LegProbe.frames), ctx.computeOnClient(mc -> LegProbe.spikes.toString()));
 		log("  sudden changes (in how fast the body rises, tilts or fits, or a leg draws up), %d ticks:%s", flagged, flags);
