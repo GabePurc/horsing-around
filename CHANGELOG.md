@@ -2,6 +2,14 @@
 
 Each version's notes are written to paste straight into the Modrinth version page.
 
+## 0.2.1
+
+### Fixed
+- Galloping through a forest, your horse no longer looks like it hops up on top of bushes. It pushes through them with its hooves on the ground.
+- Landing a drop on a steep mountainside no longer snaps your horse's body into its tilt. It leans into the slope smoothly.
+- Riding up against a wall or a tall ledge, your horse no longer rears its front up the face of it.
+- Hooves no longer dip into the ground when your horse lands a jump or climbs out of the water onto a bank.
+
 ## 0.2.0
 
 ### Fixed
