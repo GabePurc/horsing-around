@@ -742,6 +742,8 @@ public final class RideController {
 			carry(s, y, 0.0F);
 			s.foreGround = y;
 			s.hindGround = y;
+			s.foreRise = y;
+			s.hindRise = y;
 		}
 		final boolean wasFlying = s.flying;
 		if (horse.isPassenger()) {
@@ -917,11 +919,16 @@ public final class RideController {
 		final float tiltSin = Mth.sin(s.pitch * Mth.DEG_TO_RAD);
 		final double chestAhead = CHEST_AHEAD * Mth.cos(s.pitch * Mth.DEG_TO_RAD);
 		final double chestAbove = BELLY_HEIGHT + (CHEST_AHEAD - FORE_HOOVES) * tiltSin;
+		// At a run a step up comes in over a few ticks (STEP_RAMP_PER_SPEED ticks per block/tick of speed) rather than all at
+		// once: read straight off the ground, the end of the body reaching a step saw it a whole block higher from one tick to
+		// the next, and its stiff legs kicked it up (and the nose flicked up) instead of the climb picking up through the stride.
+		final float ramp = groundSpeed * STEP_RAMP_PER_SPEED;
 		if (probe) {
 			// Going up, read the ground as far ahead as the spring lags (a target moving steadily is followed (2 / w + 1) ticks
-			// behind), so each end of the body rises as its own hooves get to a step, and keeps up on a slope. Going down,
-			// each end stays up on the ground under its hooves until they step off (then it falls).
-			final double lead = Math.min(groundSpeed * (2.0 / w + 1.0), STEP_LEAD_MAX);
+			// behind, and the step's coming in a few more at a run), so each end of the body rises as its own hooves get to a
+			// step, and keeps up on a slope. Going down, each end stays up on the ground under its hooves until they step off
+			// (then it falls).
+			final double lead = Math.min(groundSpeed * (2.0 / w + 1.0 + ramp), STEP_LEAD_MAX);
 			s.foreGround = Math.max(Math.max(support(horse, fx, fz, FORE_HOOVES + lead, y), support(horse, fx, fz, FORE_HOOVES, y)),
 				support(horse, fx, fz, chestAhead + lead, y) - chestAbove);
 			s.hindGround = Math.max(support(horse, fx, fz, lead - HIND_HOOVES, y), support(horse, fx, fz, -HIND_HOOVES, y));
@@ -933,11 +940,14 @@ public final class RideController {
 		// Each end on its legs, a critically damped spring, solved implicitly (steady at any stiffness, no overshoot): the
 		// legs push it up as hard as they need to, but nothing pulls it down faster than it falls (where the ground drops
 		// away under the hooves, it falls under gravity until they meet it again).
+		final double ease = ramp > 0.05F ? 1.0 - Math.exp(-1.0 / ramp) : 1.0;
+		s.foreRise = Double.isNaN(s.foreRise) || s.foreGround <= s.foreRise ? s.foreGround : s.foreRise + (s.foreGround - s.foreRise) * ease;
+		s.hindRise = Double.isNaN(s.hindRise) || s.hindGround <= s.hindRise ? s.hindGround : s.hindRise + (s.hindGround - s.hindRise) * ease;
 		final float damping = 1.0F + 2.0F * w + w * w;
 		final float gravity = (float) Math.max(horse.getGravity(), 0.0);
-		s.foreVelocity = Math.max((float) ((s.foreVelocity + w * w * (s.foreGround - s.fore)) / damping), s.foreVelocity - gravity);
+		s.foreVelocity = Math.max((float) ((s.foreVelocity + w * w * (s.foreRise - s.fore)) / damping), s.foreVelocity - gravity);
 		s.fore += s.foreVelocity;
-		s.hindVelocity = Math.max((float) ((s.hindVelocity + w * w * (s.hindGround - s.hind)) / damping), s.hindVelocity - gravity);
+		s.hindVelocity = Math.max((float) ((s.hindVelocity + w * w * (s.hindRise - s.hind)) / damping), s.hindVelocity - gravity);
 		s.hind += s.hindVelocity;
 		// The legs give no further than LEG_GIVE below the ground actually under each pair (read again only when the horse
 		// moves and the ground isn't level).

@@ -34,7 +34,7 @@ Verify every gameplay change with `./gradlew runClientGameTest`, which runs four
 `-Ptests=ride,terrain,mounts,server`, one terrain scenario with `-Pscenario=<part of its name>`, some ride sections with
 `-Psections=core,cuts,stairs,picking,steps`; `legs` takes close shots of the legs in a jump, `slopes` and `face` run just
 the slope-and-stairs lanes and the jump-at-a-wall lanes, `drawn` measures the legs exactly as drawn on slopes, stairs and
-steps and shoots them up close, `slowstep` watches standing, stopping and single steps frame by frame for snaps,
+steps and shoots them up close, `slowstep` watches standing, stopping and single steps (walking, and running up one) frame by frame for snaps,
 `exits` climbs out of water onto banks of a few heights, wading and swimming, `strafe` stops after riding with A or D alone,
 `hands` poses the rider's arms with items, swings and a bow, with close shots, `climbs` sweeps 2-block climbs by angle (`-Pscenario=<part of a lane name>` for some),
 speed, start and what is round them, plus noisy mountain staircases and diagonal terraces, `ways` rides just the

@@ -418,7 +418,9 @@ public final class RideTuning {
 	static final float STEP_FREQUENCY_PER_SPEED = 0.5F;
 	static final float STEP_FREQUENCY_MAX = 0.6F;
 	static final double STEP_FOOTPRINT = 0.5;
-	static final double STEP_LEAD_MAX = 1.5;
+	static final double STEP_LEAD_MAX = 4.5;
+	/** At a run a step up comes in over this many ticks per block/tick of speed (a smooth pick-up of the climb), read that much further ahead. */
+	static final float STEP_RAMP_PER_SPEED = 5.0F;
 	static final double CHEST_AHEAD = 0.85;
 	static final double BELLY_HEIGHT = 0.62;
 	/**
