@@ -47,7 +47,10 @@ public final class Trample {
 			final LivingEntity victim = (LivingEntity) entity;
 			final DamageSource source = level.damageSources().mobAttack(horse);
 			if (victim.hurtServer(level, source, damage)) {
+				//? if >=26.2 {
 				victim.knockback(TRAMPLE_KNOCKBACK * strength, horse.getX() - victim.getX(), horse.getZ() - victim.getZ(), source, damage);
+				//?} else
+				/*victim.knockback(TRAMPLE_KNOCKBACK * strength, horse.getX() - victim.getX(), horse.getZ() - victim.getZ());*/
 			}
 		}
 	}

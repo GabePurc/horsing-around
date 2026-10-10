@@ -34,7 +34,10 @@ public final class HatLayer extends RenderLayer<AvatarRenderState, PlayerModel> 
 		}
 		collector.submitModel(
 			this.model, state, poseStack, RenderTypes.entityCutout(TEXTURE), lightCoords, LivingEntityRenderer.getOverlayCoords(state, 0.0F),
+			//? if >=26.3 {
 			0xFF000000 | color, null, state.outlineColor
+			//?} else
+			/*0xFF000000 | color, null, state.outlineColor, null*/
 		);
 	}
 }

@@ -250,9 +250,9 @@ public abstract class LivingEntityRendererMixin {
 		final float headZ = HEAD.z;
 		ROOM_ROTATION.rotationAxis(roomBank, fx, 0.0F, fz).rotateAxis(riderPitch, -fz, 0.0F, fx);
 		ROOM_ROTATION.transform(HEAD.set(0.0F, RIDER_HEAD_ABOVE_SEAT, 0.0F)).add(ROOM_SEAT);
-		roomHeadGap = Mth.length(HEAD.x - headX, HEAD.y - headY, HEAD.z - headZ);
+		roomHeadGap = Mth.sqrt(Mth.square(HEAD.x - headX) + Mth.square(HEAD.y - headY) + Mth.square(HEAD.z - headZ));
 		ROOM_ROTATION.transform(HEAD.set(0.0F, RIDER_CHEST_ABOVE_SEAT, 0.0F)).add(ROOM_SEAT);
-		final float chest = Mth.length(HEAD.x - headX, HEAD.y - headY, HEAD.z - headZ);
+		final float chest = Mth.sqrt(Mth.square(HEAD.x - headX) + Mth.square(HEAD.y - headY) + Mth.square(HEAD.z - headZ));
 		return Math.min(roomHeadGap - HEAD_ROOM, chest - CHEST_ROOM);
 	}
 

@@ -48,6 +48,9 @@ public final class HorsingAround implements ModInitializer {
 			HatRelay.clear();
 		});
 		CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> Mounts.invalidate());
+		if (MixinAudit.ENABLED) {
+			ServerLifecycleEvents.SERVER_STARTED.register(MixinAudit::server);
+		}
 	}
 
 	public static String version() {

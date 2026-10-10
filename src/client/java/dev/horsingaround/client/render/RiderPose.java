@@ -8,6 +8,7 @@ import net.minecraft.client.renderer.entity.state.HumanoidRenderState;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.util.Ease;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemUseAnimation;
@@ -68,10 +69,9 @@ public final class RiderPose {
 
 		final float twist = rider.horsingaround$twist();
 		final float handBob = rider.horsingaround$handBob();
-		final boolean swinging = state.swingAnimation > 0.0F && state.currentSwing != null;
-		final HumanoidArm swingArm = swinging ? state.currentSwing.hand().asArm(state.mainArm) : null;
-		final SwingAnimationType swingType = swinging ? state.currentSwing.animation().type() : SwingAnimationType.NONE;
-		final HumanoidArm usingArm = state.isUsingItem ? state.useItemHand.asArm(state.mainArm) : null;
+		final HumanoidArm swingArm = swingArm(state);
+		final SwingAnimationType swingType = swingArm != null ? swingType(state) : SwingAnimationType.NONE;
+		final HumanoidArm usingArm = state.isUsingItem ? (state.useItemHand == InteractionHand.MAIN_HAND ? state.mainArm : state.mainArm.getOpposite()) : null;
 
 		// A bow drawn, or just loosed: both hands on it.
 		HumanoidArm bowArm = state.rightArmPose == HumanoidModel.ArmPose.BOW_AND_ARROW ? HumanoidArm.RIGHT
@@ -143,7 +143,7 @@ public final class RiderPose {
 		if (whack) {
 			// Vanilla's swing, played from where the arm rests, so it starts and ends there.
 			final ModelPart part = side == HumanoidArm.LEFT ? model.leftArm : model.rightArm;
-			final float swing = state.swingAnimation;
+			final float swing = swing(state);
 			final float lift = Mth.sin(Ease.outQuart(swing) * Mth.PI);
 			final float reach = Mth.sin(swing * Mth.PI) * -(model.head.xRot - 0.7F) * 0.75F;
 			part.xRot -= lift * 1.2F + reach;
@@ -157,7 +157,7 @@ public final class RiderPose {
 	 * holds a tool or weapon out ready (in the main hand); false for any other pose.
 	 */
 	private static boolean rest(final HumanoidModel<?> model, final HumanoidRenderState state, final HumanoidArm side, final float twist, final float handBob) {
-		final HumanoidModel.ArmPose pose = state.getArmPose(side);
+		final HumanoidModel.ArmPose pose = side == HumanoidArm.LEFT ? state.leftArmPose : state.rightArmPose;
 		if (pose != HumanoidModel.ArmPose.EMPTY && pose != HumanoidModel.ArmPose.ITEM && pose != HumanoidModel.ArmPose.BOW_AND_ARROW) {
 			return false;
 		}
@@ -182,7 +182,7 @@ public final class RiderPose {
 
 	/** The torso's turn in a whack, as vanilla swings it (mirrored for the left arm). */
 	private static float swingYaw(final HumanoidRenderState state, final @Nullable HumanoidArm swingArm) {
-		final float yaw = Mth.sin(Mth.sqrt(state.swingAnimation) * Mth.TWO_PI) * 0.2F;
+		final float yaw = Mth.sin(Mth.sqrt(swing(state)) * Mth.TWO_PI) * 0.2F;
 		return swingArm == HumanoidArm.LEFT ? -yaw : yaw;
 	}
 
@@ -259,12 +259,12 @@ public final class RiderPose {
 		along(HAND, bowX, bowY, ARM_REACH - BOW_NOCK).add(bow.x, bow.y, bow.z);
 		ANCHOR.set(side * BOW_ANCHOR_X, BOW_ANCHOR_Y, BOW_ANCHOR_Z).rotateX(aimPitch).rotateY(aimYaw).add(model.head.x, model.head.y, model.head.z);
 		// The string hand from the nock toward the anchor as it draws, flying back past it when loosed.
-		final float draw = Mth.length(ANCHOR.x - HAND.x, ANCHOR.y - HAND.y, ANCHOR.z - HAND.z);
+		final float draw = Mth.sqrt(Mth.square(ANCHOR.x - HAND.x) + Mth.square(ANCHOR.y - HAND.y) + Mth.square(ANCHOR.z - HAND.z));
 		final float back = draw < 1.0E-3F ? 0.0F : BOW_FLICK * flick * pull / draw;
 		final float tx = Mth.lerp(pull, HAND.x, ANCHOR.x) + (ANCHOR.x - HAND.x) * back - string.x;
 		final float ty = Mth.lerp(pull, HAND.y, ANCHOR.y) + (ANCHOR.y - HAND.y) * back - string.y;
 		final float tz = Mth.lerp(pull, HAND.z, ANCHOR.z) + (ANCHOR.z - HAND.z) * back - string.z;
-		final float length = Mth.length(tx, ty, tz);
+		final float length = Mth.sqrt(tx * tx + ty * ty + tz * tz);
 		final float stringX = -(float) Math.acos(Mth.clamp(ty / Math.max(length, 1.0E-3F), -1.0F, 1.0F));
 		final float stringY = (float) Mth.atan2(-tx, -tz);
 		bow.xRot = Mth.lerp(up, restBowX, bowX);
@@ -301,5 +301,30 @@ public final class RiderPose {
 	private static float smoothstep(final float t) {
 		final float x = Mth.clamp(t, 0.0F, 1.0F);
 		return x * x * (3.0F - 2.0F * x);
+	}
+
+	// The arm swing (a whack or a stab), as each Minecraft version keeps it in the render state.
+
+	/** How far through its swing the swinging arm is (0 when not swinging). */
+	private static float swing(final HumanoidRenderState state) {
+		//? if >=26.3 {
+		return state.swingAnimation;
+		//?} else
+		/*return state.attackTime;*/
+	}
+
+	/** The arm swinging, or null. */
+	private static @Nullable HumanoidArm swingArm(final HumanoidRenderState state) {
+		//? if >=26.3 {
+		return state.swingAnimation > 0.0F && state.currentSwing != null ? state.currentSwing.hand().asArm(state.mainArm) : null;
+		//?} else
+		/*return state.attackTime > 0.0F ? state.attackArm : null;*/
+	}
+
+	private static SwingAnimationType swingType(final HumanoidRenderState state) {
+		//? if >=26.3 {
+		return state.currentSwing.animation().type();
+		//?} else
+		/*return state.swingAnimationType;*/
 	}
 }

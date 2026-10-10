@@ -1,0 +1,10 @@
+plugins {
+	id 'dev.kikugie.stonecutter'
+}
+
+// The version src/ is currently written for (what the IDE sees). Switch with the "Set active project to <version>"
+// tasks; commit with it back on 26.3.
+stonecutter.active '26.3'
+
+stonecutter.parameters {
+}
