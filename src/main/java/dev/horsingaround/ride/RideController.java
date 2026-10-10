@@ -783,6 +783,10 @@ public final class RideController {
 				s.flying = true;
 			}
 			if (!s.flying) {
+				if (wasFlying) {
+					// (Off the ground the line was the drawn tilt.)
+					s.groundTilt = s.pitch;
+				}
 				steps(horse, s, bodyYaw, (float) Math.sqrt(horizontalSq), moved || !s.wasOnGround, wasFlying ? (float) Math.max(-dy, 0.0) : -1.0F);
 			} else {
 				// In the air the body tilts with its flight: nose up taking off, level over the top, nose down to land.
@@ -916,8 +920,8 @@ public final class RideController {
 		final double fx = -Mth.sin(yaw);
 		final double fz = Mth.cos(yaw);
 		// The underside of the chest, at the body's tilt: how far ahead of the middle it is, and how far above the front hooves.
-		final float tiltSin = Mth.sin(s.pitch * Mth.DEG_TO_RAD);
-		final double chestAhead = CHEST_AHEAD * Mth.cos(s.pitch * Mth.DEG_TO_RAD);
+		final float tiltSin = Mth.sin(s.groundTilt * Mth.DEG_TO_RAD);
+		final double chestAhead = CHEST_AHEAD * Mth.cos(s.groundTilt * Mth.DEG_TO_RAD);
 		final double chestAbove = BELLY_HEIGHT + (CHEST_AHEAD - FORE_HOOVES) * tiltSin;
 		// At a run a step up comes in over a few ticks (STEP_RAMP_PER_SPEED ticks per block/tick of speed) rather than all at
 		// once: read straight off the ground, the end of the body reaching a step saw it a whole block higher from one tick to
@@ -951,9 +955,9 @@ public final class RideController {
 		s.hind += s.hindVelocity;
 		// The legs give no further than LEG_GIVE below the ground actually under each pair (read again only when the horse
 		// moves and the ground isn't level).
-		final float cos = Mth.cos(s.pitch * Mth.DEG_TO_RAD);
+		final float cos = Mth.cos(s.groundTilt * Mth.DEG_TO_RAD);
 		if (probe) {
-			final boolean level = Math.abs(s.foreGround - y) < 1.0E-3 && Math.abs(s.hindGround - y) < 1.0E-3 && Math.abs(s.pitch) < 0.5F;
+			final boolean level = Math.abs(s.foreGround - y) < 1.0E-3 && Math.abs(s.hindGround - y) < 1.0E-3 && Math.abs(s.groundTilt) < 0.5F;
 			// (Only ground a hoof could stand on: a wall the horse is up against isn't.)
 			s.foreFoot = level ? y : footing(horse, fx, fz, FORE_HOOVES * cos, y + RIDDEN_STEP_HEIGHT + 0.01);
 			s.hindFoot = level ? y : footing(horse, fx, fz, -HIND_HOOVES * cos, y + RIDDEN_STEP_HEIGHT + 0.01);
@@ -975,13 +979,18 @@ public final class RideController {
 		// Tilt along the line between the two ends; crouching for a ledge jump (haunches down, nose up) or sitting back
 		// into a cut adds to it.
 		final float tilt = Mth.clamp((float) Math.toDegrees(Math.atan2(s.fore - s.hind, HOOF_SPAN)) * SLOPE_SHARE, -SLOPE_PITCH_MAX, SLOPE_PITCH_MAX);
-		s.pitch = tilt + s.ledgeCrouch * LEDGE_CROUCH_PITCH + s.cutSquat * CUT_SQUAT_PITCH;
+		final float line = tilt + s.ledgeCrouch * LEDGE_CROUCH_PITCH + s.cutSquat * CUT_SQUAT_PITCH;
+		s.groundTilt = line;
+		// Drawn, it turns no faster than PITCH_RATE_MAX a tick, with the jump's tilt as it eases out this tick (see
+		// tickVisual); the body's height still follows the line itself.
+		final float jumpChange = horse.onGround() || horse.isInWater() ? -s.jumpPitch * JUMP_PITCH_SMOOTHING : 0.0F;
+		s.pitch += Mth.clamp(line - s.pitch, Math.min(-PITCH_RATE_MAX - jumpChange, 0.0F), Math.max(PITCH_RATE_MAX - jumpChange, 0.0F));
 
 		// The body sits on the lower end (the pair of legs at the other draws up to fit), but never so low that they would
 		// have to draw up more than LEG_SIT (past the steepest tilt, the lower pair reaches down instead): the joints are
 		// FORE_HOOVES / HIND_HOOVES from the pivot, and an upright leg's top is drawn up into the body by its swing.
-		final float sin = Mth.sin(s.pitch * Mth.DEG_TO_RAD);
-		final float tuck = LEG_HALF_DEPTH / 16.0F * Math.abs(Mth.sin(s.pitch * LEG_UPRIGHT * Mth.DEG_TO_RAD));
+		final float sin = Mth.sin(line * Mth.DEG_TO_RAD);
+		final float tuck = LEG_HALF_DEPTH / 16.0F * Math.abs(Mth.sin(line * LEG_UPRIGHT * Mth.DEG_TO_RAD));
 		final double foreBody = s.fore - y - FORE_HOOVES * sin;
 		final double hindBody = s.hind - y + HIND_HOOVES * sin;
 		final double offset = Math.max(Math.min(foreBody, hindBody), Math.max(foreBody, hindBody) - LEG_SIT) - tuck - s.ledgeCrouch * LEDGE_CROUCH
@@ -1046,7 +1055,21 @@ public final class RideController {
 		// (just up a ledge, the ground at its foot isn't where the hind hooves stand).
 		final double drop = reach < 0.0 ? STEP_REACH : STEP_REACH + reach + 0.5;
 		final double ground = surface(horse, horse.getX() + fx * reach, horse.getZ() + fz * reach, y + climb + RIDDEN_STEP_HEIGHT + 0.01, y - drop);
-		return Double.isNaN(ground) || ground < y - drop ? y : ground;
+		if (Double.isNaN(ground) || ground < y - drop) {
+			return y;
+		}
+		// Higher than a step: a slope only if it steps down a block at a time back to the hooves (ground a block nearer no
+		// more than a step below, and so on); otherwise it is the top of a face (a ledge, a wall) and reads as level, so the
+		// forehand doesn't rear up against it.
+		double top = ground;
+		for (double near = reach - 1.0; top > y + RIDDEN_STEP_HEIGHT + 0.01; near -= 1.0) {
+			top = near < -1.0 ? Double.NaN
+				: surface(horse, horse.getX() + fx * near, horse.getZ() + fz * near, top + 0.01, top - RIDDEN_STEP_HEIGHT - 0.01);
+			if (Double.isNaN(top) || top == Double.NEGATIVE_INFINITY) {
+				return y;
+			}
+		}
+		return ground;
 	}
 
 	/**

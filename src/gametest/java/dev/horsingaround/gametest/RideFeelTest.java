@@ -126,6 +126,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 				// Only on request (it is part of picking): jumping fences and walls.
 				hurdles(ctx, input, world);
 			}
+			if (sections.contains("straight") && !sections.contains("picking")) {
+				// Only on request (it is part of picking): riding straight at a narrow 2-block ledge.
+				ledgeStraightAhead(ctx, input, world);
+			}
 			if (sections.contains("face") && !sections.contains("picking")) {
 				// Only on request (it is part of picking): pressing jump right up against a wall or a ledge.
 				jumpAtTheFace(ctx, input, world);
@@ -2613,11 +2617,19 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 			double maxSide = 0.0;
 			float maxOffset = 0.0F;
+			final StringBuilder path = new StringBuilder();
 			for (int i = 0; i < 300 && horseZ(ctx) > -26.0; i++) {
 				ctx.waitTick();
-				maxSide = Math.max(maxSide, Math.abs(horseX(ctx) - (x + 0.5)));
+				final double side = horseX(ctx) - (x + 0.5);
+				if (Math.abs(side) > 0.01 || horseZ(ctx) < -14.0) {
+					final Sample s = sample(ctx);
+					path.append(String.format(Locale.ROOT, "z%.2f x%+.2f y%.2f v%.2f yaw%.1f l%d | ", horseZ(ctx), side, s.y, s.speed, s.horseYaw,
+						ride(ctx, r -> r.ledgeTicks)));
+				}
+				maxSide = Math.max(maxSide, Math.abs(side));
 				maxOffset = Math.max(maxOffset, ride(ctx, s -> Math.abs(s.avoidOffset)));
 			}
+			log("  path: %s", path);
 			check("doesn't go round it (deg of detour)", maxOffset, 0.0, 1.0);
 			check("stays on the rider's line (blocks off it)", maxSide, 0.0, 0.3);
 			check("jumps up it", ride(ctx, s -> s.ledgeClimbs) - climbs, 1, 1);
@@ -3792,10 +3804,12 @@ public final class RideFeelTest implements FabricClientGameTest {
 		// isn't: a known limit, see research.md. Going down, a leg can't reach down and each end of the body falls under
 		// gravity once its hooves step off, so a hoof hangs a little longer.)
 		final boolean fullBlocks = !stairs;
-		check("hooves on the ground: nearly always (blocks off it, 90th percentile)", most, 0.0, fullBlocks ? 0.65 : up ? 0.25 : 0.3);
+		// (Trotting down full blocks the box lands on each edge with the front hooves over ground 2 blocks lower: a known
+		// limit the user kept on 2026-10-10, see research.md.)
+		check("hooves on the ground: nearly always (blocks off it, 90th percentile)", most, 0.0, fullBlocks ? !up && trot ? 1.2 : 0.65 : up ? 0.25 : 0.3);
 		check("a hoof is hardly ever in the ground (share of frames one is more than 0.1 in)", frames == 0 ? 1.0 : (double) sunkFrames / frames, 0.0, 0.1);
 		check("a leg is hardly ever in the ground (share of frames one is more than 0.1 in)", frames == 0 ? 1.0 : (double) legFrames / frames, 0.0, 0.1);
-		check("a hoof lifted to step comes down again (longest more than 0.2 above the ground, ticks)", longestUp, 0, fullBlocks ? 6 : up ? 3 : 4);
+		check("a hoof lifted to step comes down again (longest more than 0.2 above the ground, ticks)", longestUp, 0, fullBlocks ? !up && trot ? 8 : 6 : up ? 3 : 4);
 		check("never far above it, reaching down for the next step at most (most a hoof floats, blocks)", worstFloat, 0.0, fullBlocks ? (up ? 1.0 : 1.5) : 0.8);
 		check("hooves come up onto the higher ground (most, blocks)", maxFold, 0.05, RideTuning.LEG_RISE_MAX + 0.01);
 		check("legs draw up onto higher ground on the way (frames)", ctx.computeOnClient(mc -> dev.horsingaround.client.render.Legs.drawnFrames) - drawnBefore > 0);

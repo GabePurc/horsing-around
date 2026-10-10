@@ -307,7 +307,7 @@
   `-Psections=slowstep`: gallop sharpest change in the climb 0.152 -> 0.019 blocks/tick a tick, nose flick 8.9 -> 0.7
   degrees/tick a tick, most tilt 21 -> 10 degrees; canter 0.066 -> 0.040, 4.8 -> 1.9, 15 -> 14
 
-## Leaves underfoot (play-test report, 2026-10-10)
+## Leaves underfoot, and no snaps in the tilt (play-test report, 2026-10-10)
 
 - [x] Riding through a forest the horse no longer looks like it rides up on top of bushes: the ground the body, steps
   and every hoof are drawn on skipped nothing, so a 1-2 block bush the horse was pushing through read as a step and the
@@ -317,6 +317,21 @@
   new terrain check (never standing on leaves, client or server: 0 ticks in every scenario); terrain tilt smoothness
   now passes in mixed forest 1 (11.3 -> 6.9 degrees), the dense dark-oak forest (10.6 -> 8.9) and the taiga (14.2 ->
   7.3)
+- [x] No snaps in the body's tilt: drawn, it turns at most 9 degrees a tick on its legs, its jump tilt easing out
+  included (touching down on a mountainside the forehand still falling and the flight's tilt letting go snapped it up
+  to 14 degrees a tick); the body's height still follows the ground line, so steps don't pop. The terrain test now
+  measures the tilt as drawn (ground plus jump): every scenario passes (mountains 13.6, 12.9 and 14.5 -> 9.0, 9.0 and
+  8.6; the log stub hidden in a bush 12.4 -> 9.0)
+- [x] No rearing against a face: reading the ground ahead for a slope, ground higher than a step counts only if it steps
+  down a block at a time back to the hooves, else it is a wall and reads as level (riding into a 3-block face the
+  forehand reared 24 degrees up it)
+- [x] Hooves off the jump's shape: landing, a hoof the jump pose still tilts is lifted by its lower edge, not its middle
+- [x] Trotting down a slope of full blocks: kept as a known limit (user decision; see research.md), its test target
+  set to what it does on main too (hooves off the ground, 90th percentile, 0.73-1.11 over runs: at most 1.2; a hoof hangs up
+  to 7 ticks: at most 8)
+- [x] Hooves out of the ground: a planted hoof is kept out by the lower edge of its sole, not its middle (rocking in
+  the stride its toe or heel dipped a pixel in): most a hoof is in the ground on a bank 0.08 -> 0.001, landing a jump
+  0.08 -> 0.003
 
 ## Tooling
 

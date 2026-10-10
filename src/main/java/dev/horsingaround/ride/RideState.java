@@ -199,6 +199,8 @@ public final class RideState {
 	float lastBodyYaw;
 	float pitch;
 	float pitchO;
+	/** The tilt of the line between the two ends on its legs, degrees (the drawn tilt follows it, no faster than PITCH_RATE_MAX). */
+	float groundTilt;
 	/** Tilt with the flight while airborne (nose up taking off, down landing), degrees, on top of the terrain pitch. */
 	float jumpPitch;
 	float jumpPitchO;

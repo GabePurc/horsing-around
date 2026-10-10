@@ -241,8 +241,8 @@ public final class TerrainRideTest implements FabricClientGameTest {
 					final BlockPos front = BlockPos.containing(horse.getX() + fx * (horse.getBbWidth() * 0.5 + 0.3), horse.getY() + dy + 0.1, horse.getZ() + fz * (horse.getBbWidth() * 0.5 + 0.3));
 					ahead.append(mc.level.getBlockState(front).getBlock().getDescriptionId().replace("block.minecraft.", "")).append(dy == 0 ? "/" : "");
 				}
-				return String.format(Locale.ROOT, "pos %.2f %.2f %.2f drawn %+.2f%s tilt %.1f %s v(%.3f %.3f %.3f) ground %s speed %.2f side %.2f yaw %.0f ledge %d%s guard %d/%d danger %.1f wall %.1f detour %.0f in [%s] ahead %s",
-					horse.getX(), horse.getY(), horse.getZ(), r.heightOffset(1.0F), r.inAir ? " air" : "", r.pitch(1.0F), r.debugGround(), horse.getDeltaMovement().x, horse.getDeltaMovement().y, horse.getDeltaMovement().z,
+				return String.format(Locale.ROOT, "pos %.2f %.2f %.2f drawn %+.2f%s tilt %.1f%+.1f %s v(%.3f %.3f %.3f) ground %s speed %.2f side %.2f yaw %.0f ledge %d%s guard %d/%d danger %.1f wall %.1f detour %.0f in [%s] ahead %s",
+					horse.getX(), horse.getY(), horse.getZ(), r.heightOffset(1.0F), r.inAir ? " air" : "", r.pitch(1.0F), r.jumpPitch(1.0F), r.debugGround(), horse.getDeltaMovement().x, horse.getDeltaMovement().y, horse.getDeltaMovement().z,
 					horse.onGround(), r.speed, r.sidestep(), horse.getYRot(), r.ledgeTicks, r.ledgeAir ? "air" : "", r.guardStops, r.guardChecks, Math.min(r.debugDanger(), 99.0F), Math.min(r.debugWall(), 99.0F), r.avoidOffset, inside.toString().trim(), ahead);
 			});
 			final float health = ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse h ? h.getHealth() : 0.0F);
@@ -285,7 +285,8 @@ public final class TerrainRideTest implements FabricClientGameTest {
 					horse.getZ(),
 					RideController.lastTickNanos,
 					horse.isInWater() ? 1 : 0,
-					s.pitch(1.0F),
+					// (The body as drawn: its tilt on the ground plus its tilt in a jump or a fall, which hand over to each other.)
+					s.pitch(1.0F) + s.jumpPitch(1.0F),
 					horse.tickCount,
 					horse.getY() + s.heightOffset(1.0F),
 					dev.horsingaround.client.RideCamera.eyeY(1.0F),
