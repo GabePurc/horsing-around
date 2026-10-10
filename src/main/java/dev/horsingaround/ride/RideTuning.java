@@ -450,6 +450,11 @@ public final class RideTuning {
 	static final float HOOF_SPAN = FORE_HOOVES + HIND_HOOVES;
 	static final float SLOPE_SHARE = 0.95F;
 	static final float SLOPE_PITCH_MAX = 40.0F;
+	/**
+	 * The body as drawn tilts no faster than PITCH_RATE_MAX degrees a tick on its legs, its jump tilt easing out included
+	 * (touching down on a slope, the forehand still falling, and the flight's tilt letting go, together snapped it).
+	 */
+	static final float PITCH_RATE_MAX = 9.0F;
 	public static final float LEG_LENGTH = 0.625F;
 	public static final float LEG_UPRIGHT = 1.0F;
 	/**

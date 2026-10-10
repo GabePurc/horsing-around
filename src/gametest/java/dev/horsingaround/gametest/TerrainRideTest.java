@@ -25,6 +25,7 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
@@ -196,6 +197,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 		final java.util.ArrayDeque<String> recent = new java.util.ArrayDeque<>();
 		float previousHealth = ctx.computeOnClient(mc -> ((AbstractHorse) mc.player.getVehicle()).getHealth());
 		int traced = 0;
+		int onLeaves = 0;
 		double previousPitch = 0.0;
 		double previousTick = -1.0;
 		double maxTiltRate = 0.0;
@@ -239,8 +241,8 @@ public final class TerrainRideTest implements FabricClientGameTest {
 					final BlockPos front = BlockPos.containing(horse.getX() + fx * (horse.getBbWidth() * 0.5 + 0.3), horse.getY() + dy + 0.1, horse.getZ() + fz * (horse.getBbWidth() * 0.5 + 0.3));
 					ahead.append(mc.level.getBlockState(front).getBlock().getDescriptionId().replace("block.minecraft.", "")).append(dy == 0 ? "/" : "");
 				}
-				return String.format(Locale.ROOT, "pos %.2f %.2f %.2f drawn %+.2f%s tilt %.1f %s v(%.3f %.3f %.3f) ground %s speed %.2f side %.2f yaw %.0f ledge %d%s guard %d/%d danger %.1f wall %.1f detour %.0f in [%s] ahead %s",
-					horse.getX(), horse.getY(), horse.getZ(), r.heightOffset(1.0F), r.inAir ? " air" : "", r.pitch(1.0F), r.debugGround(), horse.getDeltaMovement().x, horse.getDeltaMovement().y, horse.getDeltaMovement().z,
+				return String.format(Locale.ROOT, "pos %.2f %.2f %.2f drawn %+.2f%s tilt %.1f%+.1f %s v(%.3f %.3f %.3f) ground %s speed %.2f side %.2f yaw %.0f ledge %d%s guard %d/%d danger %.1f wall %.1f detour %.0f in [%s] ahead %s",
+					horse.getX(), horse.getY(), horse.getZ(), r.heightOffset(1.0F), r.inAir ? " air" : "", r.pitch(1.0F), r.jumpPitch(1.0F), r.debugGround(), horse.getDeltaMovement().x, horse.getDeltaMovement().y, horse.getDeltaMovement().z,
 					horse.onGround(), r.speed, r.sidestep(), horse.getYRot(), r.ledgeTicks, r.ledgeAir ? "air" : "", r.guardStops, r.guardChecks, Math.min(r.debugDanger(), 99.0F), Math.min(r.debugWall(), 99.0F), r.avoidOffset, inside.toString().trim(), ahead);
 			});
 			final float health = ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse h ? h.getHealth() : 0.0F);
@@ -254,6 +256,18 @@ public final class TerrainRideTest implements FabricClientGameTest {
 				recent.forEach(line -> log("    %s", line));
 			}
 			previousHealth = health;
+			// Leaves never carry a ridden horse: it pushes through them (client and server both).
+			final String leafFooting = ctx.computeOnClient(mc -> {
+				final Entity horse = mc.player.getVehicle();
+				return horse != null && horse.onGround() && horse.mainSupportingBlockPos.filter(p -> mc.level.getBlockState(p).is(BlockTags.LEAVES)).isPresent() ? "client" : "";
+			}) + server.computeOnServer(s -> {
+				final Entity horse = s.getPlayerList().getPlayers().getFirst().getVehicle();
+				return horse != null && horse.onGround() && horse.mainSupportingBlockPos.filter(p -> s.overworld().getBlockState(p).is(BlockTags.LEAVES)).isPresent() ? " server" : "";
+			});
+			if (!leafFooting.isEmpty() && onLeaves++ < 3) {
+				log("  standing on leaves (%s) at tick %d, the last ticks:", leafFooting.trim(), ticks);
+				recent.forEach(line -> log("    %s", line));
+			}
 			final double[] now = ctx.computeOnClient(mc -> {
 				final Entity horse = mc.player.getVehicle();
 				if (!(horse instanceof AbstractHorse)) {
@@ -271,7 +285,8 @@ public final class TerrainRideTest implements FabricClientGameTest {
 					horse.getZ(),
 					RideController.lastTickNanos,
 					horse.isInWater() ? 1 : 0,
-					s.pitch(1.0F),
+					// (The body as drawn: its tilt on the ground plus its tilt in a jump or a fall, which hand over to each other.)
+					s.pitch(1.0F) + s.jumpPitch(1.0F),
 					horse.tickCount,
 					horse.getY() + s.heightOffset(1.0F),
 					dev.horsingaround.client.RideCamera.eyeY(1.0F),
@@ -391,6 +406,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 		check("gets there (share of the way covered)", 1.0 - left / distance, 0.8, 1.0);
 		check("keeps moving (pace / gallop)", travelled / Math.max(ticks, 1) / GALLOP_SPEED, scenario.minPace(), 1.2);
 		check("crashes into things at speed", crashes, 0, 2);
+		check("never carried by leaves (ticks standing on them)", onLeaves, 0, 0);
 		check("dead ends the rider had to turn away from", stuck, 0, scenario.maxStuck());
 		tiltRates.sort(null);
 		log("  body tilt change per tick: 99th percentile %.2f deg, most %.2f deg",

@@ -2,11 +2,13 @@ package dev.horsingaround.client.render;
 
 import static dev.horsingaround.ride.RideTuning.*;
 
+import dev.horsingaround.ride.Foliage;
 import dev.horsingaround.ride.RideState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -190,8 +192,10 @@ public final class GroundLegs {
 			if (dt > 0.0F && !Double.isNaN(target)) {
 				// A hoof lifts, and a leg straightens, only so fast; but never leaving the hoof in the ground under it now.
 				final float last = ride.legRise[i];
+				// (Against the lower edge of the sole: rocking in its stride, a hoof's toe or heel dips below its middle.)
+				final double lowest = Math.min(sole, Math.min(edge(ride, part, leg, -leg.soleHalf), edge(ride, part, leg, leg.soleHalf)));
 				final float under = now == Double.NEGATIVE_INFINITY || heave && i < 2 ? 0.0F
-					: (float) Mth.clamp(now - sole, 0.0, grounded ? LEG_RISE_MAX : LEG_DRAW_MAX);
+					: (float) Mth.clamp(now - lowest, 0.0, grounded ? LEG_RISE_MAX : LEG_DRAW_MAX);
 				draw = Math.max(Mth.clamp(draw, last - LEG_STRAIGHTEN_SPEED * dt, last + HOOF_LIFT_SPEED * dt), under);
 			}
 			if (swung > now && !heave) {
@@ -296,8 +300,15 @@ public final class GroundLegs {
 			if (leg == null) {
 				continue;
 			}
-			final double sole = sole(ride, part, leg);
-			final double ground = surface(level, ride.drawnCameraX + POINT.x, ride.drawnCameraZ + POINT.z, sole + 1.0, sole - 1.0);
+			// (The jump's shape tilts the hoof: its lower edge, front or back, is what would be in the ground.)
+			final double front = edge(ride, part, leg, -leg.soleHalf);
+			final float frontX = POINT.x;
+			final float frontZ = POINT.z;
+			final double back = edge(ride, part, leg, leg.soleHalf);
+			final double sole = Math.min(front, back);
+			final double ground = front < back
+				? surface(level, ride.drawnCameraX + frontX, ride.drawnCameraZ + frontZ, sole + 1.0, sole - 1.0)
+				: surface(level, ride.drawnCameraX + POINT.x, ride.drawnCameraZ + POINT.z, sole + 1.0, sole - 1.0);
 			if (ground > sole) {
 				up(part, (float) Math.min(ground - sole, LEG_RISE_MAX) * pixels, down);
 			}
@@ -334,11 +345,18 @@ public final class GroundLegs {
 	/**
 	 * The world height of the middle of the leg's sole as it is posed now, and its camera-relative spot in {@link #POINT}.
 	 * (Not its lowest corner: a planted leg rocks through upright in every stride, and the lowest corner switching from
-	 * back to front there put a kink in every step. A rocking hoof's edge dips a pixel, as the animation draws it.)
+	 * back to front there put a kink in every step; only keeping a hoof out of the ground looks at its lower edge.)
 	 */
 	private static double sole(final RideState ride, final ModelPart part, final Legs.Leg leg) {
 		legMatrix(part);
 		MATRIX.transformPosition(leg.soleX / 16.0F, leg.soleY / 16.0F, leg.z / 16.0F, POINT);
+		return ride.drawnCameraY + POINT.y;
+	}
+
+	/** World height of a point {@code along} pixels toward the tail of the middle of a sole, the leg as drawn; leaves {@link #POINT} there. */
+	private static double edge(final RideState ride, final ModelPart part, final Legs.Leg leg, final float along) {
+		legMatrix(part);
+		MATRIX.transformPosition(leg.soleX / 16.0F, leg.soleY / 16.0F, (leg.z + along) / 16.0F, POINT);
 		return ride.drawnCameraY + POINT.y;
 	}
 
@@ -539,9 +557,11 @@ public final class GroundLegs {
 	private static double surface(final Level level, final double x, final double z, final double highest, final double lowest) {
 		final int bx = Mth.floor(x);
 		final int bz = Mth.floor(z);
+		// Leaves the horse pushes through are not ground: a hoof goes on down to what is under them.
+		final boolean leavesOpen = Foliage.leavesOpen(level);
 		for (int by = Mth.floor(highest); by >= Mth.floor(lowest); by--) {
 			final BlockState state = level.getBlockState(POS.set(bx, by, bz));
-			if (state.isAir()) {
+			if (state.isAir() || leavesOpen && state.is(BlockTags.LEAVES)) {
 				continue;
 			}
 			final VoxelShape shape = state.getCollisionShape(level, POS);

@@ -1638,7 +1638,7 @@ public final class Awareness {
 			final int z = Mth.floor(horse.getZ() + fz * d);
 			for (int y = y0; y <= y1; y++) {
 				final BlockState state = level.getBlockState(POS.set(x, y, z));
-				if (!state.isAir() && !state.getCollisionShape(level, POS).isEmpty()) {
+				if (!state.isAir() && !(Foliage.leavesOpen(level) && state.is(BlockTags.LEAVES)) && !state.getCollisionShape(level, POS).isEmpty()) {
 					return true;
 				}
 			}

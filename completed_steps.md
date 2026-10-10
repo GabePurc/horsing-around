@@ -307,6 +307,32 @@
   `-Psections=slowstep`: gallop sharpest change in the climb 0.152 -> 0.019 blocks/tick a tick, nose flick 8.9 -> 0.7
   degrees/tick a tick, most tilt 21 -> 10 degrees; canter 0.066 -> 0.040, 4.8 -> 1.9, 15 -> 14
 
+## Leaves underfoot, and no snaps in the tilt (play-test report, 2026-10-10)
+
+- [x] Riding through a forest the horse no longer looks like it rides up on top of bushes: the ground the body, steps
+  and every hoof are drawn on skipped nothing, so a 1-2 block bush the horse was pushing through read as a step and the
+  drawn horse popped up about 0.7 blocks onto it and tilted. Those ground probes (and the look for a bank to climb out
+  of water onto) now go through leaves to the ground under them, as the horse itself does. Verified by a new ride lane
+  (`picking`: galloping through 1- and 2-block bushes: never above the ground, drawn within 0.03 of it, no tilt) and a
+  new terrain check (never standing on leaves, client or server: 0 ticks in every scenario); terrain tilt smoothness
+  now passes in mixed forest 1 (11.3 -> 6.9 degrees), the dense dark-oak forest (10.6 -> 8.9) and the taiga (14.2 ->
+  7.3)
+- [x] No snaps in the body's tilt: drawn, it turns at most 9 degrees a tick on its legs, its jump tilt easing out
+  included (touching down on a mountainside the forehand still falling and the flight's tilt letting go snapped it up
+  to 14 degrees a tick); the body's height still follows the ground line, so steps don't pop. The terrain test now
+  measures the tilt as drawn (ground plus jump): every scenario passes (mountains 13.6, 12.9 and 14.5 -> 9.0, 9.0 and
+  8.6; the log stub hidden in a bush 12.4 -> 9.0)
+- [x] No rearing against a face: reading the ground ahead for a slope, ground higher than a step counts only if it steps
+  down a block at a time back to the hooves, else it is a wall and reads as level (riding into a 3-block face the
+  forehand reared 24 degrees up it)
+- [x] Hooves off the jump's shape: landing, a hoof the jump pose still tilts is lifted by its lower edge, not its middle
+- [x] Trotting down a slope of full blocks: kept as a known limit (user decision; see research.md), its test target
+  set to what it does on main too (hooves off the ground, 90th percentile, 0.73-1.11 over runs: at most 1.2; a hoof hangs up
+  to 7 ticks: at most 8)
+- [x] Hooves out of the ground: a planted hoof is kept out by the lower edge of its sole, not its middle (rocking in
+  the stride its toe or heel dipped a pixel in): most a hoof is in the ground on a bank 0.08 -> 0.001, landing a jump
+  0.08 -> 0.003
+
 ## Tooling
 
 - [x] Automated client ride test (`./gradlew runClientGameTest`, `-Ptests=ride`, `-Psections=core,cuts,stairs,picking,steps`): checks covering 19 messy 2-block ledges, legs in the air (the stride stops, front legs fold then reach for the ground, at most ~0.1 rad a tick), the 2-block ledge bound, hard cuts (20, 60, 90 and 150 degrees off at a gallop, against cuts switched off; standing pivot), A or D alone riding across the view, the rider pushed back and shielding their face in leaves, climbing out onto a 1-block bank and not a 2-block one, narrow 2-block ledges jumped at a trot and a gallop, a ledge catching the flank and a 2-block pillar gone round, a row of trunks threaded (the 12 shoulder-camera checks moved to the add-on repo), steps in two beats (up and down, walk and trot), footing (across a ditch at a gallop and a trot, past a trunk that catches the shoulder), a leafy 2-block ledge, the horse picking its way (tree detour at pace, long wall slow-down, beside a wall and along a cliff edge at full pace, cliff and lava refusal, safe drop, gap jumped and refused, ledge jump at a walk and from a gallop, fence left alone), gradual and smooth climbing out of water, wading pace, swimming (speed, head above water, rider kept, climbing out), saddle side-sway follow, rider inertia (surge and braking), Fresh Animations stirrups held, trampling (walk vs gallop), horse settings in Mod Menu and live apply, downhill speed continuity, landing surge, jump arc, huff rhythm, head toss on the FA model, mouse steering, A/D 45-degree offset without view pull, riding through leaves, free aim and look limit, aiming while turning, Fresh Animations body sync, staircase climbing (smoothness, pitch), weight-shift timing, gait animation speeds, first-person bob, mounting camera, free look, walk/gallop speed, spur timing, A/D turn rate and lean, running and standing jumps, stamina and exhaustion, coasting, braking, reversing, mouse steering, dismount; writes `build/run/clientGameTest/horsingaround-ride-report.txt` and screenshots (back, front and side views)

@@ -410,6 +410,11 @@ kinematics, still driven by Fresh Animations' animation.
   hoof or a knee into the next block's face in roughly a fifth to a third of frames: a 0.76-block leg can't reach a
   1-block riser, so the hoof either stands short of it or touches it. Stairs (half-block steps) are clean going up and
   touch now and then going down.
+- Known limit, going down (user decision, 2026-10-10: kept as is): trotting down a slope of full blocks the box still
+  runs off each edge as a short flight (the slope pacing depends on it) and lands on an edge with the front hooves over
+  ground 2 to 2.5 blocks lower; even at the steepest tilt (40 degrees) the body spans only about a block, so a hoof
+  hangs for a tick or two after each landing. Only a physics step-down would remove it. (Starting each end down early, as
+  its hooves reach for the lower ground, helped walking down a little but doubled the leg snaps; dropped.)
 - Jump pressed over and over at a 2-block ledge (play-test, 2026-10-08: it went really high, buggy): vanilla's
   charge-and-release jump still ran beside the ride's press-to-jump, firing the moment the horse touched ground after
   each release, and nothing stopped a jump straight off the top. Now the ride's jump is the only one, a press while riding
