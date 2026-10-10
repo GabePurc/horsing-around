@@ -1651,16 +1651,129 @@ public final class RideFeelTest implements FabricClientGameTest {
 		lanes.add(new Climb("a slab at the foot of the face", -4, 0.0F, 0, false, true, "SLAB_FOOT"));
 		lanes.add(new Climb("stairs along the lip", -4, 0.0F, 0, false, true, "STAIRS_LIP"));
 		lanes.add(new Climb("snow on the ground and on top", -4, 0.0F, 0, false, true, "SNOW"));
+		// A face running diagonally across the world grid ("DIAG": stepping back a block for every block across, so a saw-tooth
+		// edge at 45 degrees; "DIAG2": a block back for every two across), met square on (look -45) and at angles.
+		lanes.add(new Climb("diagonal face, walking square at it", -4, -45.0F, 0, false, true, "DIAG"));
+		lanes.add(new Climb("diagonal face, trotting square at it", -7, -45.0F, 1, false, true, "DIAG"));
+		lanes.add(new Climb("diagonal face, cantering square at it", -12, -45.0F, 2, false, true, "DIAG"));
+		lanes.add(new Climb("diagonal face, walking north (45 degrees to it)", -4, 0.0F, 0, false, true, "DIAG"));
+		lanes.add(new Climb("diagonal face, trotting north (45 degrees to it)", -7, 0.0F, 1, false, true, "DIAG"));
+		lanes.add(new Climb("diagonal face, walking at 20 degrees off square", -4, -25.0F, 0, false, true, "DIAG"));
+		lanes.add(new Climb("diagonal face, trotting at 20 degrees off square the other way", -7, -65.0F, 1, false, true, "DIAG"));
+		lanes.add(new Climb("diagonal face, stuck at it, pressing jump", -4, -45.0F, 0, false, true, "DIAG", "STUCK_PRESS"));
+		lanes.add(new Climb("half-diagonal face, walking north", -4, 0.0F, 0, false, true, "DIAG2"));
+		lanes.add(new Climb("half-diagonal face, trotting square at it", -7, -27.0F, 1, false, true, "DIAG2"));
 		lanes.add(new Climb("a 3-block face (not a climb)", -4, 0.0F, 0, false, false, "TALL"));
 		lanes.add(new Climb("a 3-block face, pressing jump against it", -1, 0.0F, 0, true, false, "TALL"));
 		final StringBuilder matrix = new StringBuilder();
+		// (-Pscenario=<part of a lane's name> rides just those lanes.)
+		final String only = System.getProperty("horsingaround.scenario", "");
 		for (int i = 0; i < lanes.size(); i++) {
-			climb(ctx, input, world, 5000 + i * 60, lanes.get(i), matrix);
+			if (lanes.get(i).name().contains(only)) {
+				climb(ctx, input, world, 5000 + i * 60, lanes.get(i), matrix);
+			}
 		}
 		for (int seed = 1; seed <= 3; seed++) {
-			mountainStaircase(ctx, input, world, 8000 + seed * 40, seed, matrix);
+			if (("mountain staircase " + seed).contains(only)) {
+				mountainStaircase(ctx, input, world, 8000 + seed * 40, seed, matrix);
+			}
+		}
+		// Diagonal terraces: 2-block rises with faces running diagonally across the grid, stacked one behind another (the
+		// reported case), a few depths apart, ridden square up them and straight north, at a walk and a trot.
+		int lane = 0;
+		for (final int depth : new int[] {1, 2, 3, 6}) {
+			for (final float look : new float[] {-45.0F, 0.0F}) {
+				for (final int spurs : new int[] {0, 1}) {
+					final String name = String.format(Locale.ROOT, "diagonal terraces %d deep, %s, %s", depth, look == 0.0F ? "riding north" : "square up them",
+						spurs == 0 ? "walking" : "trotting");
+					if (name.contains(only)) {
+						diagonalTerraces(ctx, input, world, 9000 + lane * 60, name, depth, look, spurs, matrix);
+					}
+					lane++;
+				}
+			}
 		}
 		log("== 2-block climbs, all lanes:%s", matrix);
+	}
+
+	/**
+	 * Terraces of 2-block rises whose faces run diagonally (each a saw-tooth edge at 45 degrees), {@code depth} blocks apart
+	 * along z, stacked five high. Ridden up them looking {@code look} degrees right of north: it should reach the top, one
+	 * heave a rise, never higher than a heave.
+	 */
+	private void diagonalTerraces(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final int x, final String name,
+		final int depth, final float look, final int spurs, final StringBuilder matrix) {
+		section("2-block climb: " + name);
+		final int rises = 5;
+		final List<String> build = new ArrayList<>();
+		for (int n = 0; n < rises; n++) {
+			for (int dx = -24; dx <= 24; dx++) {
+				final int face = -4 - dx - n * depth;
+				build.add(String.format(Locale.ROOT, "fill %d -60 %d %d %d %d minecraft:stone", x + dx, face - 30, x + dx, -59 + 2 * n, face));
+			}
+		}
+		lane(ctx, input, world, x + 0.5, -60, "terraces_" + x, build.toArray(String[]::new));
+		final double startY = sample(ctx).y;
+		final double topY = startY + 2 * rises;
+		final int climbsBefore = ride(ctx, r -> r.ledgeClimbs);
+		input.lookAt(180.0F + look, 10.0F);
+		input.holdKey(o -> o.keyUp);
+		ctx.waitTicks(2);
+		for (int sp = 0; sp < spurs; sp++) {
+			input.pressKey(o -> o.keySprint);
+			ctx.waitTicks(4);
+		}
+		double highestOver = Double.NEGATIVE_INFINITY;
+		double ground = startY;
+		int onTop = -1;
+		int stalled = 0;
+		int stallLongest = 0;
+		final StringBuilder trace = new StringBuilder();
+		final int limit = 500;
+		for (int t = 0; t < limit; t++) {
+			ctx.waitTick();
+			final Sample s = sample(ctx);
+			if (s.onGround) {
+				ground = Math.max(ground, s.y);
+			}
+			highestOver = Math.max(highestOver, s.y - (ground + 2.0));
+			if (s.onGround && s.y > topY - 0.1) {
+				onTop = t;
+				break;
+			}
+			stalled = s.speed < 0.01 ? stalled + 1 : 0;
+			stallLongest = Math.max(stallLongest, stalled);
+			if (t % 5 == 0) {
+				trace.append(String.format(Locale.ROOT, "%d x%.2f z%.2f y%+.2f yaw%.0f v%.2f l%d %s | ", t, ctx.computeOnClient(mc -> mc.player.getVehicle().getX()) - x,
+					horseZ(ctx), s.y - startY, Mth.wrapDegrees(s.horseYaw - 180.0F), s.speed, ride(ctx, r -> r.ledgeTicks),
+					dev.horsingaround.ride.Awareness.LEDGE_REASONS[Math.max(dev.horsingaround.ride.Awareness.ledgeRejection, 0)]));
+			}
+			if (stalled == 30) {
+				ctx.runOnClient(mc -> {
+					dev.horsingaround.ride.Awareness.climbLog.setLength(0);
+					dev.horsingaround.ride.Awareness.logClimbs = true;
+				});
+				ctx.waitTick();
+				ctx.runOnClient(mc -> dev.horsingaround.ride.Awareness.logClimbs = false);
+				log("  stuck at x%.2f z%.2f y%+.2f: %s", ctx.computeOnClient(mc -> mc.player.getVehicle().getX()) - x, horseZ(ctx), sample(ctx).y - startY,
+					ctx.computeOnClient(mc -> dev.horsingaround.ride.Awareness.climbLog.toString()));
+			}
+			if (stalled > 80) {
+				break;
+			}
+		}
+		input.releaseKey(o -> o.keyUp);
+		final int heaves = ride(ctx, r -> r.ledgeClimbs) - climbsBefore;
+		matrix.append(String.format(Locale.ROOT, "%n    %-90s %-14s heaves %d of %d, highest %+.2f over a rise, longest stall %d", name,
+			onTop >= 0 ? "up in " + onTop + " ticks" : "NOT UP", heaves, rises, highestOver, stallLongest));
+		check("reaches the top (ticks)", onTop < 0 ? limit : onTop, 0, limit - 1);
+		check("one heave a rise", heaves, rises, rises);
+		check("no long stall (longest standing still, ticks)", stallLongest, 0, 40);
+		check("never higher than a heave over a rise (blocks)", highestOver, -3.0, RideTuning.LEDGE_CLEARANCE + 0.3);
+		if (onTop < 0 || stallLongest > 40) {
+			log("  path: %s", trace);
+		}
+		stop(ctx, input);
 	}
 
 	private void climb(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final int x, final Climb lane,
@@ -1673,6 +1786,11 @@ public final class RideFeelTest implements FabricClientGameTest {
 		final int west = extra.contains("HALF") ? x : x - 12;
 		if (extra.contains("ALONG")) {
 			build.add(String.format(Locale.ROOT, "fill %d -60 -30 %d %d 4 minecraft:stone", x - 12, x - 1, topY));
+		} else if (extra.contains("DIAG") || extra.contains("DIAG2")) {
+			for (int dx = -14; dx <= 14; dx++) {
+				final int back = extra.contains("DIAG") ? dx : Math.floorDiv(dx, 2);
+				build.add(String.format(Locale.ROOT, "fill %d -60 %d %d %d %d minecraft:stone", x + dx, face - back - 16, x + dx, topY, face - back));
+			}
 		} else {
 			build.add(String.format(Locale.ROOT, "fill %d -60 %d %d %d %d minecraft:stone", west, face - 14, x + 30, topY, face));
 		}

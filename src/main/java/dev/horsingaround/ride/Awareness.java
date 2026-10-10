@@ -997,8 +997,10 @@ public final class Awareness {
 
 	/**
 	 * A climb up the face {@code face} blocks along {@code yaw}: where the body meets it, it rises to a top no higher than
-	 * a ledge (with nothing above that top there), with headroom over the horse, and somewhere straight on or a little to
-	 * either side, nearer or further in, with room and solid ground to land on. The top, or NaN; on success
+	 * a ledge, with headroom over the horse, and somewhere straight on or a little to either side, nearer or further in,
+	 * the body gets onto it with solid ground to land on. Where it gets to is found the way the jump will take it: lifted
+	 * over the lip where it stands and carried toward the spot, stopping at whatever it meets (so it settles into a notch
+	 * or the corner of a one-block step, and a taller wall right there keeps it off the top). The top, or NaN; on success
 	 * {@link #ledgeFace} and {@link #ledgeClimbYaw} (toward where it lands).
 	 */
 	private static double climb(final Level level, final AbstractHorse horse, final AABB box, final float yaw, final float face, final double[] sides) {
@@ -1011,6 +1013,8 @@ public final class Awareness {
 		final double rz = fx;
 		// Up to a thin layer (snow, a carpet) on top of the second block.
 		final double highest = box.minY + LEDGE_HEIGHT + LEDGE_TOP_LAYER;
+		final double centreX = (box.minX + box.maxX) * 0.5;
+		final double centreZ = (box.minZ + box.maxZ) * 0.5;
 		int why = LEDGE_TOO_HIGH;
 		boolean headroomChecked = false;
 		for (final double side : sides) {
@@ -1019,20 +1023,7 @@ public final class Awareness {
 			if (Double.isNaN(top)) {
 				return reject(LEDGE_FENCE);
 			}
-			// (Anything right there taller than a ledge is a wall: a 3-block wall beside a 2-block rise was heaved up as if it
-			// were 2, the step onto its third block carrying the horse on up it.)
-			if (!(top > box.minY + STEP_UP) || !level.noBlockCollision(horse, at.move(0.0, top - box.minY + 0.01, 0.0))) {
-				if (logClimbs) {
-					climbLog.append(String.format(java.util.Locale.ROOT, "[yaw%.0f side%.1f top%.2f %s:", yaw, side, top - box.minY, top > box.minY + STEP_UP ? "above it" : "low"));
-					final AABB raised = at.move(0.0, top - box.minY + 0.01, 0.0);
-					for (final net.minecraft.world.phys.shapes.VoxelShape hit : level.getBlockCollisions(horse, raised)) {
-						final AABB b = hit.bounds();
-						climbLog.append(String.format(java.util.Locale.ROOT, " %.2f,%.2f,%.2f-%.2f,%.2f,%.2f", b.minX - horse.getX(), b.minY - box.minY, b.minZ - horse.getZ(),
-							b.maxX - horse.getX(), b.maxY - box.minY, b.maxZ - horse.getZ()));
-					}
-					climbLog.append(String.format(java.util.Locale.ROOT, " at x%.2f..%.2f z%.2f..%.2f] ", raised.minX - horse.getX(), raised.maxX - horse.getX(),
-						raised.minZ - horse.getZ(), raised.maxZ - horse.getZ()));
-				}
+			if (!(top > box.minY + STEP_UP)) {
 				continue;
 			}
 			if (!headroomChecked) {
@@ -1041,33 +1032,49 @@ public final class Awareness {
 					return reject(LEDGE_NO_HEADROOM);
 				}
 			}
+			// (Lifted where it stands: the headroom just checked is room for that.)
+			final AABB lifted = box.move(0.0, top - box.minY + 0.01, 0.0);
 			for (final double in : LAND_IN) {
-				final double dx = fx * (face + in) + rx * side;
-				final double dz = fz * (face + in) + rz * side;
-				final AABB landing = box.move(dx, top - box.minY + 0.01, dz);
-				if (!level.noBlockCollision(horse, landing)) {
-					why = LEDGE_NO_ROOM_ON_TOP;
-					if (logClimbs) {
-						climbLog.append(String.format(java.util.Locale.ROOT, "[yaw%.0f side%.1f in%.1f no room] ", yaw, side, in));
-					}
-					continue;
-				}
+				final AABB landing = sweep(level, horse, lifted, fx * (face + in) + rx * side, fz * (face + in) + rz * side);
 				// The body is about two blocks long whatever its collision box: it needs that much ledge to land on. (Ground a
-				// step higher counts: a horse that lands with a step in front walks up it.)
-				if (support(level, context, landing.expandTowards(fx * BODY_LENGTH_EXTRA, 0.0, fz * BODY_LENGTH_EXTRA), top, STEP_UP) < LEDGE_SUPPORT) {
-					why = LEDGE_NOTHING_TO_LAND_ON;
+				// step higher counts: a horse that lands with a step in front walks up it; so does another ledge it can climb
+				// next, its chest against that face, as up a staircase of one-block steps.)
+				// (And the box itself has to get onto the top, not stop at a taller wall on the way.)
+				final boolean onTop = support(level, context, landing, top, STEP_UP) >= LEDGE_SUPPORT;
+				if (!onTop || support(level, context, landing.expandTowards(fx * BODY_LENGTH_EXTRA, 0.0, fz * BODY_LENGTH_EXTRA), top, LEDGE_HEIGHT + LEDGE_TOP_LAYER)
+					< LEDGE_SUPPORT) {
+					why = onTop ? LEDGE_NOTHING_TO_LAND_ON : LEDGE_NO_ROOM_ON_TOP;
 					if (logClimbs) {
-						climbLog.append(String.format(java.util.Locale.ROOT, "[yaw%.0f side%.1f in%.1f no ground] ", yaw, side, in));
+						climbLog.append(String.format(java.util.Locale.ROOT, "[yaw%.0f side%.1f in%.1f top%.2f got to %.2f,%.2f %s] ", yaw, side, in, top - box.minY,
+							(landing.minX + landing.maxX) * 0.5 - centreX, (landing.minZ + landing.maxZ) * 0.5 - centreZ, LEDGE_REASONS[why]));
 					}
 					continue;
 				}
 				ledgeFace = face;
-				ledgeClimbYaw = (float) (Mth.atan2(-dx, dz) * Mth.RAD_TO_DEG);
+				ledgeClimbYaw = (float) (Mth.atan2(-((landing.minX + landing.maxX) * 0.5 - centreX), (landing.minZ + landing.maxZ) * 0.5 - centreZ) * Mth.RAD_TO_DEG);
 				ledgeRejection = LEDGE_OK;
 				return top;
 			}
 		}
 		return reject(why);
+	}
+
+	/** Where {@code box} gets to moved (dx, dz) through the world, stopping at what it meets: the longer way first, as entities move. */
+	private static AABB sweep(final Level level, final AbstractHorse horse, final AABB box, final double dx, final double dz) {
+		if (Math.abs(dx) >= Math.abs(dz)) {
+			final AABB moved = box.move(clip(level, horse, box, Direction.Axis.X, dx), 0.0, 0.0);
+			return moved.move(0.0, 0.0, clip(level, horse, moved, Direction.Axis.Z, dz));
+		}
+		final AABB moved = box.move(0.0, 0.0, clip(level, horse, box, Direction.Axis.Z, dz));
+		return moved.move(clip(level, horse, moved, Direction.Axis.X, dx), 0.0, 0.0);
+	}
+
+	private static double clip(final Level level, final AbstractHorse horse, final AABB box, final Direction.Axis axis, final double distance) {
+		if (Math.abs(distance) < 1.0E-7) {
+			return 0.0;
+		}
+		final AABB reach = axis == Direction.Axis.X ? box.expandTowards(distance, 0.0, 0.0) : box.expandTowards(0.0, 0.0, distance);
+		return Shapes.collide(axis, box, level.getBlockCollisions(horse, reach), distance);
 	}
 
 	/**

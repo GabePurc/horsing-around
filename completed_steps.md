@@ -278,6 +278,11 @@
   foot, stairs along the lip, snow, the reported corner (riding and stuck-then-pressing jump), 3-block faces and riding
   along a face (both stay below), and three noisy mountain staircases (all reach the top, longest stall 8 ticks); every
   climb peaks 0.30 over the lip (snow 0.43)
+- [x] Diagonal rises stacked with one-block treads (a saw-tooth edge across the grid, as on mountainsides) are climbed:
+  the landing is found by carrying the lifted box toward each spot through the world, stopping at what it meets (so it
+  settles into the pocket of a one-block tread), and a climbable ledge in front counts as ground for the body's length.
+  Verified: 66 climb lanes, including diagonal faces met square and at angles and diagonal terraces 1, 2, 3 and 6 deep,
+  five rises, all up with one heave a rise, 0.30 over the lip
 
 ## Tooling
 

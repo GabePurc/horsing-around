@@ -604,3 +604,14 @@ Translation (`Awareness.ledge`/`climb`, `RideController`, `Footing`, tuning in `
 Result: 38 of 38 lanes pass (144 checks): every angle up to 60 degrees and every neighbourhood climbs in one heave,
 peaking 0.30 over the lip (snow 0.43); riding along a face and 3-block faces stay below; pressing jump anywhere peaks
 no higher than a heave; all three mountain staircases reach the top (up to 12 blocks) with no stall longer than 8 ticks.
+
+Follow-up the same day: 2-block rises whose faces run diagonally across the block grid (a saw-tooth edge) failed when
+several were stacked with one-block treads between them, as on a mountainside. One rise on its own, and treads of two
+or more blocks, were fine. On a one-block diagonal tread the box (0.9 wide when ridden) only fits in the corner pocket
+of a single block. The landing spots, tried at fixed offsets, never hit that pocket, and the next rise in front didn't
+count as ground under the body. Now the landing is found the way the jump will take the horse: the box is lifted over
+the lip where it stands and carried toward each spot, stopping at whatever it meets (so it settles into a notch or a
+pocket, and a taller wall right there keeps it off the top). The box itself must end up on the top, and a ledge it can
+climb next, in front of it, counts as ground for the body's length, as up a staircase. Tested by diagonal faces met
+square and at angles, and diagonal terraces one, two, three and six blocks deep, five rises high, ridden square up them
+and straight north at a walk and a trot.

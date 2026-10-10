@@ -36,8 +36,8 @@ Verify every gameplay change with `./gradlew runClientGameTest`, which runs four
 the slope-and-stairs lanes and the jump-at-a-wall lanes, `drawn` measures the legs exactly as drawn on slopes, stairs and
 steps and shoots them up close, `slowstep` watches standing, stopping and single steps frame by frame for snaps,
 `exits` climbs out of water onto banks of a few heights, wading and swimming, `strafe` stops after riding with A or D alone,
-`hands` poses the rider's arms with items, swings and a bow, with close shots, `climbs` sweeps 2-block climbs by angle,
-speed, start and what is round them, plus noisy mountain staircases):
+`hands` poses the rider's arms with items, swings and a bow, with close shots, `climbs` sweeps 2-block climbs by angle (`-Pscenario=<part of a lane name>` for some),
+speed, start and what is round them, plus noisy mountain staircases and diagonal terraces):
 `RideFeelTest` rides a horse with simulated keys through every mechanic in hand-built lanes and writes
 `build/run/clientGameTest/horsingaround-ride-report.txt`; `TerrainRideTest` rides procedurally built natural terrain
 (forests, mountains, hills, hazards, river, badlands) like a player would and writes
