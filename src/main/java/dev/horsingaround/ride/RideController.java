@@ -127,7 +127,10 @@ public final class RideController {
 		// riding on: a horse let go of (or braked) comes round to the view as it stops, but doesn't sit back to cut.
 		final float turn = Math.abs(Mth.wrapDegrees(targetYaw - horse.getYRot()));
 		final boolean footing = horse.onGround() && !s.swimming && s.ledgeTicks == 0 && forward;
-		final float ask = HARD_CUT && footing ? smoothstep((turn - CUT_START) / (CUT_FULL - CUT_START)) : 0.0F;
+		// (Going round something is the horse's own doing, planned at a pace it can turn at: heading off the rider's line
+		// for it doesn't sit it back into a cut, only the rider looking away does.)
+		final float cutTurn = Math.min(turn, Math.abs(Mth.wrapDegrees(s.riderYaw - horse.getYRot())));
+		final float ask = HARD_CUT && footing ? smoothstep((cutTurn - CUT_START) / (CUT_FULL - CUT_START)) : 0.0F;
 		s.cut = ask >= s.cut ? ask : Math.max(ask, s.cut - CUT_RELEASE);
 		if (s.cut > 0.0F && s.speed > 0.0F) {
 			// The speed at which its grip, cutting this hard, brings it round in about CUT_TURN_TICKS.
@@ -502,40 +505,6 @@ public final class RideController {
 	private static float maxTurnRate(final float metresPerSecond, final float cut) {
 		return Math.min(TURN_RATE_STILL * Mth.lerp(cut, 1.0F, CUT_RATE_SCALE),
 			LATERAL_GRIP * Mth.lerp(cut, 1.0F, CUT_GRIP) / Math.max(metresPerSecond, 0.1F) * (Mth.RAD_TO_DEG / 20.0F));
-	}
-
-	/**
-	 * Where the horse's steering takes it: how far to the right (blocks; negative is left) of the line along
-	 * {@code lineYaw} through where it is now it has got by the time it is {@code distance} along that line, if it goes
-	 * round something {@code offset} degrees off the line from now on. The same weight-shift model as the ride tick (hard
-	 * cuts included), at the current speed, starting from how it is turning now. For planning ways round (Awareness); no
-	 * allocation.
-	 */
-	static float sideAfter(final AbstractHorse horse, final RideState s, final float lineYaw, final float offset, final float distance) {
-		final float blocksPerUnit = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR;
-		final float speed = Math.max(s.speed, GAIT_SPEED[WALK]) * blocksPerUnit;
-		final float shift = Mth.lerp(gallopFraction(s.speed), WEIGHT_SHIFT_STILL, WEIGHT_SHIFT_GALLOP);
-		float heading = Mth.wrapDegrees(horse.getYRot() - lineYaw);
-		float avoid = s.avoidOffset;
-		float intent = s.turnIntent;
-		float velocity = s.yawVelocity;
-		float cut = s.cut;
-		float along = 0.0F;
-		float side = 0.0F;
-		for (int tick = 0; tick < 60 && along < distance; tick++) {
-			avoid += Mth.clamp(offset - avoid, -AVOID_RATE, AVOID_RATE);
-			final float ask = HARD_CUT ? smoothstep((Math.abs(avoid - heading) - CUT_START) / (CUT_FULL - CUT_START)) : 0.0F;
-			cut = ask >= cut ? ask : Math.max(ask, cut - CUT_RELEASE);
-			final float maxTurn = maxTurnRate(speed * 20.0F, cut);
-			final float accel = maxTurn * Mth.lerp(cut, TURN_ACCEL, CUT_TURN_ACCEL);
-			final float desired = Mth.clamp((avoid - heading) * Mth.lerp(cut, TURN_GAIN, CUT_TURN_GAIN) / maxTurn, -1.0F, 1.0F);
-			intent += Mth.clamp(desired - intent, -Mth.lerp(cut, shift, CUT_WEIGHT_SHIFT), Mth.lerp(cut, shift, CUT_WEIGHT_SHIFT));
-			velocity += Mth.clamp(maxTurn * intent * Math.abs(intent) - velocity, -accel, accel);
-			heading += velocity;
-			along += speed * Mth.cos(heading * Mth.DEG_TO_RAD);
-			side += speed * Mth.sin(heading * Mth.DEG_TO_RAD);
-		}
-		return side;
 	}
 
 	/** A hard cut from a trot or faster scuffs up the ground under the hind hooves, thrown out of the turn ({@code side} 1 right). */

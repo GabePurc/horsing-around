@@ -284,6 +284,22 @@
   Verified: 66 climb lanes, including diagonal faces met square and at angles and diagonal terraces 1, 2, 3 and 6 deep,
   five rises, all up with one heave a rise, 0.30 over the lip
 
+## Ways through: planning a line (play-test feedback, 2026-10-09)
+
+- [x] The horse plans its way through what is on the rider's line instead of dodging one thing at a time: candidate
+  ways played out with its own steering and momentum, the cheapest kept (least turning, nearest the rider's line, ending
+  back on it, clear as far as it looks or with room to stop), replanned every other tick, committed to so it doesn't
+  dither; slower paces only when needed; back onto the rider's line once past; no hard cut from its own avoidance;
+  ~110-170 us a plan, no allocation
+- [x] Verified by `-Psections=ways`: wall with a way round 89% of a gallop at its slowest (was 50%), back on the line
+  within 0.3 (was 1.8-4.6 off), three seeded forests and staggered trunks at 92-99% pace with no touches (one forest
+  wedged the old detour at 11%); tree, pillar, trunks in a row, long wall, beside a wall and ledge cases still pass
+- [x] Tight streets (city play-test): no sway when the rider changes direction (the line is kept only once the view
+  holds and the horse has come round), ways can set off from beside a wall, fences and walls read by their real shape,
+  a fence is the rider's to jump only when ridden at fairly square, no step-aside lurch; verified by a tight-streets
+  test (3-wide streets, 2-wide alleys, fences, a step up and down): no touching, no swings, ~70% pace (old detour:
+  287 ticks scraping alleys at 36%)
+
 ## Tooling
 
 - [x] Automated client ride test (`./gradlew runClientGameTest`, `-Ptests=ride`, `-Psections=core,cuts,stairs,picking,steps`): checks covering 19 messy 2-block ledges, legs in the air (the stride stops, front legs fold then reach for the ground, at most ~0.1 rad a tick), the 2-block ledge bound, hard cuts (20, 60, 90 and 150 degrees off at a gallop, against cuts switched off; standing pivot), A or D alone riding across the view, the rider pushed back and shielding their face in leaves, climbing out onto a 1-block bank and not a 2-block one, narrow 2-block ledges jumped at a trot and a gallop, a ledge catching the flank and a 2-block pillar gone round, a row of trunks threaded (the 12 shoulder-camera checks moved to the add-on repo), steps in two beats (up and down, walk and trot), footing (across a ditch at a gallop and a trot, past a trunk that catches the shoulder), a leafy 2-block ledge, the horse picking its way (tree detour at pace, long wall slow-down, beside a wall and along a cliff edge at full pace, cliff and lava refusal, safe drop, gap jumped and refused, ledge jump at a walk and from a gallop, fence left alone), gradual and smooth climbing out of water, wading pace, swimming (speed, head above water, rider kept, climbing out), saddle side-sway follow, rider inertia (surge and braking), Fresh Animations stirrups held, trampling (walk vs gallop), horse settings in Mod Menu and live apply, downhill speed continuity, landing surge, jump arc, huff rhythm, head toss on the FA model, mouse steering, A/D 45-degree offset without view pull, riding through leaves, free aim and look limit, aiming while turning, Fresh Animations body sync, staircase climbing (smoothness, pitch), weight-shift timing, gait animation speeds, first-person bob, mounting camera, free look, walk/gallop speed, spur timing, A/D turn rate and lean, running and standing jumps, stamina and exhaustion, coasting, braking, reversing, mouse steering, dismount; writes `build/run/clientGameTest/horsingaround-ride-report.txt` and screenshots (back, front and side views)

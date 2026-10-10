@@ -59,12 +59,6 @@ public final class Awareness {
 	private static final double SHAPE_PAD = 0.2;
 	/** The edge guard arms when danger or a gap is this close. */
 	private static final float GUARD_RANGE = 4.0F;
-	/**
-	 * Within this of an obstacle, with no way round at an angle, the horse looks for one by stepping aside along it,
-	 * checking the step with lines this far ahead and behind its middle (inside the body, which slides along the face).
-	 */
-	private static final float DETOUR_CLOSE = 1.5F;
-	private static final float SLIDE_FLANK = 0.2F;
 	/** A drop between samples bigger than this can put a moving horse in the air. */
 	private static final double EDGE = 0.4;
 
@@ -87,6 +81,8 @@ public final class Awareness {
 	private static boolean columnLedge;
 	/** The last probe's wall was a ledge across the centre line (and anything the flanks met was ledge too). */
 	private static boolean wallLedge;
+	/** The last probe's wall was met by its centre line (not only by a flank). */
+	private static boolean centreBlocked;
 	/**
 	 * Ground under the body along the last probe: PROFILE[i] at (i + 1) * STEP ahead (highest of the three lines that
 	 * hold the horse up), NaN over a jumpable gap; profileOrigin at the horse.
@@ -146,80 +142,51 @@ public final class Awareness {
 	}
 
 	/**
-	 * One ridden tick on the ground: finds a way round anything on the rider's path (when asked for a trot or more),
-	 * and returns the fastest the horse is willing to go given what lies on the way it is heading.
+	 * One ridden tick on the ground: plans a way through anything on the rider's line (when asked for a trot or more),
+	 * and returns the fastest the horse is willing to go given what lies on the way it is going.
 	 */
 	static float look(final AbstractHorse horse, final RideState s, final float targetYaw, final boolean forward) {
 		body(horse);
 		final double fall = acceptableFall(horse);
 		final float blocksPerUnit = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR;
 		final float range = Mth.clamp(Math.abs(s.speed) * blocksPerUnit * LOOK_AHEAD_TICKS + half + STEP, LOOK_AHEAD_MIN, LOOK_AHEAD_MAX);
+		followLine(horse, s, targetYaw);
+		s.wayRoom -= Math.max(s.speed, 0.0F) * blocksPerUnit;
 
-		// Ways round: when the rider asks for a trot or more, never at a walk, so a walk is fully in their hands. Kept
-		// up while the horse slows for the obstacle, so it goes round instead of walking into it.
+		// Ways through: when the rider asks for a trot or more, never at a walk, so a walk is fully in their hands.
 		if (!forward || s.gait < TROT) {
 			s.avoidTarget = 0.0F;
 			s.ledgeOnLine = false;
+			s.way = WAY_NONE;
+			s.wayPoints = 0;
 		} else if (--s.avoidReplan <= 0) {
-			s.avoidTarget = detour(horse, s, targetYaw, range, fall);
-			// Nothing in the way, a way round, or a ledge to jump: look again soon. Blocked with no way round: no need
-			// every tick.
-			s.avoidReplan = s.avoidTarget != 0.0F || kind == CLEAR || s.ledgeOnLine ? AVOID_REPLAN_TICKS : AVOID_REPLAN_TICKS * 3;
+			s.avoidTarget = plan(horse, s, targetYaw, range, fall, blocksPerUnit);
+			s.avoidReplan = AVOID_REPLAN_TICKS;
 		}
 		s.avoidOffset += Mth.clamp(s.avoidTarget - s.avoidOffset, -AVOID_RATE, AVOID_RATE);
 
-		// Speed: judged on the way the horse is going (while it goes round something, on that way, braking for its
-		// current heading only if the obstacle is upon it).
-		final boolean detouring = s.avoidTarget != 0.0F;
-		float limit = limit(horse, s, detouring ? targetYaw + s.avoidTarget : horse.getYRot(), range, fall, blocksPerUnit, true);
-		if (s.avoidOffset != 0.0F) {
-			// Turned well off the rider's line, it keeps a pace it can come back round from without swinging wide.
-			limit = Math.min(limit, Math.max(turnableSpeed(Math.abs(s.avoidOffset), DETOUR_RETURN_ROOM) / blocksPerUnit, GAIT_SPEED[TROT]));
-		}
-		if (detouring) {
-			// It must be able to swing round before it reaches what is in front of it now: at speed its turns are wide,
-			// so it slows as much as it takes to make the turn in the room it has.
-			final float ahead = probe(horse, horse.getX(), horse.getY(), horse.getZ(), horse.getYRot(), range, fall, side);
-			if (kind != CLEAR) {
-				final float turn = Math.abs(Mth.wrapDegrees(targetYaw + s.avoidTarget - horse.getYRot()));
-				final float turnable = turnableSpeed(turn, ahead - STEP - half - STOP_MARGIN) / blocksPerUnit;
-				limit = Math.min(limit, kind == WALL ? Math.max(turnable, GAIT_SPEED[WALK]) : turnable);
-				if (kind == DANGER) {
-					s.dangerAhead = Math.min(s.dangerAhead, ahead);
-				} else {
-					s.wallAhead = Math.min(s.wallAhead, ahead);
-				}
-			}
+		// Speed. On a way planned through, the way is clear at the pace it was planned at: only slopes along where it is
+		// heading still slow it (not the thing it is turning away from). Otherwise all of what lies where it is heading.
+		final boolean planned = s.way == WAY_CLEAR || s.way == WAY_PARTIAL;
+		float limit = limit(horse, s, horse.getYRot(), range, fall, blocksPerUnit, !planned);
+		if (s.way == WAY_CLEAR) {
+			limit = Math.min(limit, s.wayPace);
+		} else if (s.way == WAY_PARTIAL) {
+			// No way through in sight yet: on along the one that gets furthest, able to stop short of where it meets something.
+			final float stop = brakeTo(s.wayRoom - PATH_CHECK - STOP_MARGIN, 0.0F, DECEL_BRAKE * blocksPerUnit * BRAKE_PLAN) / blocksPerUnit;
+			limit = Math.min(limit, s.wayDanger ? stop : Math.max(stop, GAIT_SPEED[WALK]));
 		}
 		return limit;
-	}
-
-	/**
-	 * Fastest speed (blocks/tick) at which the horse can come round {@code turn} degrees within {@code room} blocks: it
-	 * takes TURN_LAG_TICKS to shift its weight, then turns at its grip-limited rate (on average TURN_EFFICIENCY of it).
-	 */
-	private static float turnableSpeed(final float turn, final float room) {
-		if (room <= 0.0F) {
-			return 0.0F;
-		}
-		float lo = 0.0F;
-		float hi = 1.0F;
-		for (int i = 0; i < 8; i++) {
-			final float v = (lo + hi) * 0.5F;
-			final float ticks = TURN_LAG_TICKS + turn / (TURN_EFFICIENCY * RideController.maxTurnRate(v * 20.0F));
-			if (v * ticks <= room) {
-				lo = v;
-			} else {
-				hi = v;
-			}
-		}
-		return lo;
 	}
 
 	/** Not looking this tick (walking off, swimming, jumping, climbing): let any detour ease out. */
 	static void rest(final RideState s) {
 		s.avoidTarget = 0.0F;
 		s.ledgeOnLine = false;
+		s.way = WAY_NONE;
+		s.wayPoints = 0;
+		s.lineOffset = 0.0F;
+		s.lineLastX = Double.NaN;
 		s.avoidOffset += Mth.clamp(-s.avoidOffset, -AVOID_RATE, AVOID_RATE);
 		s.dangerAhead = Float.MAX_VALUE;
 		s.gapAhead = Float.MAX_VALUE;
@@ -227,212 +194,621 @@ public final class Awareness {
 	}
 
 	/**
-	 * The straightest way round what blocks the rider's line, found the way a rider would: look along the obstacle,
-	 * either side, for the least the horse has to move over for the rider's line to be clear past it, and steer a
-	 * straight line for that point just past the obstacle (DETOUR_PAST beyond its near face), grazing it with
-	 * DETOUR_MARGIN to spare either side of the body, the rider's line from there clear for DETOUR_CLEARANCE more; and
-	 * better, a lane clear on through anything else in a row behind it (DETOUR_LANE or to the end of the look-ahead), if
-	 * one is in reach. In DETOUR_STEP steps first, then halving down to DETOUR_RESOLUTION. Aiming past the obstacle rather than at its near
-	 * corner keeps the angle small, so a fast horse doesn't swerve late and swing wide coming back. Replanned every few
-	 * ticks from where the horse is. Prefers the side it is already going round on, and keeps going round until the
-	 * rider's line is clear with room to spare. Zero when the line is clear, when it meets a 2-block ledge the horse
-	 * will jump ({@code s.ledgeOnLine}), or when there is no way round in reach (then the horse slows instead).
+	 * Keeps the rider's line while the horse goes round something: how far right of it the horse is (blocks), so that past
+	 * the obstacle it comes back onto the line the rider was on rather than carrying on beside it. The line turns with the
+	 * rider's view (about the point beside the horse); a rider who turns well away from it (LINE_FORGET_ANGLE, or A/D) has
+	 * picked a new line, through where the horse is.
 	 */
-	private static float detour(final AbstractHorse horse, final RideState s, final float targetYaw, final float range, final double fall) {
-		final boolean going = s.avoidTarget != 0.0F;
-		final float flank = side + DETOUR_MARGIN;
-		final float blocked = probe(horse, horse.getX(), horse.getY(), horse.getZ(), targetYaw, range, fall, going ? flank : side);
+	private static void followLine(final AbstractHorse horse, final RideState s, final float targetYaw) {
+		// The line is where the horse is once the rider has stopped turning and it has come round to the view: while the
+		// view swings (a corner taken, the mouse moved) or the horse is still coming round to it on its own, the line moves
+		// with the horse, so after a turn it doesn't steer back to some spot it passed mid-turn.
+		// (Once settled it stays so until the view swings again: going round something takes the horse off the view, and
+		// that is what the line is kept for.)
+		if (Math.abs(Mth.wrapDegrees(targetYaw - s.lineViewYaw)) > LINE_VIEW_STEP) {
+			s.lineSettle = 0;
+		} else if (s.lineSettle < LINE_SETTLE_TICKS) {
+			s.lineSettle++;
+		} else if (s.lineSettle == LINE_SETTLE_TICKS && Math.abs(Mth.wrapDegrees(horse.getYRot() - targetYaw - s.avoidOffset)) < LINE_SETTLE_ANGLE
+			&& Math.abs(s.yawVelocity) < LINE_SETTLE_TURN) {
+			s.lineSettle++;
+		}
+		s.lineViewYaw = targetYaw;
+		final boolean settled = s.lineSettle > LINE_SETTLE_TICKS;
+		if (s.way != WAY_NONE && !Double.isNaN(s.lineLastX) && Math.abs(Mth.wrapDegrees(targetYaw - s.lineYaw)) <= LINE_FORGET_ANGLE && !settled) {
+			s.lineOffset = 0.0F;
+			s.lineYaw = targetYaw;
+		} else if (s.way != WAY_NONE && !Double.isNaN(s.lineLastX) && Math.abs(Mth.wrapDegrees(targetYaw - s.lineYaw)) <= LINE_FORGET_ANGLE) {
+			final float rad = targetYaw * Mth.DEG_TO_RAD;
+			// (Right of a line along yaw is (-cos, -sin) of the yaw.)
+			s.lineOffset -= (float) ((horse.getX() - s.lineLastX) * Mth.cos(rad) + (horse.getZ() - s.lineLastZ) * Mth.sin(rad));
+			if (Math.abs(s.lineOffset) > PATH_REACH) {
+				s.lineOffset = 0.0F;
+				s.lineYaw = targetYaw;
+			}
+		} else {
+			if (s.way != WAY_NONE) {
+				// A new line: whatever it was going round is planned afresh from it.
+				s.way = WAY_NONE;
+				s.avoidTarget = 0.0F;
+			}
+			s.lineOffset = 0.0F;
+			s.lineYaw = targetYaw;
+		}
+		s.lineLastX = horse.getX();
+		s.lineLastZ = horse.getZ();
+	}
+
+	// ---- Ways through: planning ----
+
+	/** The way the horse is taking ({@link RideState#way}). */
+	static final byte WAY_NONE = 0;
+	/** A way through, clear as far as it looks, at {@link RideState#wayPace}. */
+	static final byte WAY_CLEAR = 1;
+	/** No way through in sight yet: on along the one that gets furthest, slowing to stop short of what it meets. */
+	static final byte WAY_PARTIAL = 2;
+	/** No way round in reach: on along the line, slowing for what is on it. */
+	static final byte WAY_BLOCKED = 3;
+
+	/** Block columns read while planning, kept for one plan in a window round the horse (no allocation). */
+	private static final int CELLS = 56;
+	private static final int[] CELL_STAMP = new int[CELLS * CELLS];
+	private static final int[] CELL_REF = new int[CELLS * CELLS];
+	private static final byte[] CELL_KIND = new byte[CELLS * CELLS];
+	private static final double[] CELL_GROUND = new double[CELLS * CELLS];
+	/** Where in the block what blocks it is (min x, max x, min z, max z), for a fence or a wall along its middle. */
+	private static final float[] CELL_SPAN = new float[CELLS * CELLS * 4];
+	private static double cellMinX;
+	private static double cellMaxX;
+	private static double cellMinZ;
+	private static double cellMaxZ;
+	private static int cellX0;
+	private static int cellZ0;
+	private static int planStamp;
+	private static double cellGround;
+	/** The ground under the last footprint looked at, and whether something was within the margin round the body. */
+	private static double footGround;
+	private static boolean footTight;
+	/** The plan's frame: the rider's line through (wayX, wayZ), beside the horse, along (wayFx, wayFz); right of it is (-wayFz, wayFx). */
+	private static double wayX;
+	private static double wayZ;
+	private static float wayFx;
+	private static float wayFz;
+	/** The share of its speed the horse keeps each tick on the ground under it, and how it is moving now (along, across the line). */
+	private static float wayGrip;
+	private static float wayVelU;
+	private static float wayVelV;
+	/** The last way played out that met something: how far along the line it got, how far it went, and what it met (WALL or DANGER). */
+	private static float rollReach;
+	private static float rollRoom;
+	private static int rollKind;
+	private static int rollPoints;
+
+	/**
+	 * The way on, picked the way a rider picks a line through: when something is on the rider's line (or the horse is off
+	 * it, coming back after going round something), the horse plays out candidate ways with its own steering (the weight
+	 * shift, the grip-limited turn rate at the pace it is going), each turning off the line by one of PATH_ANGLES for one of
+	 * PATH_HOLD_TICKS and then heading back for it, and takes the cheapest: the one that keeps the most of its pace
+	 * (turning least hard), stays nearest the rider's line, ends back on it, and stays clear as far as it looks (a way that
+	 * meets something sooner costs PATH_COST_SHORT for every block short, and must leave room to stop before it). The best
+	 * is then fine-tuned (a little more and less angle, a shorter and a longer hold). Replanned every couple of ticks from
+	 * where the horse is, so the way bends as it goes, round one thing and then the next. If the best way meets something,
+	 * a slower pace with a way clear all along is taken instead when that costs less (PATH_COST_PACE for all of the pace).
+	 * With no way that leaves room to stop, it slows on the line (a long wall). A 2-block ledge or a hurdle the rider rides
+	 * straight at isn't gone round: it is theirs to jump. Returns the degrees off the rider's line to steer now.
+	 */
+	private static float plan(final AbstractHorse horse, final RideState s, final float targetYaw, final float range, final double fall, final float blocksPerUnit) {
+		final boolean going = s.way != WAY_NONE;
+		// (Looking as far along the line as it plans, so it starts round something big early enough to keep its pace.)
+		final float horizon = Mth.clamp(range * PATH_AHEAD_FACTOR, PATH_AHEAD_MIN, PATH_AHEAD_MAX);
+		final float blocked = probe(horse, horse.getX(), horse.getY(), horse.getZ(), targetYaw, horizon, fall, going ? side + PATH_MARGIN : side);
 		s.ledgeOnLine = false;
 		s.hurdleOnLine = false;
-		if (kind == CLEAR) {
-			return 0.0F;
-		}
-		if (kind == WALL && wallLedge && LEDGE_CLIMB && jumpableLedge(horse, targetYaw, blocked)) {
+		final float centreAt = kind == WALL && wallLedge && LEDGE_CLIMB ? centreMeetsLedge(horse, targetYaw, horizon, fall, blocked) : -1.0F;
+		if (kind == WALL && wallLedge && LEDGE_CLIMB && jumpableLedge(horse, targetYaw, centreAt >= 0.0F ? centreAt : blocked, centreAt >= 0.0F)) {
 			// Ridden straight at a ledge it can jump up: it jumps it rather than going round.
 			s.ledgeOnLine = true;
+			s.way = WAY_NONE;
+			s.wayPoints = 0;
 			return 0.0F;
 		}
 		if (kind == WALL && wallLedge && jumpableHurdle(horse, targetYaw, blocked)) {
 			// Ridden straight at a fence or a wall the rider can jump: it is theirs to jump, not to go round.
 			s.hurdleOnLine = true;
+			s.way = WAY_NONE;
+			s.wayPoints = 0;
 			return 0.0F;
 		}
-		// The obstacle's near face is within the last sample step. Aim just past it, on a straight line that grazes its
-		// near corner; where that line meets something else (a crowded forest), dogleg instead: out to beside the near
-		// face, then along the rider's line past the obstacle.
-		final float face = blocked - STEP;
-		final float far = face + DETOUR_PAST;
-		final float near = Math.max(face - half, STEP);
-		// Past the obstacle the rider's line must be clear DETOUR_CLEARANCE on (from either aim)...
-		final float pastFar = DETOUR_CLEARANCE + half;
-		final float pastNear = far - near + pastFar;
-		// ...and better, a lane: clear on through whatever else is in a row behind it, so going round one thing doesn't
-		// lead into the next. Taken if it is no more than DETOUR_LANE_EXTRA further over than the nearest way past.
-		final float lane = Math.max(range - far, DETOUR_LANE);
-		final float preferred = s.avoidOffset != 0.0F ? Math.signum(s.avoidOffset) : s.turnIntent < 0.0F ? -1.0F : 1.0F;
-		float pastOnly = -1.0F;
-		float pastOnlySign = 0.0F;
-		float pastOnlyAhead = 0.0F;
-		float pastOnlyLength = 0.0F;
-		for (float across = DETOUR_STEP; across <= DETOUR_REACH + 1.0E-3F; across += DETOUR_STEP) {
-			if (pastOnly >= 0.0F && across > pastOnly + DETOUR_LANE_EXTRA) {
-				break;
-			}
-			for (int i = 0; i < 2; i++) {
-				final float sign = i == 0 ? preferred : -preferred;
-				float ahead = far;
-				float past = pastFar;
-				if (!wayPast(horse, targetYaw, far, across, sign, fall, flank, pastFar)) {
-					ahead = near;
-					past = pastNear;
-					if (!wayPast(horse, targetYaw, near, across, sign, fall, flank, pastNear)) {
-						continue;
-					}
-				}
-				final float laneLength = past - pastFar + lane;
-				if (wayPast(horse, targetYaw, ahead, across, sign, fall, flank, laneLength)) {
-					return detourAngle(horse, s, targetYaw, sign, ahead, face, least(horse, targetYaw, ahead, across, sign, fall, flank, laneLength));
-				}
-				if (pastOnly < 0.0F) {
-					pastOnly = across;
-					pastOnlySign = sign;
-					pastOnlyAhead = ahead;
-					pastOnlyLength = past;
-				}
-			}
-		}
-		if (pastOnly >= 0.0F) {
-			return detourAngle(horse, s, targetYaw, pastOnlySign, pastOnlyAhead, face,
-				least(horse, targetYaw, pastOnlyAhead, pastOnly, pastOnlySign, fall, flank, pastOnlyLength));
-		}
-		if (blocked <= DETOUR_CLOSE) {
-			// Nose to it, any line out at an angle clips it: step aside along it, if the rider's line is clear past it from
-			// there, and turn hard that way (the body slides along the face as it comes round).
-			final float rad = targetYaw * Mth.DEG_TO_RAD;
-			final double fx = -Mth.sin(rad);
-			final double fz = Mth.cos(rad);
-			for (float across = DETOUR_STEP; across <= DETOUR_REACH * 0.5F + 1.0E-3F; across += DETOUR_STEP) {
-				for (int i = 0; i < 2; i++) {
-					final float sign = i == 0 ? preferred : -preferred;
-					probe(horse, horse.getX(), horse.getY(), horse.getZ(), targetYaw + 90.0F * sign, across, fall, SLIDE_FLANK);
-					if (kind != CLEAR) {
-						continue;
-					}
-					probe(horse, horse.getX() - fz * across * sign, endGround, horse.getZ() + fx * across * sign, targetYaw, far + pastFar, fall, side);
-					if (kind == CLEAR) {
-						return AVOID_MAX_ANGLE * sign;
-					}
-				}
-			}
-		}
-		kind = WALL;
-		return 0.0F;
-	}
-
-	/**
-	 * The least the horse has to move over (to within DETOUR_RESOLUTION) for the way past to be clear, knowing it is
-	 * clear {@code across} over and not a step less.
-	 */
-	private static float least(
-		final AbstractHorse horse, final float targetYaw, final float ahead, final float across, final float sign, final double fall, final float flank,
-		final float past
-	) {
-		float clear = across;
-		float stuck = across - DETOUR_STEP;
-		while (clear - stuck > DETOUR_RESOLUTION) {
-			final float mid = (clear + stuck) * 0.5F;
-			if (wayPast(horse, targetYaw, ahead, mid, sign, fall, flank, past)) {
-				clear = mid;
-			} else {
-				stuck = mid;
-			}
-		}
-		return clear;
-	}
-
-	/**
-	 * How far off the rider's line (degrees, toward {@code sign}) to head for the way past {@code clear} over at
-	 * {@code ahead}: the least angle that gets the horse as far over as that line is at the obstacle's near face
-	 * ({@code face} along the line) by the time its chest gets there, given how it turns (it lags the heading it is
-	 * asked for, and carries on round for a while after). A horse already swinging round far enough needs none: it
-	 * heads back for the rider's line now (its momentum still carries it past the corner, with room to spare by the far
-	 * side), so it doesn't swing wide. If no angle gets it there in time, the straight line.
-	 */
-	private static float detourAngle(
-		final AbstractHorse horse, final RideState s, final float targetYaw, final float sign, final float ahead, final float face, final float clear
-	) {
-		final float across = ahead > face ? clear * face / ahead : clear;
-		final float distance = Math.max(face - half, STEP);
-		if (RideController.sideAfter(horse, s, targetYaw, 0.0F, distance) * sign >= across - DETOUR_MARGIN
-			&& RideController.sideAfter(horse, s, targetYaw, 0.0F, distance + DETOUR_PAST) * sign >= across) {
+		final float heading = Mth.wrapDegrees(horse.getYRot() - targetYaw);
+		// (Coming back onto the line, it is back once near it and heading along it; nothing in the way and not going round
+		// anything, the rider's turns are the rider's.)
+		if (kind == CLEAR && Math.abs(s.lineOffset) < LINE_SNAP && (!going || Math.abs(heading) < LINE_SNAP_ANGLE)) {
+			s.way = WAY_NONE;
+			s.wayPoints = 0;
 			return 0.0F;
 		}
-		float lo = 0.0F;
-		float hi = AVOID_MAX_ANGLE;
-		if (RideController.sideAfter(horse, s, targetYaw, hi * sign, distance) * sign < across) {
-			return (float) Math.toDegrees(Math.atan2(clear, ahead)) * sign;
-		}
-		for (int i = 0; i < 7; i++) {
-			final float mid = (lo + hi) * 0.5F;
-			if (RideController.sideAfter(horse, s, targetYaw, mid * sign, distance) * sign >= across) {
-				hi = mid;
-			} else {
-				lo = mid;
-			}
-		}
-		return hi * sign;
-	}
-
-	/**
-	 * Whether the horse can get to the point {@code across} to the {@code sign} side of the rider's line, {@code ahead}
-	 * along it, and carry on from there along the rider's line past the obstacle, all clear with {@code flank} either side.
-	 */
-	private static boolean wayPast(
-		final AbstractHorse horse, final float targetYaw, final float ahead, final float across, final float sign, final double fall, final float flank,
-		final float past
-	) {
-		final float angle = (float) Math.toDegrees(Math.atan2(across, ahead));
-		if (angle > AVOID_MAX_ANGLE) {
-			return false;
-		}
-		// The way out to the side...
-		probe(horse, horse.getX(), horse.getY(), horse.getZ(), targetYaw + angle * sign, Mth.sqrt(across * across + ahead * ahead), fall, flank);
-		if (kind != CLEAR) {
-			return false;
-		}
-		// ...and from there, past the obstacle along the rider's line. (Turning to a larger yaw heads toward (-fz, fx).)
+		final boolean lineBlocked = kind != CLEAR;
+		final long started = RideController.profile ? System.nanoTime() : 0L;
 		final float rad = targetYaw * Mth.DEG_TO_RAD;
-		final double fx = -Mth.sin(rad);
-		final double fz = Mth.cos(rad);
-		final double x = horse.getX() + fx * ahead - fz * across * sign;
-		final double z = horse.getZ() + fz * ahead + fx * across * sign;
-		probe(horse, x, endGround, z, targetYaw, past, fall, flank);
-		return kind == CLEAR;
+		wayFx = -Mth.sin(rad);
+		wayFz = Mth.cos(rad);
+		wayX = horse.getX() + wayFz * s.lineOffset;
+		wayZ = horse.getZ() - wayFx * s.lineOffset;
+		cellX0 = Mth.floor(horse.getX()) - CELLS / 2;
+		cellZ0 = Mth.floor(horse.getZ()) - CELLS / 2;
+		planStamp++;
+		// How the ground under it grips (as vanilla moves an entity), and how it is moving now, along and across the line.
+		wayGrip = horse.level().getBlockState(horse.getBlockPosBelowThatAffectsMyMovement()).getBlock().getFriction() * 0.91F;
+		final Vec3 moving = horse.getDeltaMovement();
+		wayVelU = (float) (moving.x * wayFx + moving.z * wayFz);
+		wayVelV = (float) (-moving.x * wayFz + moving.z * wayFx);
+		final float unitSpeed = Math.max(s.speed, GAIT_SPEED[WALK]);
+		final float speed = unitSpeed * blocksPerUnit;
+		if (s.wayX == null) {
+			s.wayX = new float[PATH_POINTS];
+			s.wayZ = new float[PATH_POINTS];
+		}
+		if (!lineBlocked) {
+			// Past what it went round, nothing on the line: straight back onto it, if that way is clear.
+			rollout(horse, s, heading, 0.0F, 0, speed, unitSpeed, horizon, fall, Float.MAX_VALUE, s.wayX, s.wayZ);
+			if (rollClear) {
+				s.way = WAY_CLEAR;
+				s.wayPace = Float.MAX_VALUE;
+				s.wayPoints = rollPoints;
+				planned(started);
+				return back(s.lineOffset, speed);
+			}
+		}
+		// Going round on one side already (or turning that way): that side first.
+		final float preferred = s.avoidTarget != 0.0F ? Math.signum(s.avoidTarget) : s.turnIntent != 0.0F ? Math.signum(s.turnIntent) : s.lineOffset > 0.0F ? -1.0F : 1.0F;
+		// A way that meets something must leave room to stop short of it.
+		final float commit = stopping(speed, DECEL_BRAKE * blocksPerUnit * BRAKE_PLAN) + PATH_COMMIT;
+		bestCost = Float.MAX_VALUE;
+		furthest = -1.0F;
+		search(horse, s, heading, unitSpeed, 1.0F, horizon, fall, blocksPerUnit, preferred, commit, false);
+		final float straightReach = lineReach;
+		if (bestCost == Float.MAX_VALUE || !bestClear && bestRoom < stopping(speed, DECEL_BRAKE * blocksPerUnit * BRAKE_PLAN) * PATH_SLOW_ROOM) {
+			// No way at this pace, or the best meets something getting close: a slower pace clear all along, if that loses
+			// less, or one with room to stop from the pace it is going. (Further off, it keeps its pace: there is time yet
+			// to find a way on.)
+			final float cost = bestCost;
+			final float angle = bestAngle;
+			final int hold = bestHold;
+			final float room = bestRoom;
+			final int what = bestKind;
+			for (final float scale : PATH_SLOWER) {
+				search(horse, s, heading, unitSpeed, scale, horizon, fall, blocksPerUnit, preferred, commit, false);
+			}
+			if (cost < Float.MAX_VALUE && (bestScale == 1.0F || !bestClear)) {
+				bestCost = cost;
+				bestAngle = angle;
+				bestHold = hold;
+				bestScale = 1.0F;
+				bestRoom = room;
+				bestKind = what;
+				bestClear = false;
+			}
+		}
+		planned(started);
+		if (bestCost == Float.MAX_VALUE && furthest > straightReach + PATH_PARTIAL_GAIN) {
+			// No way that leaves room to stop: along the one that gets furthest on, braking, rather than straight on into
+			// what is there. (Not along a wall it can't get round: that gets no further on.)
+			bestCost = 0.0F;
+			bestAngle = furthestAngle;
+			bestHold = furthestHold;
+			bestScale = 1.0F;
+			bestClear = false;
+			bestRoom = furthestRoom;
+			bestKind = furthestKind;
+		}
+		if (bestCost == Float.MAX_VALUE) {
+			if (logPlans) {
+				planLog.append(String.format(java.util.Locale.ROOT, "%n    z%.1f x%.2f off%.2f: NONE (furthest %.1f, line %.1f, horizon %.1f, blocked %.1f)", horse.getZ(), horse.getX(),
+					s.lineOffset, furthest, straightReach, horizon, blocked));
+			}
+			s.wayPoints = 0;
+			s.way = WAY_BLOCKED;
+			return 0.0F;
+		}
+		if (logPlans) {
+			planLog.append(String.format(java.util.Locale.ROOT, "%n    z%.1f x%.2f off%.2f: %s a%.0f h%d pace%.2f cost%.1f room%.1f (furthest %.1f, line %.1f, horizon %.1f)", horse.getZ(),
+				horse.getX(), s.lineOffset, bestClear ? "CLEAR" : "PARTIAL", bestAngle, bestHold, bestScale, bestCost, bestRoom, furthest, straightReach, horizon));
+		}
+		s.way = bestClear ? WAY_CLEAR : WAY_PARTIAL;
+		s.wayPace = bestScale < 1.0F ? unitSpeed * bestScale : Float.MAX_VALUE;
+		s.wayRoom = bestRoom;
+		s.wayDanger = bestKind == DANGER;
+		s.wayAngle = bestAngle;
+		s.wayHold = bestHold;
+		final float bestSpeed = unitSpeed * bestScale * blocksPerUnit;
+		rollout(horse, s, heading, bestAngle, bestHold, bestSpeed, unitSpeed * bestScale, horizon, fall, Float.MAX_VALUE, s.wayX, s.wayZ);
+		s.wayPoints = rollPoints;
+		return bestHold > 0 ? bestAngle : back(s.lineOffset, bestSpeed);
 	}
+
+	/** Playing out the way already being taken. */
+	private static boolean keeping;
+
+	/** The best way found so far in this plan: its cost, how it steers, its pace, whether it is clear all along, and if not where it meets what. */
+	private static float bestCost;
+	private static float bestAngle;
+	private static int bestHold;
+	private static float bestScale;
+	private static boolean bestClear;
+	private static float bestRoom;
+	private static int bestKind;
+	/** At the full pace: the way that gets furthest along the line before it meets something, whatever it costs, and how far straight back for the line gets. */
+	private static float furthest;
+	private static float furthestAngle;
+	private static int furthestHold;
+	private static float furthestRoom;
+	private static int furthestKind;
+	private static float lineReach;
+
+	/**
+	 * Plays out the candidate ways at {@code scale} of the pace, the way taken last time first (a good bound to cut the
+	 * rest short), then back for the line, then every angle and hold, then fine-tunes round the best; keeps the best in
+	 * {@link #bestCost} and the rest. A way that meets something counts only with {@code commit} blocks of room before it,
+	 * and not at all if {@code clearOnly}.
+	 */
+	private static void search(
+		final AbstractHorse horse, final RideState s, final float heading, final float unitSpeed, final float scale, final float horizon, final double fall,
+		final float blocksPerUnit, final float preferred, final float commit, final boolean clearOnly
+	) {
+		final float speed = unitSpeed * scale * blocksPerUnit;
+		// (Straight back for the line first: how far that gets is the bar a way that meets a drop has to beat.)
+		tryWay(horse, s, heading, 0.0F, 0, speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
+		if (scale == 1.0F && (s.way == WAY_CLEAR || s.way == WAY_PARTIAL)) {
+			// The way it is on, carried on from where it has got to (its hold counted down), kept unless another is clearly
+			// better: switching ways mid-turn costs the turn it has started, so it doesn't dither between two.
+			keeping = true;
+			tryWay(horse, s, heading, s.wayAngle, Math.max(s.wayHold - AVOID_REPLAN_TICKS, 0), speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
+			keeping = false;
+		}
+		for (final float a : PATH_ANGLES) {
+			for (int side = 0; side < (a == 0.0F ? 1 : 2); side++) {
+				final float angle = side == 0 ? a * preferred : -a * preferred;
+				for (final int hold : PATH_HOLD_TICKS) {
+					tryWay(horse, s, heading, angle, hold, speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
+				}
+			}
+		}
+		if (bestCost < Float.MAX_VALUE && bestScale == scale && bestHold > 0) {
+			final float angle = bestAngle;
+			final int hold = bestHold;
+			tryWay(horse, s, heading, angle * 0.8F, hold, speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
+			tryWay(horse, s, heading, angle * 1.2F, hold, speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
+			tryWay(horse, s, heading, angle, Math.max(Math.round(hold * 0.7F), 1), speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
+			tryWay(horse, s, heading, angle, Math.round(hold * 1.4F), speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
+		}
+	}
+
+	private static void tryWay(
+		final AbstractHorse horse, final RideState s, final float heading, final float angle, final int hold, final float speed, final float unitSpeed,
+		final float scale, final float horizon, final double fall, final float commit, final boolean clearOnly
+	) {
+		// (Changing sides costs more the further it has gone over to the side it is on.)
+		final float extra = (1.0F - scale) * PATH_COST_PACE
+			+ (s.avoidTarget * angle < 0.0F ? PATH_COST_SWITCH * Mth.clamp(Math.abs(s.lineOffset), 0.5F, 1.0F) : 0.0F) - (keeping ? PATH_COST_KEEP : 0.0F);
+		// (At the full pace every way is played out to the end while none is good enough, to know which leaves the most room.)
+		final boolean full = scale == 1.0F;
+		float cost = rollout(horse, s, heading, angle, hold, speed, unitSpeed * scale, horizon, fall, full && bestCost == Float.MAX_VALUE ? Float.MAX_VALUE
+			: bestCost - extra, null, null);
+		if (cost == Float.MAX_VALUE) {
+			return;
+		}
+		if (full) {
+			if (hold == 0) {
+				lineReach = rollReach;
+			}
+			if (rollReach > furthest) {
+				furthest = rollReach;
+				furthestAngle = angle;
+				furthestHold = hold;
+				furthestRoom = rollRoom;
+				furthestKind = rollKind;
+			}
+		}
+		if (!rollClear) {
+			// (A way that just runs off sideways, along a cliff edge or a wall, without getting on, is no way on; nor one that
+			// meets a drop no further on than straight ahead would: at a cliff edge it stays put.)
+			if (clearOnly || rollRoom < commit || rollKind == OUT || rollKind == DANGER && rollReach < lineReach + PATH_PARTIAL_GAIN) {
+				return;
+			}
+			// (Meeting something at all costs: it will have to go round it after all, the sooner the more.)
+			cost += PATH_COST_MEET + (horizon - rollReach) * PATH_COST_SHORT;
+		}
+		if (cost + extra < bestCost) {
+			bestCost = cost + extra;
+			bestAngle = angle;
+			bestHold = hold;
+			bestScale = scale;
+			bestClear = rollClear;
+			bestRoom = rollRoom;
+			bestKind = rollKind;
+		}
+	}
+
+	/** Blocks it takes to stop from {@code speed} blocks/tick braking at {@code decel}, with the body's lag. */
+	private static float stopping(final float speed, final float decel) {
+		return speed * BRAKE_LAG_TICKS + speed * speed / (2.0F * decel);
+	}
+
+	/** Test hook: while set, each plan's choice is noted in {@link #planLog}. */
+	public static boolean logPlans;
+	public static final StringBuilder planLog = new StringBuilder();
+
+	/** Test hook (while {@link RideController#profile} is set): plans made, and the time they took in all and at most (nanoseconds). */
+	public static int plans;
+	public static long planNanos;
+	public static long planNanosMost;
+
+	private static void planned(final long started) {
+		if (RideController.profile) {
+			final long took = System.nanoTime() - started;
+			plans++;
+			planNanos += took;
+			planNanosMost = Math.max(planNanosMost, took);
+		}
+	}
+
+	/** Degrees off the line to head back onto it from {@code offset} right of it, at {@code speed} blocks/tick: aiming for a point on it a little ahead. */
+	private static float back(final float offset, final float speed) {
+		return (float) Math.toDegrees(Math.atan2(-offset, Mth.clamp(speed * PATH_BACK_TICKS, PATH_BACK_MIN, PATH_BACK_MAX)));
+	}
+
+	/**
+	 * Plays out one candidate way: steering {@code angle} degrees off the rider's line for {@code hold} ticks and then back
+	 * for the line, with the horse's own steering (as the ride tick: the detour easing in, the weight shift, the
+	 * grip-limited turn rate) at {@code speed} blocks/tick, from how it is turning now, the body checked against the world
+	 * every PATH_CHECK blocks, until it is {@code horizon} along the line ({@link #rollClear}) or meets something (where:
+	 * {@link #rollReach} along the line, {@link #rollRoom} along the way, {@link #rollKind} what). Returns its cost so far:
+	 * how far off the line it is and how hard it turns along the way, how close it passes things, and how far off the line
+	 * it ends up; MAX_VALUE as soon as that is more than {@code bound}. With {@code trailX}, records where the body goes
+	 * ({@link #rollPoints}).
+	 */
+	private static float rollout(
+		final AbstractHorse horse, final RideState s, final float heading, final float angle, final int hold, final float speed, final float unitSpeed,
+		final float horizon, final double fall, final float bound, final float[] trailX, final float[] trailZ
+	) {
+		final Level level = horse.level();
+		final float maxTurn = RideController.maxTurnRate(speed * 20.0F);
+		final float accel = maxTurn * TURN_ACCEL;
+		final float shift = Mth.lerp(gallopFraction(unitSpeed), WEIGHT_SHIFT_STILL, WEIGHT_SHIFT_GALLOP);
+		final float lookBack = Mth.clamp(speed * PATH_BACK_TICKS, PATH_BACK_MIN, PATH_BACK_MAX);
+		final float longest = horizon * PATH_LONGEST + 2.0F;
+		// (Slower than a gallop, weight committed ahead of the turn pushes it a little sideways into it, as in the ride tick.)
+		final float sidestep = SIDESTEP * (1.0F - Math.min(gallopFraction(unitSpeed) * 1.4F, 1.0F));
+		// Its way follows its momentum as vanilla moves it: each tick a push where it faces, then the ground's grip takes off
+		// part of the speed, so through a turn it drifts a little wide of where it faces (more on ice).
+		final float keep = wayGrip;
+		final float push = speed * (1.0F - keep);
+		float velU = wayVelU;
+		float velV = wayVelV;
+		float h = heading;
+		float avoid = s.avoidOffset;
+		float intent = s.turnIntent;
+		float velocity = s.yawVelocity;
+		float u = 0.0F;
+		float v = s.lineOffset;
+		double ground = horse.getY();
+		float travelled = 0.0F;
+		float checked = 0.0F;
+		float cost = 0.0F;
+		rollPoints = 0;
+		rollClear = false;
+		for (int t = 0; travelled < longest && t < 400; t++) {
+			final float command = t < hold ? angle : (float) Math.toDegrees(Math.atan2(-v, lookBack));
+			avoid += Mth.clamp(command - avoid, -AVOID_RATE, AVOID_RATE);
+			final float desired = Mth.clamp((avoid - h) * TURN_GAIN / maxTurn, -1.0F, 1.0F);
+			intent += Mth.clamp(desired - intent, -shift, shift);
+			velocity += Mth.clamp(maxTurn * intent * Math.abs(intent) - velocity, -accel, accel);
+			h += velocity;
+			final float hr = h * Mth.DEG_TO_RAD;
+			final float aside = (intent - velocity / maxTurn) * sidestep;
+			final float on = push * Mth.invSqrt(1.0F + aside * aside);
+			final float cos = Mth.cos(hr);
+			final float sin = Mth.sin(hr);
+			velU += on * (cos - aside * sin);
+			velV += on * (sin + aside * cos);
+			u += velU;
+			v += velV;
+			travelled += Mth.sqrt(velU * velU + velV * velV);
+			velU *= keep;
+			velV *= keep;
+			cost += speed * (Math.min(Math.abs(v), PATH_OFF_LINE_CAP) * PATH_COST_OFF_LINE + Math.abs(intent) * PATH_COST_TURN);
+			if (Math.abs(v) > PATH_REACH || Math.abs(h) > 120.0F) {
+				// Too far off the line, or turned back on itself: not a way on.
+				return met(u, travelled, OUT, cost, v);
+			}
+			final boolean end = u >= horizon;
+			if (travelled - checked >= PATH_CHECK || end) {
+				checked = travelled;
+				final double x = wayX + wayFx * u - wayFz * v;
+				final double z = wayZ + wayFz * u + wayFx * v;
+				// (Room to spare round the body only from a block on, growing over the next: pressed against a wall in an alley
+				// it can still set off along it and away from it, without every way seeming to meet the wall at once.)
+				final int at = footprint(level, x, z, ground, fall, PATH_CLEAR * Mth.clamp((travelled - 1.0F) / PATH_CLEAR_GROW, 0.0F, 1.0F));
+				if (at != CLEAR) {
+					return met(u, travelled, at, cost, v);
+				}
+				ground = footGround;
+				if (footTight) {
+					cost += PATH_COST_TIGHT;
+				}
+				if (trailX != null && rollPoints < trailX.length) {
+					trailX[rollPoints] = (float) x;
+					trailZ[rollPoints] = (float) z;
+					rollPoints++;
+				}
+			}
+			if (cost > bound) {
+				return Float.MAX_VALUE;
+			}
+			if (end) {
+				rollClear = true;
+				rollReach = u;
+				rollRoom = travelled;
+				return cost + Math.min(Math.abs(v), PATH_OFF_LINE_CAP) * PATH_COST_END + Math.abs(Mth.wrapDegrees(h)) * PATH_COST_END_TURN;
+			}
+		}
+		return met(u, travelled, OUT, cost, v);
+	}
+
+	/** A way played out that ran out of reach or of way before getting far enough along the line (no better than a wall). */
+	private static final int OUT = 3;
+
+	/** Whether the last way played out stayed clear all along. */
+	private static boolean rollClear;
+
+	private static float met(final float reach, final float room, final int what, final float cost, final float v) {
+		rollReach = reach;
+		rollRoom = room;
+		rollKind = what;
+		return cost + Math.min(Math.abs(v), PATH_OFF_LINE_CAP) * PATH_COST_END;
+	}
+
+	/**
+	 * The body at (x, z) arriving on ground at {@code ground}: WALL or DANGER if its box ({@code clear} wider) would be in
+	 * something, or over a fall it won't take (all of it: half over an edge it still stands), else CLEAR, with the ground
+	 * it stands on in {@link #footGround} and whether anything is within PATH_MARGIN of it in {@link #footTight}.
+	 */
+	private static int footprint(final Level level, final double x, final double z, final double ground, final double fall, final float clear) {
+		final double body = half + clear;
+		final double margin = half + PATH_MARGIN;
+		final int x1 = Mth.floor(x + margin);
+		final int z1 = Mth.floor(z + margin);
+		final int z0 = Mth.floor(z - margin);
+		int cells = 0;
+		int drops = 0;
+		double top = Double.NEGATIVE_INFINITY;
+		boolean tight = false;
+		for (int bx = Mth.floor(x - margin); bx <= x1; bx++) {
+			for (int bz = z0; bz <= z1; bz++) {
+				final boolean in = bx + 1 > x - body && bx < x + body && bz + 1 > z - body && bz < z + body;
+				final int c = cell(level, bx, bz, ground, fall);
+				if (c == BLOCKED || c == HAZARD) {
+					// (Where in the block it is: past a fence or a wall along the middle of its block, there is room beside it.)
+					if (bx + cellMaxX > x - body && bx + cellMinX < x + body && bz + cellMaxZ > z - body && bz + cellMinZ < z + body) {
+						return c == BLOCKED ? WALL : DANGER;
+					}
+					if (bx + cellMaxX > x - margin && bx + cellMinX < x + margin && bz + cellMaxZ > z - margin && bz + cellMinZ < z + margin) {
+						tight = true;
+					}
+				} else if (in) {
+					cells++;
+					if (c == DROP) {
+						drops++;
+					} else {
+						top = Math.max(top, cellGround);
+					}
+				}
+			}
+		}
+		if (drops == cells) {
+			return DANGER;
+		}
+		footGround = top;
+		footTight = tight;
+		return CLEAR;
+	}
+
+	/** {@link #column} for a whole block column (anything in it counts, however thin), kept for the plan. */
+	private static int cell(final Level level, final int bx, final int bz, final double ground, final double fall) {
+		final int ix = bx - cellX0;
+		final int iz = bz - cellZ0;
+		final int ref = (int) Math.floor(ground * 16.0 + 0.5);
+		final boolean kept = ix >= 0 && ix < CELLS && iz >= 0 && iz < CELLS;
+		final int i = kept ? ix + iz * CELLS : 0;
+		if (kept && CELL_STAMP[i] == planStamp && CELL_REF[i] == ref) {
+			cellGround = CELL_GROUND[i];
+			cellMinX = CELL_SPAN[i * 4];
+			cellMaxX = CELL_SPAN[i * 4 + 1];
+			cellMinZ = CELL_SPAN[i * 4 + 2];
+			cellMaxZ = CELL_SPAN[i * 4 + 3];
+			return CELL_KIND[i];
+		}
+		final int c = column(level, bx + 0.5, bz + 0.5, ground, fall, true);
+		cellGround = columnGround;
+		cellMinX = columnMinX;
+		cellMaxX = columnMaxX;
+		cellMinZ = columnMinZ;
+		cellMaxZ = columnMaxZ;
+		if (kept) {
+			CELL_STAMP[i] = planStamp;
+			CELL_REF[i] = ref;
+			CELL_KIND[i] = (byte) c;
+			CELL_GROUND[i] = columnGround;
+			CELL_SPAN[i * 4] = (float) columnMinX;
+			CELL_SPAN[i * 4 + 1] = (float) columnMaxX;
+			CELL_SPAN[i * 4 + 2] = (float) columnMinZ;
+			CELL_SPAN[i * 4 + 3] = (float) columnMaxZ;
+		}
+		return c;
+	}
+
 
 	/**
 	 * Whether the wall the last probe met {@code blocked} along yaw (with {@link #endGround} under the centre line just
 	 * short of it) is a ledge the horse will jump up when it gets there: the full ledge check, from a body placed just
 	 * short of it.
 	 */
-	private static boolean jumpableLedge(final AbstractHorse horse, final float yaw, final float blocked) {
+	/**
+	 * How far along the rider's centre line itself meets the ledge the line (centre and flanks) met {@code blocked} along,
+	 * or -1 if only a flank does (met at a steep angle a flank gets there first, and the centre a little further on).
+	 * Leaves {@link #endGround} under the centre line just short of it.
+	 */
+	private static float centreMeetsLedge(final AbstractHorse horse, final float yaw, final float range, final double fall, final float blocked) {
+		if (centreBlocked) {
+			return blocked;
+		}
+		final double ground = endGround;
+		final float at = probe(horse, horse.getX(), horse.getY(), horse.getZ(), yaw, Math.min(blocked + LEDGE_REACH, range), fall, 0.0F);
+		final boolean meets = kind == WALL && wallLedge && at <= blocked + LEDGE_REACH;
+		kind = WALL;
+		wallLedge = true;
+		if (!meets) {
+			endGround = ground;
+		}
+		return meets ? at : -1.0F;
+	}
+
+	private static boolean jumpableLedge(final AbstractHorse horse, final float yaw, final float blocked, final boolean centre) {
 		final float rad = yaw * Mth.DEG_TO_RAD;
 		final double start = Math.max(blocked - STEP - half - 1.0F, 0.0F);
 		final AABB box = horse.getBoundingBox().move(-Mth.sin(rad) * start, endGround - horse.getY(), Mth.cos(rad) * start);
-		return !Double.isNaN(ledge(horse, box, yaw, 2.0F, false));
+		// Met by the rider's centre line, the full look for somewhere to land (as the climb itself does: met at a steep
+		// angle, it climbs a little to one side or straight up the face); met only by a flank, only straight on, so a ledge
+		// that just catches the flank is gone round.
+		return !Double.isNaN(ledge(horse, box, yaw, 2.0F, centre));
 	}
 
 	/** Whether the wall the last probe met {@code blocked} along yaw is a hurdle the rider can jump from just short of it. */
 	private static boolean jumpableHurdle(final AbstractHorse horse, final float yaw, final float blocked) {
 		final float rad = yaw * Mth.DEG_TO_RAD;
+		final double fx = -Mth.sin(rad);
+		final double fz = Mth.cos(rad);
 		final double start = Math.max(blocked - STEP - half - 1.0F, 0.0F);
-		final AABB box = horse.getBoundingBox().move(-Mth.sin(rad) * start, endGround - horse.getY(), Mth.cos(rad) * start);
-		return !Double.isNaN(hurdle(horse, box, yaw, 2.0F));
+		final AABB box = horse.getBoundingBox().move(fx * start, endGround - horse.getY(), fz * start);
+		if (Double.isNaN(hurdle(horse, box, yaw, 2.0F))) {
+			return false;
+		}
+		// Only one ridden at fairly square: a fence or a wall the rider's line runs along or glances (down a fenced street)
+		// is something to keep off, not a jump.
+		final Level level = horse.level();
+		final double m = hurdleFace + 0.05;
+		final boolean stopsX = !level.noBlockCollision(horse, box.move(fx * m, 0.0, 0.0));
+		final boolean stopsZ = !level.noBlockCollision(horse, box.move(0.0, 0.0, fz * m));
+		final double square = stopsX && !stopsZ ? Math.abs(fx) : stopsZ && !stopsX ? Math.abs(fz) : Math.max(Math.abs(fx), Math.abs(fz));
+		return square >= Mth.cos(HURDLE_LINE_ANGLE * Mth.DEG_TO_RAD);
 	}
 
-	/** Fastest speed (multiple of the speed attribute) that still stops short of, or lands safely past, what lies along yaw. */
+	/**
+	 * Fastest speed (multiple of the speed attribute) that still stops short of, or lands safely past, what lies along yaw;
+	 * without {@code obstacles}, walls don't count (on a way planned round what is there).
+	 */
 	private static float limit(
-		final AbstractHorse horse, final RideState s, final float yaw, final float range, final double fall, final float blocksPerUnit, final boolean slopes
+		final AbstractHorse horse, final RideState s, final float yaw, final float range, final double fall, final float blocksPerUnit, final boolean obstacles
 	) {
 		final float ahead = probe(horse, horse.getX(), horse.getY(), horse.getZ(), yaw, range, fall, side);
 		s.dangerAhead = kind == DANGER ? ahead : Float.MAX_VALUE;
@@ -441,8 +817,10 @@ public final class Awareness {
 		s.gapAhead = gapAt;
 		final float decel = DECEL_BRAKE * blocksPerUnit * BRAKE_PLAN;
 		firstEdge = Float.MAX_VALUE;
-		final float limit = slopes ? descent(horse, s, Math.min(fall, harmlessFall(horse)), decel, blocksPerUnit) : Float.MAX_VALUE;
-		if (kind == CLEAR) {
+		final float limit = descent(horse, s, Math.min(fall, harmlessFall(horse)), decel, blocksPerUnit);
+		if (kind == CLEAR || !obstacles && kind == WALL) {
+			// (On a way planned round it, a wall where it is heading now is what it is turning away from; a drop or a
+			// hazard there it still slows for, to be sure.)
 			return limit;
 		}
 		if (kind == WALL && wallLedge && s.ledgeOnLine && Math.abs(Mth.wrapDegrees(yaw - s.riderYaw)) < LEDGE_LINE_ANGLE) {
@@ -601,6 +979,7 @@ public final class Awareness {
 			final double rGround = columnGround;
 			if (c == BLOCKED || l == BLOCKED || r == BLOCKED) {
 				kind = WALL;
+				centreBlocked = c == BLOCKED;
 				// Every line that met something met a ledge (met at an angle, a flank gets there before the centre does).
 				wallLedge = (c != BLOCKED || cLedge) && (l != BLOCKED || lLedge) && (r != BLOCKED || columnLedge);
 				endGround = centre;
@@ -678,6 +1057,11 @@ public final class Awareness {
 	 * (a longer fall) or HAZARD. Water anywhere below breaks a fall. Scans down from head height after a step up.
 	 */
 	private static int column(final Level level, final double x, final double z, final double ground, final double fall) {
+		return column(level, x, z, ground, fall, false);
+	}
+
+	/** {@link #column}; {@code whole}: anything in the block counts, however thin and wherever in it (planning by whole blocks). */
+	private static int column(final Level level, final double x, final double z, final double ground, final double fall, final boolean whole) {
 		final int bx = Mth.floor(x);
 		final int bz = Mth.floor(z);
 		final double inX = x - bx;
@@ -687,6 +1071,10 @@ public final class Awareness {
 		final double bodyTop = ground + BODY_HEIGHT;
 		double ceiling = Double.MAX_VALUE;
 		columnLedge = false;
+		columnMinX = 1.0;
+		columnMaxX = 0.0;
+		columnMinZ = 1.0;
+		columnMaxZ = 0.0;
 		for (int by = top; by >= bottom; by--) {
 			final BlockState state = level.getBlockState(POS.set(bx, by, bz));
 			if (state.isAir()) {
@@ -697,10 +1085,13 @@ public final class Awareness {
 				return HAZARD;
 			}
 			if (by <= bodyTop && isHazard(state) && !occupied(bx, by, bz)) {
+				if (whole) {
+					spans(state.getCollisionShape(level, POS));
+				}
 				return HAZARD;
 			}
 			final VoxelShape shape = Foliage.leavesOpen(level) && state.is(BlockTags.LEAVES) ? Shapes.empty() : state.getCollisionShape(level, POS);
-			if (shape.isEmpty() || shape != Shapes.block() && !covers(shape, inX, inZ)) {
+			if (shape.isEmpty() || shape != Shapes.block() && !whole && !covers(shape, inX, inZ)) {
 				if (!fluid.isEmpty() && fluid.is(FluidTags.WATER)) {
 					// Swimming is fine, and water breaks any fall.
 					columnGround = Math.min(by + fluid.getOwnHeight(), ground);
@@ -722,8 +1113,32 @@ public final class Awareness {
 				columnLedge = surface <= ground + LEDGE_HEIGHT + LEDGE_TOP_LAYER;
 			}
 			ceiling = by + shape.min(Direction.Axis.Y);
+			if (whole) {
+				spans(shape);
+			}
 		}
 		return ceiling == Double.MAX_VALUE ? DROP : BLOCKED;
+	}
+
+	/** Where in its block (x and z, 0..1) what blocks the last column read whole is: a fence or a wall only along its middle. */
+	private static double columnMinX;
+	private static double columnMaxX;
+	private static double columnMinZ;
+	private static double columnMaxZ;
+
+	private static void spans(final VoxelShape shape) {
+		if (shape.isEmpty()) {
+			// (Fire, a cobweb: the whole block.)
+			columnMinX = 0.0;
+			columnMaxX = 1.0;
+			columnMinZ = 0.0;
+			columnMaxZ = 1.0;
+			return;
+		}
+		columnMinX = Math.min(columnMinX, shape.min(Direction.Axis.X));
+		columnMaxX = Math.max(columnMaxX, shape.max(Direction.Axis.X));
+		columnMinZ = Math.min(columnMinZ, shape.min(Direction.Axis.Z));
+		columnMaxZ = Math.max(columnMaxZ, shape.max(Direction.Axis.Z));
 	}
 
 	private static boolean covers(final VoxelShape shape, final double inX, final double inZ) {
