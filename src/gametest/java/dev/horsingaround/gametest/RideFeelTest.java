@@ -2262,6 +2262,29 @@ public final class RideFeelTest implements FabricClientGameTest {
 		}
 		check("steps up through the leaves instead of jumping onto them", ride(ctx, r -> r.ledgeClimbs) == leafyClimbs && horseZ(ctx) < -23.9);
 		stop(ctx, input);
+		// Low bushes on flat ground, as forests have them: the horse pushes through, drawn level, never up on top of them.
+		section("Galloping through low bushes");
+		lane(ctx, input, world, 800.5, -60, "low_bush_test",
+			"fill 795 -60 -12 806 -60 -11 minecraft:oak_leaves[persistent=true]",
+			"fill 795 -60 -20 806 -59 -19 minecraft:oak_leaves[persistent=true]",
+			"fill 795 -60 -27 806 -60 -27 minecraft:oak_leaves[persistent=true]",
+			"fill 795 -59 -28 806 -59 -28 minecraft:oak_leaves[persistent=true]");
+		gallopNorth(ctx, input);
+		double highest = -60.0;
+		double lift = 0.0;
+		float tilt = 0.0F;
+		for (int i = 0; i < 200 && horseZ(ctx) > -36.0; i++) {
+			ctx.waitTick();
+			final Sample s = sample(ctx);
+			highest = Math.max(highest, s.y);
+			lift = Math.max(lift, Math.abs(s.visualY - s.y));
+			tilt = Math.max(tilt, Math.abs(s.pitch));
+		}
+		check("through the bushes (z)", horseZ(ctx), -80.0, -36.0);
+		check("never up on top of the bushes (highest y)", highest, -60.0, -59.95);
+		check("drawn level through them, not lifted onto them (blocks)", lift, 0.0, 0.1);
+		check("no tilt from them (deg)", tilt, 0.0, 3.0);
+		stop(ctx, input);
 	}
 
 	private void longWall(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {

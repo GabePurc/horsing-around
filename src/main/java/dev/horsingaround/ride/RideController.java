@@ -1084,9 +1084,11 @@ public final class RideController {
 		final int bottom = Mth.floor(lowest);
 		// Under water, hooves go no deeper than a wade from the surface (deeper, the horse swims).
 		double wade = Double.NEGATIVE_INFINITY;
+		// Leaves the horse pushes through are not ground: hooves go on down to what is under them.
+		final boolean leavesOpen = Foliage.leavesOpen(horse.level());
 		for (int by = top; by >= bottom; by--) {
 			final BlockState state = horse.level().getBlockState(pos.set(bx, by, bz));
-			if (state.isAir()) {
+			if (state.isAir() || leavesOpen && state.is(BlockTags.LEAVES)) {
 				continue;
 			}
 			if (wade == Double.NEGATIVE_INFINITY && state.getFluidState().is(FluidTags.WATER)) {

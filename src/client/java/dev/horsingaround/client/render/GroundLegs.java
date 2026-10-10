@@ -2,11 +2,13 @@ package dev.horsingaround.client.render;
 
 import static dev.horsingaround.ride.RideTuning.*;
 
+import dev.horsingaround.ride.Foliage;
 import dev.horsingaround.ride.RideState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -539,9 +541,11 @@ public final class GroundLegs {
 	private static double surface(final Level level, final double x, final double z, final double highest, final double lowest) {
 		final int bx = Mth.floor(x);
 		final int bz = Mth.floor(z);
+		// Leaves the horse pushes through are not ground: a hoof goes on down to what is under them.
+		final boolean leavesOpen = Foliage.leavesOpen(level);
 		for (int by = Mth.floor(highest); by >= Mth.floor(lowest); by--) {
 			final BlockState state = level.getBlockState(POS.set(bx, by, bz));
-			if (state.isAir()) {
+			if (state.isAir() || leavesOpen && state.is(BlockTags.LEAVES)) {
 				continue;
 			}
 			final VoxelShape shape = state.getCollisionShape(level, POS);
