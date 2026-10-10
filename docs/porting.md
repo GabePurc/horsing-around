@@ -58,6 +58,14 @@ victim.knockback(power, x, z, source, damage);
 - The ride, terrain, mounts and server tests run on 26.3 only. A change that touches version-specific code is checked
   by building and auditing every version, and by playing the versions it touches.
 
+## Progress
+
+Building and passing their audit: 26.3, 26.2. Next, newest first: 26.1.2 (HUD and settings screen differ: `Gui`
+instead of `Hud`, `JumpableVehicleBarRenderer` instead of `JumpableVehicleBar`, `minecraft.setScreen`, the options
+list only takes `OptionInstance`s), then 1.21.11 (first obfuscated version), 1.21.10, 1.21.8, 1.21.5, 1.21.4, 1.21.3.
+Before 1.21.2 entity rendering has no render states (the leg and rider-pose code needs a design for that), and before
+1.20.5 networking has no payload types.
+
 ## Gaps on older versions
 
 (none yet)
