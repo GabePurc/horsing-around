@@ -236,7 +236,8 @@ public final class RideTuning {
 	 * steering and momentum at the pace it is going (the ground's grip as vanilla moves it, so it drifts wide through a
 	 * turn), each turning off the line by one of PATH_ANGLES degrees for one of PATH_HOLD_TICKS and then heading back for
 	 * the line (aiming PATH_BACK_TICKS of travel ahead on it, PATH_BACK_MIN to PATH_BACK_MAX blocks), its body checked
-	 * every PATH_CHECK blocks with PATH_CLEAR to spare round the box, never more than PATH_REACH off the line or
+	 * every PATH_CHECK blocks with PATH_CLEAR to spare round the box (from a block on, growing to it over PATH_CLEAR_GROW
+	 * blocks, so pressed against a wall it can still set off), never more than PATH_REACH off the line or
 	 * PATH_LONGEST times the distance along it; the best is then fine-tuned. It takes the cheapest: PATH_COST_OFF_LINE per
 	 * block off the line (counted up to PATH_OFF_LINE_CAP) per block gone, PATH_COST_TURN per block gone with its weight
 	 * fully in a turn (what costs a horse its pace), PATH_COST_TIGHT each check that finds something within PATH_MARGIN of
@@ -248,7 +249,7 @@ public final class RideTuning {
 	 * the pace). With nothing that leaves room to stop, it brakes along the way that gets furthest along the line (if
 	 * PATH_PARTIAL_GAIN further than straight on), else on the line. Past what it went round, with nothing on the line, it
 	 * heads straight back onto it, until within LINE_SNAP and LINE_SNAP_ANGLE of it; a rider who turns more than
-	 * LINE_FORGET_ANGLE away has picked a new line. A 2-block ledge or a hurdle the rider rides straight at isn't gone
+	 * LINE_FORGET_ANGLE away has picked a new line, and while the rider is turning the line moves with the horse. A 2-block ledge or a hurdle the rider rides straight at isn't gone
 	 * round: it is theirs to jump.
 	 */
 	static final float[] PATH_ANGLES = {0.0F, 4.0F, 8.0F, 13.0F, 20.0F, 30.0F, 45.0F, 60.0F, 80.0F};
@@ -268,6 +269,7 @@ public final class RideTuning {
 	static final float PATH_COST_MEET = 20.0F;
 	static final float PATH_SLOW_ROOM = 2.0F;
 	static final float PATH_CLEAR = 0.2F;
+	static final float PATH_CLEAR_GROW = 2.0F;
 	static final float PATH_MARGIN = 0.35F;
 	static final float PATH_COST_OFF_LINE = 0.15F;
 	static final float PATH_OFF_LINE_CAP = 2.5F;
@@ -284,14 +286,14 @@ public final class RideTuning {
 	static final float LINE_SNAP_ANGLE = 1.0F;
 	static final float LINE_FORGET_ANGLE = 25.0F;
 	/**
-	 * Nose to something (within ASIDE_CLOSE) with every way out at an angle clipping it: the horse steps aside along it
-	 * (up to ASIDE_REACH blocks, checked with lines SLIDE_FLANK either side of its middle, inside the body that slides
-	 * along the face), if the rider's line is clear ASIDE_PAST past the face from there, and turns AVOID_MAX_ANGLE that way.
+	 * The line is kept only once the rider's view has turned no more than LINE_VIEW_STEP degrees a tick for
+	 * LINE_SETTLE_TICKS and the horse has come round to within LINE_SETTLE_ANGLE of where it is asked to go, turning no
+	 * faster than LINE_SETTLE_TURN degrees a tick; then it is kept until the view swings again.
 	 */
-	static final float ASIDE_CLOSE = 1.5F;
-	static final float ASIDE_REACH = 10.0F;
-	static final float ASIDE_PAST = 2.5F;
-	static final float AVOID_MAX_ANGLE = 85.0F;
+	static final float LINE_VIEW_STEP = 4.0F;
+	static final int LINE_SETTLE_TICKS = 8;
+	static final float LINE_SETTLE_ANGLE = 5.0F;
+	static final float LINE_SETTLE_TURN = 1.0F;
 	/** The detour eases in and out by this many degrees per tick; detours are re-planned every few ticks. */
 	static final float AVOID_RATE = 5.0F;
 	static final int AVOID_REPLAN_TICKS = 2;
@@ -330,6 +332,8 @@ public final class RideTuning {
 	 * Ridden straight at one from a trot up, the horse slows only to a trot by the time it is in reach and doesn't go
 	 * round it; if the rider doesn't jump, it stops short with a snort. Nothing it would land on that hurts it.
 	 */
+	/** A hurdle on the rider's line is theirs to jump (not gone round) only if met within this of square. */
+	static final float HURDLE_LINE_ANGLE = 45.0F;
 	static final double HURDLE_LOW = 1.125;
 	static final double HURDLE_HEIGHT = 1.6;
 	static final float HURDLE_REACH = 2.5F;

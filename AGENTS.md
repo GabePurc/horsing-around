@@ -38,7 +38,7 @@ steps and shoots them up close, `slowstep` watches standing, stopping and single
 `exits` climbs out of water onto banks of a few heights, wading and swimming, `strafe` stops after riding with A or D alone,
 `hands` poses the rider's arms with items, swings and a bow, with close shots, `climbs` sweeps 2-block climbs by angle (`-Pscenario=<part of a lane name>` for some),
 speed, start and what is round them, plus noisy mountain staircases and diagonal terraces, `ways` rides just the
-going-round lanes and seeded forests with every plan logged, `-Pscenario=tree|wall|long|alongside|pillar|row|forest|ledge`
+going-round lanes and seeded forests with every plan logged, `-Pscenario=tree|wall|long|alongside|pillar|row|forest|streets|ledge`
 for one):
 `RideFeelTest` rides a horse with simulated keys through every mechanic in hand-built lanes and writes
 `build/run/clientGameTest/horsingaround-ride-report.txt`; `TerrainRideTest` rides procedurally built natural terrain

@@ -294,6 +294,11 @@
 - [x] Verified by `-Psections=ways`: wall with a way round 89% of a gallop at its slowest (was 50%), back on the line
   within 0.3 (was 1.8-4.6 off), three seeded forests and staggered trunks at 92-99% pace with no touches (one forest
   wedged the old detour at 11%); tree, pillar, trunks in a row, long wall, beside a wall and ledge cases still pass
+- [x] Tight streets (city play-test): no sway when the rider changes direction (the line is kept only once the view
+  holds and the horse has come round), ways can set off from beside a wall, fences and walls read by their real shape,
+  a fence is the rider's to jump only when ridden at fairly square, no step-aside lurch; verified by a tight-streets
+  test (3-wide streets, 2-wide alleys, fences, a step up and down): no touching, no swings, ~70% pace (old detour:
+  287 ticks scraping alleys at 36%)
 
 ## Running up a step without the pop (play-test feedback, 2026-10-09)
 

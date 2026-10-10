@@ -103,6 +103,9 @@ public final class RideState {
 	/** While it goes round something: how far right of the rider's line it is (blocks), the line's heading, and where the horse was last tick. */
 	public float lineOffset;
 	float lineYaw;
+	/** The rider's view last tick, and ticks it has held still (the line is only kept once it has, and the horse has come round to it). */
+	float lineViewYaw;
+	int lineSettle;
 	double lineLastX = Double.NaN;
 	double lineLastZ;
 	/** The way planned, for the steering overlay: world x and z of points along it every half block, and how many. */

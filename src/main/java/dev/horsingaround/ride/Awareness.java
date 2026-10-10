@@ -59,8 +59,6 @@ public final class Awareness {
 	private static final double SHAPE_PAD = 0.2;
 	/** The edge guard arms when danger or a gap is this close. */
 	private static final float GUARD_RANGE = 4.0F;
-	/** Stepping aside along something it is nose to, the step is checked with lines this far ahead and behind its middle (inside the body, which slides along the face). */
-	private static final float SLIDE_FLANK = 0.2F;
 	/** A drop between samples bigger than this can put a moving horse in the air. */
 	private static final double EDGE = 0.4;
 
@@ -83,6 +81,8 @@ public final class Awareness {
 	private static boolean columnLedge;
 	/** The last probe's wall was a ledge across the centre line (and anything the flanks met was ledge too). */
 	private static boolean wallLedge;
+	/** The last probe's wall was met by its centre line (not only by a flank). */
+	private static boolean centreBlocked;
 	/**
 	 * Ground under the body along the last probe: PROFILE[i] at (i + 1) * STEP ahead (highest of the three lines that
 	 * hold the horse up), NaN over a jumpable gap; profileOrigin at the horse.
@@ -200,7 +200,25 @@ public final class Awareness {
 	 * picked a new line, through where the horse is.
 	 */
 	private static void followLine(final AbstractHorse horse, final RideState s, final float targetYaw) {
-		if (s.way != WAY_NONE && !Double.isNaN(s.lineLastX) && Math.abs(Mth.wrapDegrees(targetYaw - s.lineYaw)) <= LINE_FORGET_ANGLE) {
+		// The line is where the horse is once the rider has stopped turning and it has come round to the view: while the
+		// view swings (a corner taken, the mouse moved) or the horse is still coming round to it on its own, the line moves
+		// with the horse, so after a turn it doesn't steer back to some spot it passed mid-turn.
+		// (Once settled it stays so until the view swings again: going round something takes the horse off the view, and
+		// that is what the line is kept for.)
+		if (Math.abs(Mth.wrapDegrees(targetYaw - s.lineViewYaw)) > LINE_VIEW_STEP) {
+			s.lineSettle = 0;
+		} else if (s.lineSettle < LINE_SETTLE_TICKS) {
+			s.lineSettle++;
+		} else if (s.lineSettle == LINE_SETTLE_TICKS && Math.abs(Mth.wrapDegrees(horse.getYRot() - targetYaw - s.avoidOffset)) < LINE_SETTLE_ANGLE
+			&& Math.abs(s.yawVelocity) < LINE_SETTLE_TURN) {
+			s.lineSettle++;
+		}
+		s.lineViewYaw = targetYaw;
+		final boolean settled = s.lineSettle > LINE_SETTLE_TICKS;
+		if (s.way != WAY_NONE && !Double.isNaN(s.lineLastX) && Math.abs(Mth.wrapDegrees(targetYaw - s.lineYaw)) <= LINE_FORGET_ANGLE && !settled) {
+			s.lineOffset = 0.0F;
+			s.lineYaw = targetYaw;
+		} else if (s.way != WAY_NONE && !Double.isNaN(s.lineLastX) && Math.abs(Mth.wrapDegrees(targetYaw - s.lineYaw)) <= LINE_FORGET_ANGLE) {
 			final float rad = targetYaw * Mth.DEG_TO_RAD;
 			// (Right of a line along yaw is (-cos, -sin) of the yaw.)
 			s.lineOffset -= (float) ((horse.getX() - s.lineLastX) * Mth.cos(rad) + (horse.getZ() - s.lineLastZ) * Mth.sin(rad));
@@ -209,6 +227,11 @@ public final class Awareness {
 				s.lineYaw = targetYaw;
 			}
 		} else {
+			if (s.way != WAY_NONE) {
+				// A new line: whatever it was going round is planned afresh from it.
+				s.way = WAY_NONE;
+				s.avoidTarget = 0.0F;
+			}
 			s.lineOffset = 0.0F;
 			s.lineYaw = targetYaw;
 		}
@@ -226,8 +249,6 @@ public final class Awareness {
 	static final byte WAY_PARTIAL = 2;
 	/** No way round in reach: on along the line, slowing for what is on it. */
 	static final byte WAY_BLOCKED = 3;
-	/** Nose to it with every way out at an angle clipping it: stepping aside along it. */
-	static final byte WAY_ASIDE = 4;
 
 	/** Block columns read while planning, kept for one plan in a window round the horse (no allocation). */
 	private static final int CELLS = 56;
@@ -235,6 +256,12 @@ public final class Awareness {
 	private static final int[] CELL_REF = new int[CELLS * CELLS];
 	private static final byte[] CELL_KIND = new byte[CELLS * CELLS];
 	private static final double[] CELL_GROUND = new double[CELLS * CELLS];
+	/** Where in the block what blocks it is (min x, max x, min z, max z), for a fence or a wall along its middle. */
+	private static final float[] CELL_SPAN = new float[CELLS * CELLS * 4];
+	private static double cellMinX;
+	private static double cellMaxX;
+	private static double cellMinZ;
+	private static double cellMaxZ;
 	private static int cellX0;
 	private static int cellZ0;
 	private static int planStamp;
@@ -277,7 +304,8 @@ public final class Awareness {
 		final float blocked = probe(horse, horse.getX(), horse.getY(), horse.getZ(), targetYaw, horizon, fall, going ? side + PATH_MARGIN : side);
 		s.ledgeOnLine = false;
 		s.hurdleOnLine = false;
-		if (kind == WALL && wallLedge && LEDGE_CLIMB && jumpableLedge(horse, targetYaw, blocked)) {
+		final float centreAt = kind == WALL && wallLedge && LEDGE_CLIMB ? centreMeetsLedge(horse, targetYaw, horizon, fall, blocked) : -1.0F;
+		if (kind == WALL && wallLedge && LEDGE_CLIMB && jumpableLedge(horse, targetYaw, centreAt >= 0.0F ? centreAt : blocked, centreAt >= 0.0F)) {
 			// Ridden straight at a ledge it can jump up: it jumps it rather than going round.
 			s.ledgeOnLine = true;
 			s.way = WAY_NONE;
@@ -292,7 +320,9 @@ public final class Awareness {
 			return 0.0F;
 		}
 		final float heading = Mth.wrapDegrees(horse.getYRot() - targetYaw);
-		if (kind == CLEAR && Math.abs(s.lineOffset) < LINE_SNAP && Math.abs(heading) < LINE_SNAP_ANGLE) {
+		// (Coming back onto the line, it is back once near it and heading along it; nothing in the way and not going round
+		// anything, the rider's turns are the rider's.)
+		if (kind == CLEAR && Math.abs(s.lineOffset) < LINE_SNAP && (!going || Math.abs(heading) < LINE_SNAP_ANGLE)) {
 			s.way = WAY_NONE;
 			s.wayPoints = 0;
 			return 0.0F;
@@ -377,13 +407,6 @@ public final class Awareness {
 					s.lineOffset, furthest, straightReach, horizon, blocked));
 			}
 			s.wayPoints = 0;
-			if (lineBlocked && blocked <= ASIDE_CLOSE) {
-				final float aside = stepAside(horse, targetYaw, blocked, fall, preferred);
-				if (aside != 0.0F) {
-					s.way = WAY_ASIDE;
-					return aside;
-				}
-			}
 			s.way = WAY_BLOCKED;
 			return 0.0F;
 		}
@@ -433,6 +456,8 @@ public final class Awareness {
 		final float blocksPerUnit, final float preferred, final float commit, final boolean clearOnly
 	) {
 		final float speed = unitSpeed * scale * blocksPerUnit;
+		// (Straight back for the line first: how far that gets is the bar a way that meets a drop has to beat.)
+		tryWay(horse, s, heading, 0.0F, 0, speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
 		if (scale == 1.0F && (s.way == WAY_CLEAR || s.way == WAY_PARTIAL)) {
 			// The way it is on, carried on from where it has got to (its hold counted down), kept unless another is clearly
 			// better: switching ways mid-turn costs the turn it has started, so it doesn't dither between two.
@@ -440,7 +465,6 @@ public final class Awareness {
 			tryWay(horse, s, heading, s.wayAngle, Math.max(s.wayHold - AVOID_REPLAN_TICKS, 0), speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
 			keeping = false;
 		}
-		tryWay(horse, s, heading, 0.0F, 0, speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
 		for (final float a : PATH_ANGLES) {
 			for (int side = 0; side < (a == 0.0F ? 1 : 2); side++) {
 				final float angle = side == 0 ? a * preferred : -a * preferred;
@@ -486,7 +510,9 @@ public final class Awareness {
 			}
 		}
 		if (!rollClear) {
-			if (clearOnly || rollRoom < commit) {
+			// (A way that just runs off sideways, along a cliff edge or a wall, without getting on, is no way on; nor one that
+			// meets a drop no further on than straight ahead would: at a cliff edge it stays put.)
+			if (clearOnly || rollRoom < commit || rollKind == OUT || rollKind == DANGER && rollReach < lineReach + PATH_PARTIAL_GAIN) {
 				return;
 			}
 			// (Meeting something at all costs: it will have to go round it after all, the sooner the more.)
@@ -600,7 +626,9 @@ public final class Awareness {
 				checked = travelled;
 				final double x = wayX + wayFx * u - wayFz * v;
 				final double z = wayZ + wayFz * u + wayFx * v;
-				final int at = footprint(level, x, z, ground, fall);
+				// (Room to spare round the body only from a block on, growing over the next: pressed against a wall in an alley
+				// it can still set off along it and away from it, without every way seeming to meet the wall at once.)
+				final int at = footprint(level, x, z, ground, fall, PATH_CLEAR * Mth.clamp((travelled - 1.0F) / PATH_CLEAR_GROW, 0.0F, 1.0F));
 				if (at != CLEAR) {
 					return met(u, travelled, at, cost, v);
 				}
@@ -641,12 +669,12 @@ public final class Awareness {
 	}
 
 	/**
-	 * The body at (x, z) arriving on ground at {@code ground}: WALL or DANGER if its box (PATH_CLEAR wider) would be in
+	 * The body at (x, z) arriving on ground at {@code ground}: WALL or DANGER if its box ({@code clear} wider) would be in
 	 * something, or over a fall it won't take (all of it: half over an edge it still stands), else CLEAR, with the ground
 	 * it stands on in {@link #footGround} and whether anything is within PATH_MARGIN of it in {@link #footTight}.
 	 */
-	private static int footprint(final Level level, final double x, final double z, final double ground, final double fall) {
-		final double body = half + PATH_CLEAR;
+	private static int footprint(final Level level, final double x, final double z, final double ground, final double fall, final float clear) {
+		final double body = half + clear;
 		final double margin = half + PATH_MARGIN;
 		final int x1 = Mth.floor(x + margin);
 		final int z1 = Mth.floor(z + margin);
@@ -660,10 +688,13 @@ public final class Awareness {
 				final boolean in = bx + 1 > x - body && bx < x + body && bz + 1 > z - body && bz < z + body;
 				final int c = cell(level, bx, bz, ground, fall);
 				if (c == BLOCKED || c == HAZARD) {
-					if (in) {
+					// (Where in the block it is: past a fence or a wall along the middle of its block, there is room beside it.)
+					if (bx + cellMaxX > x - body && bx + cellMinX < x + body && bz + cellMaxZ > z - body && bz + cellMinZ < z + body) {
 						return c == BLOCKED ? WALL : DANGER;
 					}
-					tight = true;
+					if (bx + cellMaxX > x - margin && bx + cellMinX < x + margin && bz + cellMaxZ > z - margin && bz + cellMinZ < z + margin) {
+						tight = true;
+					}
 				} else if (in) {
 					cells++;
 					if (c == DROP) {
@@ -691,67 +722,90 @@ public final class Awareness {
 		final int i = kept ? ix + iz * CELLS : 0;
 		if (kept && CELL_STAMP[i] == planStamp && CELL_REF[i] == ref) {
 			cellGround = CELL_GROUND[i];
+			cellMinX = CELL_SPAN[i * 4];
+			cellMaxX = CELL_SPAN[i * 4 + 1];
+			cellMinZ = CELL_SPAN[i * 4 + 2];
+			cellMaxZ = CELL_SPAN[i * 4 + 3];
 			return CELL_KIND[i];
 		}
 		final int c = column(level, bx + 0.5, bz + 0.5, ground, fall, true);
 		cellGround = columnGround;
+		cellMinX = columnMinX;
+		cellMaxX = columnMaxX;
+		cellMinZ = columnMinZ;
+		cellMaxZ = columnMaxZ;
 		if (kept) {
 			CELL_STAMP[i] = planStamp;
 			CELL_REF[i] = ref;
 			CELL_KIND[i] = (byte) c;
 			CELL_GROUND[i] = columnGround;
+			CELL_SPAN[i * 4] = (float) columnMinX;
+			CELL_SPAN[i * 4 + 1] = (float) columnMaxX;
+			CELL_SPAN[i * 4 + 2] = (float) columnMinZ;
+			CELL_SPAN[i * 4 + 3] = (float) columnMaxZ;
 		}
 		return c;
 	}
 
-	/**
-	 * Nose to it, any line out at an angle clips it: steps aside along it, if the rider's line is clear past it from there,
-	 * and turns hard that way (the body slides along the face as it comes round). Degrees off the line, or 0.
-	 */
-	private static float stepAside(final AbstractHorse horse, final float targetYaw, final float blocked, final double fall, final float preferred) {
-		final float rad = targetYaw * Mth.DEG_TO_RAD;
-		final double fx = -Mth.sin(rad);
-		final double fz = Mth.cos(rad);
-		final float past = blocked + ASIDE_PAST + half;
-		for (float across = STEP; across <= ASIDE_REACH + 1.0E-3F; across += STEP) {
-			for (int i = 0; i < 2; i++) {
-				final float sign = i == 0 ? preferred : -preferred;
-				probe(horse, horse.getX(), horse.getY(), horse.getZ(), targetYaw + 90.0F * sign, across, fall, SLIDE_FLANK);
-				if (kind != CLEAR) {
-					continue;
-				}
-				probe(horse, horse.getX() - fz * across * sign, endGround, horse.getZ() + fx * across * sign, targetYaw, past, fall, side);
-				if (kind == CLEAR) {
-					return AVOID_MAX_ANGLE * sign;
-				}
-			}
-		}
-		return 0.0F;
-	}
 
 	/**
 	 * Whether the wall the last probe met {@code blocked} along yaw (with {@link #endGround} under the centre line just
 	 * short of it) is a ledge the horse will jump up when it gets there: the full ledge check, from a body placed just
 	 * short of it.
 	 */
-	private static boolean jumpableLedge(final AbstractHorse horse, final float yaw, final float blocked) {
+	/**
+	 * How far along the rider's centre line itself meets the ledge the line (centre and flanks) met {@code blocked} along,
+	 * or -1 if only a flank does (met at a steep angle a flank gets there first, and the centre a little further on).
+	 * Leaves {@link #endGround} under the centre line just short of it.
+	 */
+	private static float centreMeetsLedge(final AbstractHorse horse, final float yaw, final float range, final double fall, final float blocked) {
+		if (centreBlocked) {
+			return blocked;
+		}
+		final double ground = endGround;
+		final float at = probe(horse, horse.getX(), horse.getY(), horse.getZ(), yaw, Math.min(blocked + LEDGE_REACH, range), fall, 0.0F);
+		final boolean meets = kind == WALL && wallLedge && at <= blocked + LEDGE_REACH;
+		kind = WALL;
+		wallLedge = true;
+		if (!meets) {
+			endGround = ground;
+		}
+		return meets ? at : -1.0F;
+	}
+
+	private static boolean jumpableLedge(final AbstractHorse horse, final float yaw, final float blocked, final boolean centre) {
 		final float rad = yaw * Mth.DEG_TO_RAD;
 		final double start = Math.max(blocked - STEP - half - 1.0F, 0.0F);
 		final AABB box = horse.getBoundingBox().move(-Mth.sin(rad) * start, endGround - horse.getY(), Mth.cos(rad) * start);
-		return !Double.isNaN(ledge(horse, box, yaw, 2.0F, false));
+		// Met by the rider's centre line, the full look for somewhere to land (as the climb itself does: met at a steep
+		// angle, it climbs a little to one side or straight up the face); met only by a flank, only straight on, so a ledge
+		// that just catches the flank is gone round.
+		return !Double.isNaN(ledge(horse, box, yaw, 2.0F, centre));
 	}
 
 	/** Whether the wall the last probe met {@code blocked} along yaw is a hurdle the rider can jump from just short of it. */
 	private static boolean jumpableHurdle(final AbstractHorse horse, final float yaw, final float blocked) {
 		final float rad = yaw * Mth.DEG_TO_RAD;
+		final double fx = -Mth.sin(rad);
+		final double fz = Mth.cos(rad);
 		final double start = Math.max(blocked - STEP - half - 1.0F, 0.0F);
-		final AABB box = horse.getBoundingBox().move(-Mth.sin(rad) * start, endGround - horse.getY(), Mth.cos(rad) * start);
-		return !Double.isNaN(hurdle(horse, box, yaw, 2.0F));
+		final AABB box = horse.getBoundingBox().move(fx * start, endGround - horse.getY(), fz * start);
+		if (Double.isNaN(hurdle(horse, box, yaw, 2.0F))) {
+			return false;
+		}
+		// Only one ridden at fairly square: a fence or a wall the rider's line runs along or glances (down a fenced street)
+		// is something to keep off, not a jump.
+		final Level level = horse.level();
+		final double m = hurdleFace + 0.05;
+		final boolean stopsX = !level.noBlockCollision(horse, box.move(fx * m, 0.0, 0.0));
+		final boolean stopsZ = !level.noBlockCollision(horse, box.move(0.0, 0.0, fz * m));
+		final double square = stopsX && !stopsZ ? Math.abs(fx) : stopsZ && !stopsX ? Math.abs(fz) : Math.max(Math.abs(fx), Math.abs(fz));
+		return square >= Mth.cos(HURDLE_LINE_ANGLE * Mth.DEG_TO_RAD);
 	}
 
 	/**
 	 * Fastest speed (multiple of the speed attribute) that still stops short of, or lands safely past, what lies along yaw;
-	 * without {@code obstacles}, only slopes count (on a way planned round what is there).
+	 * without {@code obstacles}, walls don't count (on a way planned round what is there).
 	 */
 	private static float limit(
 		final AbstractHorse horse, final RideState s, final float yaw, final float range, final double fall, final float blocksPerUnit, final boolean obstacles
@@ -764,7 +818,9 @@ public final class Awareness {
 		final float decel = DECEL_BRAKE * blocksPerUnit * BRAKE_PLAN;
 		firstEdge = Float.MAX_VALUE;
 		final float limit = descent(horse, s, Math.min(fall, harmlessFall(horse)), decel, blocksPerUnit);
-		if (kind == CLEAR || !obstacles) {
+		if (kind == CLEAR || !obstacles && kind == WALL) {
+			// (On a way planned round it, a wall where it is heading now is what it is turning away from; a drop or a
+			// hazard there it still slows for, to be sure.)
 			return limit;
 		}
 		if (kind == WALL && wallLedge && s.ledgeOnLine && Math.abs(Mth.wrapDegrees(yaw - s.riderYaw)) < LEDGE_LINE_ANGLE) {
@@ -923,6 +979,7 @@ public final class Awareness {
 			final double rGround = columnGround;
 			if (c == BLOCKED || l == BLOCKED || r == BLOCKED) {
 				kind = WALL;
+				centreBlocked = c == BLOCKED;
 				// Every line that met something met a ledge (met at an angle, a flank gets there before the centre does).
 				wallLedge = (c != BLOCKED || cLedge) && (l != BLOCKED || lLedge) && (r != BLOCKED || columnLedge);
 				endGround = centre;
@@ -1014,6 +1071,10 @@ public final class Awareness {
 		final double bodyTop = ground + BODY_HEIGHT;
 		double ceiling = Double.MAX_VALUE;
 		columnLedge = false;
+		columnMinX = 1.0;
+		columnMaxX = 0.0;
+		columnMinZ = 1.0;
+		columnMaxZ = 0.0;
 		for (int by = top; by >= bottom; by--) {
 			final BlockState state = level.getBlockState(POS.set(bx, by, bz));
 			if (state.isAir()) {
@@ -1024,6 +1085,9 @@ public final class Awareness {
 				return HAZARD;
 			}
 			if (by <= bodyTop && isHazard(state) && !occupied(bx, by, bz)) {
+				if (whole) {
+					spans(state.getCollisionShape(level, POS));
+				}
 				return HAZARD;
 			}
 			final VoxelShape shape = Foliage.leavesOpen(level) && state.is(BlockTags.LEAVES) ? Shapes.empty() : state.getCollisionShape(level, POS);
@@ -1049,8 +1113,32 @@ public final class Awareness {
 				columnLedge = surface <= ground + LEDGE_HEIGHT + LEDGE_TOP_LAYER;
 			}
 			ceiling = by + shape.min(Direction.Axis.Y);
+			if (whole) {
+				spans(shape);
+			}
 		}
 		return ceiling == Double.MAX_VALUE ? DROP : BLOCKED;
+	}
+
+	/** Where in its block (x and z, 0..1) what blocks the last column read whole is: a fence or a wall only along its middle. */
+	private static double columnMinX;
+	private static double columnMaxX;
+	private static double columnMinZ;
+	private static double columnMaxZ;
+
+	private static void spans(final VoxelShape shape) {
+		if (shape.isEmpty()) {
+			// (Fire, a cobweb: the whole block.)
+			columnMinX = 0.0;
+			columnMaxX = 1.0;
+			columnMinZ = 0.0;
+			columnMaxZ = 1.0;
+			return;
+		}
+		columnMinX = Math.min(columnMinX, shape.min(Direction.Axis.X));
+		columnMaxX = Math.max(columnMaxX, shape.max(Direction.Axis.X));
+		columnMinZ = Math.min(columnMinZ, shape.min(Direction.Axis.Z));
+		columnMaxZ = Math.max(columnMaxZ, shape.max(Direction.Axis.Z));
 	}
 
 	private static boolean covers(final VoxelShape shape, final double inX, final double inZ) {
@@ -1634,15 +1722,15 @@ public final class Awareness {
 		double area = 0.0;
 		for (int x = Mth.floor(box.minX); x <= x1; x++) {
 			for (int z = Mth.floor(box.minZ); z <= z1; z++) {
+				// The top of the ground, from below: a gap above it (a branch overhead) is room, not more ground.
 				double surface = Double.NEGATIVE_INFINITY;
 				for (int y = y0; y <= y1; y++) {
 					final BlockState state = level.getBlockState(POS.set(x, y, z));
-					if (state.isAir()) {
-						continue;
-					}
-					final VoxelShape shape = state.getCollisionShape(level, POS, context);
+					final VoxelShape shape = state.isAir() ? Shapes.empty() : state.getCollisionShape(level, POS, context);
 					if (!shape.isEmpty()) {
 						surface = Math.max(surface, y + shape.max(Direction.Axis.Y));
+					} else if (surface > Double.NEGATIVE_INFINITY && y >= surface) {
+						break;
 					}
 				}
 				if (surface >= top - 0.05 && surface <= highest) {

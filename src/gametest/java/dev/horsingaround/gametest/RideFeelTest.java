@@ -195,6 +195,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 				if ("forest".contains(only)) {
 					forests(ctx, input, world);
 				}
+				if ("streets".contains(only)) {
+					streets(ctx, input, world);
+				}
 				if ("ledge".contains(only)) {
 					ledgeStraightAhead(ctx, input, world);
 				}
@@ -2070,6 +2073,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		pillar(ctx, input, world);
 		treesInARow(ctx, input, world);
 		forests(ctx, input, world);
+		streets(ctx, input, world);
 		bushes(ctx, input, world);
 		fence(ctx, input, world);
 		input.releaseKey(o -> o.keyUp);
@@ -2883,6 +2887,102 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 			forest(ctx, input, world, "scattered trunks " + seed, 4400 + seed * 40, trunks);
 		}
+	}
+
+	/**
+	 * Tight streets, as in a walled town: a street north, a turn right into a street east, a turn left into a street north
+	 * again, galloped down with the rider turning the view at each corner as a player does. Walls 4 high, or fences; streets
+	 * 3 wide or alleys 2 wide; the last street with a step up and a step down. It should get through without scraping the
+	 * walls, without swaying from side to side down a street, and coming round the corners at a pace.
+	 */
+	private void streets(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		street(ctx, input, world, "3-wide streets between walls", 10500, 3, "minecraft:stone_bricks", false);
+		street(ctx, input, world, "2-wide alleys between walls", 10600, 2, "minecraft:stone_bricks", false);
+		street(ctx, input, world, "3-wide streets between fences", 10700, 3, "minecraft:oak_fence", false);
+		street(ctx, input, world, "3-wide streets, a step up and a step down", 10800, 3, "minecraft:stone_bricks", true);
+	}
+
+	private void street(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String name, final int x,
+		final int width, final String wall, final boolean steps) {
+		section("Galloping through " + name);
+		final boolean fence = wall.contains("fence");
+		final int top = fence ? -60 : -57;
+		// The streets: north from the start (x .. x + width - 1), east along z -24.., north again from x + 16.
+		final int east = x + 16;
+		final List<String> build = new ArrayList<>();
+		build.add(String.format(Locale.ROOT, "fill %d -60 -66 %d %d 6 %s", x - 8, east + width + 7, top, wall));
+		build.add(String.format(Locale.ROOT, "fill %d -60 %d %d -50 6 minecraft:air", x, -24 - width + 1, x + width - 1));
+		build.add(String.format(Locale.ROOT, "fill %d -60 %d %d -50 -24 minecraft:air", x, -24 - width + 1, east + width - 1));
+		build.add(String.format(Locale.ROOT, "fill %d -60 -66 %d -50 -24 minecraft:air", east, east + width - 1));
+		if (steps) {
+			// A step up 12 blocks into the last street, and back down 12 further on.
+			build.add(String.format(Locale.ROOT, "fill %d -60 -48 %d -60 -36 minecraft:stone", east, east + width - 1));
+		}
+		// (The horse starts in the middle of the first street.)
+		final double startX = x + width * 0.5;
+		lane(ctx, input, world, startX, -60, "street_" + x, build.toArray(String[]::new));
+		final int cuts = ride(ctx, r -> r.cuts);
+		gallopNorth(ctx, input);
+		int touches = 0;
+		int ticks = 0;
+		double pace = 0.0;
+		int leg = 0;
+		float look = 0.0F;
+		// Down each street (away from the corners): how far the heading wanders off along it, and how often it swings back.
+		double wander = 0.0;
+		int swings = 0;
+		float lastSide = 0.0F;
+		final StringBuilder trace = new StringBuilder();
+		for (int i = 0; i < 500; i++) {
+			ctx.waitTick();
+			final double hx = horseX(ctx);
+			final double hz = horseZ(ctx);
+			if (leg == 0 && hz < -24.0 - width * 0.5 + 3.0) {
+				leg = 1;
+			} else if (leg == 1 && hx > east + width * 0.5 - 3.0) {
+				leg = 2;
+			}
+			// The rider turns the view toward the street ahead, 15 degrees a tick, as a player swings the mouse.
+			final float wanted = leg == 1 ? 90.0F : 0.0F;
+			look += Mth.clamp(wanted - look, -15.0F, 15.0F);
+			final float view = look;
+			input.lookAt(180.0F + view, 10.0F);
+			final Sample s = sample(ctx);
+			ticks++;
+			pace += s.speed;
+			if (ctx.computeOnClient(mc -> mc.player.getVehicle().horizontalCollision)) {
+				touches++;
+			}
+			// Down a street, well clear of its corners.
+			final boolean straight = leg == 0 && hz > -24.0 + 3.0 && hz < -4.0 || leg == 1 && hx > x + width + 3.0 && hx < east - 3.0 || leg == 2 && hz < -24.0 - width - 5.0;
+			if (straight && view == wanted) {
+				final float off = Mth.wrapDegrees(s.horseYaw - 180.0F - wanted);
+				wander = Math.max(wander, Math.abs(off));
+				if (Math.abs(off) > 2.0F) {
+					if (lastSide != 0.0F && Math.signum(off) != lastSide) {
+						swings++;
+					}
+					lastSide = Math.signum(off);
+				}
+			}
+			if (i % 3 == 0) {
+				trace.append(String.format(Locale.ROOT, "x%.1f z%.1f y%+.0f yaw%.0f v%.2f o%.0f w%d | ", hx - x, hz, s.y + 60.0, Mth.wrapDegrees(s.horseYaw - 180.0F), s.speed,
+					ride(ctx, r -> r.avoidOffset), (int) ride(ctx, r -> r.way)));
+			}
+			if (leg == 2 && hz < -62.0) {
+				break;
+			}
+		}
+		final boolean through = horseZ(ctx) < -62.0;
+		log("  %s in %d ticks at %.0f%% of a gallop on average, %d ticks touching, heading wandered up to %.1f deg down the streets, %d swings; path: %s",
+			through ? "through" : "NOT THROUGH", ticks, pace / Math.max(ticks, 1) / GALLOP_SPEED * 100.0, touches, wander, swings, trace);
+		check("gets through the streets", through);
+		check("doesn't scrape the walls (ticks touching)", touches, 0, width >= 3 ? 0 : 4);
+		check("doesn't sway down a street (swings from side to side)", swings, 0, 1);
+		check("holds its line down a street (most off it, deg)", wander, 0.0, 8.0);
+		check("keeps a pace through them (average / gallop)", pace / Math.max(ticks, 1) / GALLOP_SPEED, 0.45, 1.1);
+		check("no hard cut that isn't the rider's", ride(ctx, r -> r.cuts) - cuts, 0, 4);
+		stop(ctx, input);
 	}
 
 	private void forest(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String name, final int x,
