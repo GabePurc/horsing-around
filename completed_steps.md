@@ -62,7 +62,7 @@
 
 - [x] Player settings saved to `config/horsingaround_shoulder.json`, applied live: enabled, shoulder side, on-foot distance/offset/height/vertical follow, aiming distance/offset, riding distance/offset/height/bounce, transition speed; reset to defaults
 - [x] Vanilla-style settings screen, opened from Mod Menu's "Configure" button (optional integration, Mod Menu 21.0.0 for 26.3) or an unbound "Open camera settings" key
-- [x] Mod icons for both mods (pixel art, 64x64); dev run's Mod Menu set to the classic full-width "Mods" button
+- [x] Mod icons for both mods (pixel art, 64x64; this mod's replaced 2026-10-09 by the user's 128x128 horse-head render); dev run's Mod Menu set to the classic full-width "Mods" button
 
 ## Settings, trampling, seat (user request, 2026-10-06)
 
