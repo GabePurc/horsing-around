@@ -1307,15 +1307,15 @@ public final class Awareness {
 		double area = 0.0;
 		for (int x = Mth.floor(box.minX); x <= x1; x++) {
 			for (int z = Mth.floor(box.minZ); z <= z1; z++) {
+				// The top of the ground, from below: a gap above it (a branch overhead) is room, not more ground.
 				double surface = Double.NEGATIVE_INFINITY;
 				for (int y = y0; y <= y1; y++) {
 					final BlockState state = level.getBlockState(POS.set(x, y, z));
-					if (state.isAir()) {
-						continue;
-					}
-					final VoxelShape shape = state.getCollisionShape(level, POS, context);
+					final VoxelShape shape = state.isAir() ? Shapes.empty() : state.getCollisionShape(level, POS, context);
 					if (!shape.isEmpty()) {
 						surface = Math.max(surface, y + shape.max(Direction.Axis.Y));
+					} else if (surface > Double.NEGATIVE_INFINITY && y >= surface) {
+						break;
 					}
 				}
 				if (surface >= top - 0.05 && surface <= highest) {
