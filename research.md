@@ -560,3 +560,47 @@ Translation (`RiderPose`; numbers in `RideTuning`):
   added on top and pointed them past it); loading, the arms turn with the torso.
 - Riders only: the bow on foot is left to vanilla here (this mod is about riding; a nicer draw on foot would suit the
   Over the Shoulder add-on, which frames on-foot aiming).
+
+## 2-block climbs, made reliable (GitHub issue #24, 2026-10-09)
+
+Play-test report: climbing 2-block rises was unreliable, which made mountains slow and frustrating. Some rises were
+jumped and others refused or stalled at, depending on the angle the horse arrived at and what was round it (a wall
+along its side, a corner, a notch between faces). In one corner, pressing jump launched the horse about twice as high as
+a jump should go. Wanted: any 2-block rise climbed from any direction and whatever is round it, and a jump in any
+position no higher than normal; tested systematically instead of patched case by case.
+
+A swept ride-test section (`-Psections=climbs`, part of the default run) rides 38 rises: approach angles 0-60 degrees at
+a walk and a trot, cantering straight and at 30, standing pressed against the face or a block out (riding at it, or
+pressing jump), walls 2 and 3 tall along one side and both (a 1-wide notch), inside corners met square and at 30
+degrees either way, an outside corner under half the horse, a block on top where it lands, a slab at the foot, stairs
+along the lip, snow, 3-block faces (not climbs), riding along a face (not a climb), the reported corner, getting stuck
+in a corner and pressing jump there, and three noisy mountain staircases of 2-block steps (seeded). Each lane checks it
+ends up on top in time with one heave, no stall on the way, and never more than a heave above the lip.
+
+Causes found:
+
+- The ledge check only looked for a landing straight ahead along the horse's heading at one distance: angled into an
+  inside corner that spot overlapped the side wall, half over an outside corner it was half unsupported, and on a ragged
+  mountain tread it hit the next step, so the horse stalled with "no room on top" / "nothing to land on".
+- Blocks taller than a ledge were simply left out when finding the top, so a 3-block wall right beside the horse read as
+  a 2-block ledge and was heaved up.
+- Footing (a hoof put down in the air) stepped up a full step (1.125): a plain jump (1.25) plus that step reached a
+  2-block top, and in a corner the step on onto the 3-block wall beside it followed. That was the "twice as high".
+- The quick look for a ledge read only the block 1.5 above the hooves, so standing on a slab the face didn't show.
+
+Translation (`Awareness.ledge`/`climb`, `RideController`, `Footing`, tuning in `RideTuning`):
+
+- A face is a climb only where it is met square enough (within LEDGE_FACE_ANGLE, 70 degrees: not ridden along or glanced),
+  rises above a step and no higher than a ledge where the body meets it, with nothing above that top there.
+- Where to land: straight on first, then 0.3, 0.6 and a full block to either side, each at 1.0, 0.6 and 1.4 blocks past
+  the face, with room for the box and solid ground under most of the body; failing all of those along its heading, the
+  same straight up the face. The heave then heads toward the spot it chose. Planning ahead whether a ledge is on the
+  rider's line (so it isn't gone round) still looks only straight on: with the wide search there, a ledge that only
+  catches the flank read as climbable and the horse stopped steering clear of it, scraping past.
+- In the air a hoof put down gets up only AIR_STEP (0.6): enough for the far edge of a ditch, never a plain jump onto a
+  2-block top.
+- The quick look reads every block between a step's height and a ledge's.
+
+Result: 38 of 38 lanes pass (144 checks): every angle up to 60 degrees and every neighbourhood climbs in one heave,
+peaking 0.30 over the lip (snow 0.43); riding along a face and 3-block faces stay below; pressing jump anywhere peaks
+no higher than a heave; all three mountain staircases reach the top (up to 12 blocks) with no stall longer than 8 ticks.

@@ -3,6 +3,7 @@ package dev.horsingaround.mixin;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import dev.horsingaround.ride.Mounts;
+import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
 import dev.horsingaround.ride.RideTuning;
 import net.minecraft.world.entity.EntityDimensions;
@@ -75,14 +76,16 @@ abstract class LivingEntityMixin {
 	}
 
 	/**
-	 * Ridden, a full block is a step even from a path, farmland or mud, or onto snow; but jumping a hurdle, nothing is a
-	 * step (taking off right at a fence, a step up would put the horse on top of it).
+	 * Ridden, a full block is a step even from a path, farmland or mud, or onto snow; in the air, a hoof put down gets up
+	 * only a little; jumping a hurdle, nothing is a step (taking off right at a fence, a step up would put the horse on
+	 * top of it).
 	 */
 	@ModifyReturnValue(method = "maxUpStep", at = @At("RETURN"))
 	private float horsingaround$riddenStep(final float step) {
 		if (!((Object) this instanceof RideStateHolder holder) || !holder.horsingaround$ride().narrow) {
 			return step;
 		}
-		return holder.horsingaround$ride().hurdleForward > 0.0F ? 0.0F : Math.max(step, RideTuning.RIDDEN_STEP_HEIGHT);
+		final RideState s = holder.horsingaround$ride();
+		return s.hurdleForward > 0.0F ? 0.0F : s.airFooting ? RideTuning.AIR_STEP : Math.max(step, RideTuning.RIDDEN_STEP_HEIGHT);
 	}
 }

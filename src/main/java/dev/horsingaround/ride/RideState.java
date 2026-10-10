@@ -156,6 +156,9 @@ public final class RideState {
 	public float headGap = Float.MAX_VALUE;
 
 	/** Rising up a ledge (the climb, before it comes down onto the top). */
+	/** The move in progress is the horse's in the air, with a hoof put down for it (see the entity mixin): steps up only AIR_STEP. */
+	public boolean airFooting;
+
 	public boolean climbingLedge() {
 		return this.ledgeAir && this.ledgeLift > 0.0F;
 	}

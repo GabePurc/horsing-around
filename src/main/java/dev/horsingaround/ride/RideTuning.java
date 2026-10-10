@@ -81,9 +81,12 @@ public final class RideTuning {
 	/**
 	 * Ridden, the horse steps up anything this high (vanilla 1.0), so a full block is a step from a path, farmland,
 	 * mud or soul sand, and onto a block with snow on it. In the air (off a drop, or a jump a little short) it gets a
-	 * hoof on anything within a step of its hooves and carries on, instead of stopping dead against it.
+	 * hoof on anything within AIR_STEP of its hooves and carries on, instead of stopping dead against it: enough for the
+	 * far edge of a ditch, but not so much that a plain jump plus a step reaches the top of a 2-block face (a jump pressed
+	 * in a corner went on up a 3-block wall that way, step by step).
 	 */
 	public static final float RIDDEN_STEP_HEIGHT = 1.125F;
+	public static final float AIR_STEP = 0.6F;
 	/**
 	 * Running nearly straight (more than CORNER_SLIP_BLOCKED of the travel stopped) into the corner of something that
 	 * only catches the edge of its body, at more than CORNER_SLIP_MIN_SPEED blocks/tick, the horse slips sideways past
@@ -333,6 +336,8 @@ public final class RideTuning {
 	 * it can jump, it doesn't go round: it slows to a trot by the time it is in reach and jumps it.
 	 */
 	static final float LEDGE_LINE_ANGLE = 30.0F;
+	/** A face met more than LEDGE_FACE_ANGLE off square (riding along it, glancing it) isn't climbed. */
+	static final float LEDGE_FACE_ANGLE = 70.0F;
 	static final float LEDGE_REACH = 3.0F;
 	/**
 	 * Riding at a ledge, pressing jump asks for its jump from as far as LEDGE_ASKED_REACH (instead of a plain jump into its

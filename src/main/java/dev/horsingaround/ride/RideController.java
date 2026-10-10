@@ -198,7 +198,8 @@ public final class RideController {
 				s.ledgeAsked = asked;
 				s.ledgeReach = reach;
 				s.ledgeTop = top;
-				s.ledgeYaw = horse.getYRot();
+				// (Toward where it lands: straight on, a little to one side, or straight up the face.)
+				s.ledgeYaw = Awareness.ledgeClimbYaw;
 				s.jumpBuffer = 0;
 				ledgeJump(horse, s, forward);
 			}
@@ -340,7 +341,7 @@ public final class RideController {
 		// The run-up.
 		final double top = Awareness.ledge(horse, s.ledgeYaw, Math.max(s.ledgeReach, LEDGE_REACH));
 		if (!(forward || s.ledgeAsked) || !horse.onGround() || Double.isNaN(top) || s.ledgeTicks > LEDGE_APPROACH_TICKS
-			|| !s.ledgeAsked && Math.abs(Mth.wrapDegrees(s.riderYaw - s.ledgeYaw)) > 60.0F) {
+			|| !s.ledgeAsked && Math.abs(Mth.wrapDegrees(s.riderYaw - s.ledgeYaw)) > LEDGE_FACE_ANGLE + 10.0F) {
 			endLedge(s);
 			return;
 		}
