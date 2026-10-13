@@ -5,6 +5,7 @@ import static dev.horsingaround.ride.RideTuning.*;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.entity.state.HumanoidRenderState;
+//? if >=1.20.5
 import net.minecraft.core.component.DataComponents;
 //? if >=1.21.11
 import net.minecraft.util.Ease;
@@ -12,9 +13,17 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
+//? if <1.20.5
+/*import net.minecraft.world.item.Item;*/
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemUseAnimation;
 import net.minecraft.world.item.ProjectileWeaponItem;
+//? if <1.20.5 {
+/*import net.minecraft.world.item.ShearsItem;
+import net.minecraft.world.item.TieredItem;
+*///?}
+//? if <1.21.5
+/*import net.minecraft.world.item.TridentItem;*/
 //? if >=1.21.11
 import net.minecraft.world.item.SwingAnimationType;
 import org.joml.Vector3f;
@@ -185,10 +194,17 @@ public final class RiderPose {
 
 	/** A tool or a weapon (a sword, an axe, a pickaxe, a mace, a trident, a spear, a bow...), held out ready off the reins. */
 	private static boolean weapon(final ItemStack stack) {
+		//? if >=1.20.5 {
 		return stack.has(DataComponents.TOOL)
 			//? if >=1.21.5
 			|| stack.has(DataComponents.WEAPON)
+			//? if <1.21.5
+			/*|| stack.getItem() instanceof TridentItem*/
 			|| stack.getItem() instanceof ProjectileWeaponItem;
+		//?} else {
+		/*final Item item = stack.getItem();
+		return item instanceof TieredItem || item instanceof ShearsItem || item instanceof TridentItem || item instanceof ProjectileWeaponItem;
+		*///?}
 	}
 
 	/** The torso's turn in a whack, as vanilla swings it (mirrored for the left arm). */

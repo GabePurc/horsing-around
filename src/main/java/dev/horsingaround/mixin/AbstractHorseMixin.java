@@ -79,6 +79,11 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 	@Shadow
 	protected abstract @Nullable SoundEvent getAngrySound();
 
+	//? if <1.20.5 {
+	/*@Shadow
+	public abstract double getCustomJump();
+	*///?}
+
 	@Override
 	public RideState horsingaround$ride() {
 		return this.horsingaround$ride;
@@ -195,7 +200,11 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 			x -= Mth.sin(yaw) * push;
 			z += Mth.cos(yaw) * push;
 		}
-		this.setDeltaMovement(x, Math.max(Math.max(this.getJumpPower(amount), RideTuning.JUMP_MIN_VELOCITY), s.jumpLift), z);
+		//? if >=1.20.5 {
+		final double power = this.getJumpPower(amount);
+		//?} else
+		/*final double power = this.getCustomJump() * amount * this.getBlockJumpFactor() + this.getJumpBoostPower();*/
+		this.setDeltaMovement(x, Math.max(Math.max(power, RideTuning.JUMP_MIN_VELOCITY), s.jumpLift), z);
 		s.jumpLift = 0.0F;
 		this.setOnGround(false);
 		this.horsingaround$ride.jumpedOff = true;

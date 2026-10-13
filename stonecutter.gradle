@@ -84,6 +84,10 @@ stonecutter.parameters {
 		replace 'gui\\.screens\\.options\\.OptionsSubScreen', 'gui.screens.OptionsSubScreen', '(?!)', 'unused'
 		replace '\\b(Identifier|ResourceLocation)\\.(fromNamespaceAndPath|withDefaultNamespace)\\(', 'new ResourceLocation(', '(?!)', 'unused'
 	}
+	// Before 1.20.5 an entity renderer's rotation set-up had no scale argument (the game's own scale entity attribute came with 1.20.5).
+	replacements.regex(current.parsed.matches('<1.20.5')) {
+		replace 'PoseStack;FFFF\\)V', 'PoseStack;FFF)V', '(?!)', 'unused'
+	}
 	// 1.21.5 reworked who simulates a controlled entity; for a horse a player rides or nobody rides it comes to the same
 	// answer as the older name.
 	replacements.string(current.parsed.matches('<1.21.5')) {

@@ -23,10 +23,16 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 @Mixin(value = LivingEntity.class, priority = 1500)
 abstract class LivingEntityMixin {
 	/** A player-ridden horse's collision box is narrowed to about its body's real width (vanilla's is a 1.4-block square). */
+	//? if >=1.20.5 {
 	@ModifyReturnValue(method = "getDefaultDimensions", at = @At("RETURN"))
+	//?} else
+	/*@ModifyReturnValue(method = "getDimensions", at = @At("RETURN"))*/
 	private EntityDimensions horsingaround$riddenWidth(final EntityDimensions dimensions) {
 		if ((Object) this instanceof RideStateHolder holder && holder.horsingaround$ride().narrow) {
+			//? if >=1.20.5 {
 			return new EntityDimensions(dimensions.width() * RideTuning.RIDDEN_WIDTH_SCALE, dimensions.height(), dimensions.eyeHeight(), dimensions.attachments(), dimensions.fixed());
+			//?} else
+			/*return new EntityDimensions(dimensions.width * RideTuning.RIDDEN_WIDTH_SCALE, dimensions.height, dimensions.fixed);*/
 		}
 		return dimensions;
 	}

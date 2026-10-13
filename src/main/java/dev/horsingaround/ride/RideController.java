@@ -223,7 +223,7 @@ public final class RideController {
 				// A fence, a wall, anything up to a hurdle's height in reach: high enough and far enough to clear it.
 				final double hurdle = Awareness.hurdle(horse, horse.getYRot(), HURDLE_REACH);
 				if (!Double.isNaN(hurdle)) {
-					final double gravity = horse.getGravity();
+					final double gravity = Vanilla.gravity(horse);
 					final float lift = launchSpeed(hurdle - horse.getY() + HURDLE_CLEARANCE, gravity);
 					// It can reach the face at any time, but only gets past it while above the top: from when it rises past
 					// the top until it comes back down to it.
@@ -318,7 +318,7 @@ public final class RideController {
 		final double fz = Mth.cos(yaw);
 		// The rider's push still acts in the air (air control); the jump's forward speed includes it.
 		final float airPush = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * Math.max(s.speed, 0.0F) * AIR_CONTROL;
-		final double lighter = horse.getGravity() * LEDGE_LIFT_GRAVITY;
+		final double lighter = Vanilla.gravity(horse) * LEDGE_LIFT_GRAVITY;
 		if (s.ledgeAir) {
 			if (horse.onGround() || s.ledgeTicks > LEDGE_APPROACH_TICKS + 40) {
 				endLedge(s);
@@ -591,7 +591,7 @@ public final class RideController {
 			return;
 		}
 		// Over the top, it settles onto the bank.
-		double vy = -horse.getGravity();
+		double vy = -Vanilla.gravity(horse);
 		if (t < s.bankDuration) {
 			// Smoothstep from where it started to the top: the rise this tick.
 			vy = (s.bankTop - s.bankFrom) * (smoothstep((t + 1.0F) / s.bankDuration) - smoothstep(t / s.bankDuration));
@@ -891,7 +891,7 @@ public final class RideController {
 	private static void tail(final AbstractHorse horse, final RideState s, final float groundSpeed) {
 		s.tailLiftO = s.tailLift;
 		final double rise = horse.getY() + s.heightOffset - horse.yo - s.heightOffsetO;
-		final double gravity = Math.max(horse.getGravity(), 1.0E-3);
+		final double gravity = Math.max(Vanilla.gravity(horse), 1.0E-3);
 		final double weightless = Mth.clamp(-(rise - s.lastDrawnRise) / gravity, -1.0, 1.0);
 		s.lastDrawnRise = rise;
 		final float topSpeed = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR;
@@ -948,7 +948,7 @@ public final class RideController {
 		s.foreRise = Double.isNaN(s.foreRise) || s.foreGround <= s.foreRise ? s.foreGround : s.foreRise + (s.foreGround - s.foreRise) * ease;
 		s.hindRise = Double.isNaN(s.hindRise) || s.hindGround <= s.hindRise ? s.hindGround : s.hindRise + (s.hindGround - s.hindRise) * ease;
 		final float damping = 1.0F + 2.0F * w + w * w;
-		final float gravity = (float) Math.max(horse.getGravity(), 0.0);
+		final float gravity = (float) Math.max(Vanilla.gravity(horse), 0.0);
 		s.foreVelocity = Math.max((float) ((s.foreVelocity + w * w * (s.foreRise - s.fore)) / damping), s.foreVelocity - gravity);
 		s.fore += s.foreVelocity;
 		s.hindVelocity = Math.max((float) ((s.hindVelocity + w * w * (s.hindRise - s.hind)) / damping), s.hindVelocity - gravity);

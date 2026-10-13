@@ -54,11 +54,19 @@ public final class HorsingAroundClient implements ClientModInitializer {
 		}
 		//?}
 		// The server tells us it runs the mod (and its rules); until then, and on servers without it, horses ride as in vanilla.
+		//? if >=1.20.5 {
 		ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, context) -> {
 			ServerRules.accept(rules);
 			Hats.sendOwn();
 		});
 		ClientPlayNetworking.registerGlobalReceiver(PlayerHatPayload.TYPE, (hat, context) -> Hats.receive(hat));
+		//?} else {
+		/*ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, player, sender) -> {
+			ServerRules.accept(rules);
+			Hats.sendOwn();
+		});
+		ClientPlayNetworking.registerGlobalReceiver(PlayerHatPayload.TYPE, (hat, player, sender) -> Hats.receive(hat));
+		*///?}
 		ClientPlayConnectionEvents.INIT.register((handler, minecraft) -> {
 			ServerRules.reset();
 			ServerNotice.reset();

@@ -23,8 +23,12 @@ import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.OptionsSubScreen;
-//? if <1.21
-/*import net.minecraft.client.gui.components.OptionsList;*/
+//? if <1.20.5 {
+/*import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
+*///?} elif <1.21 {
+/*import net.minecraft.client.gui.components.OptionsList;
+*///?}
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -45,7 +49,27 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		super(parent, Minecraft.getInstance().options, Component.translatable(KEY + "title"));
 	}
 
-	//? if <1.21 {
+	//? if <1.20.5 {
+	/*// Before 1.20.5 the options screens make their own layout and list (the base class has neither).
+	private LegacyOptionsList list;
+	private HeaderAndFooterLayout layout;
+
+	@Override
+	protected void init() {
+		this.layout = new HeaderAndFooterLayout(this, 32);
+		this.list = this.addRenderableWidget(new LegacyOptionsList(this.minecraft, this.width, this.height));
+		this.addOptions();
+		this.addTitle();
+		this.addFooter();
+		this.layout.arrangeElements();
+		this.layout.visitWidgets(this::addRenderableWidget);
+	}
+
+	@Override
+	public void renderBackground(final GuiGraphics graphics, final int mouseX, final int mouseY, final float partialTick) {
+		this.renderDirtBackground(graphics);
+	}
+	*///?} elif <1.21 {
 	/*// Before 1.21 the options screens put their lists in themselves (and the base class has no hook for it).
 	private OptionsList list;
 
@@ -63,7 +87,9 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	}
 	*///?}
 
+	//? if >=1.20.5 {
 	@Override
+	//?}
 	protected void addTitle() {
 		final LinearLayout title = LinearLayout.horizontal().spacing(6);
 		title.defaultCellSetting().alignVerticallyMiddle();
@@ -173,7 +199,9 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		);
 	}
 
+	//? if >=1.20.5 {
 	@Override
+	//?}
 	protected void addFooter() {
 		final LinearLayout footer = this.layout.addToFooter(LinearLayout.horizontal().spacing(8));
 		footer.addChild(Button.builder(Component.translatable(KEY + "reset"), button -> {

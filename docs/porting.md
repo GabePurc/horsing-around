@@ -78,6 +78,26 @@ the ride's render-side code is written around render states, so it keeps them:
   at half size (`LegacyRenderState.horseRoot`), keys come from a client `Input` view (`ride/Input`, a stand-in for the
   record 1.21.2 added), and the arm poses are fields of the model.
 
+### Before 1.20.5: no payload types
+
+There is no `CustomPacketPayload` + `StreamCodec` + `PayloadTypeRegistry` before 1.20.5. Fabric API's networking has
+`FabricPacket` + `PacketType.create(id, reader)` there instead (1.20.2 to 1.20.4), and the payload classes in `net/` carry
+both forms (a conditional on the class: the record's fields, and the codec written out as `write`/reader). The wire
+format is the same on every version (the same fields in the same order). `ServerPlayNetworking`/`ClientPlayNetworking`
+`send`/`canSend` take the packet or its `TYPE` on both, so the only call sites that differ are the registrations
+(`HorsingAround`, `HorsingAroundClient`): receivers take `(packet, player, sender)` instead of `(payload, context)`, and
+nothing is registered beforehand.
+
+### Before 1.20.5: other differences
+
+- Physics values vanilla keeps as attributes since 1.20.5 (gravity, safe fall distance, fall damage multiplier) come from
+  `ride/Vanilla`; before, they are the fixed values vanilla used (0.08, 3 plus Jump Boost or 6 for a horse, and a half for a horse).
+- A horse's collision box is narrowed through `LivingEntity.getDimensions` (no `getDefaultDimensions`, and the dimensions
+  have no eye height or attachments yet); a rider's jump power is computed as vanilla's `executeRidersJump` did.
+- No item components: "tool or weapon" in the rider's pose is an item class check (`TieredItem`, shears, trident, bow and crossbow).
+- The settings screen makes its own header, footer and list (`LegacyOptionsList`, a whole-file conditional): the vanilla
+  options base class has no layout and its list can't take widgets of our own.
+
 ## Checking a version
 
 - `./gradlew :<version>:build`: compiles and builds that version's jar (`./gradlew build` builds them all).
@@ -95,15 +115,15 @@ the ride's render-side code is written around render states, so it keeps them:
 
 Building and passing their audit: 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9), 1.21.8 (covers 1.21.6 and
 1.21.7; only built against 1.21.8, the others still to be played), 1.21.5, 1.21.4, 1.21.3 (covers 1.21.2; only built against 1.21.3),
-1.21.1 (covers 1.21; built and audited only, not yet played), 1.20.6 (covers 1.20.5; built and audited only, not yet played).
-Before 1.20.5 networking has no payload types.
+1.21.1 (covers 1.21; built and audited only, not yet played), 1.20.6 (covers 1.20.5; built and audited only, not yet played),
+1.20.4 (covers 1.20.3; built and audited only, not yet played).
 
 ## Gaps on older versions
 
 - 1.21.10 and older: no spears, so there is no spear stab pose for the rider (every swing is the plain one).
 - 1.21.10 and older: the settings screen has no section headings in the vanilla style; each heading sits in a row of its own.
 - 1.21.5 to 1.21.2: the stamina bar does not turn red when the horse is exhausted (there is no public tinted sprite draw
-  yet); it still switches to the cooldown sprite. (1.21.1 tints it, through the graphics' colour.)
+  yet); it still switches to the cooldown sprite. (1.21.1 and older tint it, through the graphics' colour.)
 - 1.20.6 and older: Entity Model Features has no animation hook there (`EmfSaddleTracker` is not built), so on a horse that
   an animation pack animates the rider follows the generated gait motion, and the pack's neck and legs are not adjusted for
   the ride.
