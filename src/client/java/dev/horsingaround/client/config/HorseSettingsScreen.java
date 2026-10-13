@@ -55,9 +55,9 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	@Override
 	protected void addOptions() {
 		final HorseConfig c = HorseConfig.get();
-		this.list.addHeader(Component.translatable(KEY + "subtitle").withStyle(ChatFormatting.GRAY));
+		this.addHeader(Component.translatable(KEY + "subtitle").withStyle(ChatFormatting.GRAY));
 
-		this.list.addHeader(section("camera"));
+		this.addHeader(section("camera"));
 		this.list.addBig(OptionInstance.createBoolean(KEY + "third_person", tooltip("third_person"), c.thirdPersonOnMount, v -> {
 			c.thirdPersonOnMount = v;
 			HorseConfig.apply();
@@ -77,13 +77,13 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 			}
 		}
 
-		this.list.addHeader(section("comfort"));
+		this.addHeader(section("comfort"));
 		this.list.addSmall(
 			percent("view_bob", 0, 100, c.viewBob, v -> c.viewBob = v),
 			percent("hand_bob", 0, 100, c.handBob, v -> c.handBob = v)
 		);
 
-		this.list.addHeader(section("sound"));
+		this.addHeader(section("sound"));
 		this.list.addBig(percent("horse_sounds", 0, 100, c.horseSounds, v -> c.horseSounds = v));
 
 		this.addHatOptions(c);
@@ -92,12 +92,12 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	/** Supporters wear a cowboy hat and pick its colour; everyone else hears how to get one. */
 	private void addHatOptions(final HorseConfig c) {
 		if (!Hats.canWear()) {
-			this.list.addHeader(section("hat"));
+			this.addHeader(section("hat"));
 			this.addWide(Button.builder(Component.translatable(KEY + "hat.support"), ConfirmLinkScreen.confirmLink(this, SUPPORT, true))
 				.tooltip(Tooltip.create(Component.translatable(KEY + "hat.support.tooltip"))).build());
 			return;
 		}
-		this.list.addHeader(section("hat_supporter"));
+		this.addHeader(section("hat_supporter"));
 		this.list.addBig(OptionInstance.createBoolean(KEY + "hat", tooltip("hat"), c.hat, v -> {
 			c.hat = v;
 			Hats.sendOwn();
@@ -115,6 +115,15 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		this.list.addBig(
 			slider("hat_brightness", 5, 100, Math.round(hsv[2] * 100.0F), "percent", bright -> c.hatColor = HatColors.fromHsv(HatColors.toHsv(c.hatColor)[0], HatColors.toHsv(c.hatColor)[1], bright / 100.0F))
 		);
+	}
+
+	/** A heading row (before 1.21.11 the list has no headings; the text goes in a row of its own). */
+	private void addHeader(final Component text) {
+		//? if >=1.21.11 {
+		this.list.addHeader(text);
+		//?} else {
+		/*this.list.addSmall(new StringWidget(310, 20, text, this.font), null);
+		*///?}
 	}
 
 	/** A full-width widget in its own row (before 26.2 the list only took options as big rows, so it is a lone small one). */

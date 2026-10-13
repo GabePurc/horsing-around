@@ -62,11 +62,16 @@ victim.knockback(power, x, z, source, damage);
 
 ## Progress
 
-Building and passing their audit: 26.3, 26.2, 26.1.2, 1.21.11. Next, newest first: 1.21.10, 1.21.8, 1.21.5, 1.21.4,
-1.21.3.
+Building and passing their audit: 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9). Next, newest first: 1.21.8,
+1.21.5, 1.21.4, 1.21.3.
 Before 1.21.2 entity rendering has no render states (the leg and rider-pose code needs a design for that), and before
 1.20.5 networking has no payload types.
 
 ## Gaps on older versions
 
-(none yet)
+- 1.21.10 and older: no spears, so there is no spear stab pose for the rider (every swing is the plain one).
+- 1.21.10 and older: the settings screen has no section headings in the vanilla style; each heading sits in a row of its own.
+- 1.21.10 and older: the steering overlay for play-testing (F3+B) draws nothing (gizmos came in 1.21.11); not for players.
+
+Not gaps, but different underneath: before 1.21.11 vanilla horses sink in deep water, so the ride floats every horse
+but the skeleton horse (`Mounts.floats`); the rest of the swimming is the ride's own on every version.

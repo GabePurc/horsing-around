@@ -1,7 +1,10 @@
 package dev.horsingaround.client.compat;
 
 import com.github.exopandora.shouldersurfing.api.client.IShoulderSurfing;
+//? if >=1.21.11
 import com.github.exopandora.shouldersurfing.api.client.Perspective;
+//? if <1.21.11
+/*import com.github.exopandora.shouldersurfing.api.model.Perspective;*/
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
@@ -40,13 +43,20 @@ public final class CameraMods {
 
 	/** Only loaded when Shoulder Surfing Reloaded is. */
 	private static final class ShoulderSurfing {
+		private static IShoulderSurfing instance() {
+			//? if >=1.21.11 {
+			return IShoulderSurfing.getInstance();
+			//?} else
+			/*return com.github.exopandora.shouldersurfing.api.client.ShoulderSurfing.getInstance();*/
+		}
+
 		static boolean active() {
-			return IShoulderSurfing.getInstance().isShoulderSurfing();
+			return instance().isShoulderSurfing();
 		}
 
 		static void setCameraType(final Minecraft minecraft, final CameraType type) {
 			if (type == CameraType.FIRST_PERSON) {
-				IShoulderSurfing.getInstance().changePerspective(Perspective.FIRST_PERSON);
+				instance().changePerspective(Perspective.FIRST_PERSON);
 			} else {
 				minecraft.options.setCameraType(type);
 			}

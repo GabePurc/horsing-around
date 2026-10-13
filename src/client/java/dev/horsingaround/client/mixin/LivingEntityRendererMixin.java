@@ -13,6 +13,8 @@ import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.util.Mth;
+//? if <1.21.11
+/*import net.minecraft.world.entity.HumanoidArm;*/
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemUseAnimation;
 import org.joml.Quaternionf;
@@ -204,6 +206,8 @@ public abstract class LivingEntityRendererMixin {
 		final float lift = saddle.lift * (0.5F + 0.5F * saddle.limbSpeed);
 		final float release = horsingaround$bowRelease(entity, s, horse.tickCount + partialTicks, partialTicks);
 		pose.horsingaround$setRider(-lift * HAND_BOB, legPitch, legRoll, twist, pelvis, s.shield(partialTicks), release, s.bowPull);
+		//? if <1.21.11
+		/*pose.horsingaround$setHeld(entity.getItemHeldByArm(HumanoidArm.RIGHT), entity.getItemHeldByArm(HumanoidArm.LEFT), RiderPose.usingTicks(entity, partialTicks));*/
 	}
 
 	/**
@@ -213,7 +217,7 @@ public abstract class LivingEntityRendererMixin {
 	@Unique
 	private static float horsingaround$bowRelease(final LivingEntity rider, final RideState s, final float now, final float partialTicks) {
 		if (rider.isUsingItem() && rider.getUseItem().getUseAnimation() == ItemUseAnimation.BOW) {
-			s.bowPull = RiderPose.pull(rider.getTicksUsingItem(partialTicks));
+			s.bowPull = RiderPose.pull(RiderPose.usingTicks(rider, partialTicks));
 			s.bowLoosedAt = Float.NaN;
 			return 0.0F;
 		}

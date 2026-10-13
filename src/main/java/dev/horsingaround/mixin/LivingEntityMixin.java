@@ -1,5 +1,7 @@
 package dev.horsingaround.mixin;
 
+//? if <1.21.11
+/*import com.llamalad7.mixinextras.injector.ModifyExpressionValue;*/
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import dev.horsingaround.ride.Mounts;
@@ -58,7 +60,10 @@ abstract class LivingEntityMixin {
 	 * floats when swimming, instead of vanilla's water physics, which stop it dead in any depth. A skeleton horse keeps
 	 * vanilla's and walks along the bottom.
 	 */
+	//? if >=1.21.11 {
 	@ModifyReturnValue(method = "shouldTravelInFluid", at = @At("RETURN"))
+	//?} else
+	/*@ModifyExpressionValue(method = "travel", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;isAffectedByFluids()Z"))*/
 	private boolean horsingaround$ownWaterPhysics(final boolean vanilla) {
 		if (!vanilla || !((Object) this instanceof RideStateHolder holder) || !holder.horsingaround$playerRidden()) {
 			return vanilla;

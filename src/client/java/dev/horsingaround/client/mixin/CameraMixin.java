@@ -9,8 +9,10 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
-//? if <26.1
+//? if >=1.21.11 && <26.1
 /*import net.minecraft.world.level.Level;*/
+//? if <1.21.11
+/*import net.minecraft.world.level.BlockGetter;*/
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
@@ -38,9 +40,15 @@ public abstract class CameraMixin {
 	@Shadow
 	private boolean initialized;
 	@Shadow
-	private Level level;
-	@Shadow
 	private float partialTickTime;
+	*///?}
+	//? if >=1.21.11 && <26.1 {
+	/*@Shadow
+	private Level level;
+	*///?}
+	//? if <1.21.11 {
+	/*@Shadow
+	private BlockGetter level;
 	*///?}
 	@Shadow
 	private Vec3 position;
@@ -101,7 +109,7 @@ public abstract class CameraMixin {
 		original.call(partialTicks);
 		this.horsingaround$firstPerson(partialTicks);
 	}
-	//?} else {
+	//?} elif >=1.21.11 {
 	/*// Before 26.1 the camera is placed in one method, called once per frame with everything it needs.
 	@WrapMethod(method = "setup")
 	private void horsingaround$rideCamera(
@@ -111,18 +119,42 @@ public abstract class CameraMixin {
 			RideCamera.updateFrame(this.minecraft, partialTicks);
 		}
 		if (RideCamera.isActive(e, this.minecraft)) {
-			this.initialized = true;
 			this.level = level;
-			this.entity = e;
-			this.detached = true;
-			this.partialTickTime = partialTicks;
-			this.setRotation(e.getViewYRot(partialTicks), e.getViewXRot(partialTicks));
-			this.setPosition(Mth.lerp(partialTicks, e.xo, e.getX()), RideCamera.pivotY(partialTicks), Mth.lerp(partialTicks, e.zo, e.getZ()));
-			this.move(-this.getMaxZoom(RideCamera.distance(partialTicks)), 0.0F, 0.0F);
+			this.horsingaround$place(e, partialTicks);
 			return;
 		}
 		original.call(level, e, detached, mirrored, partialTicks);
 		this.horsingaround$firstPerson(partialTicks);
+	}
+	*///?} else {
+	/*@WrapMethod(method = "setup")
+	private void horsingaround$rideCamera(
+		final BlockGetter level, final Entity e, final boolean detached, final boolean mirrored, final float partialTicks, final Operation<Void> original
+	) {
+		if (this.minecraft.player != null) {
+			RideCamera.updateFrame(this.minecraft, partialTicks);
+		}
+		if (RideCamera.isActive(e, this.minecraft)) {
+			this.level = level;
+			this.horsingaround$place(e, partialTicks);
+			return;
+		}
+		original.call(level, e, detached, mirrored, partialTicks);
+		this.horsingaround$firstPerson(partialTicks);
+	}
+	*///?}
+
+	//? if <26.1 {
+	/*// The third-person ride camera in place of vanilla's setup (the rest of what setup does is set here).
+	@Unique
+	private void horsingaround$place(final Entity e, final float partialTicks) {
+		this.initialized = true;
+		this.entity = e;
+		this.detached = true;
+		this.partialTickTime = partialTicks;
+		this.setRotation(e.getViewYRot(partialTicks), e.getViewXRot(partialTicks));
+		this.setPosition(Mth.lerp(partialTicks, e.xo, e.getX()), RideCamera.pivotY(partialTicks), Mth.lerp(partialTicks, e.zo, e.getZ()));
+		this.move(-this.getMaxZoom(RideCamera.distance(partialTicks)), 0.0F, 0.0F);
 	}
 	*///?}
 

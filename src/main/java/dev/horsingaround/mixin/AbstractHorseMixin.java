@@ -192,7 +192,10 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 		s.jumpLift = 0.0F;
 		this.setOnGround(false);
 		this.horsingaround$ride.jumpedOff = true;
+		//? if >=1.21.11 {
 		this.needsSync = true;
+		//?} else
+		/*this.hasImpulse = true;*/
 	}
 
 	/**

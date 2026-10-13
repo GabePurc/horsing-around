@@ -37,4 +37,18 @@ stonecutter.parameters {
 		replace 'renderer.state.level.CameraRenderState', 'renderer.state.CameraRenderState'
 		replace 'renderer/state/level/CameraRenderState', 'renderer/state/CameraRenderState'
 	}
+	// 1.21.11 renamed ResourceLocation to Identifier, moved the horses into an "equine" package and the chicken into its
+	// own, and started annotating with JSpecify.
+	replacements.regex(current.parsed.matches('<1.21.11')) {
+		replace '\\bIdentifier\\b', 'ResourceLocation', '\\bResourceLocation\\b', 'Identifier'
+	}
+	replacements.string(current.parsed.matches('<1.21.11')) {
+		replace 'client.model.animal.equine.AbstractEquineModel', 'client.model.AbstractEquineModel'
+		replace 'client.model.player.PlayerModel', 'client.model.PlayerModel'
+		replace 'client.renderer.rendertype.RenderTypes', 'client.renderer.RenderType'
+		replace 'RenderTypes.entityCutout(', 'RenderType.entityCutout('
+		replace 'animal.equine.', 'animal.horse.'
+		replace 'animal.chicken.Chicken', 'animal.Chicken'
+		replace 'org.jspecify.annotations.Nullable', 'org.jetbrains.annotations.Nullable'
+	}
 }
