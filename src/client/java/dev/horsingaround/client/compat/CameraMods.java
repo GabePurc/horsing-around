@@ -1,10 +1,15 @@
 package dev.horsingaround.client.compat;
 
 import com.github.exopandora.shouldersurfing.api.client.IShoulderSurfing;
-//? if >=1.21.11 || <1.21.2
+//? if >=1.21.11 {
 import com.github.exopandora.shouldersurfing.api.client.Perspective;
-//? if >=1.21.2 && <1.21.11
-/*import com.github.exopandora.shouldersurfing.api.model.Perspective;*/
+//?} elif >=1.21.2 {
+/*import com.github.exopandora.shouldersurfing.api.model.Perspective;
+*///?} elif >=1.21 {
+/*import com.github.exopandora.shouldersurfing.api.client.Perspective;
+*///?} else {
+/*import com.github.exopandora.shouldersurfing.api.model.Perspective;
+*///?}
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;

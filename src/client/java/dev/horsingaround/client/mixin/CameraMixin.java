@@ -5,6 +5,7 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.client.Camera;
+//? if >=26.1
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
@@ -67,6 +68,7 @@ public abstract class CameraMixin {
 	@Shadow
 	protected abstract void setPosition(double x, double y, double z);
 
+	//? if >=1.21 {
 	@Shadow
 	protected abstract void move(float forwards, float up, float right);
 
@@ -74,6 +76,15 @@ public abstract class CameraMixin {
 	private float getMaxZoom(final float cameraDist) {
 		throw new AssertionError();
 	}
+	//?} else {
+	/*@Shadow
+	protected abstract void move(double forwards, double up, double right);
+
+	@Shadow
+	private double getMaxZoom(final double cameraDist) {
+		throw new AssertionError();
+	}
+	*///?}
 
 	/** While riding, the third-person camera passes through leaves like the horse does instead of snapping in. */
 	@ModifyExpressionValue(method = "getMaxZoom", at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/ClipContext$Block;VISUAL:Lnet/minecraft/world/level/ClipContext$Block;"))

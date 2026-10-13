@@ -104,6 +104,13 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 		return this.getAngrySound();
 	}
 
+	//? if <1.21 {
+	/*@Override
+	public net.minecraft.core.BlockPos horsingaround$blockBelow() {
+		return this.getBlockPosBelowThatAffectsMyMovement();
+	}
+	*///?}
+
 	/** First ridden hook each tick: advance the ride simulation and hand vanilla a forward/back-only input. */
 	@ModifyReturnValue(method = "getRiddenInput", at = @At("RETURN"))
 	private Vec3 horsingaround$riddenInput(final Vec3 vanilla, @Local(argsOnly = true) final Player controller) {

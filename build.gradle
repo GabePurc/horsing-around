@@ -177,6 +177,16 @@ tasks.matching { it.name in ["processResources", "processClientResources"] }.con
 	}
 }
 
+// Data pack folders got singular names in 1.21 (tags/block); before, the tags are in plural ones (tags/blocks).
+if (sc.current.parsed.matches('<1.21')) {
+	tasks.named("processResources") {
+		includeEmptyDirs = false
+		eachFile { details ->
+			details.path = details.path.replace('/tags/entity_type/', '/tags/entity_types/').replace('/tags/block/', '/tags/blocks/')
+		}
+	}
+}
+
 jar {
 	from(repoDir.file("LICENSE")) {
 		rename { "${it}_horsingaround" }

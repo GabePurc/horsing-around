@@ -66,7 +66,7 @@ public final class HatLayer extends RenderLayer<AvatarRenderState, PlayerModel> 
 			poseStack, buffers.getBuffer(RenderTypes.entityCutout(TEXTURE)), lightCoords, LivingEntityRenderer.getOverlayCoords(state, 0.0F), 0xFF000000 | color
 		);
 	}
-	*///?} else {
+	*///?} elif >=1.21 {
 	/*@Override
 	public void render(
 		final PoseStack poseStack, final MultiBufferSource buffers, final int lightCoords, final AbstractClientPlayer player, final float limbSwing,
@@ -80,6 +80,24 @@ public final class HatLayer extends RenderLayer<AvatarRenderState, PlayerModel> 
 		this.getParentModel().copyPropertiesTo(this.model);
 		this.model.renderToBuffer(
 			poseStack, buffers.getBuffer(RenderTypes.entityCutout(TEXTURE)), lightCoords, LivingEntityRenderer.getOverlayCoords(player, 0.0F), 0xFF000000 | color
+		);
+	}
+	*///?} else {
+	/*@Override
+	public void render(
+		final PoseStack poseStack, final MultiBufferSource buffers, final int lightCoords, final AbstractClientPlayer player, final float limbSwing,
+		final float limbSwingAmount, final float partialTicks, final float ageInTicks, final float headYaw, final float headPitch
+	) {
+		final int color = Hats.colorFor(player);
+		if (color == HatPayload.NONE || player.isInvisible()) {
+			return;
+		}
+		// The head, as it is posed this frame (a rider's included).
+		this.getParentModel().copyPropertiesTo(this.model);
+		// (Colours are fractions of 1 here.)
+		this.model.renderToBuffer(
+			poseStack, buffers.getBuffer(RenderTypes.entityCutout(TEXTURE)), lightCoords, LivingEntityRenderer.getOverlayCoords(player, 0.0F),
+			(color >> 16 & 0xFF) / 255.0F, (color >> 8 & 0xFF) / 255.0F, (color & 0xFF) / 255.0F, 1.0F
 		);
 	}
 	*///?}

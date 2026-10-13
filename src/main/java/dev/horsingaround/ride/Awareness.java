@@ -338,7 +338,10 @@ public final class Awareness {
 		cellZ0 = Mth.floor(horse.getZ()) - CELLS / 2;
 		planStamp++;
 		// How the ground under it grips (as vanilla moves an entity), and how it is moving now, along and across the line.
+		//? if >=1.21 {
 		wayGrip = horse.level().getBlockState(horse.getBlockPosBelowThatAffectsMyMovement()).getBlock().getFriction() * 0.91F;
+		//?} else
+		/*wayGrip = horse.level().getBlockState(((RideStateHolder) horse).horsingaround$blockBelow()).getBlock().getFriction() * 0.91F;*/
 		final Vec3 moving = horse.getDeltaMovement();
 		wayVelU = (float) (moving.x * wayFx + moving.z * wayFz);
 		wayVelV = (float) (-moving.x * wayFz + moving.z * wayFx);

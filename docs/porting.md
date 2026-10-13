@@ -70,6 +70,9 @@ the ride's render-side code is written around render states, so it keeps them:
 - The model mixins inject into the old `setupAnim(entity, ...)` and take the state from `LegacyRenderState.of(entity)`; the
   cowboy hat layer reads the player directly, and two extra mixins (`CustomHeadLayerMixin`, `HumanoidArmorLayerMixin`,
   listed in the mixin config only for these versions, see `hatMixins` in `build.gradle`) keep a helmet off a hatted head.
+- Before 1.21 also: data pack tag folders are plural (`processResources` renames them in `build.gradle`), resource
+  locations are made with a constructor, the options screens keep their own list (`HorseSettingsScreen`), the camera
+  moves in doubles, and model colours are floats.
 - Smaller differences: the player model's clothing layers and hat are parts of their own (copied from the body parts
   right after `setupAnim`, so the rider pose re-copies them), a horse model has no root part and a foal is the model drawn
   at half size (`LegacyRenderState.horseRoot`), keys come from a client `Input` view (`ride/Input`, a stand-in for the
@@ -92,7 +95,7 @@ the ride's render-side code is written around render states, so it keeps them:
 
 Building and passing their audit: 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9), 1.21.8 (covers 1.21.6 and
 1.21.7; only built against 1.21.8, the others still to be played), 1.21.5, 1.21.4, 1.21.3 (covers 1.21.2; only built against 1.21.3),
-1.21.1 (covers 1.21; built and audited only, not yet played).
+1.21.1 (covers 1.21; built and audited only, not yet played), 1.20.6 (covers 1.20.5; built and audited only, not yet played).
 Before 1.20.5 networking has no payload types.
 
 ## Gaps on older versions
@@ -101,6 +104,9 @@ Before 1.20.5 networking has no payload types.
 - 1.21.10 and older: the settings screen has no section headings in the vanilla style; each heading sits in a row of its own.
 - 1.21.5 to 1.21.2: the stamina bar does not turn red when the horse is exhausted (there is no public tinted sprite draw
   yet); it still switches to the cooldown sprite. (1.21.1 tints it, through the graphics' colour.)
+- 1.20.6 and older: Entity Model Features has no animation hook there (`EmfSaddleTracker` is not built), so on a horse that
+  an animation pack animates the rider follows the generated gait motion, and the pack's neck and legs are not adjusted for
+  the ride.
 - 1.21.1 and older: a horse's leg box is found by its size alone (the faces of a box are private there; vanilla's and the
   animation packs' leg boxes are whole boxes anyway).
 - 1.21.10 and older: the steering overlay for play-testing (F3+B) draws nothing (gizmos came in 1.21.11); not for players.

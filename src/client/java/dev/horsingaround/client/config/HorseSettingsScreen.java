@@ -23,6 +23,8 @@ import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.OptionsSubScreen;
+//? if <1.21
+/*import net.minecraft.client.gui.components.OptionsList;*/
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -43,6 +45,24 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		super(parent, Minecraft.getInstance().options, Component.translatable(KEY + "title"));
 	}
 
+	//? if <1.21 {
+	/*// Before 1.21 the options screens put their lists in themselves (and the base class has no hook for it).
+	private OptionsList list;
+
+	@Override
+	protected void init() {
+		this.list = this.addRenderableWidget(new OptionsList(this.minecraft, this.width, this.height, this));
+		this.addOptions();
+		super.init();
+	}
+
+	@Override
+	protected void repositionElements() {
+		super.repositionElements();
+		this.list.updateSize(this.width, this.layout);
+	}
+	*///?}
+
 	@Override
 	protected void addTitle() {
 		final LinearLayout title = LinearLayout.horizontal().spacing(6);
@@ -52,7 +72,9 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		this.layout.addToHeader(title);
 	}
 
+	//? if >=1.21 {
 	@Override
+	//?}
 	protected void addOptions() {
 		final HorseConfig c = HorseConfig.get();
 		this.addHeader(Component.translatable(KEY + "subtitle").withStyle(ChatFormatting.GRAY));
@@ -93,7 +115,11 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	private void addHatOptions(final HorseConfig c) {
 		if (!Hats.canWear()) {
 			this.addHeader(section("hat"));
-			this.addWide(Button.builder(Component.translatable(KEY + "hat.support"), ConfirmLinkScreen.confirmLink(this, SUPPORT, true))
+			//? if >=1.21 {
+			final Button.OnPress open = ConfirmLinkScreen.confirmLink(this, SUPPORT, true);
+			//?} else
+			/*final Button.OnPress open = ConfirmLinkScreen.confirmLink(this, SUPPORT.toString());*/
+			this.addWide(Button.builder(Component.translatable(KEY + "hat.support"), open)
 				.tooltip(Tooltip.create(Component.translatable(KEY + "hat.support.tooltip"))).build());
 			return;
 		}

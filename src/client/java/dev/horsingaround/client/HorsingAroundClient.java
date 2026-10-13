@@ -3,6 +3,7 @@ package dev.horsingaround.client;
 import dev.horsingaround.HorsingAround;
 import dev.horsingaround.MixinAudit;
 import com.mojang.blaze3d.platform.InputConstants;
+//? if >=1.21
 import dev.horsingaround.client.compat.EmfSaddleTracker;
 import dev.horsingaround.client.config.HorseSettingsScreen;
 import dev.horsingaround.client.debug.SteeringOverlay;
@@ -42,6 +43,7 @@ public final class HorsingAroundClient implements ClientModInitializer {
 		}
 		final RiderKeys keys = new RiderKeys(Minecraft.getInstance());
 		HorsingAround.bridge = keys;
+		//? if >=1.21 {
 		if (FabricLoader.getInstance().isModLoaded("entity_model_features")) {
 			try {
 				EmfSaddleTracker.register();
@@ -50,6 +52,7 @@ public final class HorsingAroundClient implements ClientModInitializer {
 				LOGGER.warn("Could not hook Entity Model Features animations; riders follow a generated gait motion instead", e);
 			}
 		}
+		//?}
 		// The server tells us it runs the mod (and its rules); until then, and on servers without it, horses ride as in vanilla.
 		ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, context) -> {
 			ServerRules.accept(rules);

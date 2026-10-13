@@ -67,10 +67,22 @@ stonecutter.parameters {
 	replacements.regex(current.parsed.matches('<1.21.2')) {
 		replace 'net\\.minecraft\\.client\\.renderer\\.entity\\.state\\.', 'dev.horsingaround.client.render.state.', '(?!)', 'unused'
 		replace '\\bItemUseAnimation\\b', 'UseAnim', '(?!)', 'unused'
-		// (A model part's pose was a class with fields, not a record; the game's clock lived under another name.)
+		// (A model part's pose was a class with fields, not a record.)
 		replace '\\b(initial|pose|getInitialPose\\(\\))\\.(x|y|z|xRot|yRot|zRot)\\(\\)', '$1.$2', '(?!)', 'unused'
-		replace 'getDeltaTracker\\(\\)', 'getTimer()', '(?!)', 'unused'
 		replace 'net\\.minecraft\\.world\\.entity\\.player\\.Input;', 'dev.horsingaround.ride.Input;', '(?!)', 'unused'
+	}
+	// The game's clock lived under another name in 1.21.1, and before 1.21 had no delta tracker (the partial tick of the game
+	// clock is the frame's, then).
+	replacements.string(current.parsed.matches('>=1.21 <1.21.2')) {
+		replace 'getDeltaTracker()', 'getTimer()'
+	}
+	replacements.regex(current.parsed.matches('<1.21')) {
+		replace 'getDeltaTracker\\(\\)\\.getGameTimeDeltaPartialTick\\(true\\)', 'getFrameTime()', '(?!)', 'unused'
+	}
+	// Before 1.21 a resource location was made with a constructor, and the options screens were not in a package of their own.
+	replacements.regex(current.parsed.matches('<1.21')) {
+		replace 'gui\\.screens\\.options\\.OptionsSubScreen', 'gui.screens.OptionsSubScreen', '(?!)', 'unused'
+		replace '\\b(Identifier|ResourceLocation)\\.(fromNamespaceAndPath|withDefaultNamespace)\\(', 'new ResourceLocation(', '(?!)', 'unused'
 	}
 	// 1.21.5 reworked who simulates a controlled entity; for a horse a player rides or nobody rides it comes to the same
 	// answer as the older name.
