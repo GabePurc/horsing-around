@@ -77,8 +77,10 @@ public final class RiderPose {
 		final HumanoidArm usingArm = state.isUsingItem ? (state.useItemHand == InteractionHand.MAIN_HAND ? state.mainArm : state.mainArm.getOpposite()) : null;
 
 		// A bow drawn, or just loosed: both hands on it.
-		HumanoidArm bowArm = state.rightArmPose == HumanoidModel.ArmPose.BOW_AND_ARROW ? HumanoidArm.RIGHT
-			: state.leftArmPose == HumanoidModel.ArmPose.BOW_AND_ARROW ? HumanoidArm.LEFT : null;
+		final HumanoidModel.ArmPose rightPose = armPose(model, state, HumanoidArm.RIGHT);
+		final HumanoidModel.ArmPose leftPose = armPose(model, state, HumanoidArm.LEFT);
+		HumanoidArm bowArm = rightPose == HumanoidModel.ArmPose.BOW_AND_ARROW ? HumanoidArm.RIGHT
+			: leftPose == HumanoidModel.ArmPose.BOW_AND_ARROW ? HumanoidArm.LEFT : null;
 		final float release = bowArm == null ? rider.horsingaround$bowRelease() : 0.0F;
 		if (release > 0.0F) {
 			bowArm = bowHeld(state);
@@ -87,7 +89,7 @@ public final class RiderPose {
 			bow(model, state, rider, bowArm, twist, handBob, release);
 			return;
 		}
-		if (state.rightArmPose.isTwoHanded() || state.leftArmPose.isTwoHanded()) {
+		if (rightPose.isTwoHanded() || leftPose.isTwoHanded()) {
 			crossbow(model, state, twist);
 			return;
 		}
@@ -163,7 +165,7 @@ public final class RiderPose {
 	 * holds a tool or weapon out ready (in the main hand); false for any other pose.
 	 */
 	private static boolean rest(final HumanoidModel<?> model, final HumanoidRenderState state, final HumanoidArm side, final float twist, final float handBob) {
-		final HumanoidModel.ArmPose pose = side == HumanoidArm.LEFT ? state.leftArmPose : state.rightArmPose;
+		final HumanoidModel.ArmPose pose = armPose(model, state, side);
 		if (pose != HumanoidModel.ArmPose.EMPTY && pose != HumanoidModel.ArmPose.ITEM && pose != HumanoidModel.ArmPose.BOW_AND_ARROW) {
 			return false;
 		}
@@ -299,7 +301,7 @@ public final class RiderPose {
 	 * carried on top of that pointed them past it); loading, in front of the turned torso.
 	 */
 	private static void crossbow(final HumanoidModel<?> model, final HumanoidRenderState state, final float twist) {
-		if (state.rightArmPose == HumanoidModel.ArmPose.CROSSBOW_HOLD || state.leftArmPose == HumanoidModel.ArmPose.CROSSBOW_HOLD) {
+		if (armPose(model, state, HumanoidArm.RIGHT) == HumanoidModel.ArmPose.CROSSBOW_HOLD || armPose(model, state, HumanoidArm.LEFT) == HumanoidModel.ArmPose.CROSSBOW_HOLD) {
 			shoulders(model, state, Mth.clamp(model.head.yRot, -BOW_TWIST_MAX, BOW_TWIST_MAX));
 		} else {
 			shoulders(model, state, twist);
@@ -311,6 +313,14 @@ public final class RiderPose {
 	private static float smoothstep(final float t) {
 		final float x = Mth.clamp(t, 0.0F, 1.0F);
 		return x * x * (3.0F - 2.0F * x);
+	}
+
+	/** The pose of an arm, as the render state has it (before 1.21.4 the model works it out from the state). */
+	private static HumanoidModel.ArmPose armPose(final HumanoidModel<?> model, final HumanoidRenderState state, final HumanoidArm side) {
+		//? if >=1.21.4 {
+		return side == HumanoidArm.LEFT ? state.leftArmPose : state.rightArmPose;
+		//?} else
+		/*return ((ArmPoseSource) model).horsingaround$armPose(state, side);*/
 	}
 
 	/** The stack in an arm, as the render state has it (before 1.21.11, as noted when the state was extracted). */

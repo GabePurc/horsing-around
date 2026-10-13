@@ -67,7 +67,7 @@ victim.knockback(power, x, z, source, damage);
 ## Progress
 
 Building and passing their audit: 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9), 1.21.8 (covers 1.21.6 and
-1.21.7; only built against 1.21.8, the others still to be played), 1.21.5, 1.21.4. Next: 1.21.3.
+1.21.7; only built against 1.21.8, the others still to be played), 1.21.5, 1.21.4, 1.21.3 (covers 1.21.2; only built against 1.21.3).
 Before 1.21.2 entity rendering has no render states (the leg and rider-pose code needs a design for that), and before
 1.20.5 networking has no payload types.
 

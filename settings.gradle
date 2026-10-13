@@ -32,7 +32,7 @@ stonecutter {
 	centralScript = 'build.gradle'
 	create(getRootProject()) {
 		// One node per group of Minecraft versions that share a jar (ranges in each node's gradle.properties).
-		versions '26.3', '26.2', '26.1.2', '1.21.11', '1.21.10', '1.21.8', '1.21.5', '1.21.4'
+		versions '26.3', '26.2', '26.1.2', '1.21.11', '1.21.10', '1.21.8', '1.21.5', '1.21.4', '1.21.3'
 		vcsVersion = '26.3'
 	}
 }
