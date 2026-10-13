@@ -8,9 +8,16 @@ import dev.horsingaround.client.render.RiderPose;
 import dev.horsingaround.client.render.SaddleMotion;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
+//? if >=1.21.9 {
 import net.minecraft.client.renderer.SubmitNodeCollector;
+//?} else {
+/*import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.world.phys.Vec3;
+*///?}
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+//? if >=1.21.9
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.util.Mth;
 //? if <1.21.11
@@ -261,32 +268,55 @@ public abstract class LivingEntityRendererMixin {
 	}
 
 	@Inject(
+		//? if >=1.21.9 {
 		method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
+		//?} else
+		/*method = "render(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",*/
 		at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;pushPose()V", shift = At.Shift.AFTER, ordinal = 0)
 	)
 	private void horsingaround$applyPose(
-		final LivingEntityRenderState state, final PoseStack poseStack, final SubmitNodeCollector collector, final CameraRenderState camera, final CallbackInfo ci
+		final LivingEntityRenderState state, final PoseStack poseStack,
+		//? if >=1.21.9 {
+		final SubmitNodeCollector collector, final CameraRenderState camera,
+		//?} else
+		/*final MultiBufferSource buffers, final int lightCoords,*/
+		final CallbackInfo ci
 	) {
 		((RidePoseState) state).horsingaround$applyPose(poseStack);
 	}
 
 	/** Where a ridden horse's model is drawn this frame, so its legs can find the ground under each hoof (see GroundLegs). */
 	@Inject(
+		//? if >=1.21.9 {
 		method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
+		//?} else
+		/*method = "render(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",*/
 		at = @At(
 			value = "INVOKE",
 			target = "Lnet/minecraft/client/renderer/entity/LivingEntityRenderer;isBodyVisible(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;)Z"
 		)
 	)
 	private void horsingaround$drawnPose(
-		final LivingEntityRenderState state, final PoseStack poseStack, final SubmitNodeCollector collector, final CameraRenderState camera, final CallbackInfo ci
+		final LivingEntityRenderState state, final PoseStack poseStack,
+		//? if >=1.21.9 {
+		final SubmitNodeCollector collector, final CameraRenderState camera,
+		//?} else
+		/*final MultiBufferSource buffers, final int lightCoords,*/
+		final CallbackInfo ci
 	) {
 		final RideState ride = ((RidePoseState) state).horsingaround$rideState();
 		if (ride != null) {
 			ride.drawnPose.set(poseStack.last().pose());
+			//? if >=1.21.9 {
 			ride.drawnCameraX = camera.pos.x;
 			ride.drawnCameraY = camera.pos.y;
 			ride.drawnCameraZ = camera.pos.z;
+			//?} else {
+			/*final Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+			ride.drawnCameraX = camera.x;
+			ride.drawnCameraY = camera.y;
+			ride.drawnCameraZ = camera.z;
+			*///?}
 			ride.drawnPoseSet = true;
 		}
 	}

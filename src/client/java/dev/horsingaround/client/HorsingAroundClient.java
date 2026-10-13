@@ -76,7 +76,10 @@ public final class HorsingAroundClient implements ClientModInitializer {
 		});
 		final KeyMapping settings = KeyMappingHelper.registerKeyMapping(new KeyMapping(
 			"key.horsingaround.settings", InputConstants.UNKNOWN.getValue(),
+			//? if >=1.21.9 {
 			KeyMapping.Category.register(Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "horses"))
+			//?} else
+			/*"key.category.horsingaround.horses"*/
 		));
 		ClientTickEvents.END_CLIENT_TICK.register(minecraft -> {
 			if (!RideCamera.tick(minecraft)) {

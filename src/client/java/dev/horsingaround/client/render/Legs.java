@@ -124,7 +124,10 @@ public final class Legs {
 		float out = least ? Float.MAX_VALUE : -Float.MAX_VALUE;
 		for (final ModelPart.Polygon face : cube.polygons) {
 			for (final ModelPart.Vertex vertex : face.vertices()) {
+				//? if >=1.21.9 {
 				final float value = axis == 0 ? vertex.x() : axis == 1 ? vertex.y() : vertex.z();
+				//?} else
+				/*final float value = axis == 0 ? vertex.pos().x() : axis == 1 ? vertex.pos().y() : vertex.pos().z();*/
 				out = least ? Math.min(out, value) : Math.max(out, value);
 			}
 		}

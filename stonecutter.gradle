@@ -51,4 +51,15 @@ stonecutter.parameters {
 		replace 'animal.chicken.Chicken', 'animal.Chicken'
 		replace 'org.jspecify.annotations.Nullable', 'org.jetbrains.annotations.Nullable'
 	}
+	// 1.21.9 made the player an "avatar" (and gave the player renderer a generic). One way only: the way back must never
+	// match (26.3 has a PlayerRenderState of its own, and other 26.x code names AbstractClientPlayer).
+	replacements.regex(current.parsed.matches('<1.21.9')) {
+		replace '\\bAvatarRenderState\\b', 'PlayerRenderState', '(?!)', 'unused'
+		replace '\\bAvatarRenderer\\b', 'PlayerRenderer', '(?!)', 'unused'
+		replace 'AvatarRenderer<\\?>', 'PlayerRenderer', '(?!)', 'unused'
+		replace 'net\\.minecraft\\.world\\.entity\\.Avatar;', 'net.minecraft.client.player.AbstractClientPlayer;', '(?!)', 'unused'
+		replace 'net/minecraft/world/entity/Avatar;', 'net/minecraft/client/player/AbstractClientPlayer;', '(?!)', 'unused'
+		replace 'final Avatar entity', 'final AbstractClientPlayer entity', '(?!)', 'unused'
+		replace '\\(\\(Model<\\?>\\) \\(Object\\) this\\)', '((Model) (Object) this)', '(?!)', 'unused'
+	}
 }

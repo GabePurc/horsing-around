@@ -36,6 +36,10 @@ victim.knockback(power, x, z, source, damage);
 - Don't switch the active version to edit (the "Set active project" tasks rewrite `src/`); write the other branches
   by hand and let each version's build check them (`versions/<version>/build/generated/stonecutter/` shows what a
   version compiles).
+- A replacement in `stonecutter.gradle` also runs the other way on the newer versions, so its new-version text must
+  not occur in `src/` for them (e.g. 26.3 has its own `PlayerRenderState`); where it could, make it one way with a
+  regex whose way back is `(?!)` (never matches). Diffing a version's `build/generated/stonecutter/` against `src/`
+  shows only the intended differences.
 - Prefer code that is the same on every version when it costs nothing (e.g. `Mth.sqrt(x * x + y * y + z * z)`
   instead of a `Mth.length` overload only some versions have).
 - Keep the seams small: a difference used in several places goes in one small private helper with the conditional
@@ -62,8 +66,8 @@ victim.knockback(power, x, z, source, damage);
 
 ## Progress
 
-Building and passing their audit: 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9). Next, newest first: 1.21.8,
-1.21.5, 1.21.4, 1.21.3.
+Building and passing their audit: 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9), 1.21.8 (covers 1.21.6 and
+1.21.7; only built against 1.21.8, the others still to be played). Next, newest first: 1.21.5, 1.21.4, 1.21.3.
 Before 1.21.2 entity rendering has no render states (the leg and rider-pose code needs a design for that), and before
 1.20.5 networking has no payload types.
 

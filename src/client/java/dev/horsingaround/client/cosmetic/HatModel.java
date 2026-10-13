@@ -26,7 +26,22 @@ public final class HatModel extends PlayerModel {
 
 	public static LayerDefinition createLayer() {
 		final MeshDefinition mesh = PlayerModel.createMesh(CubeDeformation.NONE, false);
+		//? if >=1.21.9 {
 		final PartDefinition head = mesh.getRoot().clearRecursively().getChild("head");
+		//?} else {
+		/*final PartDefinition root = mesh.getRoot();
+		// (No clearRecursively yet: the player model's parts and their layers, emptied but left in place.)
+		for (final String part : new String[] {"head", "body", "right_arm", "left_arm", "right_leg", "left_leg"}) {
+			root.clearChild(part);
+		}
+		root.getChild("head").clearChild("hat");
+		root.getChild("body").clearChild("jacket");
+		root.getChild("right_arm").clearChild("right_sleeve");
+		root.getChild("left_arm").clearChild("left_sleeve");
+		root.getChild("right_leg").clearChild("right_pants");
+		root.getChild("left_leg").clearChild("left_pants");
+		final PartDefinition head = root.getChild("head");
+		*///?}
 		head.addOrReplaceChild("crown", CubeListBuilder.create().texOffs(0, 0).addBox(-4.5F, -11.0F, -4.5F, 9.0F, 5.0F, 9.0F), PartPose.ZERO);
 		// The crease: two ridges along the top with a groove between, pinched in at the front.
 		final CubeListBuilder ridge = CubeListBuilder.create().texOffs(36, 0).addBox(0.0F, -12.0F, -3.5F, 3.5F, 1.0F, 8.0F);

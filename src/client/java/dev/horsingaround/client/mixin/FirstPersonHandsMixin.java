@@ -4,7 +4,10 @@ import static dev.horsingaround.ride.RideTuning.FP_HAND_BOB;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.horsingaround.client.RideCamera;
+//? if >=1.21.9 {
 import net.minecraft.client.renderer.SubmitNodeCollector;
+//?} else
+/*import net.minecraft.client.renderer.MultiBufferSource;*/
 //? if >=26.3 {
 import net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer;
 import net.minecraft.client.renderer.state.level.FirstPersonHandsAndItemsRenderState;
@@ -31,7 +34,10 @@ public abstract class FirstPersonHandsMixin {
 	private void horsingaround$handBob(
 		final float partialTicks,
 		final PoseStack poseStack,
+		//? if >=1.21.9 {
 		final SubmitNodeCollector collector,
+		//?} else
+		/*final MultiBufferSource.BufferSource collector,*/
 		//? if >=26.3 {
 		final PlayerRenderState playerState,
 		final FirstPersonHandsAndItemsRenderState state,
