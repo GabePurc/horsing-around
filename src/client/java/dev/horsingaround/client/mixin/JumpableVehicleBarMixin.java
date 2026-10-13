@@ -33,12 +33,18 @@ public abstract class JumpableVehicleBarMixin implements ContextualBar {
 /*@Mixin(Gui.class)
 public abstract class JumpableVehicleBarMixin {
 *///?}
+	//? if >=1.20.2 {
 	@Unique
 	private static final Identifier BACKGROUND = Identifier.withDefaultNamespace("hud/jump_bar_background");
 	@Unique
 	private static final Identifier EXHAUSTED_BACKGROUND = Identifier.withDefaultNamespace("hud/jump_bar_cooldown");
 	@Unique
 	private static final Identifier PROGRESS = Identifier.withDefaultNamespace("hud/jump_bar_progress");
+	//?} else {
+	/*// (Before 1.20.2 the bars are parts of one texture.)
+	@Unique
+	private static final Identifier ICONS = Identifier.withDefaultNamespace("textures/gui/icons.png");
+	*///?}
 	@Unique
 	private static final int EXHAUSTED_TINT = 0xFFFF7A6E;
 	//? if <1.21.2 {
@@ -91,7 +97,7 @@ public abstract class JumpableVehicleBarMixin {
 			graphics.blitSprite(RenderType::guiTextured, PROGRESS, WIDTH, HEIGHT, 0, 0, left, top, filled, HEIGHT);
 		}
 	}
-	*///?} else {
+	*///?} elif >=1.20.2 {
 	/*@WrapMethod(method = "renderJumpMeter")
 	private void horsingaround$staminaBar(final PlayerRideableJumping jumpable, final GuiGraphicsExtractor graphics, final int left, final Operation<Void> original) {
 		if (!(this.minecraft.player.getVehicle() instanceof RideStateHolder holder) || !holder.horsingaround$managed()) {
@@ -108,6 +114,31 @@ public abstract class JumpableVehicleBarMixin {
 				graphics.setColor(EXHAUSTED_TINT_RED, EXHAUSTED_TINT_GREEN, EXHAUSTED_TINT_BLUE, 1.0F);
 			}
 			graphics.blitSprite(PROGRESS, WIDTH, HEIGHT, 0, 0, left, top, filled, HEIGHT);
+			if (s.exhausted) {
+				graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
+			}
+		}
+	}
+	*///?} else {
+	/*@WrapMethod(method = "renderJumpMeter")
+	private void horsingaround$staminaBar(final PlayerRideableJumping jumpable, final GuiGraphicsExtractor graphics, final int left, final Operation<Void> original) {
+		if (!(this.minecraft.player.getVehicle() instanceof RideStateHolder holder) || !holder.horsingaround$managed()) {
+			original.call(jumpable, graphics, left);
+			return;
+		}
+		final RideState s = holder.horsingaround$ride();
+		final int top = graphics.guiHeight() - 32 + 3;
+		graphics.blit(ICONS, left, top, 0, 84, WIDTH, HEIGHT);
+		if (s.exhausted) {
+			graphics.blit(ICONS, left, top, 0, 74, WIDTH, HEIGHT);
+		}
+		// (Mth.lerpDiscrete, which later versions use, isn't there yet.)
+		final int filled = Mth.floor(s.stamina * (WIDTH - 1)) + (s.stamina > 0.0F ? 1 : 0);
+		if (filled > 0) {
+			if (s.exhausted) {
+				graphics.setColor(EXHAUSTED_TINT_RED, EXHAUSTED_TINT_GREEN, EXHAUSTED_TINT_BLUE, 1.0F);
+			}
+			graphics.blit(ICONS, left, top, 0, 89, filled, HEIGHT);
 			if (s.exhausted) {
 				graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
 			}

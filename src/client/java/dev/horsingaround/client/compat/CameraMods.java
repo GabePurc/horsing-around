@@ -7,8 +7,10 @@ import com.github.exopandora.shouldersurfing.api.client.Perspective;
 /*import com.github.exopandora.shouldersurfing.api.model.Perspective;
 *///?} elif >=1.21 {
 /*import com.github.exopandora.shouldersurfing.api.client.Perspective;
-*///?} else {
+*///?} elif >=1.20.2 {
 /*import com.github.exopandora.shouldersurfing.api.model.Perspective;
+*///?} else {
+/*import com.github.exopandora.shouldersurfing.api.client.Perspective;
 *///?}
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;

@@ -95,10 +95,17 @@ nothing is registered beforehand.
 - A horse's collision box is narrowed through `LivingEntity.getDimensions` (no `getDefaultDimensions`, and the dimensions
   have no eye height or attachments yet); a rider's jump power is computed as vanilla's `executeRidersJump` did.
 - No item components: "tool or weapon" in the rider's pose is an item class check (`TieredItem`, shears, trident, bow and crossbow).
-- 1.20.2 only: the camera keeps no partial tick yet (nothing reads it there), lists have a top and a bottom of their own,
-  `ConfirmLinkScreen.confirmLink` takes its arguments in another order, and a text component has no `withColor`.
-- The settings screen makes its own header, footer and list (`LegacyOptionsList`, a whole-file conditional): the vanilla
-  options base class has no layout and its list can't take widgets of our own.
+- 1.20.2 and 1.20.1: the camera keeps no partial tick yet (nothing reads it there), lists have a top and a bottom of their
+  own, `ConfirmLinkScreen.confirmLink` takes its arguments in another order, and a text component has no `withColor`.
+- 1.20.1 only: no collision test for blocks alone (`Vanilla.noBlockCollision`, a one-way replacement in `stonecutter.gradle`),
+  the stamina bar is cut from `icons.png` like the vanilla jump bar (no sprites, no `Mth.lerpDiscrete`), and Shoulder
+  Surfing's perspective class sits in the other package.
+- The settings screen places its own title, list and footer buttons by hand (`LegacyOptionsList`, a whole-file
+  conditional): the vanilla options base class has no layout, and its list can't take widgets of our own.
+- Inside a whole-file `/* */` conditional there is no room for another comment, so a difference inside one (the list's
+  constructor) is a replacement in `stonecutter.gradle`.
+- Rider pose: a trident now counts as a weapon on 1.20.5 to 1.21.4 too (it had no `WEAPON` component there); it is a tool/weapon
+  on every version.
 
 ## Checking a version
 
@@ -118,7 +125,7 @@ nothing is registered beforehand.
 Building and passing their audit: 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9), 1.21.8 (covers 1.21.6 and
 1.21.7; only built against 1.21.8, the others still to be played), 1.21.5, 1.21.4, 1.21.3 (covers 1.21.2; only built against 1.21.3),
 1.21.1 (covers 1.21; built and audited only, not yet played), 1.20.6 (covers 1.20.5; built and audited only, not yet played),
-1.20.4 (covers 1.20.3; built and audited only, not yet played), 1.20.2 (built and audited only, not yet played).
+1.20.4 (covers 1.20.3; built and audited only, not yet played), 1.20.2 (built and audited only, not yet played), 1.20.1 (covers 1.20; built and audited only, not yet played).
 
 ## Gaps on older versions
 

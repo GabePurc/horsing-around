@@ -18,14 +18,15 @@ import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+//? if >=1.20.5
 import net.minecraft.client.gui.components.ImageWidget;
 import net.minecraft.client.gui.components.StringWidget;
+//? if >=1.20.5
 import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.OptionsSubScreen;
 //? if <1.20.5 {
 /*import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
 *///?} elif <1.21 {
 /*import net.minecraft.client.gui.components.OptionsList;
 *///?}
@@ -52,26 +53,44 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	}
 
 	//? if <1.20.5 {
-	/*// Before 1.20.5 the options screens make their own layout and list (the base class has neither).
+	/*// Before 1.20.5 the options screens make their own list and place everything by hand (the base class has neither a
+	// layout nor hooks for them).
 	private LegacyOptionsList list;
-	private HeaderAndFooterLayout layout;
 
 	@Override
 	protected void init() {
-		this.layout = new HeaderAndFooterLayout(this, 32);
 		this.list = this.addRenderableWidget(new LegacyOptionsList(this.minecraft, this.width, this.height));
 		this.addOptions();
-		this.addTitle();
 		this.addFooter();
-		this.layout.arrangeElements();
-		this.layout.visitWidgets(this::addRenderableWidget);
 	}
 
-	@Override
+	private void drawTitle(final GuiGraphics graphics) {
+		final int left = (this.width - 22 - this.font.width(this.title)) / 2;
+		graphics.blit(ICON, left, 14, 0.0F, 0.0F, 16, 16, 16, 16);
+		graphics.drawString(this.font, this.title, left + 22, 20, 0xFFFFFF);
+	}
+	*///?}
+	//? if <1.20.2 {
+	/*@Override
+	public void render(final GuiGraphics graphics, final int mouseX, final int mouseY, final float partialTick) {
+		this.renderBackground(graphics);
+		super.render(graphics, mouseX, mouseY, partialTick);
+		this.drawTitle(graphics);
+	}
+	*///?} elif <1.20.5 {
+	/*@Override
+	public void render(final GuiGraphics graphics, final int mouseX, final int mouseY, final float partialTick) {
+		super.render(graphics, mouseX, mouseY, partialTick);
+		this.drawTitle(graphics);
+	}
+	*///?}
+	//? if >=1.20.3 && <1.20.5 {
+	/*@Override
 	public void renderBackground(final GuiGraphics graphics, final int mouseX, final int mouseY, final float partialTick) {
 		this.renderDirtBackground(graphics);
 	}
-	*///?} elif <1.21 {
+	*///?}
+	//? if >=1.20.5 && <1.21 {
 	/*// Before 1.21 the options screens put their lists in themselves (and the base class has no hook for it).
 	private OptionsList list;
 
@@ -91,7 +110,6 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 
 	//? if >=1.20.5 {
 	@Override
-	//?}
 	protected void addTitle() {
 		final LinearLayout title = LinearLayout.horizontal().spacing(6);
 		title.defaultCellSetting().alignVerticallyMiddle();
@@ -99,6 +117,7 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		title.addChild(new StringWidget(this.title, this.font));
 		this.layout.addToHeader(title);
 	}
+	//?}
 
 	//? if >=1.21 {
 	@Override
@@ -205,17 +224,25 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 
 	//? if >=1.20.5 {
 	@Override
-	//?}
 	protected void addFooter() {
 		final LinearLayout footer = this.layout.addToFooter(LinearLayout.horizontal().spacing(8));
-		footer.addChild(Button.builder(Component.translatable(KEY + "reset"), button -> {
-			HorseConfig.reset();
-			//? if >=26.2 {
-			this.minecraft.gui.setScreen(new HorseSettingsScreen(this.lastScreen));
-			//?} else
-			/*this.minecraft.setScreen(new HorseSettingsScreen(this.lastScreen));*/
-		}).width(150).build());
+		footer.addChild(Button.builder(Component.translatable(KEY + "reset"), button -> this.reset()).width(150).build());
 		footer.addChild(Button.builder(CommonComponents.GUI_DONE, button -> this.onClose()).width(150).build());
+	}
+	//?} else {
+	/*private void addFooter() {
+		final int top = this.height - 27;
+		this.addRenderableWidget(Button.builder(Component.translatable(KEY + "reset"), button -> this.reset()).bounds(this.width / 2 - 154, top, 150, 20).build());
+		this.addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, button -> this.onClose()).bounds(this.width / 2 + 4, top, 150, 20).build());
+	}
+	*///?}
+
+	private void reset() {
+		HorseConfig.reset();
+		//? if >=26.2 {
+		this.minecraft.gui.setScreen(new HorseSettingsScreen(this.lastScreen));
+		//?} else
+		/*this.minecraft.setScreen(new HorseSettingsScreen(this.lastScreen));*/
 	}
 
 	@Override

@@ -8,6 +8,12 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
 *///?}
+//? if <1.20.2 {
+/*import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.CollisionGetter;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.shapes.VoxelShape;
+*///?}
 
 /**
  * Numbers vanilla keeps as attributes from 1.20.5 on (gravity, how far a fall is safe, how much of it hurts) and as
@@ -45,4 +51,16 @@ final class Vanilla {
 		//?} else
 		/*return entity instanceof AbstractHorse ? 0.5 : 1.0;*/
 	}
+
+	//? if <1.20.2 {
+	/*// (Before 1.20.2 only the version that looks at entities too exists; the blocks alone are what vanilla's later one looks at.)
+	static boolean noBlockCollision(final CollisionGetter level, final Entity entity, final AABB box) {
+		for (final VoxelShape shape : level.getBlockCollisions(entity, box)) {
+			if (!shape.isEmpty()) {
+				return false;
+			}
+		}
+		return true;
+	}
+	*///?}
 }

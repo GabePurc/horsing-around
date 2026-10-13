@@ -88,6 +88,10 @@ stonecutter.parameters {
 	replacements.regex(current.parsed.matches('<1.20.5')) {
 		replace 'PoseStack;FFFF\\)V', 'PoseStack;FFF)V', '(?!)', 'unused'
 	}
+	// 1.20.2 added the collision test that looks at blocks only (Vanilla has it for the versions before).
+	replacements.regex(current.parsed.matches('<1.20.2')) {
+		replace '\\blevel\\.noBlockCollision\\(', 'Vanilla.noBlockCollision(level, ', '(?!)', 'unused'
+	}
 	// The camera started keeping the frame's partial tick in 1.20.3 (nothing reads it before).
 	replacements.regex(current.parsed.matches('<1.20.3')) {
 		replace 'this\\.partialTickTime = partialTicks;', '// (the camera keeps no partial tick yet)', '(?!)', 'unused'
