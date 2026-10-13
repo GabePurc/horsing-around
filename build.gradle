@@ -134,6 +134,12 @@ auditTasks.each { side, type ->
 		group = "verification"
 		description = "Loads every mixin target in a production ${side.toLowerCase()} of Minecraft ${mc} and fails on a mixin that doesn't fit."
 		usesService(auditGame)
+		// The versions' games share Loom's download caches (assets): with several versions at once
+		// (./gradlew auditMixins), run after every version's downloads, in one fixed order.
+		def key = "${mc}:${side}"
+		mustRunAfter(rootProject.childProjects.values().collectMany { other ->
+			["${other.path}:downloadAssets"] + ["Client", "Server"].findAll { "${other.name}:${it}" < key }.collect { "${other.path}:audit${it}Mixins" }
+		})
 		mods.from(loomx.modJar.flatMap { it.archiveFile })
 		mods.from(configurations.named("auditMods"))
 		jvmArgs.addAll(auditJvmArgs)
