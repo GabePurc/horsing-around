@@ -40,6 +40,15 @@ public abstract class JumpableVehicleBarMixin {
 	private static final Identifier PROGRESS = Identifier.withDefaultNamespace("hud/jump_bar_progress");
 	@Unique
 	private static final int EXHAUSTED_TINT = 0xFFFF7A6E;
+	//? if <1.21.2 {
+	/*// EXHAUSTED_TINT, as the colour setting of the old sprite draw takes it.
+	@Unique
+	private static final float EXHAUSTED_TINT_RED = 1.0F;
+	@Unique
+	private static final float EXHAUSTED_TINT_GREEN = 0x7A / 255.0F;
+	@Unique
+	private static final float EXHAUSTED_TINT_BLUE = 0x6E / 255.0F;
+	*///?}
 	@Unique
 	private static final int WIDTH = 182;
 	@Unique
@@ -65,7 +74,7 @@ public abstract class JumpableVehicleBarMixin {
 			graphics.blitSprite(RenderPipelines.GUI_TEXTURED, PROGRESS, WIDTH, HEIGHT, 0, 0, left, top, filled, HEIGHT, s.exhausted ? EXHAUSTED_TINT : -1);
 		}
 	}
-	//?} else {
+	//?} elif >=1.21.2 {
 	/*@WrapMethod(method = "renderJumpMeter")
 	private void horsingaround$staminaBar(final PlayerRideableJumping jumpable, final GuiGraphicsExtractor graphics, final int left, final Operation<Void> original) {
 		if (!(this.minecraft.player.getVehicle() instanceof RideStateHolder holder) || !holder.horsingaround$managed()) {
@@ -79,6 +88,28 @@ public abstract class JumpableVehicleBarMixin {
 		if (filled > 0) {
 			// 1.21.5 has no public tinted partial sprite draw: the exhausted bar keeps its own background sprite, untinted.
 			graphics.blitSprite(RenderType::guiTextured, PROGRESS, WIDTH, HEIGHT, 0, 0, left, top, filled, HEIGHT);
+		}
+	}
+	*///?} else {
+	/*@WrapMethod(method = "renderJumpMeter")
+	private void horsingaround$staminaBar(final PlayerRideableJumping jumpable, final GuiGraphicsExtractor graphics, final int left, final Operation<Void> original) {
+		if (!(this.minecraft.player.getVehicle() instanceof RideStateHolder holder) || !holder.horsingaround$managed()) {
+			original.call(jumpable, graphics, left);
+			return;
+		}
+		final RideState s = holder.horsingaround$ride();
+		final int top = graphics.guiHeight() - 32 + 3;
+		graphics.blitSprite(s.exhausted ? EXHAUSTED_BACKGROUND : BACKGROUND, left, top, WIDTH, HEIGHT);
+		final int filled = Mth.lerpDiscrete(s.stamina, 0, WIDTH);
+		if (filled > 0) {
+			// The sprite draw of this version takes its colour from the graphics, so the exhausted bar is tinted as in newer ones.
+			if (s.exhausted) {
+				graphics.setColor(EXHAUSTED_TINT_RED, EXHAUSTED_TINT_GREEN, EXHAUSTED_TINT_BLUE, 1.0F);
+			}
+			graphics.blitSprite(PROGRESS, WIDTH, HEIGHT, 0, 0, left, top, filled, HEIGHT);
+			if (s.exhausted) {
+				graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
+			}
 		}
 	}
 	*///?}

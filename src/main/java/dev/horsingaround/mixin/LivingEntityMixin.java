@@ -36,7 +36,14 @@ abstract class LivingEntityMixin {
 	 * cadence believable and lets Fresh Animations pick the matching walk, trot or gallop cycle. In the air (a jump or a
 	 * bigger fall) the stride stops: the legs take the jump's shape instead (see the equine model mixin).
 	 */
-	@ModifyArg(method = "updateWalkAnimation", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/WalkAnimationState;update(FFF)V"), index = 0)
+	@ModifyArg(
+		method = "updateWalkAnimation",
+		//? if >=1.21.2 {
+		at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/WalkAnimationState;update(FFF)V"),
+		//?} else
+		/*at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/WalkAnimationState;update(FF)V"),*/
+		index = 0
+	)
 	private float horsingaround$gaitStride(final float targetSpeed, @Local(argsOnly = true) final float distance) {
 		if (!((Object) this instanceof RideStateHolder holder) || !holder.horsingaround$playerRidden()) {
 			return targetSpeed;
@@ -49,7 +56,14 @@ abstract class LivingEntityMixin {
 		return Math.min(distance / topSpeed * RideTuning.ANIMATION_SPEED_FACTOR, 1.0F);
 	}
 
-	@ModifyArg(method = "updateWalkAnimation", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/WalkAnimationState;update(FFF)V"), index = 1)
+	@ModifyArg(
+		method = "updateWalkAnimation",
+		//? if >=1.21.2 {
+		at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/WalkAnimationState;update(FFF)V"),
+		//?} else
+		/*at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/WalkAnimationState;update(FF)V"),*/
+		index = 1
+	)
 	private float horsingaround$airStride(final float factor) {
 		return (Object) this instanceof RideStateHolder holder && holder.horsingaround$ride().inAir && holder.horsingaround$playerRidden()
 			&& !((LivingEntity) (Object) this).onGround() ? RideTuning.AIR_STRIDE_STOP : factor;

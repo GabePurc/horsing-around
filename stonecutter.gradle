@@ -62,6 +62,16 @@ stonecutter.parameters {
 		replace 'final Avatar entity', 'final AbstractClientPlayer entity', '(?!)', 'unused'
 		replace '\\(\\(Model<\\?>\\) \\(Object\\) this\\)', '((Model) (Object) this)', '(?!)', 'unused'
 	}
+	// Before 1.21.2 there are no entity render states: the mod's own stand-ins (client/render/state/) take their place, filled
+	// from the entity by the renderer mixin. One way only, like the Avatar ones.
+	replacements.regex(current.parsed.matches('<1.21.2')) {
+		replace 'net\\.minecraft\\.client\\.renderer\\.entity\\.state\\.', 'dev.horsingaround.client.render.state.', '(?!)', 'unused'
+		replace '\\bItemUseAnimation\\b', 'UseAnim', '(?!)', 'unused'
+		// (A model part's pose was a class with fields, not a record; the game's clock lived under another name.)
+		replace '\\b(initial|pose|getInitialPose\\(\\))\\.(x|y|z|xRot|yRot|zRot)\\(\\)', '$1.$2', '(?!)', 'unused'
+		replace 'getDeltaTracker\\(\\)', 'getTimer()', '(?!)', 'unused'
+		replace 'net\\.minecraft\\.world\\.entity\\.player\\.Input;', 'dev.horsingaround.ride.Input;', '(?!)', 'unused'
+	}
 	// 1.21.5 reworked who simulates a controlled entity; for a horse a player rides or nobody rides it comes to the same
 	// answer as the older name.
 	replacements.string(current.parsed.matches('<1.21.5')) {

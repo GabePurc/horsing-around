@@ -1,4 +1,4 @@
-//? if <1.21.4 {
+//? if >=1.21.2 && <1.21.4 {
 /*package dev.horsingaround.client.render;
 
 import net.minecraft.client.model.HumanoidModel;

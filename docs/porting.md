@@ -51,6 +51,30 @@ victim.knockback(power, x, z, source, damage);
 - The code rules still apply on every version: no allocation in per-tick paths beyond vanilla's, no work for horses
   nobody rides.
 
+### Before 1.21.2: no render states
+
+Up to 1.21.1 renderers draw the entity itself (`render(entity, ...)`) and models animate from it (`setupAnim(entity, ...)`);
+the ride's render-side code is written around render states, so it keeps them:
+
+- `client/render/state/` holds stand-ins (`LivingEntityRenderState`, `HumanoidRenderState`, `PlayerRenderState`,
+  `EquineRenderState`) with only the vanilla fields this mod reads, and a `fill(entity, partialTicks)` that sets them as
+  1.21.2's `extractRenderState` would. Each file is a whole-file `//? if <1.21.2 {` comment, so newer versions compile it
+  as an empty file. `stonecutter.gradle` points `net.minecraft.client.renderer.entity.state.` at the package (one way), so
+  the state-taking code (`RiderPose`, `Legs`, `GroundLegs`...) is the same on every version, and the state mixins
+  (`LivingEntityRenderStateMixin`) simply target the stand-ins.
+- `LivingEntityRendererMixin` keeps one stand-in per renderer (made once, of the type its model needs) and, as a ridden
+  horse or its rider starts drawing (`render` HEAD), fills it, runs the same extraction body the newer versions run at
+  `extractRenderState` TAIL, and publishes it in `LegacyRenderState` (cleared at `render` RETURN, so the first-person
+  hands never see it). Other entities do no work. The rider's body and head turn, which a state carries in newer versions,
+  are put into the renderer's own working with `@ModifyArg`s.
+- The model mixins inject into the old `setupAnim(entity, ...)` and take the state from `LegacyRenderState.of(entity)`; the
+  cowboy hat layer reads the player directly, and two extra mixins (`CustomHeadLayerMixin`, `HumanoidArmorLayerMixin`,
+  listed in the mixin config only for these versions, see `hatMixins` in `build.gradle`) keep a helmet off a hatted head.
+- Smaller differences: the player model's clothing layers and hat are parts of their own (copied from the body parts
+  right after `setupAnim`, so the rider pose re-copies them), a horse model has no root part and a foal is the model drawn
+  at half size (`LegacyRenderState.horseRoot`), keys come from a client `Input` view (`ride/Input`, a stand-in for the
+  record 1.21.2 added), and the arm poses are fields of the model.
+
 ## Checking a version
 
 - `./gradlew :<version>:build`: compiles and builds that version's jar (`./gradlew build` builds them all).
@@ -67,16 +91,18 @@ victim.knockback(power, x, z, source, damage);
 ## Progress
 
 Building and passing their audit: 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9), 1.21.8 (covers 1.21.6 and
-1.21.7; only built against 1.21.8, the others still to be played), 1.21.5, 1.21.4, 1.21.3 (covers 1.21.2; only built against 1.21.3).
-Before 1.21.2 entity rendering has no render states (the leg and rider-pose code needs a design for that), and before
-1.20.5 networking has no payload types.
+1.21.7; only built against 1.21.8, the others still to be played), 1.21.5, 1.21.4, 1.21.3 (covers 1.21.2; only built against 1.21.3),
+1.21.1 (covers 1.21; built and audited only, not yet played).
+Before 1.20.5 networking has no payload types.
 
 ## Gaps on older versions
 
 - 1.21.10 and older: no spears, so there is no spear stab pose for the rider (every swing is the plain one).
 - 1.21.10 and older: the settings screen has no section headings in the vanilla style; each heading sits in a row of its own.
-- 1.21.5: the stamina bar does not turn red when the horse is exhausted (there is no public tinted sprite draw yet); it
-  still switches to the cooldown sprite.
+- 1.21.5 to 1.21.2: the stamina bar does not turn red when the horse is exhausted (there is no public tinted sprite draw
+  yet); it still switches to the cooldown sprite. (1.21.1 tints it, through the graphics' colour.)
+- 1.21.1 and older: a horse's leg box is found by its size alone (the faces of a box are private there; vanilla's and the
+  animation packs' leg boxes are whole boxes anyway).
 - 1.21.10 and older: the steering overlay for play-testing (F3+B) draws nothing (gizmos came in 1.21.11); not for players.
 
 Not gaps, but different underneath: before 1.21.11 vanilla horses sink in deep water, so the ride floats every horse

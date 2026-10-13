@@ -87,7 +87,7 @@ public final class Legs {
 		float bestHeight = 0.0F;
 		for (final ModelPart.Cube cube : cubes) {
 			final float height = extent(cube, false, 1) - extent(cube, true, 1);
-			if (cube.polygons.length == 6 && height > bestHeight) {
+			if (sixSided(cube) && height > bestHeight) {
 				best = cube;
 				bestHeight = height;
 			}
@@ -121,6 +121,7 @@ public final class Legs {
 		if (cube.maxX > cube.minX && cube.maxY > cube.minY && cube.maxZ > cube.minZ) {
 			return axis == 0 ? (least ? cube.minX : cube.maxX) : axis == 1 ? (least ? cube.minY : cube.maxY) : least ? cube.minZ : cube.maxZ;
 		}
+		//? if >=1.21.2 {
 		float out = least ? Float.MAX_VALUE : -Float.MAX_VALUE;
 		for (final ModelPart.Polygon face : cube.polygons) {
 			for (final ModelPart.Vertex vertex : face.vertices()) {
@@ -132,5 +133,16 @@ public final class Legs {
 			}
 		}
 		return out;
+		//?} else
+		/*return axis == 0 ? (least ? cube.minX : cube.maxX) : axis == 1 ? (least ? cube.minY : cube.maxY) : least ? cube.minZ : cube.maxZ;*/
+	}
+
+	/** Whether the box has all six faces (a leg does; a flat plane or a part of a box doesn't). */
+	private static boolean sixSided(final ModelPart.Cube cube) {
+		// (Before 1.21.2 the faces are private; the boxes of vanilla and of animation packs have them all.)
+		//? if >=1.21.2 {
+		return cube.polygons.length == 6;
+		//?} else
+		/*return true;*/
 	}
 }

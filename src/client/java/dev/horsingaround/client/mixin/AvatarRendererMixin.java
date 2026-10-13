@@ -1,3 +1,4 @@
+//? if >=1.21.2 {
 package dev.horsingaround.client.mixin;
 
 import dev.horsingaround.client.cosmetic.HatState;
@@ -34,3 +35,4 @@ public abstract class AvatarRendererMixin {
 		}
 	}
 }
+//?}

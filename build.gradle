@@ -167,7 +167,9 @@ if (mainVersion) {
 }
 
 // fabric.mod.json and the mixin configs carry this node's Minecraft range and Java version.
-def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, java: javaVersion.toString()]
+// (The cowboy hat is done with the render state from 1.21.2; before, two mixins keep a helmet off the supporter's head.)
+def hatMixins = sc.current.parsed.matches('>=1.21.2') ? '"AvatarRenderStateMixin", "AvatarRendererMixin",' : '"CustomHeadLayerMixin", "HumanoidArmorLayerMixin",'
+def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, java: javaVersion.toString(), hatMixins: hatMixins]
 tasks.matching { it.name in ["processResources", "processClientResources"] }.configureEach {
 	inputs.properties resourceProps
 	filesMatching(["fabric.mod.json", "*.mixins.json"]) {

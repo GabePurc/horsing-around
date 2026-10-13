@@ -315,12 +315,14 @@ public final class RiderPose {
 		return x * x * (3.0F - 2.0F * x);
 	}
 
-	/** The pose of an arm, as the render state has it (before 1.21.4 the model works it out from the state). */
+	/** The pose of an arm, as the render state has it (1.21.2 and 1.21.3: the model works it out from the state; before, it keeps it). */
 	private static HumanoidModel.ArmPose armPose(final HumanoidModel<?> model, final HumanoidRenderState state, final HumanoidArm side) {
 		//? if >=1.21.4 {
 		return side == HumanoidArm.LEFT ? state.leftArmPose : state.rightArmPose;
-		//?} else
-		/*return ((ArmPoseSource) model).horsingaround$armPose(state, side);*/
+		//?} elif >=1.21.2 {
+		/*return ((ArmPoseSource) model).horsingaround$armPose(state, side);
+		*///?} else
+		/*return side == HumanoidArm.LEFT ? model.leftArmPose : model.rightArmPose;*/
 	}
 
 	/** The stack in an arm, as the render state has it (before 1.21.11, as noted when the state was extracted). */
@@ -329,6 +331,14 @@ public final class RiderPose {
 		return state.getUseItemStackForArm(side);
 		//?} else
 		/*return ((RidePoseState) state).horsingaround$held(side);*/
+	}
+
+	/** The stack in an entity's arm (what the render state was given before 1.21.11, see {@link #held}). */
+	public static ItemStack heldBy(final LivingEntity entity, final HumanoidArm side) {
+		//? if >=1.21.2 {
+		return entity.getItemHeldByArm(side);
+		//?} else
+		/*return side == entity.getMainArm() ? entity.getMainHandItem() : entity.getOffhandItem();*/
 	}
 
 	/** Ticks the item in use has been drawn, with the part-tick. */

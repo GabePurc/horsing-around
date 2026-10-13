@@ -1,6 +1,8 @@
 package dev.horsingaround.client.cosmetic;
 
 import dev.horsingaround.HorsingAround;
+//? if <1.21.2
+/*import net.minecraft.client.player.AbstractClientPlayer;*/
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
@@ -17,7 +19,10 @@ import net.minecraft.resources.Identifier;
  * (like vanilla's Deadmau5 ears) with only the hat under the head, so it follows the head however the player is posed.
  * Head pixels: the head is 8 wide, from y -8 (top) to 0, and faces -z.
  */
+//? if >=1.21.2 {
 public final class HatModel extends PlayerModel {
+//?} else
+/*public final class HatModel extends PlayerModel<AbstractClientPlayer> {*/
 	public static final ModelLayerLocation LAYER = new ModelLayerLocation(Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "cowboy_hat"), "main");
 
 	public HatModel(final ModelPart root) {
@@ -28,7 +33,7 @@ public final class HatModel extends PlayerModel {
 		final MeshDefinition mesh = PlayerModel.createMesh(CubeDeformation.NONE, false);
 		//? if >=1.21.9 {
 		final PartDefinition head = mesh.getRoot().clearRecursively().getChild("head");
-		//?} else {
+		//?} elif >=1.21.2 {
 		/*final PartDefinition root = mesh.getRoot();
 		// (No clearRecursively yet: the player model's parts and their layers, emptied but left in place.)
 		for (final String part : new String[] {"head", "body", "right_arm", "left_arm", "right_leg", "left_leg"}) {
@@ -41,6 +46,13 @@ public final class HatModel extends PlayerModel {
 		root.getChild("right_leg").clearChild("right_pants");
 		root.getChild("left_leg").clearChild("left_pants");
 		final PartDefinition head = root.getChild("head");
+		*///?} else {
+		/*final PartDefinition root = mesh.getRoot();
+		// (No clearChild yet, and the layers and the ear and cloak are parts of the root: every one replaced by an empty part.)
+		for (final String part : new String[] {"hat", "body", "right_arm", "left_arm", "right_leg", "left_leg", "ear", "cloak", "jacket", "left_sleeve", "right_sleeve", "left_pants", "right_pants"}) {
+			root.addOrReplaceChild(part, CubeListBuilder.create(), PartPose.ZERO);
+		}
+		final PartDefinition head = root.addOrReplaceChild("head", CubeListBuilder.create(), PartPose.ZERO);
 		*///?}
 		head.addOrReplaceChild("crown", CubeListBuilder.create().texOffs(0, 0).addBox(-4.5F, -11.0F, -4.5F, 9.0F, 5.0F, 9.0F), PartPose.ZERO);
 		// The crease: two ridges along the top with a groove between, pinched in at the front.
