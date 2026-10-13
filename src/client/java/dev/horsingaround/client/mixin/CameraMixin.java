@@ -40,7 +40,9 @@ public abstract class CameraMixin {
 	private final Minecraft minecraft = Minecraft.getInstance();
 	@Shadow
 	private boolean initialized;
-	@Shadow
+	*///?}
+	//? if >=1.20.3 && <26.1 {
+	/*@Shadow
 	private float partialTickTime;
 	*///?}
 	//? if >=1.21.11 && <26.1 {

@@ -31,6 +31,8 @@ import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
 *///?}
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
+//? if <1.20.3
+/*import net.minecraft.network.chat.Style;*/
 import net.minecraft.resources.Identifier;
 
 /**
@@ -143,8 +145,10 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 			this.addHeader(section("hat"));
 			//? if >=1.21 {
 			final Button.OnPress open = ConfirmLinkScreen.confirmLink(this, SUPPORT, true);
-			//?} else
-			/*final Button.OnPress open = ConfirmLinkScreen.confirmLink(this, SUPPORT.toString());*/
+			//?} elif >=1.20.3 {
+			/*final Button.OnPress open = ConfirmLinkScreen.confirmLink(this, SUPPORT.toString());
+			*///?} else
+			/*final Button.OnPress open = ConfirmLinkScreen.confirmLink(SUPPORT.toString(), this, true);*/
 			this.addWide(Button.builder(Component.translatable(KEY + "hat.support"), open)
 				.tooltip(Tooltip.create(Component.translatable(KEY + "hat.support.tooltip"))).build());
 			return;
@@ -222,7 +226,10 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	}
 
 	private static Component section(final String id) {
+		//? if >=1.20.3 {
 		return Component.translatable(KEY + "section." + id).withColor(SECTION_COLOR);
+		//?} else
+		/*return Component.translatable(KEY + "section." + id).withStyle(Style.EMPTY.withColor(SECTION_COLOR));*/
 	}
 
 	private static <T> OptionInstance.TooltipSupplier<T> tooltip(final String id) {
