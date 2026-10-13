@@ -113,7 +113,9 @@ tasks.matching { it.name == "runClient" }.configureEach { dependsOn installFresh
 // (./gradlew :1.21.11:runClient).
 if (!mainVersion) {
 	tasks.matching { it.name == "runClient" }.configureEach { task ->
-		task.onlyIf { gradle.startParameter.taskNames.any { it.startsWith(":${mc}:") } }
+		// (Run from this version's own folder, -p versions/<version>, it answers to plain "runClient" too.)
+		def plainEverywhere = gradle.startParameter.taskNames.contains("runClient") && (gradle.startParameter.projectDir ?: gradle.startParameter.currentDir) != projectDir
+		task.onlyIf("plain runClient starts only the main version's game; use :${mc}:runClient") { !plainEverywhere }
 	}
 }
 
@@ -155,7 +157,7 @@ auditTasks.each { side, type ->
 		doLast {
 			def log = new File(auditDir, "logs/latest.log")
 			def text = log.exists() ? log.text : ""
-			def problems = text.readLines().findAll { it =~ /(?i)mixin.*(fail|error)|injection validation|InvalidInjection|MixinApplyError|Critical injection/ }
+			def problems = text.readLines().findAll { it =~ /Mixin apply for mod|Mixin apply failed|Injection validation failed|could not find any targets|InvalidInjectionException|InvalidMixinException|MixinApplyError|MixinTransformerError|Critical injection failure/ }
 			if (!text.contains("Horsing Around mixin audit passed") || !problems.isEmpty()) {
 				throw new GradleException("Mixin audit failed on ${mc} (${side.toLowerCase()}); see ${log}\n" + problems.take(20).join("\n"))
 			}

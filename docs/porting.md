@@ -131,8 +131,6 @@ Building and passing their audit: 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1
 
 - 1.21.10 and older: no spears, so there is no spear stab pose for the rider (every swing is the plain one).
 - 1.21.10 and older: the settings screen has no section headings in the vanilla style; each heading sits in a row of its own.
-- 1.21.5 to 1.21.2: the stamina bar does not turn red when the horse is exhausted (there is no public tinted sprite draw
-  yet); it still switches to the cooldown sprite. (1.21.1 and older tint it, through the graphics' colour.)
 - 1.20.6 and older: Entity Model Features has no animation hook there (`EmfSaddleTracker` is not built), so on a horse that
   an animation pack animates the rider follows the generated gait motion, and the pack's neck and legs are not adjusted for
   the ride.

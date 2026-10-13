@@ -120,7 +120,8 @@ public abstract class LivingEntityRendererMixin {
 		index = 3
 	)
 	private float horsingaround$bodyRot(final float bodyRot) {
-		return LegacyRenderState.riderState() != null ? LegacyRenderState.riderState().bodyRot : bodyRot;
+		final LivingEntityRenderState rider = LegacyRenderState.riderState();
+		return rider != null ? rider.bodyRot : bodyRot;
 	}
 
 	@ModifyArg(
@@ -129,7 +130,8 @@ public abstract class LivingEntityRendererMixin {
 		index = 4
 	)
 	private float horsingaround$headYaw(final float headYaw) {
-		return LegacyRenderState.riderState() != null ? LegacyRenderState.riderState().yRot : headYaw;
+		final LivingEntityRenderState rider = LegacyRenderState.riderState();
+		return rider != null ? rider.yRot : headYaw;
 	}
 
 	@ModifyArg(
@@ -138,7 +140,8 @@ public abstract class LivingEntityRendererMixin {
 		index = 8
 	)
 	private float horsingaround$layersHeadYaw(final float headYaw) {
-		return LegacyRenderState.riderState() != null ? LegacyRenderState.riderState().yRot : headYaw;
+		final LivingEntityRenderState rider = LegacyRenderState.riderState();
+		return rider != null ? rider.yRot : headYaw;
 	}
 	*///?}
 

@@ -93,8 +93,10 @@ public abstract class JumpableVehicleBarMixin {
 		graphics.blitSprite(RenderType::guiTextured, s.exhausted ? EXHAUSTED_BACKGROUND : BACKGROUND, left, top, WIDTH, HEIGHT);
 		final int filled = Mth.lerpDiscrete(s.stamina, 0, WIDTH);
 		if (filled > 0) {
-			// 1.21.5 has no public tinted partial sprite draw: the exhausted bar keeps its own background sprite, untinted.
-			graphics.blitSprite(RenderType::guiTextured, PROGRESS, WIDTH, HEIGHT, 0, 0, left, top, filled, HEIGHT);
+			// (No public tinted partial sprite draw yet: the whole bar tinted, cut to the filled part, as vanilla's partial draw does.)
+			graphics.enableScissor(left, top, left + filled, top + HEIGHT);
+			graphics.blitSprite(RenderType::guiTextured, PROGRESS, left, top, WIDTH, HEIGHT, s.exhausted ? EXHAUSTED_TINT : -1);
+			graphics.disableScissor();
 		}
 	}
 	*///?} elif >=1.20.2 {
