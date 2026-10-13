@@ -24,7 +24,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //?} else
 /*@Mixin(ItemInHandRenderer.class)*/
 public abstract class FirstPersonHandsMixin {
+	//? if >=26.2 {
 	@Inject(method = "submitHandsWithItems", at = @At("HEAD"))
+	//?} else
+	/*@Inject(method = "renderHandsWithItems", at = @At("HEAD"))*/
 	private void horsingaround$handBob(
 		final float partialTicks,
 		final PoseStack poseStack,

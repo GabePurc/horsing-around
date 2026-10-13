@@ -83,7 +83,10 @@ public final class HorsingAroundClient implements ClientModInitializer {
 				keys.discardPresses();
 			}
 			while (settings.consumeClick()) {
+				//? if >=26.2 {
 				minecraft.gui.setScreen(new HorseSettingsScreen(minecraft.gui.screen()));
+				//?} else
+				/*minecraft.setScreen(new HorseSettingsScreen(minecraft.screen));*/
 			}
 			SteeringOverlay.tick(minecraft);
 			ServerNotice.tick(minecraft);

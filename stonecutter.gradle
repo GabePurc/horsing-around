@@ -6,5 +6,12 @@ plugins {
 // tasks; commit with it back on 26.3.
 stonecutter.active '26.3'
 
+// Class renames that only differ by name; real differences use //? conditionals (docs/porting.md).
 stonecutter.parameters {
+	// 26.2 split the HUD out of Gui (the HUD class was Gui) and dropped "Renderer" from the contextual bars.
+	replacements.regex(current.parsed.matches('<26.2')) {
+		replace '\\bHud\\b', 'Gui', '\\bGui\\b', 'Hud'
+		replace '\\bContextualBar\\b', 'ContextualBarRenderer', '\\bContextualBarRenderer\\b', 'ContextualBar'
+		replace '\\bJumpableVehicleBar\\b', 'JumpableVehicleBarRenderer', '\\bJumpableVehicleBarRenderer\\b', 'JumpableVehicleBar'
+	}
 }

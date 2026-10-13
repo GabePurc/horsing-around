@@ -36,8 +36,12 @@ final class ServerNotice {
 		}
 		shown = true;
 		final String theirs = ServerRules.mismatchedVersion;
-		minecraft.gui.hud.setOverlayMessage(theirs == null
+		final Component message = theirs == null
 			? Component.translatable("message.horsingaround.server_missing")
-			: Component.translatable("message.horsingaround.server_mismatch", theirs, HorsingAround.version()), false);
+			: Component.translatable("message.horsingaround.server_mismatch", theirs, HorsingAround.version());
+		//? if >=26.2 {
+		minecraft.gui.hud.setOverlayMessage(message, false);
+		//?} else
+		/*minecraft.gui.setOverlayMessage(message, false);*/
 	}
 }

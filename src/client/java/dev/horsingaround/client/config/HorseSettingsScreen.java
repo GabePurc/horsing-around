@@ -93,7 +93,7 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	private void addHatOptions(final HorseConfig c) {
 		if (!Hats.canWear()) {
 			this.list.addHeader(section("hat"));
-			this.list.addBig(Button.builder(Component.translatable(KEY + "hat.support"), ConfirmLinkScreen.confirmLink(this, SUPPORT, true))
+			this.addWide(Button.builder(Component.translatable(KEY + "hat.support"), ConfirmLinkScreen.confirmLink(this, SUPPORT, true))
 				.tooltip(Tooltip.create(Component.translatable(KEY + "hat.support.tooltip"))).build());
 			return;
 		}
@@ -102,7 +102,7 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 			c.hat = v;
 			Hats.sendOwn();
 		}));
-		this.list.addBig(new HatPaletteWidget(310, c.hatColor, color -> {
+		this.addWide(new HatPaletteWidget(310, c.hatColor, color -> {
 			c.hatColor = color;
 			Hats.sendOwn();
 			this.rebuildWidgets();
@@ -115,6 +115,16 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		this.list.addBig(
 			slider("hat_brightness", 5, 100, Math.round(hsv[2] * 100.0F), "percent", bright -> c.hatColor = HatColors.fromHsv(HatColors.toHsv(c.hatColor)[0], HatColors.toHsv(c.hatColor)[1], bright / 100.0F))
 		);
+	}
+
+	/** A full-width widget in its own row (before 26.2 the list only took options as big rows, so it is a lone small one). */
+	private void addWide(final AbstractWidget widget) {
+		//? if >=26.2 {
+		this.list.addBig(widget);
+		//?} else {
+		/*widget.setWidth(310);
+		this.list.addSmall(widget, null);
+		*///?}
 	}
 
 	/** A hat colour slider: changes the colour live (sent to the server when the screen closes). */
@@ -133,7 +143,10 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		final LinearLayout footer = this.layout.addToFooter(LinearLayout.horizontal().spacing(8));
 		footer.addChild(Button.builder(Component.translatable(KEY + "reset"), button -> {
 			HorseConfig.reset();
+			//? if >=26.2 {
 			this.minecraft.gui.setScreen(new HorseSettingsScreen(this.lastScreen));
+			//?} else
+			/*this.minecraft.setScreen(new HorseSettingsScreen(this.lastScreen));*/
 		}).width(150).build());
 		footer.addChild(Button.builder(CommonComponents.GUI_DONE, button -> this.onClose()).width(150).build());
 	}
