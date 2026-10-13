@@ -31,7 +31,10 @@ public final class Mounts {
 	}
 
 	public static boolean manages(final Entity horse) {
+		//? if >=26.1 {
 		return horse.is(MANAGED) && (!horse.level().isClientSide() || ServerRules.present);
+		//?} else
+		/*return horse.getType().is(MANAGED) && (!horse.level().isClientSide() || ServerRules.present);*/
 	}
 
 	/**
@@ -39,6 +42,9 @@ public final class Mounts {
 	 * don't: as in vanilla they walk along the bottom with their rider.
 	 */
 	public static boolean floats(final Entity horse) {
+		//? if >=26.1 {
 		return horse.is(EntityTypeTags.CAN_FLOAT_WHILE_RIDDEN);
+		//?} else
+		/*return horse.getType().is(EntityTypeTags.CAN_FLOAT_WHILE_RIDDEN);*/
 	}
 }

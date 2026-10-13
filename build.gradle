@@ -41,6 +41,12 @@ loom {
 	}
 }
 
+// Before 26 the game is obfuscated at runtime: the mixin annotation processor writes the refmap that maps our Mojang
+// method names to the runtime ones.
+if (sc.current.parsed.matches('<26')) {
+	loom.mixin.useLegacyMixinAp = true
+}
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	loomx.applyMojangMappings()

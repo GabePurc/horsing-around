@@ -14,4 +14,27 @@ stonecutter.parameters {
 		replace '\\bContextualBar\\b', 'ContextualBarRenderer', '\\bContextualBarRenderer\\b', 'ContextualBar'
 		replace '\\bJumpableVehicleBar\\b', 'JumpableVehicleBarRenderer', '\\bJumpableVehicleBarRenderer\\b', 'JumpableVehicleBar'
 	}
+	// Fabric API renamed the payload registries for 26.1.
+	replacements.string(current.parsed.matches('<26.1')) {
+		replace 'PayloadTypeRegistry.clientboundPlay()', 'PayloadTypeRegistry.playS2C()'
+		replace 'PayloadTypeRegistry.serverboundPlay()', 'PayloadTypeRegistry.playC2S()'
+	}
+	// Fabric API renamed some client classes for 26.1.
+	replacements.string(current.parsed.matches('<26.1')) {
+		replace 'client.keymapping.v1.KeyMappingHelper', 'client.keybinding.v1.KeyBindingHelper'
+		replace 'KeyMappingHelper', 'KeyBindingHelper'
+		replace 'registerKeyMapping(', 'registerKeyBinding('
+		replace 'LivingEntityRenderLayerRegistrationCallback', 'LivingEntityFeatureRendererRegistrationCallback'
+		replace 'ModelLayerRegistry', 'EntityModelLayerRegistry'
+	}
+	// 26.1 renamed the GUI drawing class and its render methods ("extract" because drawing now builds a render state).
+	replacements.string(current.parsed.matches('<26.1')) {
+		replace 'GuiGraphicsExtractor', 'GuiGraphics'
+		replace 'extractWidgetRenderState', 'renderWidget'
+		replace 'extractBackground', 'renderBackground'
+	}
+	replacements.string(current.parsed.matches('<26.1')) {
+		replace 'renderer.state.level.CameraRenderState', 'renderer.state.CameraRenderState'
+		replace 'renderer/state/level/CameraRenderState', 'renderer/state/CameraRenderState'
+	}
 }

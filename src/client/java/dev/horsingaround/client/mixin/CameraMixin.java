@@ -9,6 +9,8 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+//? if <26.1
+/*import net.minecraft.world.level.Level;*/
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
@@ -26,9 +28,20 @@ public abstract class CameraMixin {
 	private @Nullable Entity entity;
 	@Shadow
 	private boolean detached;
+	//? if >=26.1 {
 	@Shadow
 	@Final
 	private Minecraft minecraft;
+	//?} else {
+	/*@Unique
+	private final Minecraft minecraft = Minecraft.getInstance();
+	@Shadow
+	private boolean initialized;
+	@Shadow
+	private Level level;
+	@Shadow
+	private float partialTickTime;
+	*///?}
 	@Shadow
 	private Vec3 position;
 	@Shadow
@@ -60,18 +73,21 @@ public abstract class CameraMixin {
 		return RideCamera.isRiding() ? ClipContext.Block.COLLIDER : original;
 	}
 
+	//? if >=26.1 {
 	@Inject(method = "update", at = @At("HEAD"))
 	private void horsingaround$frame(final DeltaTracker deltaTracker, final CallbackInfo ci) {
 		if (this.minecraft.player != null) {
 			RideCamera.updateFrame(this.minecraft, deltaTracker.getGameTimeDeltaPartialTick(true));
 		}
 	}
+	//?}
 
 	/**
 	 * Places the third-person camera while riding (instead of vanilla's placement, so the wall-collision raycast runs
 	 * only once), and in first person carries the eyes with the saddle. Another camera mod that is driving the camera
 	 * (see {@link RideCamera#isActive}) is left alone.
 	 */
+	//? if >=26.1 {
 	@WrapMethod(method = "alignWithEntity")
 	private void horsingaround$rideCamera(final float partialTicks, final Operation<Void> original) {
 		final Entity e = this.entity;
@@ -83,6 +99,36 @@ public abstract class CameraMixin {
 			return;
 		}
 		original.call(partialTicks);
+		this.horsingaround$firstPerson(partialTicks);
+	}
+	//?} else {
+	/*// Before 26.1 the camera is placed in one method, called once per frame with everything it needs.
+	@WrapMethod(method = "setup")
+	private void horsingaround$rideCamera(
+		final Level level, final Entity e, final boolean detached, final boolean mirrored, final float partialTicks, final Operation<Void> original
+	) {
+		if (this.minecraft.player != null) {
+			RideCamera.updateFrame(this.minecraft, partialTicks);
+		}
+		if (RideCamera.isActive(e, this.minecraft)) {
+			this.initialized = true;
+			this.level = level;
+			this.entity = e;
+			this.detached = true;
+			this.partialTickTime = partialTicks;
+			this.setRotation(e.getViewYRot(partialTicks), e.getViewXRot(partialTicks));
+			this.setPosition(Mth.lerp(partialTicks, e.xo, e.getX()), RideCamera.pivotY(partialTicks), Mth.lerp(partialTicks, e.zo, e.getZ()));
+			this.move(-this.getMaxZoom(RideCamera.distance(partialTicks)), 0.0F, 0.0F);
+			return;
+		}
+		original.call(level, e, detached, mirrored, partialTicks);
+		this.horsingaround$firstPerson(partialTicks);
+	}
+	*///?}
+
+	/** In first person the eyes follow the saddle. */
+	@Unique
+	private void horsingaround$firstPerson(final float partialTicks) {
 		if (this.detached || !RideCamera.isFirstPersonRide(this.entity, this.minecraft)) {
 			return;
 		}

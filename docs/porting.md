@@ -12,6 +12,8 @@ the client tests and compatibility runs only exist there.
   audit.
 - `build.gradle` runs once per version. `loom-back-compat` picks Fabric Loom: plain for 26.x (unobfuscated), with
   remapping and Mojang names before that, so dependencies use `modImplementation`/`modCompileOnly`/`modLocalRuntime`.
+- Obfuscated versions (before 26) need the mixin annotation processor for refmaps (`loom.mixin.useLegacyMixinAp` in
+  `build.gradle`); without a refmap the audit fails with intermediary names in the "could not find any targets" error.
 - Java: 25 for 26.x, 21 from 1.20.5, 17 before. `src/` must compile at Java 17 (no `switch` patterns, `_`,
   `getFirst()`/`getLast()`, `Math.clamp`...).
 - `fabric.mod.json` and the mixin configs get `${minecraft}` (the range) and `${java}` filled in per version.
@@ -60,8 +62,8 @@ victim.knockback(power, x, z, source, damage);
 
 ## Progress
 
-Building and passing their audit: 26.3, 26.2, 26.1.2. Next, newest first: 1.21.11 (first obfuscated version), 1.21.10,
-1.21.8, 1.21.5, 1.21.4, 1.21.3.
+Building and passing their audit: 26.3, 26.2, 26.1.2, 1.21.11. Next, newest first: 1.21.10, 1.21.8, 1.21.5, 1.21.4,
+1.21.3.
 Before 1.21.2 entity rendering has no render states (the leg and rider-pose code needs a design for that), and before
 1.20.5 networking has no payload types.
 
