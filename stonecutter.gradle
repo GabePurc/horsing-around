@@ -62,4 +62,9 @@ stonecutter.parameters {
 		replace 'final Avatar entity', 'final AbstractClientPlayer entity', '(?!)', 'unused'
 		replace '\\(\\(Model<\\?>\\) \\(Object\\) this\\)', '((Model) (Object) this)', '(?!)', 'unused'
 	}
+	// 1.21.5 reworked who simulates a controlled entity; for a horse a player rides or nobody rides it comes to the same
+	// answer as the older name.
+	replacements.string(current.parsed.matches('<1.21.5')) {
+		replace 'isLocalInstanceAuthoritative', 'isControlledByLocalInstance'
+	}
 }

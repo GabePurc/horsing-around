@@ -183,7 +183,10 @@ public final class RiderPose {
 
 	/** A tool or a weapon (a sword, an axe, a pickaxe, a mace, a trident, a spear, a bow...), held out ready off the reins. */
 	private static boolean weapon(final ItemStack stack) {
-		return stack.has(DataComponents.TOOL) || stack.has(DataComponents.WEAPON) || stack.getItem() instanceof ProjectileWeaponItem;
+		return stack.has(DataComponents.TOOL)
+			//? if >=1.21.5
+			|| stack.has(DataComponents.WEAPON)
+			|| stack.getItem() instanceof ProjectileWeaponItem;
 	}
 
 	/** The torso's turn in a whack, as vanilla swings it (mirrored for the left arm). */
