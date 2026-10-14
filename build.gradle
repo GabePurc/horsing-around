@@ -8,6 +8,7 @@ plugins {
 def mc = sc.current.version
 def mainVersion = mc == '26.3'
 def javaVersion = sc.current.parsed.matches('>=26') ? 25 : sc.current.parsed.matches('>=1.20.5') ? 21 : 17
+ext.javaVersion = javaVersion // (for gradle/smoke-test.gradle)
 version = "${project.version}+${mc}"
 base.archivesName = 'horsing-around'
 // Repo-level folders (each node's own project folder is versions/<version>/).
@@ -71,9 +72,12 @@ dependencies {
 	modLocalRuntime "maven.modrinth:modmenu:${project.modmenu_version}"
 	modLocalRuntime "maven.modrinth:placeholder-api:${project.placeholder_api_version}"
 
-	// Dev-only: the Fresh Animations stack, so runClient and the ride test look like the target setup.
-	modLocalRuntime "maven.modrinth:entity-model-features:${project.emf_version}"
-	modLocalRuntime "maven.modrinth:entitytexturefeatures:${project.etf_version}"
+	// Dev-only: the Fresh Animations stack, so runClient and the ride test look like the target setup. (-PsmokePlain
+	// leaves it off, see gradle/smoke-test.gradle.)
+	if (!project.hasProperty("smokePlain")) {
+		modLocalRuntime "maven.modrinth:entity-model-features:${project.emf_version}"
+		modLocalRuntime "maven.modrinth:entitytexturefeatures:${project.etf_version}"
+	}
 }
 
 // Dev convenience: runClient also loads the Over the Shoulder add-on when it has been built in a sibling checkout
@@ -96,7 +100,8 @@ def freshAnimationsZip = repoDir.file(".gradle/dev-packs/${project.fresh_animati
 ext.freshAnimationsZip = freshAnimationsZip
 def freshAnimationsUrl = project.fresh_animations_url
 def freshAnimationsTargets = [
-	repoDir.dir("${runFolder}/resourcepacks").asFile
+	repoDir.dir("${runFolder}/resourcepacks").asFile,
+	rootProject.layout.buildDirectory.dir("run/smoke/${mc}/resourcepacks").get().asFile
 ]
 if (mainVersion) {
 	freshAnimationsTargets << rootProject.layout.buildDirectory.dir("run/clientGameTest/resourcepacks").get().asFile
@@ -184,6 +189,9 @@ tasks.register("auditMixins") {
 	group = "verification"
 	dependsOn "auditClientMixins", "auditServerMixins"
 }
+
+// The smoke test (src/smoke) runs on every version, the client tests below on the main one only.
+apply from: repoDir.file('gradle/smoke-test.gradle')
 
 if (mainVersion) {
 	apply from: repoDir.file('gradle/client-tests.gradle')

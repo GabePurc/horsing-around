@@ -72,6 +72,18 @@ public abstract class AbstractEquineModelMixin {
 			this.horsingaround$pose((RidePoseState) state);
 		}
 	}
+
+	// Before 1.21.2 one model draws every horse, and the game sets only some of its parts each frame (not where the hind
+	// legs sit, nor the head's roll): what the ride moved for one horse stayed for the next one drawn and added up frame
+	// on frame (an idle horse's legs drifted off into the sky). Back to the model's own pose before the game poses it.
+	@Inject(method = "prepareMobModel(Lnet/minecraft/world/entity/animal/horse/AbstractHorse;FFF)V", at = @At("HEAD"))
+	private void horsingaround$resetPose(final AbstractHorse horse, final float limbSwing, final float limbSwingAmount, final float partialTicks, final CallbackInfo ci) {
+		this.leftFrontLeg.resetPose();
+		this.rightFrontLeg.resetPose();
+		this.leftHindLeg.resetPose();
+		this.rightHindLeg.resetPose();
+		this.headParts.zRot = this.headParts.getInitialPose().zRot;
+	}
 	*///?}
 
 	@Unique

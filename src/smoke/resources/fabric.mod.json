@@ -1,0 +1,19 @@
+{
+	"schemaVersion": 1,
+	"id": "horsingaround-smoke",
+	"version": "1.0.0",
+	"name": "Horsing Around smoke test",
+	"description": "Test only, never shipped: a scripted ride with screenshots, run by ./gradlew runSmoke.",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"dev.horsingaround.smoke.SmokeTest"
+		]
+	},
+	"depends": {
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"horsingaround": "*"
+	}
+}

@@ -65,6 +65,15 @@ shaders, which are easier to see), and
 `scripts/store-media.sh` turns them into `docs/media/`. The README is also the Modrinth description: its images load
 from `raw.githubusercontent.com/.../main/docs/media/`, so they show only once merged to main.
 
+Every version (not only 26.3) has an in-game smoke test, `./gradlew :<version>:runSmoke` (`src/smoke`, test only; plain
+`runSmoke` runs them all one at a time): a flat world, a saddled horse ridden through a stand, walk, gallop, jump and stop
+with simulated keys, screenshots in `build/run/smoke/<version>/screenshots/` (view them: side views of the rider, first
+and third person, leashed mobs and a lead), and a pass/fail in the log. `-PsmokeNoPack` (no Fresh Animations pack) and
+`-PsmokePlain` (no Entity Model Features, Entity Texture Features or pack) tell this mod's problems from the animation
+stack's, and `-PsmokeWithoutMod` runs the same scene with this mod turned off. Look at the screenshots both with and
+without the pack: most players run the plain horse model, and a bug there (idle horses' legs adrift before 1.21.2) only
+showed without it. Run it after touching version-specific code; see `docs/porting.md`.
+
 Test games run light (lowest settings, no sound, 20 frames a second, a 2 GB heap, and Sodium, Lithium, FerriteCore and
 ImmediatelyFast loaded only into test games; `-PplainGame` drops the mods, `-PfullGraphics` keeps normal settings, and
 the gallery always gets them). Prefer `./gradlew runClientGameTestParallel --continue` for full runs (user request,

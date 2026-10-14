@@ -117,8 +117,20 @@ nothing is registered beforehand.
   `runClient` is the main version).
 - `./gradlew :<version>:genSources`: decompiled Minecraft for looking things up
   (`.gradle/loom-cache/minecraftMaven/net/minecraft/*/<version>/*-sources.jar`).
+- `./gradlew :<version>:runSmoke`: a client of that version (with Entity Model Features, Entity Texture Features and the
+  Fresh Animations pack on, light settings) makes a flat world, builds a small scene and rides a saddled horse through a
+  stand, walk, gallop, jump and stop with simulated keys, taking screenshots (the rider from the side, first person,
+  third person from behind, a row of leashed mobs, a cow on the player's lead) into
+  `build/run/smoke/<version>/screenshots/`. It fails unless the log says `Horsing Around smoke test passed` and nothing in
+  it names this mod in an error. Plain `./gradlew runSmoke` runs every version, one game at a time (about a minute each).
+  `-PsmokeNoPack` leaves the animation pack off, `-PsmokePlain` leaves Entity Model Features, Entity Texture Features and
+  the pack off, to tell this mod's problems from the animation stack's; `-PsmokeWithoutMod` runs the same scene with this
+  mod turned off (Fabric Loader's `fabric.debug.disableModIds`; the checks that need the mod are skipped). The test is `src/smoke` (client tick state
+  machine, a source set Stonecutter processes like the others; `Compat` holds what differs between versions); it is not
+  part of the jar. The side views of the rider turn the player's view a quarter turn between ticks (vanilla draws the
+  local player only through its own camera), so in them the rider's head looks away from the camera.
 - The ride, terrain, mounts and server tests run on 26.3 only. A change that touches version-specific code is checked
-  by building and auditing every version, and by playing the versions it touches.
+  by building and auditing every version, by the smoke test on every version, and by playing the versions it touches.
 
 ## Progress
 
