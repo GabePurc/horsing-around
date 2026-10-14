@@ -1,9 +1,7 @@
 # Horsing Around
 
 Fabric mod for Minecraft 1.20.1 to 26.3 (Mojang names) that makes horse riding feel weighty and alive, inspired by
-Red Dead Redemption 2 while staying close to vanilla. This project is **not** the Dungeon Defenders project referenced
-by the home-level `AGENTS.md`; the doc names are the same but the content here is about horses (there are no
-`research_heroes.md` or `research_enemies.md` here).
+Red Dead Redemption 2 while staying close to vanilla.
 
 The user guides the *feel*; Claude is the sole developer. Feel numbers live in
 `src/main/java/dev/horsingaround/ride/RideTuning.java` so tuning passes stay in one file.
@@ -39,8 +37,6 @@ the code they describe existed.
 - Innovate: a new approach that serves the user's intent better is fine without asking. Ask the user only when a change
   would reverse something they explicitly decided (marked "user direction" or "user decision"), would change the feel
   noticeably, or widens scope (a new feature or system). Say what you'd change and why.
-- The home-level `AGENTS.md`'s "call out conflicts and realign" means this here: a conflict with a stale doc is fixed
-  in the doc; only a conflict with the user's own direction goes to the user.
 
 Firm rules, because the user asked for them or because breaking them breaks players:
 
