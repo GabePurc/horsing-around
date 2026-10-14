@@ -18,21 +18,40 @@ import net.minecraft.world.phys.AABB;
  * about four hearts at a full gallop, with a knock aside. Never players or the rider's own pets. Server side.
  */
 public final class Trample {
+	/** Ticks the ground speed is measured over (a power of two). */
+	static final int WINDOW = 4;
+
 	private Trample() {
 	}
 
 	public static void tick(final AbstractHorse horse, final RideState s, final ServerLevel level) {
-		// The rider's client moves the horse between server ticks, so measure ground covered per tick here.
-		final double dx = horse.getX() - s.trampleLastX;
-		final double dz = horse.getZ() - s.trampleLastZ;
-		s.trampleLastX = horse.getX();
-		s.trampleLastZ = horse.getZ();
-		final double moved = Math.sqrt(dx * dx + dz * dz);
-		s.trampleSpeed = moved > 2.0 ? 0.0F : s.trampleSpeed * 0.5F + (float) moved * 0.5F;
 		if (!TRAMPLE || !(horse.getControllingPassenger() instanceof Player rider)) {
+			s.trampleSamples = 0;
 			return;
 		}
-		final float fraction = s.trampleSpeed / (float) (horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR);
+		// The rider's client moves the horse, and its moves reach the server unevenly (two in one tick, none the next),
+		// so measure ground covered over the last few ticks rather than the last one.
+		final int slot = s.trampleTick++ & (WINDOW - 1);
+		final int span = s.trampleSamples;
+		final double x = horse.getX();
+		final double z = horse.getZ();
+		final int last = (slot - 1) & (WINDOW - 1);
+		final double dx = x - s.trampleX[last];
+		final double dz = z - s.trampleZ[last];
+		final double spanX = x - s.trampleX[(slot - span) & (WINDOW - 1)];
+		final double spanZ = z - s.trampleZ[(slot - span) & (WINDOW - 1)];
+		s.trampleX[slot] = x;
+		s.trampleZ[slot] = z;
+		if (span == 0 || dx * dx + dz * dz > 4.0) {
+			// Just mounted, or teleported: start measuring from here.
+			s.trampleSamples = 1;
+			return;
+		}
+		if (span < WINDOW) {
+			s.trampleSamples = span + 1;
+		}
+		final float speed = (float) (Math.sqrt(spanX * spanX + spanZ * spanZ) / span);
+		final float fraction = speed / (float) (horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR);
 		if (fraction <= TRAMPLE_MIN_SPEED) {
 			return;
 		}

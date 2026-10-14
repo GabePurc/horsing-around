@@ -75,10 +75,14 @@ public final class RideState {
 	}
 	/** Stride count at the last huff. */
 	int lastHuffStride;
-	/** Server side: where the horse was last tick, and its smoothed ground speed, for trampling. */
-	double trampleLastX;
-	double trampleLastZ;
-	float trampleSpeed;
+	/**
+	 * Server side, for trampling while ridden: where the horse was over the last {@link Trample#WINDOW} ticks (a ring
+	 * indexed by {@link #trampleTick}), and how many of those ticks are filled.
+	 */
+	final double[] trampleX = new double[Trample.WINDOW];
+	final double[] trampleZ = new double[Trample.WINDOW];
+	int trampleTick;
+	int trampleSamples;
 	/** Huffs played (for tests). */
 	public int huffs;
 	/** Client tick when the exhausted head shake started; Integer.MIN_VALUE when none. */

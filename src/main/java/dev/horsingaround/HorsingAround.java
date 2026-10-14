@@ -11,6 +11,7 @@ import dev.horsingaround.ride.RideTuning;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.CommonLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 //? if >=1.20.5
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -48,6 +49,7 @@ public final class HorsingAround implements ModInitializer {
 			HatRelay.joined(handler.player);
 		});
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, left) -> HatRelay.left(handler.player));
+		ServerTickEvents.END_SERVER_TICK.register(HatRelay::tick);
 		ServerLifecycleEvents.SERVER_STARTING.register(started -> server = started);
 		ServerLifecycleEvents.SERVER_STOPPED.register(stopped -> {
 			server = null;

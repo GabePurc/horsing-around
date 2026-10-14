@@ -352,6 +352,19 @@
   26.3 passes the full client test suite (two "going round" checks failed once and passed all 176 on a rerun).
   Not yet played on any version but 26.3.
 
+## Code review fixes (2026-10-14)
+
+- [x] The server passes each player's hat changes on at most every half second (the latest when the wait is up), so a
+  client can't flood everyone with them (`HatRelay`)
+- [x] Trampling measures the ridden horse's speed over the last four ticks, so the rider's moves reaching the server
+  unevenly can't make a trot hit like a gallop; nothing is measured for horses no one rides (`Trample`)
+- [x] The sprint, back and jump presses are no longer drained every tick while not riding (other mods may read them);
+  the ones made before a ride starts are dropped on its first tick instead (`RiderKeys`)
+- [x] The managed-horse cache counter is atomic (the integrated server's and the client's threads both bump it)
+- [x] The supporters download closes its HTTP client when done (Java 21 and up)
+- Verified: every version builds and passes the dedicated-server game tests; ride (core, stairs), server and hat client
+  tests pass (237 checks, trampling 0 of a walk, 7 of 8 at a gallop, 4 of 4 on the server).
+
 ## Tooling
 
 - [x] In-game smoke test on every Minecraft version (`./gradlew :<version>:runSmoke`, plain `runSmoke` runs all one at a time; `src/smoke`, test only, `gradle/smoke-test.gradle`): a client of that version makes a flat world, rides a saddled horse through a stand, walk, gallop, jump and stop with simulated keys, and takes screenshots (rider from the side, first and third person, a row of leashed mobs, a cow on the player's lead) into `build/run/smoke/<version>/`; fails unless the log says it passed and names this mod in no error; `-PsmokeNoPack` and `-PsmokePlain` leave out the animation pack, and Entity Model Features and Entity Texture Features too
