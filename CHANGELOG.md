@@ -2,6 +2,15 @@
 
 Each version's notes are written to paste straight into the Modrinth version page.
 
+## 0.3.0
+
+### New
+- **Every Minecraft version from 1.20.1 to 26.3.** Horsing Around now comes in a download for each: 1.20–1.20.1, 1.20.2, 1.20.3–1.20.4, 1.20.5–1.20.6, 1.21–1.21.1, 1.21.2–1.21.3, 1.21.4, 1.21.5, 1.21.6–1.21.8, 1.21.9–1.21.10, 1.21.11, 26.1–26.1.2, 26.2 and 26.3. Pick the one for your game.
+- On older versions a few things are missing because the game doesn't have them yet: no spear stab before spears exist (1.21.10 and older), and on 1.20.6 and older the rider follows the horse's own gait rather than a Fresh Animations horse's animation.
+
+### Fixed
+- With a version of Shoulder Surfing Reloaded the mod doesn't know, the riding camera now carries on without it instead of crashing.
+
 ## 0.2.1
 
 ### Fixed
