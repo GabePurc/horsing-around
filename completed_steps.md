@@ -155,6 +155,7 @@
 - [x] Other mods: the riding camera steps aside while Shoulder Surfing Reloaded drives the camera (and switches perspective through its API); on the horses this mod rides, its steering wins over other mods that turn the horse (Horseman's free camera) and the rider pose is applied after mods that pose riders on any horse (Not Enough Animations), while their other features keep working
 - [x] Automated compatibility runs (`./gradlew runCompat --continue`, or `runCompatPerformance`, `runCompatAnimation`, `runCompatCamera`, `runCompatHorses`): the built jars in a production game (Loom `ClientProductionRunTask`) with packs of popular 26.3 mods pinned by Modrinth version id, running the mounts, dedicated-server and core ride tests, failing on failed checks, mixin conflicts or warnings naming this mod (`build/run/compat/<pack>/`)
 - [x] Store metadata: MIT license (both repos, shipped in the jars), author GabePurc, source and issue links (GitHub), README written for the Modrinth page, gallery shots (`-Ptests=gallery`)
+- [x] Quick bug reports (user request, 2026-10-14): a GitHub issue form (`.github/ISSUE_TEMPLATE/bug_report.yml`) with one required box (what happened), a drag-in box for the crash report or `latest.log` (it carries the versions and mod list), and an optional versions line; the README's buttons and the Mod Menu issues link open the form directly
 
 ## Settings and store polish (user request, 2026-10-08)
 

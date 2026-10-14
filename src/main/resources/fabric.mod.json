@@ -9,7 +9,7 @@
 	],
 	"contact": {
 		"sources": "https://github.com/GabePurc/horsing-around",
-		"issues": "https://github.com/GabePurc/horsing-around/issues"
+		"issues": "https://github.com/GabePurc/horsing-around/issues/new?template=bug_report.yml"
 	},
 	"license": "MIT",
 	"environment": "*",

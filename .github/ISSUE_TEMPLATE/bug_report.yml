@@ -1,0 +1,28 @@
+name: Bug or crash
+description: Something broke or the game crashed. Takes about a minute.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: A sentence or two is plenty. A screenshot or clip helps too; drag it in.
+      placeholder: Jumped a fence at a gallop and the game crashed.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Crash report or log
+      description: |
+        Open your game folder (in most launchers: right-click the game or profile, then "Open folder") and drag a file into this box:
+        - it crashed: the newest file in `crash-reports`
+        - anything else: `logs/latest.log`
+
+        An [mclo.gs](https://mclo.gs) link works too. The log already has your versions and mod list, so you can skip the next box.
+      placeholder: Drag the file here, or paste a link.
+  - type: input
+    id: versions
+    attributes:
+      label: Versions (skip if you added a log)
+      placeholder: Minecraft 1.21.1, Horsing Around 0.3.0, plus any other big mods

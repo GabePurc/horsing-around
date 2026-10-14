@@ -5,7 +5,7 @@
 <a href="https://buymeacoffee.com/blintzbug"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-coffee.png" alt="Buy me a coffee" height="40"></a>
 <a href="https://modrinth.com/mod/fabric-api"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-fabric-api.png" alt="Requires Fabric API" height="40"></a>
 <a href="https://github.com/GabePurc/horsing-around"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-source.png" alt="Source on GitHub" height="40"></a>
-<a href="https://github.com/GabePurc/horsing-around/issues"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-bug.png" alt="Report a bug" height="40"></a>
+<a href="https://github.com/GabePurc/horsing-around/issues/new?template=bug_report.yml"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-bug.png" alt="Report a bug" height="40"></a>
 
 </div>
 
@@ -128,7 +128,7 @@ Xaero's Minimap, Horse Expert, Horseman, Bareback Horse Riding and Mounts Stay S
 
 </details>
 
-Found something that doesn't get along? [Open an issue](https://github.com/GabePurc/horsing-around/issues) and I'll
+Found something that doesn't get along? [Open an issue](https://github.com/GabePurc/horsing-around/issues/new?template=bug_report.yml) and I'll
 take a look.
 
 ## What's next
