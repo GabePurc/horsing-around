@@ -65,7 +65,11 @@ public final class Supporters {
 				return;
 			}
 			supporters = parse(response.body());
-			Files.writeString(CACHE, response.body());
+			try {
+				Files.writeString(CACHE, response.body());
+			} catch (final IOException e) {
+				LOGGER.warn("Couldn't cache the supporters list", e);
+			}
 		} catch (final IOException e) {
 			LOGGER.info("Couldn't refresh the supporters list ({}); using the cached one", e.toString());
 		} catch (final InterruptedException e) {

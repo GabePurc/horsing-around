@@ -364,6 +364,8 @@
 - [x] The supporters download closes its HTTP client when done (Java 21 and up)
 - Verified: every version builds and passes the dedicated-server game tests; ride (core, stairs), server and hat client
   tests pass (237 checks, trampling 0 of a walk, 7 of 8 at a gallop, 4 of 4 on the server).
+- [x] The hat test checks that quick changes wait and the latest is passed on; a failed supporters cache write no longer
+  logs as a failed download (follow-up review, 2026-10-14)
 
 ## Tooling
 
