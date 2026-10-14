@@ -168,7 +168,7 @@ copy it saw.
 
 ## Requirements
 
-Minecraft 1.20.1 to 26.3 (download the file for your version), Fabric Loader 0.16.14 or newer (on 1.21.9 and later, the newer one Fabric API needs there), and Fabric API. Mod
+Minecraft 1.20.1 to 26.3 (download the file for your version), Fabric Loader 0.14.25 or newer (or the newer one Fabric API needs for your version), and Fabric API. Mod
 Menu is optional.
 
 ## License

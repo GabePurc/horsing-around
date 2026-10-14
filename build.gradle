@@ -52,6 +52,12 @@ dependencies {
 	loomx.applyMojangMappings()
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	// The mixins use MixinExtras 0.4 (@WrapMethod), which Fabric Loader bundles from 0.16 on: for an older loader the
+	// jar carries its own copy (the loader then runs the newest copy any mod brings).
+	def (loaderMajor, loaderMinor) = project.loader_version.tokenize('.')*.toInteger()
+	if (loaderMajor == 0 && loaderMinor < 16) {
+		include(implementation(annotationProcessor("io.github.llamalad7:mixinextras-fabric:${project.mixinextras_version}")))
+	}
 
 	// Optional integration: ride the horse's real animated body when Entity Model Features animates it.
 	modCompileOnly "maven.modrinth:entity-model-features:${project.emf_version}"
@@ -151,6 +157,8 @@ auditTasks.each { side, type ->
 		})
 		mods.from(loomx.modJar.flatMap { it.archiveFile })
 		mods.from(configurations.named("auditMods"))
+		// On the Java players run this version with (the old loaders' Mixin can't read a newer Java's classes).
+		javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(javaVersion) }
 		jvmArgs.addAll(auditJvmArgs)
 		if (side == "Server") {
 			programArgs.add("nogui")
@@ -183,8 +191,11 @@ if (mainVersion) {
 
 // fabric.mod.json and the mixin configs carry this node's Minecraft range and Java version.
 // (The cowboy hat is done with the render state from 1.21.2; before, two mixins keep a helmet off the supporter's head.)
+// On Java 21 the mixin configs say JAVA_17, as Fabric API's do: Mixin before Fabric Loader 0.15.10 doesn't know JAVA_21
+// and refuses the config, and nothing in our mixins needs more.
+def mixinJava = javaVersion == 21 ? 17 : javaVersion
 def hatMixins = sc.current.parsed.matches('>=1.21.2') ? '"AvatarRenderStateMixin", "AvatarRendererMixin",' : '"CustomHeadLayerMixin", "HumanoidArmorLayerMixin",'
-def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, loader: project.loader_version, java: javaVersion.toString(), hatMixins: hatMixins]
+def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, loader: project.loader_version, java: javaVersion.toString(), mixinJava: mixinJava.toString(), hatMixins: hatMixins]
 tasks.matching { it.name in ["processResources", "processClientResources"] }.configureEach {
 	inputs.properties resourceProps
 	filesMatching(["fabric.mod.json", "*.mixins.json"]) {
