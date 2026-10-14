@@ -93,9 +93,8 @@ public final class HorsingAroundClient implements ClientModInitializer {
 			/*"key.category.horsingaround.horses"*/
 		));
 		ClientTickEvents.END_CLIENT_TICK.register(minecraft -> {
-			if (!RideCamera.tick(minecraft)) {
-				keys.discardPresses();
-			}
+			RideCamera.tick(minecraft);
+			keys.endTick();
 			while (settings.consumeClick()) {
 				//? if >=26.2 {
 				minecraft.gui.setScreen(new HorseSettingsScreen(minecraft.gui.screen()));

@@ -49,8 +49,8 @@ public final class RideCamera {
 		thirdPersonClaimed = claimed;
 	}
 
-	/** End of every client tick, after entities have moved. Returns whether the player is riding a managed horse. */
-	static boolean tick(final Minecraft minecraft) {
+	/** End of every client tick, after entities have moved. */
+	static void tick(final Minecraft minecraft) {
 		final LocalPlayer player = minecraft.player;
 		final RideState s = player != null && player.getVehicle() instanceof RideStateHolder holder && holder.horsingaround$managed()
 			? holder.horsingaround$ride()
@@ -76,7 +76,7 @@ public final class RideCamera {
 		}
 		ride = s;
 		if (s == null) {
-			return false;
+			return;
 		}
 
 		distanceO = distance;
@@ -99,7 +99,6 @@ public final class RideCamera {
 			player.setXRot(pitch);
 		}
 		lastPitch = pitch;
-		return true;
 	}
 
 	public static boolean isActive(final Entity cameraEntity, final Minecraft minecraft) {

@@ -13,6 +13,9 @@ import net.minecraft.world.entity.player.Player;
 final class RiderKeys implements RiderBridge {
 	/** Options do not exist yet when the client entrypoint runs, so resolve them per call. */
 	private final Minecraft minecraft;
+	/** Client ticks so far, and the last one the ride read the presses on. */
+	private int tick;
+	private int readTick = Integer.MIN_VALUE;
 
 	RiderKeys(final Minecraft minecraft) {
 		this.minecraft = minecraft;
@@ -71,16 +74,19 @@ final class RiderKeys implements RiderBridge {
 
 	@Override
 	public int spurPresses() {
+		this.dropStale();
 		return drain(this.minecraft.options.keySprint);
 	}
 
 	@Override
 	public int reinPresses() {
+		this.dropStale();
 		return drain(this.minecraft.options.keyDown);
 	}
 
 	@Override
 	public int jumpPresses() {
+		this.dropStale();
 		return drain(this.minecraft.options.keyJump);
 	}
 
@@ -94,12 +100,23 @@ final class RiderKeys implements RiderBridge {
 		}
 	}
 
-	/** Vanilla never consumes these clicks, so drop them while not riding or they would fire on the next mount. */
-	void discardPresses() {
-		final Options options = this.minecraft.options;
-		drain(options.keySprint);
-		drain(options.keyDown);
-		drain(options.keyJump);
+	/** End of every client tick. */
+	void endTick() {
+		this.tick++;
+	}
+
+	/**
+	 * Vanilla never consumes these clicks, so on the first ride tick after a break (a new mount, say) drop the ones made
+	 * before it, or they would fire then. Left alone while not riding, for anything else that reads them.
+	 */
+	private void dropStale() {
+		if (this.readTick < this.tick - 1) {
+			final Options options = this.minecraft.options;
+			drain(options.keySprint);
+			drain(options.keyDown);
+			drain(options.keyJump);
+		}
+		this.readTick = this.tick;
 	}
 
 	private static int drain(final KeyMapping key) {

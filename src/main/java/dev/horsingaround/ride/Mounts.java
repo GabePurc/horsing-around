@@ -2,6 +2,7 @@ package dev.horsingaround.ride;
 
 import dev.horsingaround.HorsingAround;
 import dev.horsingaround.net.ServerRules;
+import java.util.concurrent.atomic.AtomicInteger;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.EntityTypeTags;
@@ -18,18 +19,21 @@ import net.minecraft.world.entity.Entity;
 public final class Mounts {
 	public static final TagKey<net.minecraft.world.entity.EntityType<?>> MANAGED = TagKey.create(Registries.ENTITY_TYPE, Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "managed"));
 
-	/** Bumped whenever the answer may have changed (tags loaded, server joined or left); horses cache against it. */
-	private static int generation;
+	/**
+	 * Bumped whenever the answer may have changed (tags loaded, server joined or left); horses cache against it. Atomic:
+	 * in singleplayer the integrated server's thread and the client's both bump and read it.
+	 */
+	private static final AtomicInteger GENERATION = new AtomicInteger();
 
 	private Mounts() {
 	}
 
 	public static int generation() {
-		return generation;
+		return GENERATION.get();
 	}
 
 	public static void invalidate() {
-		generation++;
+		GENERATION.incrementAndGet();
 	}
 
 	public static boolean manages(final Entity horse) {

@@ -48,21 +48,39 @@ public final class Supporters {
 		} catch (final IOException | RuntimeException e) {
 			LOGGER.warn("Could not read the cached supporters list", e);
 		}
+		final Thread refresh = new Thread(Supporters::refresh, "Horsing Around supporters");
+		refresh.setDaemon(true);
+		refresh.start();
+	}
+
+	/** Downloads the current list (background thread). */
+	private static void refresh() {
 		final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
-		final HttpRequest request = HttpRequest.newBuilder(LIST).timeout(Duration.ofSeconds(15))
-			.header("User-Agent", "HorsingAround/" + HorsingAround.version()).GET().build();
-		client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).whenComplete((response, error) -> {
-			if (error != null || response.statusCode() != 200) {
-				LOGGER.info("Couldn't refresh the supporters list ({}); using the cached one", error != null ? error.toString() : "HTTP " + response.statusCode());
+		try {
+			final HttpRequest request = HttpRequest.newBuilder(LIST).timeout(Duration.ofSeconds(15))
+				.header("User-Agent", "HorsingAround/" + HorsingAround.version()).GET().build();
+			final HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+			if (response.statusCode() != 200) {
+				LOGGER.info("Couldn't refresh the supporters list (HTTP {}); using the cached one", response.statusCode());
 				return;
 			}
-			try {
-				supporters = parse(response.body());
-				Files.writeString(CACHE, response.body());
-			} catch (final IOException | RuntimeException e) {
-				LOGGER.warn("Couldn't read the supporters list", e);
+			supporters = parse(response.body());
+			Files.writeString(CACHE, response.body());
+		} catch (final IOException e) {
+			LOGGER.info("Couldn't refresh the supporters list ({}); using the cached one", e.toString());
+		} catch (final InterruptedException e) {
+			Thread.currentThread().interrupt();
+		} catch (final RuntimeException e) {
+			LOGGER.warn("Couldn't read the supporters list", e);
+		} finally {
+			// Stops the client's own thread now instead of whenever it is collected (Java 21 and up; Java 17 has no close).
+			if (client instanceof AutoCloseable closeable) {
+				try {
+					closeable.close();
+				} catch (final Exception ignored) {
+				}
 			}
-		});
+		}
 	}
 
 	private static Set<UUID> parse(final String json) {
