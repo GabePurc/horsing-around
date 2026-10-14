@@ -6,10 +6,32 @@ by the home-level `AGENTS.md`; the doc names are the same but the content here i
 
 Read before design-sensitive work:
 
-- `research.md` — design fidelity: what RDR2 does, and how we translate it to Minecraft.
-- `mvp_requirements.md` — MVP scope and acceptance.
-- `development_plan.md` — build order and staging.
+- `research.md` — design fidelity: what RDR2 does, what the user asked for, and how it was translated to Minecraft.
+- `mvp_requirements.md` — the original MVP scope and acceptance (shipped; kept as a record).
+- `development_plan.md` — the backlog of planned and open work, and the release checklist.
 - `completed_steps.md` — what is done; update it when work is finished.
+
+How to use these docs (user direction, 2026-10-14): they are a record of what the user asked for and why, and of how
+it was built at the time, not a cage. Most of them were written before the code they describe existed.
+
+- What counts, in order: the user's latest direction; what the game actually does (play it, run the tests, measure);
+  then the docs. The user's stated intent ("the horse must never become an annoyance", "stay close to vanilla") is the
+  design target. Numbers, mechanisms, "Translation" notes, test targets and "known limits" are snapshots of one way it
+  was done: the code (`RideTuning` for numbers) is the source of truth, and a better way is welcome.
+- If something in the mod is wrong (a bug, a bad feel, a fragile or slow approach, a test that checks the wrong
+  thing), fix it, even when a doc describes the current behaviour as intended. Then update the doc so it doesn't
+  mislead the next agent. A doc that contradicts the code or a later direction is stale: correct it, don't follow it.
+- Innovate: a new approach that serves the user's intent better is fine without asking. Ask the user only when a change
+  would reverse something they explicitly decided (marked "user direction" or "user decision"), would change the feel
+  noticeably, or widens scope (a new feature or system). Say what you'd change and why, and suggest the better option;
+  the doc's wording is not a reason to leave something broken.
+- The home-level `AGENTS.md`'s "call out conflicts and realign" means this here: a conflict with a stale doc is fixed
+  in the doc; only a conflict with the user's own direction goes to the user.
+
+Firm rules, because the user asked for them or because breaking them breaks players: nothing that changes how horses
+ride is a setting; `RideCameraApi` is a contract with the add-on; per-tick paths stay allocation-free and unridden horses
+cost nothing; every version keeps building and passing its audit; no machine-specific paths; the supporter hat stays
+cosmetic; public text follows the `CHANGELOG.md` rules below. Everything else in these docs is guidance.
 
 The user guides the *feel*; Claude is the sole developer. Feel numbers live in
 `src/main/java/dev/horsingaround/ride/RideTuning.java` so tuning passes stay in one file.
@@ -63,7 +85,9 @@ mod (the target setup: a family server) and checks the server accepts every move
 and step state). In the client tests horses wear colour-coded test textures (`src/gametest/debugpack`: upper leg blue,
 a white band, cannon orange, hoof black, sole magenta; `-PplainTextures` for real ones), and `LegProbe` measures the legs
 as the renderer drew them: judge leg work by those numbers and close shots, not by formulas. Don't test only perfect cases: generated worlds are messy. When
-feel numbers change on purpose, update the test targets too. `./gradlew runGameTest` loads the mod on a bare
+feel numbers change on purpose, update the test targets too. Test targets record what was wanted when the test was
+written: if a check enforces something wrong, fix the check (and say so in the PR), don't bend the mod to it. The flags
+above may lag behind the build: `gradle/client-tests.gradle` and the tests themselves are the truth. `./gradlew runGameTest` loads the mod on a bare
 dedicated server (no client code) and rides there. `-Ptests=gallery` takes clean store screenshots. `-Ptests=store` films
 the README's clips and stills in a generated world (`StoreMediaTest`; `-Pscenario=gaits,river` for some; add
 `-PshaderPack=<path to a shader pack zip>` to shoot with Iris and that pack: stills only, the user wants clips without

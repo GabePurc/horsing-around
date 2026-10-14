@@ -2,6 +2,12 @@
 
 Design fidelity reference. RDR2 is the feel target; vanilla Minecraft is the style boundary.
 
+How to read this file: each section starts with what the user asked for or reported (the intent: keep it) and then a
+"Translation" of how it was built at the time (one approach, not the only one). Sections are in the order they were
+written, so a later one can replace an earlier one; numbers drift as tuning goes on, and `RideTuning` holds the current
+ones. If a translation, a number or a "known limit" turns out wrong or a better way exists, change the code and
+rewrite the note here. See `AGENTS.md`, "How to use these docs".
+
 ## Why vanilla horses feel static
 
 - Instant acceleration (top speed in ~5 ticks) and instant stops.
@@ -34,7 +40,8 @@ RDR2's horse camera is a third-person chase camera: centered behind and a bit ab
 horse speeds up, glides over bumps instead of jolting, settles back to a slightly downward riding angle when you stop
 touching it, and swings around behind the horse when you steer with the stick. Steering is relative to the camera.
 
-Translation: switch to third person on mount (back to first person on dismount). Pivot 0.5 above the rider's eyes,
+Translation (pivot height since lowered, see "Heaving up ledges"): switch to third person on mount (back to first
+person on dismount). Pivot 0.5 above the rider's eyes,
 distance 4.5 rising to 6.5 at a gallop with a slow follow so the camera falls back on acceleration. Vertical position
 is smoothed. FOV widens slightly past a trot. Pitch eases to 10° down after 2s of no vertical mouse movement while
 moving. Mouse steering leads (the horse turns toward the camera); A/D steering is horse-led and the camera swings
@@ -102,7 +109,7 @@ Implementation notes:
 - Forests: leaves don't stop a ridden horse; they slow it a little.
 - Trampling: a horse at speed tramples small creatures; harmless at a walk, more damage the faster it goes.
 - Water: speed loss scales with depth while the horse can touch the bottom; out of its depth it swims, head up.
-- Both mods expose their feel numbers in Mod Menu.
+- (Superseded 2026-10-08: settings are comfort and preference only; feel numbers are fixed in `RideTuning`.)
 - Comfort beats realism for the camera: first-person bob is gentle and low-passed; no camera shake.
 - Third person should be RDR2-style over the shoulder, shipped as a separate add-on mod that plugs into this one.
 - The rider must never look detached: hips ride the horse's actual animated body, feet in stirrups, hands on reins.
@@ -145,7 +152,8 @@ Translation (`Awareness`, tuning in `RideTuning`):
 - Ridden, the collision box narrows from vanilla's 1.4-block square to 0.9 (about the body's width), so it threads
   1-block gaps between trees.
 - Not annoying: no steering at a walk; riding beside walls and along cliff edges is untouched; safe drops, water
-  landings and jumpable gaps are left to the rider; both behaviours can be switched off.
+  landings and jumpable gaps are left to the rider. (The switches to turn both behaviours off went with the
+  2026-10-08 settings change: how horses ride is not a setting.)
 
 ## Steps in two beats, and footing (user direction, 2026-10-07)
 
@@ -205,7 +213,7 @@ Translation (`RideController.tick`, `Awareness.detour`, `Awareness.bank`; tuning
   radius therefore follows the look: 90 degrees at a gallop comes round in ~0.75s at ~68% pace (a plain turn takes
   1.9s), 150 in ~1s at ~45%, banking up to the full 15 degrees. Cutting hard from a trot up scuffs up the ground.
   Standing still, looking round is still free look; with W held the horse pivots on its haunches. A/D keep riding at
-  an angle. ("Hard cuts" can be switched off.)
+  an angle.
 - Straighter dodging: the horse plans its way round with its own steering model. It looks for the least it has to move
   over (to 1/8 block, 0.2 to spare either side), aims past the obstacle on a line that grazes its near corner (or, where
   that line meets something else in a crowded forest, doglegs out beside the near face), then simulates how its
@@ -234,8 +242,8 @@ off their face; going through leaves felt like phasing through them.
 
 Translation:
 
-- A or D alone (no W or S) ride the horse on at its gait 90 degrees left or right of the view (setting "A/D alone
-  angle", 45-120); with W, 45 as before; letting go of everything still eases it to a stop. Swinging from straight
+- A or D alone (no W or S) ride the horse on at its gait 90 degrees left or right of the view (no longer a setting,
+  since 2026-10-08); with W, 45 as before; letting go of everything still eases it to a stop. Swinging from straight
   ahead to across the view at a gallop is a 90-degree turn, so it is a hard cut like any other (it slows to make it,
   then gallops on).
 - Leaves at the rider's chest or face (looked for just ahead of the rider, a few block reads a tick, only for ridden
@@ -433,7 +441,8 @@ kinematics, still driven by Fresh Animations' animation.
 - Speeds are multiples of each horse's own speed attribute, so breeding still matters. Canter is a little below vanilla
   top speed and gallop a little above, so long-distance travel time is similar to vanilla.
 - Vanilla keys only: W/S/A/D, sprint, jump. No new keybinds for the core loop.
-- Vanilla jumping (charge with space) is untouched.
+- Jumping is the ride's own press-to-jump (see "Jumping"); vanilla's charge-and-release jump no longer runs on the
+  horses this mod rides.
 - Camels and llamas keep their vanilla controls.
 
 ## Exact hooves, a body on its legs (user direction, 2026-10-08)

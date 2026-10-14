@@ -1,11 +1,15 @@
 # Completed steps
 
+A log in the order the work was done. Later entries can replace earlier ones (each says so where it does); the code is
+the truth for current behaviour. "Done" here means built and tested at the time, not finished forever: anything can be
+reworked when it turns out wrong or a better way appears (see `AGENTS.md`, "How to use these docs").
+
 ## Phase 0: project setup
 
 - [x] Fabric mod project for Minecraft 26.3 (Loom 1.18, Fabric API 0.162.0+26.3, Gradle 9.7.1, JDK 25)
 - [x] Design docs: `research.md`, `mvp_requirements.md`, `development_plan.md`
 
-## Phase 1: core feel (verified in-world by the automated ride test; awaiting user play-test)
+## Phase 1: core feel (verified in-world by the automated ride test, then play-tested and tuned)
 
 - [x] Gaits (walk, trot, canter, gallop): sprint tap up, S tap down, release W to coast, hold S to brake then back up
 - [x] Key taps counted as presses, so sub-tick taps and toggle-sprint both work
@@ -18,7 +22,7 @@
 - [x] Wall hits above a canter shed half the speed
 - [x] Server and observing clients keep the rider-reported heading instead of snapping to the rider's camera
 - [x] Horse head no longer pitches with the rider's camera
-- [ ] First user play-test and tuning pass
+- [x] First user play-test and tuning pass (and many since; see the play-test entries below)
 
 ## Phase 1b: camera, jumping, Fresh Animations (user request, 2026-10-06)
 
@@ -66,7 +70,7 @@
 
 ## Settings, trampling, seat (user request, 2026-10-06)
 
-- [x] Horse settings saved to `config/horsingaround.json`, applied live through `HorseConfig.apply()` into `RideTuning`: speed, acceleration, turning grip, turn response, A/D angle, gallop stamina (seconds), recovery, jump height and cost, third person on mount, camera distance, speed FOV, view bob, hand bob, horse lean, rider lean, ride through leaves, leaves slowdown, trampling and its damage, horse sound volume; vanilla-style screen in Mod Menu (and an unbound "Open horse settings" key)
+- [x] (Superseded 2026-10-08, see "Settings and store polish": the ride settings below are gone, only comfort and preference remain.) Horse settings saved to `config/horsingaround.json`, applied live through `HorseConfig.apply()` into `RideTuning`: speed, acceleration, turning grip, turn response, A/D angle, gallop stamina (seconds), recovery, jump height and cost, third person on mount, camera distance, speed FOV, view bob, hand bob, horse lean, rider lean, ride through leaves, leaves slowdown, trampling and its damage, horse sound volume; vanilla-style screen in Mod Menu (and an unbound "Open horse settings" key)
 - [x] Trampling: above a walk (half of vanilla top speed) a ridden horse damages small creatures it runs through (no wider than 0.8 or taller than 1.0 blocks: chickens, rabbits, cats, foxes, frogs, baby animals, silverfish...), scaling to 4 hearts at a full gallop with a knock aside; never players or the rider's own pets; decided on the server from per-tick ground covered
 - [x] Seated rider: thighs forward ~43 degrees and wrapped round the barrel with toes out (reads as sitting instead of standing), rider sunk 0.12 blocks into the saddle, a slight relaxed forward lean at rest
 
@@ -128,7 +132,7 @@
 
 ## Phase 1k: riding across the view, leaves you can feel (user request, 2026-10-07)
 
-- [x] A or D alone ride the horse on at its gait 90 degrees left or right of the view instead of letting it stop (W+A/D still 45); "A/D alone angle" setting (test: D alone at a gallop holds 90 degrees right at full pace, A alone 90 left, W+A back to 45, D alone from a standstill walks off to the right, the view never moves)
+- [x] A or D alone ride the horse on at its gait 90 degrees left or right of the view instead of letting it stop (W+A/D still 45); "A/D alone angle" setting (since removed: fixed in `RideTuning`) (test: D alone at a gallop holds 90 degrees right at full pace, A alone 90 left, W+A back to 45, D alone from a standstill walks off to the right, the view never moves)
 - [x] Leaves you can feel: pushing through leaves at the rider's chest or face, the rider leans back from the push (toward 7 degrees at full pace, on a spring, with a shove at each new clump) and puts the off hand up in front of their face, head tucked and turned away; everyone sees it (test: hand fully up and a 6-degree push in a stand of leaves, both gone once clear; front and side shots of the rider coming out of the leaves)
 
 ## Phase 1l: jumps that look like jumps (user request, 2026-10-07)
@@ -373,6 +377,14 @@
   temporary file behind; a cache that didn't parse no longer lets an identical download be skipped; test supporters are
   folded into the one list the renderer reads; the hat throttle checks wait for the colour instead of a fixed tick count
   (fourth review, 2026-10-14)
+
+## Agent docs that don't hold work back (user request, 2026-10-14)
+
+- [x] `AGENTS.md` says how to use the docs: the user's latest direction, then what the game does, then the docs; intent
+  is kept, numbers and approaches are snapshots; fix what is wrong and update the doc; ask only to reverse an explicit
+  user decision, change the feel noticeably or widen scope; a short list of firm rules. Stale notes corrected: ride
+  settings (removed 2026-10-08) in `research.md` and here, vanilla's charged jump, the camera pivot, the planned feel
+  config, the MVP's status (shipped, skid stop still open), the publishing item, Phase 1's play-test.
 
 ## Tooling
 

@@ -2,6 +2,10 @@
 
 Each phase ends with a play-test where the user reports how it feels; tuning happens in `RideTuning.java`.
 
+This was the order planned before most of the mod existed; much was done early or out of order at the user's request
+(`completed_steps.md` is the record). Treat the phases as a backlog of ideas, not a sequence that must be followed:
+pick up what the user asks for, and suggest reordering or dropping items when the mod has moved past them.
+
 ## Phase 0: project setup
 
 Fabric 26.3 project, Gradle wrapper, JDK 25, design docs.
@@ -14,7 +18,8 @@ sounds, wall-hit momentum loss, multiplayer heading fix.
 ## Phase 2: tuning and polish
 
 - Play-test passes on the numbers.
-- Config file so numbers can change without rebuilding (optionally Mod Menu screen).
+- ~~Config file so feel numbers can change without rebuilding~~: dropped (user direction, 2026-10-08). The settings
+  screen exists but holds only comfort and preference; feel numbers stay in `RideTuning`.
 - Sync gait and stamina to the server (custom payload) so stamina persists and other clients can see gait.
 - Gait-specific hoof cadence and breathing when tired.
 - Expose gait to Fresh Animations (EMF custom variable) if FA's speed-based legs don't read gaits clearly enough.
@@ -55,8 +60,8 @@ How to check a release candidate:
 
 Still open:
 
-- Publishing: create the Modrinth projects (client required, server required for Horsing Around; client only for the
-  add-on), gallery from `build/run/clientGameTest/gallery/`. Uploading is automated: publishing a GitHub release runs
+- Publishing: Horsing Around is out (0.1.0 to 0.3.1 released through CI); the add-on's Modrinth project and the gallery
+  (`build/run/clientGameTest/gallery/`) may still need doing, so check with the user. Uploading is automated: publishing a GitHub release runs
   `.github/workflows/publish.yml` (`gradle/publish.gradle`, `MODRINTH_TOKEN` secret) into Modrinth project `Lc7S9t3K`
   (`modrinth_project_id` in `gradle.properties`).
 - When a pack mod updates or a new popular mod appears, add it to `compatPacks` in `build.gradle` (pin the Modrinth
