@@ -36,8 +36,10 @@ public abstract class CameraMixin {
 	@Final
 	private Minecraft minecraft;
 	//?} else {
-	/*@Unique
-	private final Minecraft minecraft = Minecraft.getInstance();
+	/*// Set in the constructor hook below: Mixin drops an initialiser here (javac numbers the constructor's return after it,
+	// so Mixin takes it for constructor body), which left this null and crashed the first ridden frame.
+	@Unique
+	private Minecraft minecraft;
 	@Shadow
 	private boolean initialized;
 	*///?}
@@ -93,6 +95,13 @@ public abstract class CameraMixin {
 	private ClipContext.Block horsingaround$seeThroughLeaves(final ClipContext.Block original) {
 		return RideCamera.isRiding() ? ClipContext.Block.COLLIDER : original;
 	}
+
+	//? if <26.1 {
+	/*@Inject(method = "<init>", at = @At("RETURN"))
+	private void horsingaround$init(final CallbackInfo ci) {
+		this.minecraft = Minecraft.getInstance();
+	}
+	*///?}
 
 	//? if >=26.1 {
 	@Inject(method = "update", at = @At("HEAD"))

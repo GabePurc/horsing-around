@@ -2,6 +2,13 @@
 
 Each version's notes are written to paste straight into the Modrinth version page.
 
+## 0.3.1
+
+### Fixed
+- The mod no longer refuses to start with "Incompatible mods found" on an older Fabric Loader. It now needs only the Fabric Loader your version's Fabric API needs (0.14.25 or newer on 1.20.1 and 1.20.2, 0.15 on 1.20.4 to 1.21.1), so it works in modpacks that ship an older loader, such as Fabulously Optimized on 1.20.2, 1.20.4 and 1.21.3.
+- On Minecraft 1.20.1 to 1.21.11 the game no longer crashes the moment the riding camera starts.
+- On Minecraft 1.20.1 to 1.21.1, horses nobody is riding no longer have their legs drift off into the air after you've ridden another horse, and a horse's head no longer stays tilted after a head toss (with the plain horse model, without an animation pack).
+
 ## 0.3.0
 
 ### New

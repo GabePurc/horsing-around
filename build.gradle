@@ -1,5 +1,6 @@
 plugins {
 	id 'dev.kikugie.loom-back-compat'
+	id 'me.modmuss50.mod-publish-plugin' version '2.2.1'
 }
 
 // Built once per Minecraft version (Stonecutter node, see settings.gradle); this node's numbers come from
@@ -8,6 +9,7 @@ plugins {
 def mc = sc.current.version
 def mainVersion = mc == '26.3'
 def javaVersion = sc.current.parsed.matches('>=26') ? 25 : sc.current.parsed.matches('>=1.20.5') ? 21 : 17
+ext.javaVersion = javaVersion // (for gradle/smoke-test.gradle)
 version = "${project.version}+${mc}"
 base.archivesName = 'horsing-around'
 // Repo-level folders (each node's own project folder is versions/<version>/).
@@ -52,6 +54,12 @@ dependencies {
 	loomx.applyMojangMappings()
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	// The mixins use MixinExtras 0.4 (@WrapMethod), which Fabric Loader bundles from 0.16 on: for an older loader the
+	// jar carries its own copy (the loader then runs the newest copy any mod brings).
+	def (loaderMajor, loaderMinor) = project.loader_version.tokenize('.')*.toInteger()
+	if (loaderMajor == 0 && loaderMinor < 16) {
+		include(implementation(annotationProcessor("io.github.llamalad7:mixinextras-fabric:${project.mixinextras_version}")))
+	}
 
 	// Optional integration: ride the horse's real animated body when Entity Model Features animates it.
 	modCompileOnly "maven.modrinth:entity-model-features:${project.emf_version}"
@@ -65,9 +73,12 @@ dependencies {
 	modLocalRuntime "maven.modrinth:modmenu:${project.modmenu_version}"
 	modLocalRuntime "maven.modrinth:placeholder-api:${project.placeholder_api_version}"
 
-	// Dev-only: the Fresh Animations stack, so runClient and the ride test look like the target setup.
-	modLocalRuntime "maven.modrinth:entity-model-features:${project.emf_version}"
-	modLocalRuntime "maven.modrinth:entitytexturefeatures:${project.etf_version}"
+	// Dev-only: the Fresh Animations stack, so runClient and the ride test look like the target setup. (-PsmokePlain
+	// leaves it off, see gradle/smoke-test.gradle.)
+	if (!project.hasProperty("smokePlain")) {
+		modLocalRuntime "maven.modrinth:entity-model-features:${project.emf_version}"
+		modLocalRuntime "maven.modrinth:entitytexturefeatures:${project.etf_version}"
+	}
 }
 
 // Dev convenience: runClient also loads the Over the Shoulder add-on when it has been built in a sibling checkout
@@ -90,7 +101,8 @@ def freshAnimationsZip = repoDir.file(".gradle/dev-packs/${project.fresh_animati
 ext.freshAnimationsZip = freshAnimationsZip
 def freshAnimationsUrl = project.fresh_animations_url
 def freshAnimationsTargets = [
-	repoDir.dir("${runFolder}/resourcepacks").asFile
+	repoDir.dir("${runFolder}/resourcepacks").asFile,
+	rootProject.layout.buildDirectory.dir("run/smoke/${mc}/resourcepacks").get().asFile
 ]
 if (mainVersion) {
 	freshAnimationsTargets << rootProject.layout.buildDirectory.dir("run/clientGameTest/resourcepacks").get().asFile
@@ -151,6 +163,8 @@ auditTasks.each { side, type ->
 		})
 		mods.from(loomx.modJar.flatMap { it.archiveFile })
 		mods.from(configurations.named("auditMods"))
+		// On the Java players run this version with (the old loaders' Mixin can't read a newer Java's classes).
+		javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(javaVersion) }
 		jvmArgs.addAll(auditJvmArgs)
 		if (side == "Server") {
 			programArgs.add("nogui")
@@ -177,14 +191,23 @@ tasks.register("auditMixins") {
 	dependsOn "auditClientMixins", "auditServerMixins"
 }
 
+// Release to Modrinth (./gradlew publishModrinth, run by .github/workflows/publish.yml on a GitHub release).
+apply from: repoDir.file('gradle/publish.gradle')
+
+// The smoke test (src/smoke) runs on every version, the client tests below on the main one only.
+apply from: repoDir.file('gradle/smoke-test.gradle')
+
 if (mainVersion) {
 	apply from: repoDir.file('gradle/client-tests.gradle')
 }
 
 // fabric.mod.json and the mixin configs carry this node's Minecraft range and Java version.
 // (The cowboy hat is done with the render state from 1.21.2; before, two mixins keep a helmet off the supporter's head.)
+// On Java 21 the mixin configs say JAVA_17, as Fabric API's do: Mixin before Fabric Loader 0.15.10 doesn't know JAVA_21
+// and refuses the config, and nothing in our mixins needs more.
+def mixinJava = javaVersion == 21 ? 17 : javaVersion
 def hatMixins = sc.current.parsed.matches('>=1.21.2') ? '"AvatarRenderStateMixin", "AvatarRendererMixin",' : '"CustomHeadLayerMixin", "HumanoidArmorLayerMixin",'
-def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, loader: project.loader_version, java: javaVersion.toString(), hatMixins: hatMixins]
+def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, loader: project.loader_version, java: javaVersion.toString(), mixinJava: mixinJava.toString(), hatMixins: hatMixins]
 tasks.matching { it.name in ["processResources", "processClientResources"] }.configureEach {
 	inputs.properties resourceProps
 	filesMatching(["fabric.mod.json", "*.mixins.json"]) {
