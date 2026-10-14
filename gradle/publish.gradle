@@ -1,0 +1,46 @@
+// Release to Modrinth: ./gradlew publishModrinth uploads every version's jar as a Modrinth version of its own (its game
+// versions from game_versions in versions/<version>/gradle.properties, Fabric, Fabric API required, Mod Menu optional,
+// the release notes from the top entry of CHANGELOG.md). .github/workflows/publish.yml runs it when a GitHub release is
+// published. -PpublishDryRun, or no MODRINTH_TOKEN in the environment, uploads nothing: what would go up is written to
+// each version's build/publishMods/ instead.
+
+def baseVersion = project.version.toString().split('\\+')[0]
+def gameVersions = project.game_versions.split(',')*.trim()
+def shownVersions = gameVersions.size() == 1 ? gameVersions[0] : "${gameVersions.first()}–${gameVersions.last()}"
+def modrinthProject = project.findProperty('modrinth_project_id') ?: ''
+def dry = project.hasProperty('publishDryRun') || providers.environmentVariable('MODRINTH_TOKEN').getOrNull() == null
+
+// The release notes: CHANGELOG.md's top entry, which must be this version's (written for players, see AGENTS.md).
+def changelogLines = rootProject.layout.projectDirectory.file('CHANGELOG.md').asFile.readLines()
+def notesStart = changelogLines.findIndexOf { it.startsWith('## ') }
+def notesVersion = notesStart < 0 ? '' : changelogLines[notesStart].substring(3).trim()
+def notesEnd = notesStart < 0 ? -1 : changelogLines.findIndexOf(notesStart + 1) { it.startsWith('## ') }
+def notes = notesStart < 0 ? '' : changelogLines.subList(notesStart + 1, notesEnd < 0 ? changelogLines.size() : notesEnd).join('\n').trim()
+
+publishMods {
+	file = loomx.modJar.flatMap { it.archiveFile }
+	version = project.version.toString()
+	displayName = "Horsing Around ${baseVersion} for Minecraft ${shownVersions}"
+	changelog = notes
+	type = STABLE
+	modLoaders.add('fabric')
+	dryRun = dry
+	modrinth {
+		accessToken = providers.environmentVariable('MODRINTH_TOKEN')
+		projectId = modrinthProject ?: 'not-set'
+		minecraftVersions.addAll(gameVersions)
+		requires('fabric-api')
+		optional('modmenu')
+	}
+}
+
+tasks.matching { it.name == 'publishModrinth' }.configureEach {
+	doFirst {
+		if (notesVersion != baseVersion) {
+			throw new GradleException("CHANGELOG.md's top entry is for ${notesVersion ?: 'nothing'}, not ${baseVersion}: write this version's release notes first")
+		}
+		if (!dry && !modrinthProject) {
+			throw new GradleException('No Modrinth project: set modrinth_project_id in gradle.properties')
+		}
+	}
+}

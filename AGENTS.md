@@ -35,6 +35,12 @@ Builds must work on any machine: never commit machine-specific paths. Gradle pic
 Release-readiness work (Modrinth, compatibility with other mods) is planned in `development_plan.md`, Release.
 Every release gets an entry at the top of `CHANGELOG.md`, written for players (no internal names, no Red Dead) so it can be
 pasted straight into the Modrinth version page; the GitHub release notes say the same.
+Releasing: bump `version` in `gradle.properties`, write the `CHANGELOG.md` entry, merge to main, then publish a GitHub
+release tagged `v<version>` with the same notes. `.github/workflows/publish.yml` then builds every version, uploads each
+jar to Modrinth as a version of its own (`gradle/publish.gradle`: game versions from `game_versions` in
+`versions/<version>/gradle.properties`, Fabric API required, Mod Menu optional, notes from the changelog's top entry,
+which must be that version's) and attaches the jars to the release. Running the workflow by hand (Actions > publish)
+is a dry run that uploads nothing; locally `./gradlew publishModrinth -PpublishDryRun`.
 
 Verify every gameplay change with `./gradlew runClientGameTest`, which runs four client tests (pick some with
 `-Ptests=ride,terrain,mounts,server`, one terrain scenario with `-Pscenario=<part of its name>`, some ride sections with
