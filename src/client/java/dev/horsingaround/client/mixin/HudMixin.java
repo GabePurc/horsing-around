@@ -15,9 +15,13 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
-/** The stamina bar (in the jump bar's slot) shows whenever stamina is not full, whatever else wants the slot. */
+/**
+ * The stamina bar (in the jump bar's slot) shows whenever stamina is not full, whatever else wants the slot. Before 1.21.6
+ * the slot was the jump bar's alone (no locator bar), so there is nothing to patch.
+ */
 @Mixin(Hud.class)
 public abstract class HudMixin {
+	//? if >=1.21.6 {
 	@Shadow
 	@Final
 	private Minecraft minecraft;
@@ -45,4 +49,5 @@ public abstract class HudMixin {
 	private static boolean horsingaround$staminaShowing(final LocalPlayer player) {
 		return player.getVehicle() instanceof RideStateHolder holder && holder.horsingaround$managed() && holder.horsingaround$ride().stamina < 1.0F;
 	}
+	//?}
 }

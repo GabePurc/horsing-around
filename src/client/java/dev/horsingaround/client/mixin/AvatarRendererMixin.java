@@ -1,3 +1,4 @@
+//? if >=1.21.2 {
 package dev.horsingaround.client.mixin;
 
 import dev.horsingaround.client.cosmetic.HatState;
@@ -21,10 +22,17 @@ public abstract class AvatarRendererMixin {
 		final int color = entity instanceof Player player ? Hats.colorFor(player) : HatPayload.NONE;
 		((HatState) state).horsingaround$setHatColor(color);
 		if (color != HatPayload.NONE) {
+			//? if >=1.21.4 {
 			state.headEquipment = ItemStack.EMPTY;
 			state.headItem.clear();
 			state.wornHeadType = null;
 			state.wornHeadProfile = null;
+			//?} else {
+			/*// One stack feeds both the helmet and the head item (a skull or a pumpkin) before 1.21.4.
+			state.headItem = ItemStack.EMPTY;
+			state.headItemModel = null;
+			*///?}
 		}
 	}
 }
+//?}

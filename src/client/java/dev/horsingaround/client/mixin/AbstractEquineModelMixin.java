@@ -5,13 +5,23 @@ import dev.horsingaround.client.render.GroundLegs;
 import dev.horsingaround.client.render.RidePoseState;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideTuning;
+//? if >=1.21.2
 import net.minecraft.client.model.Model;
+//? if >=1.21.2
 import net.minecraft.client.model.animal.equine.AbstractEquineModel;
 import net.minecraft.client.model.geom.ModelPart;
+//? if >=1.21.2
 import net.minecraft.client.renderer.entity.state.EquineRenderState;
+//? if <1.21.2 {
+/*import dev.horsingaround.client.render.LegacyRenderState;
+import net.minecraft.client.model.EntityModel;
+import net.minecraft.client.model.HorseModel;
+import net.minecraft.world.entity.animal.horse.AbstractHorse;
+*///?}
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -22,7 +32,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * when the horse runs out of stamina, on the neck so Fresh Animations' animated head and neck (its children) carry it
  * too. The motion matches Fresh Animations' own idle head shake.
  */
+//? if >=1.21.2 {
 @Mixin(AbstractEquineModel.class)
+//?} else
+/*@Mixin(HorseModel.class)*/
 public abstract class AbstractEquineModelMixin {
 	@Shadow
 	@Final
@@ -43,9 +56,26 @@ public abstract class AbstractEquineModelMixin {
 	@Final
 	protected ModelPart tail;
 
+	//? if >=1.21.2 {
 	@Inject(method = "setupAnim(Lnet/minecraft/client/renderer/entity/state/EquineRenderState;)V", at = @At("TAIL"))
 	private void horsingaround$headShake(final EquineRenderState state, final CallbackInfo ci) {
-		final RidePoseState pose = (RidePoseState) state;
+		this.horsingaround$pose((RidePoseState) state);
+	}
+	//?} else {
+	/*@Inject(method = "setupAnim(Lnet/minecraft/world/entity/animal/horse/AbstractHorse;FFFFF)V", at = @At("TAIL"))
+	private void horsingaround$headShake(
+		final AbstractHorse horse, final float limbSwing, final float limbSwingAmount, final float ageInTicks, final float headYaw, final float headPitch,
+		final CallbackInfo ci
+	) {
+		final Object state = LegacyRenderState.of(horse);
+		if (state != null) {
+			this.horsingaround$pose((RidePoseState) state);
+		}
+	}
+	*///?}
+
+	@Unique
+	private void horsingaround$pose(final RidePoseState pose) {
 		this.headParts.xRot += pose.horsingaround$neckPitch();
 		final float yaw = pose.horsingaround$headShakeYaw();
 		if (yaw != 0.0F) {
@@ -57,8 +87,11 @@ public abstract class AbstractEquineModelMixin {
 		if (pose.horsingaround$legsHere()) {
 			final float air = pose.horsingaround$airLegs();
 			final RideState ride = pose.horsingaround$rideState();
-			final float pixels = 16.0F / ((Model<?>) (Object) this).root().yScale;
+			//? if >=1.21.2 {
 			final ModelPart root = ((Model<?>) (Object) this).root();
+			//?} else
+			/*final ModelPart root = LegacyRenderState.horseRoot(((EntityModel<?>) (Object) this).young);*/
+			final float pixels = 16.0F / root.yScale;
 			final boolean footing = GroundLegs.pose(
 				this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, pose.horsingaround$legTilt(), pose.horsingaround$foreLeg(),
 				pose.horsingaround$hindLeg(), pixels, ride, root, air < RideTuning.AIR_GROUNDED || ride != null && !ride.leapt()

@@ -11,6 +11,7 @@ import dev.horsingaround.ride.RideTuning;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.CommonLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+//? if >=1.20.5
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -31,10 +32,15 @@ public final class HorsingAround implements ModInitializer {
 	public void onInitialize() {
 		version = FabricLoader.getInstance().getModContainer(MOD_ID).map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse("");
 		HorseConfig.load();
+		//? if >=1.20.5 {
 		PayloadTypeRegistry.clientboundPlay().register(RulesPayload.TYPE, RulesPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(PlayerHatPayload.TYPE, PlayerHatPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(HatPayload.TYPE, HatPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(HatPayload.TYPE, (hat, context) -> HatRelay.receive(context.player(), hat));
+		//?} else {
+		/*// (Before 1.20.5 a packet knows its own type and codec; there is nothing to register but the receiver.)
+		ServerPlayNetworking.registerGlobalReceiver(HatPayload.TYPE, (hat, player, sender) -> HatRelay.receive(player, hat));
+		*///?}
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, joined) -> {
 			if (ServerPlayNetworking.canSend(handler, RulesPayload.TYPE)) {
 				sender.sendPacket(rules());
@@ -48,6 +54,9 @@ public final class HorsingAround implements ModInitializer {
 			HatRelay.clear();
 		});
 		CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> Mounts.invalidate());
+		if (MixinAudit.ENABLED) {
+			ServerLifecycleEvents.SERVER_STARTED.register(MixinAudit::server);
+		}
 	}
 
 	public static String version() {

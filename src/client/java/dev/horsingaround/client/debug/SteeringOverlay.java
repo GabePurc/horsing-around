@@ -5,9 +5,11 @@ import dev.horsingaround.ride.RideStateHolder;
 import dev.horsingaround.ride.RideTuning;
 import java.util.Locale;
 import net.minecraft.client.Minecraft;
+//? if >=1.21.11 {
 import net.minecraft.client.gui.components.debug.DebugScreenEntries;
 import net.minecraft.gizmos.GizmoStyle;
 import net.minecraft.gizmos.Gizmos;
+//?}
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.phys.Vec3;
@@ -18,6 +20,7 @@ import net.minecraft.world.phys.Vec3;
  * (white), where the horse is heading (yellow), its detour round something and the way it planned (aqua), what its look-ahead found along the
  * rider's line (red: a wall, orange: danger, blue: a jumpable gap), the ledge it is jumping (green), and the ground
  * carrying its front and back on a step (magenta); how hard it is cutting round, while it does. Debug only, so it may allocate.
+ * Needs gizmos, which came in 1.21.11; before, it draws nothing.
  */
 public final class SteeringOverlay {
 	private static final String[] GAITS = {"stop", "walk", "trot", "canter", "gallop"};
@@ -27,6 +30,7 @@ public final class SteeringOverlay {
 
 	/** Called at the end of each client tick, while that tick's gizmos are being collected. */
 	public static void tick(final Minecraft minecraft) {
+		//? if >=1.21.11 {
 		if (minecraft.player == null || !(minecraft.player.getVehicle() instanceof AbstractHorse horse)
 			|| !(horse instanceof RideStateHolder holder) || !holder.horsingaround$managed()
 			|| !minecraft.debugEntries.isCurrentlyEnabled(DebugScreenEntries.ENTITY_HITBOXES)) {
@@ -63,7 +67,10 @@ public final class SteeringOverlay {
 		}
 		Gizmos.billboardTextOverMob(horse, 0, String.format(Locale.ROOT, "%s %.2f  blocked %.2f%s", GAITS[s.gait], s.speed, s.blocked,
 			s.cut > 0.0F ? String.format(Locale.ROOT, "  cut %.0f%%", s.cut * 100.0F) : ""), 0xFFFFFFFF, 0.6F);
+		//?}
 	}
+
+	//? if >=1.21.11 {
 
 	private static Vec3 direction(final float yaw, final double length) {
 		final float rad = yaw * Mth.DEG_TO_RAD;
@@ -81,4 +88,5 @@ public final class SteeringOverlay {
 			Gizmos.line(at.add(0.0, -1.0, 0.0), at.add(0.0, 1.0, 0.0), argb, 4.0F).setAlwaysOnTop();
 		}
 	}
+	//?}
 }

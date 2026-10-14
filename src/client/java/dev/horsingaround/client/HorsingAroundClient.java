@@ -1,7 +1,9 @@
 package dev.horsingaround.client;
 
 import dev.horsingaround.HorsingAround;
+import dev.horsingaround.MixinAudit;
 import com.mojang.blaze3d.platform.InputConstants;
+//? if >=1.21
 import dev.horsingaround.client.compat.EmfSaddleTracker;
 import dev.horsingaround.client.config.HorseSettingsScreen;
 import dev.horsingaround.client.debug.SteeringOverlay;
@@ -21,6 +23,7 @@ import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.resources.Identifier;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
@@ -32,8 +35,15 @@ public final class HorsingAroundClient implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		if (MixinAudit.ENABLED) {
+			ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
+				MixinAudit.run("client");
+				client.stop();
+			});
+		}
 		final RiderKeys keys = new RiderKeys(Minecraft.getInstance());
 		HorsingAround.bridge = keys;
+		//? if >=1.21 {
 		if (FabricLoader.getInstance().isModLoaded("entity_model_features")) {
 			try {
 				EmfSaddleTracker.register();
@@ -42,12 +52,21 @@ public final class HorsingAroundClient implements ClientModInitializer {
 				LOGGER.warn("Could not hook Entity Model Features animations; riders follow a generated gait motion instead", e);
 			}
 		}
+		//?}
 		// The server tells us it runs the mod (and its rules); until then, and on servers without it, horses ride as in vanilla.
+		//? if >=1.20.5 {
 		ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, context) -> {
 			ServerRules.accept(rules);
 			Hats.sendOwn();
 		});
 		ClientPlayNetworking.registerGlobalReceiver(PlayerHatPayload.TYPE, (hat, context) -> Hats.receive(hat));
+		//?} else {
+		/*ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, player, sender) -> {
+			ServerRules.accept(rules);
+			Hats.sendOwn();
+		});
+		ClientPlayNetworking.registerGlobalReceiver(PlayerHatPayload.TYPE, (hat, player, sender) -> Hats.receive(hat));
+		*///?}
 		ClientPlayConnectionEvents.INIT.register((handler, minecraft) -> {
 			ServerRules.reset();
 			ServerNotice.reset();
@@ -68,14 +87,20 @@ public final class HorsingAroundClient implements ClientModInitializer {
 		});
 		final KeyMapping settings = KeyMappingHelper.registerKeyMapping(new KeyMapping(
 			"key.horsingaround.settings", InputConstants.UNKNOWN.getValue(),
+			//? if >=1.21.9 {
 			KeyMapping.Category.register(Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "horses"))
+			//?} else
+			/*"key.category.horsingaround.horses"*/
 		));
 		ClientTickEvents.END_CLIENT_TICK.register(minecraft -> {
 			if (!RideCamera.tick(minecraft)) {
 				keys.discardPresses();
 			}
 			while (settings.consumeClick()) {
+				//? if >=26.2 {
 				minecraft.gui.setScreen(new HorseSettingsScreen(minecraft.gui.screen()));
+				//?} else
+				/*minecraft.setScreen(new HorseSettingsScreen(minecraft.screen));*/
 			}
 			SteeringOverlay.tick(minecraft);
 			ServerNotice.tick(minecraft);

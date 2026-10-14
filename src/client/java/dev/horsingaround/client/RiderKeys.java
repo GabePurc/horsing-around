@@ -18,10 +18,56 @@ final class RiderKeys implements RiderBridge {
 		this.minecraft = minecraft;
 	}
 
+	//? if >=1.21.2 {
 	@Override
 	public Input input(final Player rider) {
 		return rider instanceof LocalPlayer local ? local.input.keyPresses : Input.EMPTY;
 	}
+	//?} else {
+	/*// Before 1.21.2 the keys are fields of the player's input object, kept for as long as the player is; a view of them is
+	// made once for it.
+	private LocalInput view;
+
+	@Override
+	public Input input(final Player rider) {
+		if (!(rider instanceof LocalPlayer local)) {
+			return Input.EMPTY;
+		}
+		LocalInput input = this.view;
+		if (input == null || input.source != local.input) {
+			input = this.view = new LocalInput(local.input);
+		}
+		return input;
+	}
+
+	private static final class LocalInput implements Input {
+		private final net.minecraft.client.player.Input source;
+
+		private LocalInput(final net.minecraft.client.player.Input source) {
+			this.source = source;
+		}
+
+		@Override
+		public boolean forward() {
+			return this.source.up;
+		}
+
+		@Override
+		public boolean backward() {
+			return this.source.down;
+		}
+
+		@Override
+		public boolean left() {
+			return this.source.left;
+		}
+
+		@Override
+		public boolean right() {
+			return this.source.right;
+		}
+	}
+	*///?}
 
 	@Override
 	public int spurPresses() {

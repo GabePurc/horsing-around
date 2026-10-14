@@ -5,6 +5,7 @@ import java.util.function.IntConsumer;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+//? if >=1.21.9
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
@@ -38,11 +39,22 @@ final class HatPaletteWidget extends AbstractWidget {
 		}
 	}
 
+	//? if >=1.21.9 {
 	@Override
 	public void onClick(final MouseButtonEvent event, final boolean doubleClick) {
+		this.click(event.x());
+	}
+	//?} else {
+	/*@Override
+	public void onClick(final double mouseX, final double mouseY) {
+		this.click(mouseX);
+	}
+	*///?}
+
+	private void click(final double mouseX) {
 		final int gap = this.gap();
-		final int index = (int) ((event.x() - this.getX() - 1) / (SWATCH + gap));
-		if (index >= 0 && index < HatColors.PALETTE.length && event.x() - this.getX() - 1 - index * (SWATCH + gap) < SWATCH) {
+		final int index = (int) ((mouseX - this.getX() - 1) / (SWATCH + gap));
+		if (index >= 0 && index < HatColors.PALETTE.length && mouseX - this.getX() - 1 - index * (SWATCH + gap) < SWATCH) {
 			this.pick.accept(HatColors.PALETTE[index]);
 		}
 	}

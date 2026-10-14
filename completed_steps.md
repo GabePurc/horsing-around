@@ -333,6 +333,18 @@
   the stride its toe or heel dipped a pixel in): most a hoof is in the ground on a bank 0.08 -> 0.001, landing a jump
   0.08 -> 0.003
 
+## Every Fresh Animations version on Fabric from 1.20.1 (user request, 2026-10-10)
+
+- [x] One codebase, one jar per group of Minecraft versions, with Stonecutter: 26.3 (main), 26.2, 26.1–26.1.2, 1.21.11,
+  1.21.9–1.21.10, 1.21.6–1.21.8, 1.21.5, 1.21.4, 1.21.2–1.21.3, 1.21–1.21.1, 1.20.5–1.20.6, 1.20.3–1.20.4, 1.20.2,
+  1.20–1.20.1 (Fresh Animations' older versions need OptiFine, not Fabric). Version differences live in `//?` comments
+  and `stonecutter.gradle` replacements (`docs/porting.md`); before 1.21.2 stand-in render states keep the leg and
+  rider code shared, before 1.20.5 the payloads use Fabric's older packets. Gaps on old versions are listed in
+  `docs/porting.md`. Verified: every version builds and passes `./gradlew auditMixins` (the built jar in a production
+  client and dedicated server of that version, every mixin target loaded, any injection that finds nothing fails);
+  26.3 passes the full client test suite (two "going round" checks failed once and passed all 176 on a rerun).
+  Not yet played on any version but 26.3.
+
 ## Tooling
 
 - [x] Automated client ride test (`./gradlew runClientGameTest`, `-Ptests=ride`, `-Psections=core,cuts,stairs,picking,steps`): checks covering 19 messy 2-block ledges, legs in the air (the stride stops, front legs fold then reach for the ground, at most ~0.1 rad a tick), the 2-block ledge bound, hard cuts (20, 60, 90 and 150 degrees off at a gallop, against cuts switched off; standing pivot), A or D alone riding across the view, the rider pushed back and shielding their face in leaves, climbing out onto a 1-block bank and not a 2-block one, narrow 2-block ledges jumped at a trot and a gallop, a ledge catching the flank and a 2-block pillar gone round, a row of trunks threaded (the 12 shoulder-camera checks moved to the add-on repo), steps in two beats (up and down, walk and trot), footing (across a ditch at a gallop and a trot, past a trunk that catches the shoulder), a leafy 2-block ledge, the horse picking its way (tree detour at pace, long wall slow-down, beside a wall and along a cliff edge at full pace, cliff and lava refusal, safe drop, gap jumped and refused, ledge jump at a walk and from a gallop, fence left alone), gradual and smooth climbing out of water, wading pace, swimming (speed, head above water, rider kept, climbing out), saddle side-sway follow, rider inertia (surge and braking), Fresh Animations stirrups held, trampling (walk vs gallop), horse settings in Mod Menu and live apply, downhill speed continuity, landing surge, jump arc, huff rhythm, head toss on the FA model, mouse steering, A/D 45-degree offset without view pull, riding through leaves, free aim and look limit, aiming while turning, Fresh Animations body sync, staircase climbing (smoothness, pitch), weight-shift timing, gait animation speeds, first-person bob, mounting camera, free look, walk/gallop speed, spur timing, A/D turn rate and lean, running and standing jumps, stamina and exhaustion, coasting, braking, reversing, mouse steering, dismount; writes `build/run/clientGameTest/horsingaround-ride-report.txt` and screenshots (back, front and side views)

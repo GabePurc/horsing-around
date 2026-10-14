@@ -15,4 +15,9 @@ public interface RideStateHolder {
 
 	/** The horse's own angry snort (horse, donkey, mule...), or null. */
 	@Nullable SoundEvent horsingaround$angrySound();
+
+	//? if <1.21 {
+	/*// (The block under the horse that sets its footing; protected in the entity class until 1.21.)
+	net.minecraft.core.BlockPos horsingaround$blockBelow();
+	*///?}
 }

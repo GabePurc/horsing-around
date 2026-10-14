@@ -1,6 +1,6 @@
 # Horsing Around
 
-Fabric mod for Minecraft 26.3 (Java 25, Mojang names) that makes horse riding feel weighty and alive, inspired by
+Fabric mod for Minecraft 1.20.1 to 26.3 (Mojang names) that makes horse riding feel weighty and alive, inspired by
 Red Dead Redemption 2 while staying close to vanilla. This project is **not** the Dungeon Defenders project referenced
 by the home-level `AGENTS.md`; the doc names are the same but the content here is about horses.
 
@@ -22,7 +22,13 @@ Player settings live in `HorseConfig` (JSON in the config folder) with a vanilla
 (optional dependency; never required at runtime). They are only for comfort and personal preference (camera, first-person
 motion, sound volume); nothing that changes how horses ride is a setting (user direction, 2026-10-08).
 
-Build: `./gradlew build`. Play-test: `./gradlew runClient` (loads Mod Menu, the Fresh Animations stack, and the
+Every supported Minecraft version (1.20.1 to 26.3, one jar per group of versions) builds from the one `src/` with
+Stonecutter; `src/` reads as 26.3 code (the main version, Java 25), older versions' code sits in `//?` comments. Read
+`docs/porting.md` before touching version-specific code; a change to shared code must still build (`./gradlew build`)
+and pass `./gradlew auditMixins` (every version's jar in a production client and server) on every version. The client
+tests run on 26.3 only. Jars land in `versions/<version>/build/libs/`.
+
+Build: `./gradlew build`. Play-test: `./gradlew runClient` (26.3; `./gradlew :<version>:runClient` for another) (loads Mod Menu, the Fresh Animations stack, and the
 add-on if it has been built in `../Over the Shoulder`).
 Builds must work on any machine: never commit machine-specific paths. Gradle picks JDK 25 through
 `gradle/gradle-daemon-jvm.properties` (downloads one if needed); local JDK locations go in `~/.gradle/gradle.properties`.

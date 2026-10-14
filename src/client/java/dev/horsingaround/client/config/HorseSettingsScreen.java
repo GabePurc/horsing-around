@@ -18,13 +18,22 @@ import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+//? if >=1.20.5
 import net.minecraft.client.gui.components.ImageWidget;
 import net.minecraft.client.gui.components.StringWidget;
+//? if >=1.20.5
 import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.OptionsSubScreen;
+//? if <1.20.5 {
+/*import net.minecraft.client.gui.GuiGraphics;
+*///?} elif <1.21 {
+/*import net.minecraft.client.gui.components.OptionsList;
+*///?}
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
+//? if <1.20.3
+/*import net.minecraft.network.chat.Style;*/
 import net.minecraft.resources.Identifier;
 
 /**
@@ -43,6 +52,63 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		super(parent, Minecraft.getInstance().options, Component.translatable(KEY + "title"));
 	}
 
+	//? if <1.20.5 {
+	/*// Before 1.20.5 the options screens make their own list and place everything by hand (the base class has neither a
+	// layout nor hooks for them).
+	private LegacyOptionsList list;
+
+	@Override
+	protected void init() {
+		this.list = this.addRenderableWidget(new LegacyOptionsList(this.minecraft, this.width, this.height));
+		this.addOptions();
+		this.addFooter();
+	}
+
+	private void drawTitle(final GuiGraphics graphics) {
+		final int left = (this.width - 22 - this.font.width(this.title)) / 2;
+		graphics.blit(ICON, left, 14, 0.0F, 0.0F, 16, 16, 16, 16);
+		graphics.drawString(this.font, this.title, left + 22, 20, 0xFFFFFF);
+	}
+	*///?}
+	//? if <1.20.2 {
+	/*@Override
+	public void render(final GuiGraphics graphics, final int mouseX, final int mouseY, final float partialTick) {
+		this.renderBackground(graphics);
+		super.render(graphics, mouseX, mouseY, partialTick);
+		this.drawTitle(graphics);
+	}
+	*///?} elif <1.20.5 {
+	/*@Override
+	public void render(final GuiGraphics graphics, final int mouseX, final int mouseY, final float partialTick) {
+		super.render(graphics, mouseX, mouseY, partialTick);
+		this.drawTitle(graphics);
+	}
+	*///?}
+	//? if >=1.20.3 && <1.20.5 {
+	/*@Override
+	public void renderBackground(final GuiGraphics graphics, final int mouseX, final int mouseY, final float partialTick) {
+		this.renderDirtBackground(graphics);
+	}
+	*///?}
+	//? if >=1.20.5 && <1.21 {
+	/*// Before 1.21 the options screens put their lists in themselves (and the base class has no hook for it).
+	private OptionsList list;
+
+	@Override
+	protected void init() {
+		this.list = this.addRenderableWidget(new OptionsList(this.minecraft, this.width, this.height, this));
+		this.addOptions();
+		super.init();
+	}
+
+	@Override
+	protected void repositionElements() {
+		super.repositionElements();
+		this.list.updateSize(this.width, this.layout);
+	}
+	*///?}
+
+	//? if >=1.20.5 {
 	@Override
 	protected void addTitle() {
 		final LinearLayout title = LinearLayout.horizontal().spacing(6);
@@ -51,13 +117,16 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		title.addChild(new StringWidget(this.title, this.font));
 		this.layout.addToHeader(title);
 	}
+	//?}
 
+	//? if >=1.21 {
 	@Override
+	//?}
 	protected void addOptions() {
 		final HorseConfig c = HorseConfig.get();
-		this.list.addHeader(Component.translatable(KEY + "subtitle").withStyle(ChatFormatting.GRAY));
+		this.addHeader(Component.translatable(KEY + "subtitle").withStyle(ChatFormatting.GRAY));
 
-		this.list.addHeader(section("camera"));
+		this.addHeader(section("camera"));
 		this.list.addBig(OptionInstance.createBoolean(KEY + "third_person", tooltip("third_person"), c.thirdPersonOnMount, v -> {
 			c.thirdPersonOnMount = v;
 			HorseConfig.apply();
@@ -77,13 +146,13 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 			}
 		}
 
-		this.list.addHeader(section("comfort"));
+		this.addHeader(section("comfort"));
 		this.list.addSmall(
 			percent("view_bob", 0, 100, c.viewBob, v -> c.viewBob = v),
 			percent("hand_bob", 0, 100, c.handBob, v -> c.handBob = v)
 		);
 
-		this.list.addHeader(section("sound"));
+		this.addHeader(section("sound"));
 		this.list.addBig(percent("horse_sounds", 0, 100, c.horseSounds, v -> c.horseSounds = v));
 
 		this.addHatOptions(c);
@@ -92,17 +161,23 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	/** Supporters wear a cowboy hat and pick its colour; everyone else hears how to get one. */
 	private void addHatOptions(final HorseConfig c) {
 		if (!Hats.canWear()) {
-			this.list.addHeader(section("hat"));
-			this.list.addBig(Button.builder(Component.translatable(KEY + "hat.support"), ConfirmLinkScreen.confirmLink(this, SUPPORT, true))
+			this.addHeader(section("hat"));
+			//? if >=1.21 {
+			final Button.OnPress open = ConfirmLinkScreen.confirmLink(this, SUPPORT, true);
+			//?} elif >=1.20.3 {
+			/*final Button.OnPress open = ConfirmLinkScreen.confirmLink(this, SUPPORT.toString());
+			*///?} else
+			/*final Button.OnPress open = ConfirmLinkScreen.confirmLink(SUPPORT.toString(), this, true);*/
+			this.addWide(Button.builder(Component.translatable(KEY + "hat.support"), open)
 				.tooltip(Tooltip.create(Component.translatable(KEY + "hat.support.tooltip"))).build());
 			return;
 		}
-		this.list.addHeader(section("hat_supporter"));
+		this.addHeader(section("hat_supporter"));
 		this.list.addBig(OptionInstance.createBoolean(KEY + "hat", tooltip("hat"), c.hat, v -> {
 			c.hat = v;
 			Hats.sendOwn();
 		}));
-		this.list.addBig(new HatPaletteWidget(310, c.hatColor, color -> {
+		this.addWide(new HatPaletteWidget(310, c.hatColor, color -> {
 			c.hatColor = color;
 			Hats.sendOwn();
 			this.rebuildWidgets();
@@ -117,6 +192,25 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		);
 	}
 
+	/** A heading row (before 1.21.11 the list has no headings; the text goes in a row of its own). */
+	private void addHeader(final Component text) {
+		//? if >=1.21.11 {
+		this.list.addHeader(text);
+		//?} else {
+		/*this.list.addSmall(new StringWidget(310, 20, text, this.font), null);
+		*///?}
+	}
+
+	/** A full-width widget in its own row (before 26.2 the list only took options as big rows, so it is a lone small one). */
+	private void addWide(final AbstractWidget widget) {
+		//? if >=26.2 {
+		this.list.addBig(widget);
+		//?} else {
+		/*widget.setWidth(310);
+		this.list.addSmall(widget, null);
+		*///?}
+	}
+
 	/** A hat colour slider: changes the colour live (sent to the server when the screen closes). */
 	private static OptionInstance<Integer> slider(final String id, final int min, final int max, final int value, final String unit, final IntConsumer set) {
 		return new OptionInstance<>(
@@ -128,14 +222,27 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		);
 	}
 
+	//? if >=1.20.5 {
 	@Override
 	protected void addFooter() {
 		final LinearLayout footer = this.layout.addToFooter(LinearLayout.horizontal().spacing(8));
-		footer.addChild(Button.builder(Component.translatable(KEY + "reset"), button -> {
-			HorseConfig.reset();
-			this.minecraft.gui.setScreen(new HorseSettingsScreen(this.lastScreen));
-		}).width(150).build());
+		footer.addChild(Button.builder(Component.translatable(KEY + "reset"), button -> this.reset()).width(150).build());
 		footer.addChild(Button.builder(CommonComponents.GUI_DONE, button -> this.onClose()).width(150).build());
+	}
+	//?} else {
+	/*private void addFooter() {
+		final int top = this.height - 27;
+		this.addRenderableWidget(Button.builder(Component.translatable(KEY + "reset"), button -> this.reset()).bounds(this.width / 2 - 154, top, 150, 20).build());
+		this.addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, button -> this.onClose()).bounds(this.width / 2 + 4, top, 150, 20).build());
+	}
+	*///?}
+
+	private void reset() {
+		HorseConfig.reset();
+		//? if >=26.2 {
+		this.minecraft.gui.setScreen(new HorseSettingsScreen(this.lastScreen));
+		//?} else
+		/*this.minecraft.setScreen(new HorseSettingsScreen(this.lastScreen));*/
 	}
 
 	@Override
@@ -146,7 +253,10 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	}
 
 	private static Component section(final String id) {
+		//? if >=1.20.3 {
 		return Component.translatable(KEY + "section." + id).withColor(SECTION_COLOR);
+		//?} else
+		/*return Component.translatable(KEY + "section." + id).withStyle(Style.EMPTY.withColor(SECTION_COLOR));*/
 	}
 
 	private static <T> OptionInstance.TooltipSupplier<T> tooltip(final String id) {

@@ -4,6 +4,10 @@ pluginManagement {
 			name = 'Fabric'
 			url = 'https://maven.fabricmc.net/'
 		}
+		maven {
+			name = 'KikuGie Releases'
+			url = 'https://maven.kikugie.dev/releases'
+		}
 		mavenCentral()
 		gradlePluginPortal()
 	}
@@ -11,9 +15,26 @@ pluginManagement {
 
 // Minecraft 26.x needs JDK 25. gradle/gradle-daemon-jvm.properties asks for it; this plugin downloads one when the
 // machine has none (installed JDKs are found automatically, or listed in ~/.gradle/gradle.properties under
-// org.gradle.java.installations.paths).
+// org.gradle.java.installations.paths). Older Minecraft versions are compiled for their own Java (17 or 21) by the
+// same JDK.
+//
+// Stonecutter builds one jar per Minecraft version from the shared src/ (version-specific code sits in //? comments;
+// each version's dependency numbers are in versions/<version>/gradle.properties). loom-back-compat picks the right
+// Fabric Loom: plain for 26.x (unobfuscated), remapping with Mojang names before that.
 plugins {
 	id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+	id 'dev.kikugie.stonecutter' version '0.9.8'
+	id 'dev.kikugie.loom-back-compat' version '0.4.2'
+}
+
+stonecutter {
+	kotlinController = false
+	centralScript = 'build.gradle'
+	create(getRootProject()) {
+		// One node per group of Minecraft versions that share a jar (ranges in each node's gradle.properties).
+		versions '26.3', '26.2', '26.1.2', '1.21.11', '1.21.10', '1.21.8', '1.21.5', '1.21.4', '1.21.3', '1.21.1', '1.20.6', '1.20.4', '1.20.2', '1.20.1'
+		vcsVersion = '26.3'
+	}
 }
 
 rootProject.name = 'horsing-around'

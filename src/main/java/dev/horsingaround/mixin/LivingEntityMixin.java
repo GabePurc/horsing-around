@@ -1,5 +1,7 @@
 package dev.horsingaround.mixin;
 
+//? if <1.21.11
+/*import com.llamalad7.mixinextras.injector.ModifyExpressionValue;*/
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import dev.horsingaround.ride.Mounts;
@@ -21,10 +23,16 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 @Mixin(value = LivingEntity.class, priority = 1500)
 abstract class LivingEntityMixin {
 	/** A player-ridden horse's collision box is narrowed to about its body's real width (vanilla's is a 1.4-block square). */
+	//? if >=1.20.5 {
 	@ModifyReturnValue(method = "getDefaultDimensions", at = @At("RETURN"))
+	//?} else
+	/*@ModifyReturnValue(method = "getDimensions", at = @At("RETURN"))*/
 	private EntityDimensions horsingaround$riddenWidth(final EntityDimensions dimensions) {
 		if ((Object) this instanceof RideStateHolder holder && holder.horsingaround$ride().narrow) {
+			//? if >=1.20.5 {
 			return new EntityDimensions(dimensions.width() * RideTuning.RIDDEN_WIDTH_SCALE, dimensions.height(), dimensions.eyeHeight(), dimensions.attachments(), dimensions.fixed());
+			//?} else
+			/*return new EntityDimensions(dimensions.width * RideTuning.RIDDEN_WIDTH_SCALE, dimensions.height, dimensions.fixed);*/
 		}
 		return dimensions;
 	}
@@ -34,7 +42,14 @@ abstract class LivingEntityMixin {
 	 * cadence believable and lets Fresh Animations pick the matching walk, trot or gallop cycle. In the air (a jump or a
 	 * bigger fall) the stride stops: the legs take the jump's shape instead (see the equine model mixin).
 	 */
-	@ModifyArg(method = "updateWalkAnimation", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/WalkAnimationState;update(FFF)V"), index = 0)
+	@ModifyArg(
+		method = "updateWalkAnimation",
+		//? if >=1.21.2 {
+		at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/WalkAnimationState;update(FFF)V"),
+		//?} else
+		/*at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/WalkAnimationState;update(FF)V"),*/
+		index = 0
+	)
 	private float horsingaround$gaitStride(final float targetSpeed, @Local(argsOnly = true) final float distance) {
 		if (!((Object) this instanceof RideStateHolder holder) || !holder.horsingaround$playerRidden()) {
 			return targetSpeed;
@@ -47,7 +62,14 @@ abstract class LivingEntityMixin {
 		return Math.min(distance / topSpeed * RideTuning.ANIMATION_SPEED_FACTOR, 1.0F);
 	}
 
-	@ModifyArg(method = "updateWalkAnimation", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/WalkAnimationState;update(FFF)V"), index = 1)
+	@ModifyArg(
+		method = "updateWalkAnimation",
+		//? if >=1.21.2 {
+		at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/WalkAnimationState;update(FFF)V"),
+		//?} else
+		/*at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/WalkAnimationState;update(FF)V"),*/
+		index = 1
+	)
 	private float horsingaround$airStride(final float factor) {
 		return (Object) this instanceof RideStateHolder holder && holder.horsingaround$ride().inAir && holder.horsingaround$playerRidden()
 			&& !((LivingEntity) (Object) this).onGround() ? RideTuning.AIR_STRIDE_STOP : factor;
@@ -58,7 +80,10 @@ abstract class LivingEntityMixin {
 	 * floats when swimming, instead of vanilla's water physics, which stop it dead in any depth. A skeleton horse keeps
 	 * vanilla's and walks along the bottom.
 	 */
+	//? if >=1.21.11 {
 	@ModifyReturnValue(method = "shouldTravelInFluid", at = @At("RETURN"))
+	//?} else
+	/*@ModifyExpressionValue(method = "travel", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;isAffectedByFluids()Z"))*/
 	private boolean horsingaround$ownWaterPhysics(final boolean vanilla) {
 		if (!vanilla || !((Object) this instanceof RideStateHolder holder) || !holder.horsingaround$playerRidden()) {
 			return vanilla;

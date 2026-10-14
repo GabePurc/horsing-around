@@ -338,7 +338,10 @@ public final class Awareness {
 		cellZ0 = Mth.floor(horse.getZ()) - CELLS / 2;
 		planStamp++;
 		// How the ground under it grips (as vanilla moves an entity), and how it is moving now, along and across the line.
+		//? if >=1.21 {
 		wayGrip = horse.level().getBlockState(horse.getBlockPosBelowThatAffectsMyMovement()).getBlock().getFriction() * 0.91F;
+		//?} else
+		/*wayGrip = horse.level().getBlockState(((RideStateHolder) horse).horsingaround$blockBelow()).getBlock().getFriction() * 0.91F;*/
 		final Vec3 moving = horse.getDeltaMovement();
 		wayVelU = (float) (moving.x * wayFx + moving.z * wayFz);
 		wayVelV = (float) (-moving.x * wayFz + moving.z * wayFx);
@@ -858,7 +861,7 @@ public final class Awareness {
 	 * and returns the speed that brakes to that in time. A slope is taken at a pace, never at a cost. Quiet: no snort.
 	 */
 	private static float descent(final AbstractHorse horse, final RideState s, final double fall, final float decel, final float blocksPerUnit) {
-		final double gravity = horse.getGravity();
+		final double gravity = Vanilla.gravity(horse);
 		final float speed = Math.max(s.speed, 0.0F) * blocksPerUnit;
 		float limit = Float.MAX_VALUE;
 		double previous = profileOrigin;
@@ -1161,8 +1164,8 @@ public final class Awareness {
 	 * nothing at CAUTIOUS_HEALTH.
 	 */
 	public static double acceptableFall(final AbstractHorse horse) {
-		final double safe = horse.getAttributeValue(Attributes.SAFE_FALL_DISTANCE);
-		final double multiplier = Math.max(horse.getAttributeValue(Attributes.FALL_DAMAGE_MULTIPLIER), 1.0E-3);
+		final double safe = Vanilla.safeFall(horse);
+		final double multiplier = Math.max(Vanilla.fallDamageMultiplier(horse), 1.0E-3);
 		final double horseAllowance = allowance(horse);
 		final LivingEntity rider = horse.getControllingPassenger();
 		final double riderAllowance = rider == null ? 0.0 : allowance(rider) * RIDER_FALL_HURT_ALLOWANCE / FALL_HURT_ALLOWANCE;
@@ -1180,11 +1183,11 @@ public final class Awareness {
 
 	/** The longest fall that doesn't hurt the horse at all (damage is rounded down), so a rider isn't hurt either. */
 	static double harmlessFall(final AbstractHorse horse) {
-		return horse.getAttributeValue(Attributes.SAFE_FALL_DISTANCE) + 1.0 / Math.max(horse.getAttributeValue(Attributes.FALL_DAMAGE_MULTIPLIER), 1.0E-3) - 0.05;
+		return Vanilla.safeFall(horse) + 1.0 / Math.max(Vanilla.fallDamageMultiplier(horse), 1.0E-3) - 0.05;
 	}
 
 	private static double riderHurt(final LivingEntity rider, final double fall) {
-		return Math.floor(Math.max(fall - rider.getAttributeValue(Attributes.SAFE_FALL_DISTANCE), 0.0) * rider.getAttributeValue(Attributes.FALL_DAMAGE_MULTIPLIER));
+		return Math.floor(Math.max(fall - Vanilla.safeFall(rider), 0.0) * Vanilla.fallDamageMultiplier(rider));
 	}
 
 	/** Hurt (health points) a fall may cost: all of FALL_HURT_ALLOWANCE when healthy, shrinking to none when low. */
@@ -1757,7 +1760,7 @@ public final class Awareness {
 		probe(horse, horse.getX(), horse.getY(), horse.getZ(), horse.getYRot(), LOOK_AHEAD_MAX, fall, side);
 		final float forward = speed > 0.0F ? speed + JUMP_FORWARD_BOOST * power : 0.0F;
 		final double launch = Math.max(horse.getAttributeValue(Attributes.JUMP_STRENGTH) * power, JUMP_MIN_VELOCITY);
-		return flight(0.0, horse.getY(), forward, launch, horse.getGravity()) > fall;
+		return flight(0.0, horse.getY(), forward, launch, Vanilla.gravity(horse)) > fall;
 	}
 
 	/** The horse plants its feet: a snort and a toss of the head, not too often. */

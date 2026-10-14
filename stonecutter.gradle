@@ -1,0 +1,108 @@
+plugins {
+	id 'dev.kikugie.stonecutter'
+}
+
+// The version src/ is currently written for (what the IDE sees). Switch with the "Set active project to <version>"
+// tasks; commit with it back on 26.3.
+stonecutter.active '26.3'
+
+// Class renames that only differ by name; real differences use //? conditionals (docs/porting.md).
+stonecutter.parameters {
+	// 26.2 split the HUD out of Gui (the HUD class was Gui) and dropped "Renderer" from the contextual bars.
+	replacements.regex(current.parsed.matches('<26.2')) {
+		replace '\\bHud\\b', 'Gui', '\\bGui\\b', 'Hud'
+		replace '\\bContextualBar\\b', 'ContextualBarRenderer', '\\bContextualBarRenderer\\b', 'ContextualBar'
+		replace '\\bJumpableVehicleBar\\b', 'JumpableVehicleBarRenderer', '\\bJumpableVehicleBarRenderer\\b', 'JumpableVehicleBar'
+	}
+	// Fabric API renamed the payload registries for 26.1.
+	replacements.string(current.parsed.matches('<26.1')) {
+		replace 'PayloadTypeRegistry.clientboundPlay()', 'PayloadTypeRegistry.playS2C()'
+		replace 'PayloadTypeRegistry.serverboundPlay()', 'PayloadTypeRegistry.playC2S()'
+	}
+	// Fabric API renamed some client classes for 26.1.
+	replacements.string(current.parsed.matches('<26.1')) {
+		replace 'client.keymapping.v1.KeyMappingHelper', 'client.keybinding.v1.KeyBindingHelper'
+		replace 'KeyMappingHelper', 'KeyBindingHelper'
+		replace 'registerKeyMapping(', 'registerKeyBinding('
+		replace 'LivingEntityRenderLayerRegistrationCallback', 'LivingEntityFeatureRendererRegistrationCallback'
+		replace 'ModelLayerRegistry', 'EntityModelLayerRegistry'
+	}
+	// 26.1 renamed the GUI drawing class and its render methods ("extract" because drawing now builds a render state).
+	replacements.string(current.parsed.matches('<26.1')) {
+		replace 'GuiGraphicsExtractor', 'GuiGraphics'
+		replace 'extractWidgetRenderState', 'renderWidget'
+		replace 'extractBackground', 'renderBackground'
+	}
+	replacements.string(current.parsed.matches('<26.1')) {
+		replace 'renderer.state.level.CameraRenderState', 'renderer.state.CameraRenderState'
+		replace 'renderer/state/level/CameraRenderState', 'renderer/state/CameraRenderState'
+	}
+	// 1.21.11 renamed ResourceLocation to Identifier, moved the horses into an "equine" package and the chicken into its
+	// own, and started annotating with JSpecify.
+	replacements.regex(current.parsed.matches('<1.21.11')) {
+		replace '\\bIdentifier\\b', 'ResourceLocation', '\\bResourceLocation\\b', 'Identifier'
+	}
+	replacements.string(current.parsed.matches('<1.21.11')) {
+		replace 'client.model.animal.equine.AbstractEquineModel', 'client.model.AbstractEquineModel'
+		replace 'client.model.player.PlayerModel', 'client.model.PlayerModel'
+		replace 'client.renderer.rendertype.RenderTypes', 'client.renderer.RenderType'
+		replace 'RenderTypes.entityCutout(', 'RenderType.entityCutout('
+		replace 'animal.equine.', 'animal.horse.'
+		replace 'animal.chicken.Chicken', 'animal.Chicken'
+		replace 'org.jspecify.annotations.Nullable', 'org.jetbrains.annotations.Nullable'
+	}
+	// 1.21.9 made the player an "avatar" (and gave the player renderer a generic). One way only: the way back must never
+	// match (26.3 has a PlayerRenderState of its own, and other 26.x code names AbstractClientPlayer).
+	replacements.regex(current.parsed.matches('<1.21.9')) {
+		replace '\\bAvatarRenderState\\b', 'PlayerRenderState', '(?!)', 'unused'
+		replace '\\bAvatarRenderer\\b', 'PlayerRenderer', '(?!)', 'unused'
+		replace 'AvatarRenderer<\\?>', 'PlayerRenderer', '(?!)', 'unused'
+		replace 'net\\.minecraft\\.world\\.entity\\.Avatar;', 'net.minecraft.client.player.AbstractClientPlayer;', '(?!)', 'unused'
+		replace 'net/minecraft/world/entity/Avatar;', 'net/minecraft/client/player/AbstractClientPlayer;', '(?!)', 'unused'
+		replace 'final Avatar entity', 'final AbstractClientPlayer entity', '(?!)', 'unused'
+		replace '\\(\\(Model<\\?>\\) \\(Object\\) this\\)', '((Model) (Object) this)', '(?!)', 'unused'
+	}
+	// Before 1.21.2 there are no entity render states: the mod's own stand-ins (client/render/state/) take their place, filled
+	// from the entity by the renderer mixin. One way only, like the Avatar ones.
+	replacements.regex(current.parsed.matches('<1.21.2')) {
+		replace 'net\\.minecraft\\.client\\.renderer\\.entity\\.state\\.', 'dev.horsingaround.client.render.state.', '(?!)', 'unused'
+		replace '\\bItemUseAnimation\\b', 'UseAnim', '(?!)', 'unused'
+		// (A model part's pose was a class with fields, not a record.)
+		replace '\\b(initial|pose|getInitialPose\\(\\))\\.(x|y|z|xRot|yRot|zRot)\\(\\)', '$1.$2', '(?!)', 'unused'
+		replace 'net\\.minecraft\\.world\\.entity\\.player\\.Input;', 'dev.horsingaround.ride.Input;', '(?!)', 'unused'
+	}
+	// The game's clock lived under another name in 1.21.1, and before 1.21 had no delta tracker (the partial tick of the game
+	// clock is the frame's, then).
+	replacements.string(current.parsed.matches('>=1.21 <1.21.2')) {
+		replace 'getDeltaTracker()', 'getTimer()'
+	}
+	replacements.regex(current.parsed.matches('<1.21')) {
+		replace 'getDeltaTracker\\(\\)\\.getGameTimeDeltaPartialTick\\(true\\)', 'getFrameTime()', '(?!)', 'unused'
+	}
+	// Before 1.21 a resource location was made with a constructor, and the options screens were not in a package of their own.
+	replacements.regex(current.parsed.matches('<1.21')) {
+		replace 'gui\\.screens\\.options\\.OptionsSubScreen', 'gui.screens.OptionsSubScreen', '(?!)', 'unused'
+		replace '\\b(Identifier|ResourceLocation)\\.(fromNamespaceAndPath|withDefaultNamespace)\\(', 'new ResourceLocation(', '(?!)', 'unused'
+	}
+	// Before 1.20.5 an entity renderer's rotation set-up had no scale argument (the game's own scale entity attribute came with 1.20.5).
+	replacements.regex(current.parsed.matches('<1.20.5')) {
+		replace 'PoseStack;FFFF\\)V', 'PoseStack;FFF)V', '(?!)', 'unused'
+	}
+	// 1.20.2 added the collision test that looks at blocks only (Vanilla has it for the versions before).
+	replacements.regex(current.parsed.matches('<1.20.2')) {
+		replace '\\blevel\\.noBlockCollision\\(', 'Vanilla.noBlockCollision(level, ', '(?!)', 'unused'
+	}
+	// The camera started keeping the frame's partial tick in 1.20.3 (nothing reads it before).
+	replacements.regex(current.parsed.matches('<1.20.3')) {
+		replace 'this\\.partialTickTime = partialTicks;', '// (the camera keeps no partial tick yet)', '(?!)', 'unused'
+	}
+	// 1.20.3 gave lists a position and a height; before, they had a top and a bottom and a width of their own.
+	replacements.regex(current.parsed.matches('<1.20.3')) {
+		replace 'super\\(minecraft, width, height - 64, 32, 25\\)', 'super(minecraft, width, height, 32, height - 32, 25)', '(?!)', 'unused'
+	}
+	// 1.21.5 reworked who simulates a controlled entity; for a horse a player rides or nobody rides it comes to the same
+	// answer as the older name.
+	replacements.string(current.parsed.matches('<1.21.5')) {
+		replace 'isLocalInstanceAuthoritative', 'isControlledByLocalInstance'
+	}
+}

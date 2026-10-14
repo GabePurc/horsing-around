@@ -1,3 +1,4 @@
+//? if >=1.21 {
 package dev.horsingaround.client.compat;
 
 import dev.horsingaround.ride.RideState;
@@ -239,3 +240,4 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		s.animatedAt = now;
 	}
 }
+//?}

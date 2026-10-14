@@ -4,6 +4,10 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import dev.horsingaround.client.render.RidePoseState;
 import dev.horsingaround.ride.RideState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+//? if <1.21.11 {
+/*import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.item.ItemStack;
+*///?}
 import org.joml.Quaternionf;
 import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
@@ -99,6 +103,32 @@ public class LivingEntityRenderStateMixin implements RidePoseState {
 		this.horsingaround$legRoll = legRoll;
 		this.horsingaround$twist = twistRadians;
 	}
+
+	//? if <1.21.11 {
+	/*@Unique
+	private ItemStack horsingaround$heldRight = ItemStack.EMPTY;
+	@Unique
+	private ItemStack horsingaround$heldLeft = ItemStack.EMPTY;
+	@Unique
+	private float horsingaround$usingTicks;
+
+	@Override
+	public void horsingaround$setHeld(final ItemStack right, final ItemStack left, final float usingTicks) {
+		this.horsingaround$heldRight = right;
+		this.horsingaround$heldLeft = left;
+		this.horsingaround$usingTicks = usingTicks;
+	}
+
+	@Override
+	public ItemStack horsingaround$held(final HumanoidArm arm) {
+		return arm == HumanoidArm.RIGHT ? this.horsingaround$heldRight : this.horsingaround$heldLeft;
+	}
+
+	@Override
+	public float horsingaround$usingTicks() {
+		return this.horsingaround$usingTicks;
+	}
+	*///?}
 
 	@Override
 	public boolean horsingaround$isRider() {

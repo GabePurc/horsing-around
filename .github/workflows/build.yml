@@ -1,4 +1,4 @@
-# Builds the mod on a clean Linux machine for every push and pull request; the jar is attached to the run.
+# Builds the mod on a clean Linux machine for every push and pull request; the jars (one per Minecraft version) are attached to the run.
 name: build
 on: [push, pull_request, workflow_dispatch]
 
@@ -16,4 +16,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: jars
-          path: build/libs/
+          path: versions/*/build/libs/*.jar

@@ -5,13 +5,26 @@ import static dev.horsingaround.ride.RideTuning.*;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.entity.state.HumanoidRenderState;
+//? if >=1.20.5
 import net.minecraft.core.component.DataComponents;
+//? if >=1.21.11
 import net.minecraft.util.Ease;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LivingEntity;
+//? if <1.20.5
+/*import net.minecraft.world.item.Item;*/
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemUseAnimation;
 import net.minecraft.world.item.ProjectileWeaponItem;
+//? if <1.20.5 {
+/*import net.minecraft.world.item.ShearsItem;
+import net.minecraft.world.item.TieredItem;
+*///?}
+//? if <1.21.5
+/*import net.minecraft.world.item.TridentItem;*/
+//? if >=1.21.11
 import net.minecraft.world.item.SwingAnimationType;
 import org.joml.Vector3f;
 import org.jspecify.annotations.Nullable;
@@ -68,14 +81,15 @@ public final class RiderPose {
 
 		final float twist = rider.horsingaround$twist();
 		final float handBob = rider.horsingaround$handBob();
-		final boolean swinging = state.swingAnimation > 0.0F && state.currentSwing != null;
-		final HumanoidArm swingArm = swinging ? state.currentSwing.hand().asArm(state.mainArm) : null;
-		final SwingAnimationType swingType = swinging ? state.currentSwing.animation().type() : SwingAnimationType.NONE;
-		final HumanoidArm usingArm = state.isUsingItem ? state.useItemHand.asArm(state.mainArm) : null;
+		final HumanoidArm swingArm = swingArm(state);
+		final SwingAnimationType swingType = swingArm != null ? swingType(state) : SwingAnimationType.NONE;
+		final HumanoidArm usingArm = state.isUsingItem ? (state.useItemHand == InteractionHand.MAIN_HAND ? state.mainArm : state.mainArm.getOpposite()) : null;
 
 		// A bow drawn, or just loosed: both hands on it.
-		HumanoidArm bowArm = state.rightArmPose == HumanoidModel.ArmPose.BOW_AND_ARROW ? HumanoidArm.RIGHT
-			: state.leftArmPose == HumanoidModel.ArmPose.BOW_AND_ARROW ? HumanoidArm.LEFT : null;
+		final HumanoidModel.ArmPose rightPose = armPose(model, state, HumanoidArm.RIGHT);
+		final HumanoidModel.ArmPose leftPose = armPose(model, state, HumanoidArm.LEFT);
+		HumanoidArm bowArm = rightPose == HumanoidModel.ArmPose.BOW_AND_ARROW ? HumanoidArm.RIGHT
+			: leftPose == HumanoidModel.ArmPose.BOW_AND_ARROW ? HumanoidArm.LEFT : null;
 		final float release = bowArm == null ? rider.horsingaround$bowRelease() : 0.0F;
 		if (release > 0.0F) {
 			bowArm = bowHeld(state);
@@ -84,7 +98,7 @@ public final class RiderPose {
 			bow(model, state, rider, bowArm, twist, handBob, release);
 			return;
 		}
-		if (state.rightArmPose.isTwoHanded() || state.leftArmPose.isTwoHanded()) {
+		if (rightPose.isTwoHanded() || leftPose.isTwoHanded()) {
 			crossbow(model, state, twist);
 			return;
 		}
@@ -143,8 +157,11 @@ public final class RiderPose {
 		if (whack) {
 			// Vanilla's swing, played from where the arm rests, so it starts and ends there.
 			final ModelPart part = side == HumanoidArm.LEFT ? model.leftArm : model.rightArm;
-			final float swing = state.swingAnimation;
+			final float swing = swing(state);
+			//? if >=1.21.11 {
 			final float lift = Mth.sin(Ease.outQuart(swing) * Mth.PI);
+			//?} else
+			/*final float lift = Mth.sin((1.0F - Mth.square(Mth.square(1.0F - swing))) * Mth.PI);*/
 			final float reach = Mth.sin(swing * Mth.PI) * -(model.head.xRot - 0.7F) * 0.75F;
 			part.xRot -= lift * 1.2F + reach;
 			part.yRot += swingYaw * 2.0F;
@@ -157,13 +174,13 @@ public final class RiderPose {
 	 * holds a tool or weapon out ready (in the main hand); false for any other pose.
 	 */
 	private static boolean rest(final HumanoidModel<?> model, final HumanoidRenderState state, final HumanoidArm side, final float twist, final float handBob) {
-		final HumanoidModel.ArmPose pose = state.getArmPose(side);
+		final HumanoidModel.ArmPose pose = armPose(model, state, side);
 		if (pose != HumanoidModel.ArmPose.EMPTY && pose != HumanoidModel.ArmPose.ITEM && pose != HumanoidModel.ArmPose.BOW_AND_ARROW) {
 			return false;
 		}
 		final boolean left = side == HumanoidArm.LEFT;
 		final ModelPart part = left ? model.leftArm : model.rightArm;
-		if (side == state.mainArm && pose != HumanoidModel.ArmPose.EMPTY && weapon(state.getUseItemStackForArm(side))) {
+		if (side == state.mainArm && pose != HumanoidModel.ArmPose.EMPTY && weapon(held(state, side))) {
 			part.xRot = -READY_ARM_FORWARD + handBob;
 			part.yRot = (left ? -READY_ARM_YAW : READY_ARM_YAW) + twist;
 			part.zRot = left ? -READY_ARM_OUT : READY_ARM_OUT;
@@ -177,12 +194,22 @@ public final class RiderPose {
 
 	/** A tool or a weapon (a sword, an axe, a pickaxe, a mace, a trident, a spear, a bow...), held out ready off the reins. */
 	private static boolean weapon(final ItemStack stack) {
-		return stack.has(DataComponents.TOOL) || stack.has(DataComponents.WEAPON) || stack.getItem() instanceof ProjectileWeaponItem;
+		//? if >=1.20.5 {
+		return stack.has(DataComponents.TOOL)
+			//? if >=1.21.5
+			|| stack.has(DataComponents.WEAPON)
+			//? if <1.21.5
+			/*|| stack.getItem() instanceof TridentItem*/
+			|| stack.getItem() instanceof ProjectileWeaponItem;
+		//?} else {
+		/*final Item item = stack.getItem();
+		return item instanceof TieredItem || item instanceof ShearsItem || item instanceof TridentItem || item instanceof ProjectileWeaponItem;
+		*///?}
 	}
 
 	/** The torso's turn in a whack, as vanilla swings it (mirrored for the left arm). */
 	private static float swingYaw(final HumanoidRenderState state, final @Nullable HumanoidArm swingArm) {
-		final float yaw = Mth.sin(Mth.sqrt(state.swingAnimation) * Mth.TWO_PI) * 0.2F;
+		final float yaw = Mth.sin(Mth.sqrt(swing(state)) * Mth.TWO_PI) * 0.2F;
 		return swingArm == HumanoidArm.LEFT ? -yaw : yaw;
 	}
 
@@ -199,10 +226,10 @@ public final class RiderPose {
 	/** The hand holding a bow, if one does (the main hand first). */
 	private static @Nullable HumanoidArm bowHeld(final HumanoidRenderState state) {
 		final HumanoidArm main = state.mainArm;
-		if (state.getUseItemStackForArm(main).getUseAnimation() == ItemUseAnimation.BOW) {
+		if (held(state, main).getUseAnimation() == ItemUseAnimation.BOW) {
 			return main;
 		}
-		return state.getUseItemStackForArm(main.getOpposite()).getUseAnimation() == ItemUseAnimation.BOW ? main.getOpposite() : null;
+		return held(state, main.getOpposite()).getUseAnimation() == ItemUseAnimation.BOW ? main.getOpposite() : null;
 	}
 
 	/** How far a bow is drawn after {@code ticks} of drawing, 0..1: the bow's own power curve (full at BOW_FULL_DRAW_TICKS). */
@@ -235,8 +262,9 @@ public final class RiderPose {
 			flick = Math.min(since / BOW_FLICK_SHARE, 1.0F);
 			up = 1.0F - smoothstep((since - BOW_HOLD_SHARE) / (1.0F - BOW_HOLD_SHARE));
 		} else {
-			pull = pull(state.ticksUsingItem);
-			up = smoothstep(state.ticksUsingItem / BOW_RAISE_TICKS);
+			final float drawn = drawTicks(state);
+			pull = pull(drawn);
+			up = smoothstep(drawn / BOW_RAISE_TICKS);
 			flick = 0.0F;
 		}
 		// Where each arm rests, to come up from (and go back down to).
@@ -259,12 +287,12 @@ public final class RiderPose {
 		along(HAND, bowX, bowY, ARM_REACH - BOW_NOCK).add(bow.x, bow.y, bow.z);
 		ANCHOR.set(side * BOW_ANCHOR_X, BOW_ANCHOR_Y, BOW_ANCHOR_Z).rotateX(aimPitch).rotateY(aimYaw).add(model.head.x, model.head.y, model.head.z);
 		// The string hand from the nock toward the anchor as it draws, flying back past it when loosed.
-		final float draw = Mth.length(ANCHOR.x - HAND.x, ANCHOR.y - HAND.y, ANCHOR.z - HAND.z);
+		final float draw = Mth.sqrt(Mth.square(ANCHOR.x - HAND.x) + Mth.square(ANCHOR.y - HAND.y) + Mth.square(ANCHOR.z - HAND.z));
 		final float back = draw < 1.0E-3F ? 0.0F : BOW_FLICK * flick * pull / draw;
 		final float tx = Mth.lerp(pull, HAND.x, ANCHOR.x) + (ANCHOR.x - HAND.x) * back - string.x;
 		final float ty = Mth.lerp(pull, HAND.y, ANCHOR.y) + (ANCHOR.y - HAND.y) * back - string.y;
 		final float tz = Mth.lerp(pull, HAND.z, ANCHOR.z) + (ANCHOR.z - HAND.z) * back - string.z;
-		final float length = Mth.length(tx, ty, tz);
+		final float length = Mth.sqrt(tx * tx + ty * ty + tz * tz);
 		final float stringX = -(float) Math.acos(Mth.clamp(ty / Math.max(length, 1.0E-3F), -1.0F, 1.0F));
 		final float stringY = (float) Mth.atan2(-tx, -tz);
 		bow.xRot = Mth.lerp(up, restBowX, bowX);
@@ -289,7 +317,7 @@ public final class RiderPose {
 	 * carried on top of that pointed them past it); loading, in front of the turned torso.
 	 */
 	private static void crossbow(final HumanoidModel<?> model, final HumanoidRenderState state, final float twist) {
-		if (state.rightArmPose == HumanoidModel.ArmPose.CROSSBOW_HOLD || state.leftArmPose == HumanoidModel.ArmPose.CROSSBOW_HOLD) {
+		if (armPose(model, state, HumanoidArm.RIGHT) == HumanoidModel.ArmPose.CROSSBOW_HOLD || armPose(model, state, HumanoidArm.LEFT) == HumanoidModel.ArmPose.CROSSBOW_HOLD) {
 			shoulders(model, state, Mth.clamp(model.head.yRot, -BOW_TWIST_MAX, BOW_TWIST_MAX));
 		} else {
 			shoulders(model, state, twist);
@@ -302,4 +330,80 @@ public final class RiderPose {
 		final float x = Mth.clamp(t, 0.0F, 1.0F);
 		return x * x * (3.0F - 2.0F * x);
 	}
+
+	/** The pose of an arm, as the render state has it (1.21.2 and 1.21.3: the model works it out from the state; before, it keeps it). */
+	private static HumanoidModel.ArmPose armPose(final HumanoidModel<?> model, final HumanoidRenderState state, final HumanoidArm side) {
+		//? if >=1.21.4 {
+		return side == HumanoidArm.LEFT ? state.leftArmPose : state.rightArmPose;
+		//?} elif >=1.21.2 {
+		/*return ((ArmPoseSource) model).horsingaround$armPose(state, side);
+		*///?} else
+		/*return side == HumanoidArm.LEFT ? model.leftArmPose : model.rightArmPose;*/
+	}
+
+	/** The stack in an arm, as the render state has it (before 1.21.11, as noted when the state was extracted). */
+	private static ItemStack held(final HumanoidRenderState state, final HumanoidArm side) {
+		//? if >=1.21.11 {
+		return state.getUseItemStackForArm(side);
+		//?} else
+		/*return ((RidePoseState) state).horsingaround$held(side);*/
+	}
+
+	/** The stack in an entity's arm (what the render state was given before 1.21.11, see {@link #held}). */
+	public static ItemStack heldBy(final LivingEntity entity, final HumanoidArm side) {
+		//? if >=1.21.2 {
+		return entity.getItemHeldByArm(side);
+		//?} else
+		/*return side == entity.getMainArm() ? entity.getMainHandItem() : entity.getOffhandItem();*/
+	}
+
+	/** Ticks the item in use has been drawn, with the part-tick. */
+	private static float drawTicks(final HumanoidRenderState state) {
+		//? if >=1.21.11 {
+		return state.ticksUsingItem;
+		//?} else
+		/*return ((RidePoseState) state).horsingaround$usingTicks();*/
+	}
+
+	/** How long {@code entity} has been using its item, with the part-tick (0 when it isn't). */
+	public static float usingTicks(final LivingEntity entity, final float partialTicks) {
+		//? if >=1.21.11 {
+		return entity.getTicksUsingItem(partialTicks);
+		//?} else
+		/*return entity.isUsingItem() ? entity.getTicksUsingItem() + partialTicks : 0.0F;*/
+	}
+
+	// The arm swing (a whack or a stab), as each Minecraft version keeps it in the render state.
+
+	/** How far through its swing the swinging arm is (0 when not swinging). */
+	private static float swing(final HumanoidRenderState state) {
+		//? if >=26.3 {
+		return state.swingAnimation;
+		//?} else
+		/*return state.attackTime;*/
+	}
+
+	/** The arm swinging, or null. */
+	private static @Nullable HumanoidArm swingArm(final HumanoidRenderState state) {
+		//? if >=26.3 {
+		return state.swingAnimation > 0.0F && state.currentSwing != null ? state.currentSwing.hand().asArm(state.mainArm) : null;
+		//?} else
+		/*return state.attackTime > 0.0F ? state.attackArm : null;*/
+	}
+
+	private static SwingAnimationType swingType(final HumanoidRenderState state) {
+		//? if >=26.3 {
+		return state.currentSwing.animation().type();
+		//?} elif >=1.21.11 {
+		/*return state.swingAnimationType;
+		*///?} else
+		/*return SwingAnimationType.WHACK;*/
+	}
+
+	//? if <1.21.11 {
+	/*// Spears came in 1.21.11: before, every swing is the plain one.
+	private enum SwingAnimationType {
+		NONE, WHACK, STAB
+	}
+	*///?}
 }
