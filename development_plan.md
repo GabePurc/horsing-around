@@ -57,8 +57,8 @@ Still open:
 
 - Publishing: create the Modrinth projects (client required, server required for Horsing Around; client only for the
   add-on), gallery from `build/run/clientGameTest/gallery/`. Uploading is automated: publishing a GitHub release runs
-  `.github/workflows/publish.yml` (`gradle/publish.gradle`, `MODRINTH_TOKEN` secret), which needs `modrinth_project_id`
-  in `gradle.properties` once the project exists.
+  `.github/workflows/publish.yml` (`gradle/publish.gradle`, `MODRINTH_TOKEN` secret) into Modrinth project `Lc7S9t3K`
+  (`modrinth_project_id` in `gradle.properties`).
 - When a pack mod updates or a new popular mod appears, add it to `compatPacks` in `build.gradle` (pin the Modrinth
   version id, not the version number: some mods reuse numbers across Minecraft versions).
 - Known outside our control: Horseman crashes the second in-process server of the client test (its server config
