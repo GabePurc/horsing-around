@@ -6,6 +6,7 @@ Each version's notes are written to paste straight into the Modrinth version pag
 
 ### Fixed
 - The mod no longer refuses to start with "Incompatible mods found" on an older Fabric Loader. It now needs only the Fabric Loader your version's Fabric API needs (0.14.25 or newer on 1.20.1 and 1.20.2, 0.15 on 1.20.4 to 1.21.1), so it works in modpacks that ship an older loader, such as Fabulously Optimized on 1.20.2, 1.20.4 and 1.21.3.
+- On Minecraft 1.20.1 to 1.21.11 the game no longer crashes the moment the riding camera starts.
 
 ## 0.3.0
 
