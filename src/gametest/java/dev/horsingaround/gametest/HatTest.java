@@ -102,14 +102,12 @@ public final class HatTest implements FabricClientGameTest {
 			});
 			ctx.waitTicks(2);
 			check("quick hat changes wait", ctx.computeOnClient(mc -> Hats.relayed(me)) == 0x2B8E2B);
-			ctx.waitTicks(12);
-			check("then the latest one is passed on", ctx.computeOnClient(mc -> Hats.relayed(me)) == 0x2B2B8E);
+			check("then the latest one is passed on", relayedWithin(ctx, me, 0x2B2B8E, 20));
 			ctx.runOnClient(mc -> {
 				HorseConfig.get().hatColor = RED;
 				Hats.sendOwn();
 			});
-			ctx.waitTicks(12);
-			check("and the hat can change back", ctx.computeOnClient(mc -> Hats.relayed(me)) == RED);
+			check("and the hat can change back", relayedWithin(ctx, me, RED, 20));
 			ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
 			ctx.waitTicks(2);
 			screenshot(ctx, "hat_front");
@@ -203,6 +201,17 @@ public final class HatTest implements FabricClientGameTest {
 
 	/** Builds the local player's render state the way the game does each frame. */
 	@SuppressWarnings({"unchecked", "rawtypes"})
+	/** Waits up to {@code ticks} for the server to pass on {@code colour} for {@code player}; whether it did. */
+	private static boolean relayedWithin(final ClientGameTestContext ctx, final UUID player, final int colour, final int ticks) {
+		for (int i = 0; i < ticks; i++) {
+			if (ctx.computeOnClient(mc -> Hats.relayed(player)) == colour) {
+				return true;
+			}
+			ctx.waitTick();
+		}
+		return ctx.computeOnClient(mc -> Hats.relayed(player)) == colour;
+	}
+
 	private static Drawn drawn(final ClientGameTestContext ctx) {
 		return ctx.computeOnClient(mc -> {
 			final EntityRenderer renderer = mc.getEntityRenderDispatcher().getRenderer(mc.player);

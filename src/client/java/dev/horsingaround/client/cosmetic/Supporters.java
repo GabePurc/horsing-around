@@ -9,6 +9,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -30,16 +31,18 @@ public final class Supporters {
 	private static final URI LIST = URI.create("https://raw.githubusercontent.com/GabePurc/horsing-around/main/supporters.json");
 	private static final Path CACHE = FabricLoader.getInstance().getConfigDir().resolve("horsingaround-supporters.json");
 
-	/** Replaced whole when a new list arrives; read from the render thread. */
+	/** Everyone who gets a hat: {@link #listed} plus {@link #testing}. Replaced whole on a change; read from the render thread. */
 	private static volatile Set<UUID> supporters = Set.of();
+	/** The downloaded (or cached) list. */
+	private static Set<UUID> listed = Set.of();
 	/** Players the tests made supporters; kept apart so a download arriving mid-test can't drop them. */
-	private static volatile Set<UUID> testing = Set.of();
+	private static Set<UUID> testing = Set.of();
 
 	private Supporters() {
 	}
 
 	public static boolean isSupporter(final UUID player) {
-		return supporters.contains(player) || testing.contains(player);
+		return supporters.contains(player);
 	}
 
 	/** Loads the cached list, then fetches the current one in the background. */
@@ -47,8 +50,10 @@ public final class Supporters {
 		String cached = null;
 		try {
 			if (Files.exists(CACHE)) {
-				cached = Files.readString(CACHE);
-				supporters = parse(cached);
+				final String text = Files.readString(CACHE);
+				setListed(parse(text));
+				// Only a cache that parsed lets an identical download be skipped.
+				cached = text;
 			}
 		} catch (final IOException | RuntimeException e) {
 			LOGGER.warn("Could not read the cached supporters list", e);
@@ -74,15 +79,8 @@ public final class Supporters {
 			if (body.equals(cached)) {
 				return;
 			}
-			supporters = parse(body);
-			// Written beside the cache and moved over it, so quitting mid-write can't leave half a list.
-			final Path partial = CACHE.resolveSibling(CACHE.getFileName() + ".tmp");
-			try {
-				Files.writeString(partial, body);
-				Files.move(partial, CACHE, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-			} catch (final IOException e) {
-				LOGGER.warn("Couldn't cache the supporters list", e);
-			}
+			setListed(parse(body));
+			writeCache(body);
 		} catch (final IOException e) {
 			LOGGER.info("Couldn't refresh the supporters list ({}); using the cached one", e.toString());
 		} catch (final InterruptedException e) {
@@ -100,6 +98,41 @@ public final class Supporters {
 		}
 	}
 
+	/** Written beside the cache and moved over it, so quitting mid-write can't leave half a list. */
+	private static void writeCache(final String body) {
+		final Path partial = CACHE.resolveSibling(CACHE.getFileName() + ".tmp");
+		try {
+			Files.writeString(partial, body);
+			try {
+				Files.move(partial, CACHE, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+			} catch (final AtomicMoveNotSupportedException e) {
+				Files.move(partial, CACHE, StandardCopyOption.REPLACE_EXISTING);
+			}
+		} catch (final IOException e) {
+			LOGGER.warn("Couldn't cache the supporters list", e);
+			try {
+				Files.deleteIfExists(partial);
+			} catch (final IOException ignored) {
+			}
+		}
+	}
+
+	private static synchronized void setListed(final Set<UUID> ids) {
+		listed = ids;
+		publish();
+	}
+
+	/** Called with the class lock held. */
+	private static void publish() {
+		if (testing.isEmpty()) {
+			supporters = listed;
+			return;
+		}
+		final Set<UUID> all = new HashSet<>(listed);
+		all.addAll(testing);
+		supporters = Set.copyOf(all);
+	}
+
 	private static Set<UUID> parse(final String json) {
 		final Set<UUID> ids = new HashSet<>();
 		final JsonObject root = JsonParser.parseString(json).getAsJsonObject();
@@ -110,16 +143,18 @@ public final class Supporters {
 	}
 
 	/** For tests: make a player a supporter for this session. */
-	public static void addForTesting(final UUID player) {
+	public static synchronized void addForTesting(final UUID player) {
 		final Set<UUID> ids = new HashSet<>(testing);
 		ids.add(player);
 		testing = Set.copyOf(ids);
+		publish();
 	}
 
 	/** For tests. */
-	public static void removeForTesting(final UUID player) {
+	public static synchronized void removeForTesting(final UUID player) {
 		final Set<UUID> ids = new HashSet<>(testing);
 		ids.remove(player);
 		testing = Set.copyOf(ids);
+		publish();
 	}
 }

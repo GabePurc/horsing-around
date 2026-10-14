@@ -369,6 +369,10 @@
 - [x] Test supporters are kept apart from the downloaded list, so a download landing mid-test can't drop them; the hat
   throttle test starts its half second at a known time and checks every relayed colour; the supporters cache is written
   only when the list changed, through a temporary file (third review, 2026-10-14)
+- [x] The supporters cache falls back to a plain move where the drive can't move atomically and never leaves its
+  temporary file behind; a cache that didn't parse no longer lets an identical download be skipped; test supporters are
+  folded into the one list the renderer reads; the hat throttle checks wait for the colour instead of a fixed tick count
+  (fourth review, 2026-10-14)
 
 ## Tooling
 
