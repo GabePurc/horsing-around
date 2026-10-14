@@ -366,6 +366,9 @@
   tests pass (237 checks, trampling 0 of a walk, 7 of 8 at a gallop, 4 of 4 on the server).
 - [x] The hat test checks that quick changes wait and the latest is passed on; a failed supporters cache write no longer
   logs as a failed download (follow-up review, 2026-10-14)
+- [x] Test supporters are kept apart from the downloaded list, so a download landing mid-test can't drop them; the hat
+  throttle test starts its half second at a known time and checks every relayed colour; the supporters cache is written
+  only when the list changed, through a temporary file (third review, 2026-10-14)
 
 ## Tooling
 
