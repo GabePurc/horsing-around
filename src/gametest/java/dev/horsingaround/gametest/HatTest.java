@@ -87,15 +87,21 @@ public final class HatTest implements FabricClientGameTest {
 			check("helmet not drawn", !drawn.helmetDrawn);
 			check("helmet still worn", ctx.computeOnClient(mc -> !mc.player.getItemBySlot(EquipmentSlot.HEAD).isEmpty()));
 			check("the server passes the hat on to everyone", ctx.computeOnClient(mc -> Hats.relayed(me)) == RED);
-			// Quick changes wait out the server's half second between them, and the latest one is passed on.
+			// Quick changes wait out the server's half second between them, and the latest one is passed on. The first
+			// change is awaited so the half second starts at a known time.
 			ctx.runOnClient(mc -> {
 				HorseConfig.get().hatColor = 0x2B8E2B;
+				Hats.sendOwn();
+			});
+			ctx.waitFor(mc -> Hats.relayed(me) == 0x2B8E2B, 40);
+			ctx.runOnClient(mc -> {
+				HorseConfig.get().hatColor = 0x8E2B8E;
 				Hats.sendOwn();
 				HorseConfig.get().hatColor = 0x2B2B8E;
 				Hats.sendOwn();
 			});
 			ctx.waitTicks(2);
-			check("quick hat changes wait", ctx.computeOnClient(mc -> Hats.relayed(me)) != 0x2B2B8E);
+			check("quick hat changes wait", ctx.computeOnClient(mc -> Hats.relayed(me)) == 0x2B8E2B);
 			ctx.waitTicks(12);
 			check("then the latest one is passed on", ctx.computeOnClient(mc -> Hats.relayed(me)) == 0x2B2B8E);
 			ctx.runOnClient(mc -> {
@@ -103,6 +109,7 @@ public final class HatTest implements FabricClientGameTest {
 				Hats.sendOwn();
 			});
 			ctx.waitTicks(12);
+			check("and the hat can change back", ctx.computeOnClient(mc -> Hats.relayed(me)) == RED);
 			ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
 			ctx.waitTicks(2);
 			screenshot(ctx, "hat_front");

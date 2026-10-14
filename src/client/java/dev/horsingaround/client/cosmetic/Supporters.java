@@ -11,6 +11,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
@@ -31,30 +32,35 @@ public final class Supporters {
 
 	/** Replaced whole when a new list arrives; read from the render thread. */
 	private static volatile Set<UUID> supporters = Set.of();
+	/** Players the tests made supporters; kept apart so a download arriving mid-test can't drop them. */
+	private static volatile Set<UUID> testing = Set.of();
 
 	private Supporters() {
 	}
 
 	public static boolean isSupporter(final UUID player) {
-		return supporters.contains(player);
+		return supporters.contains(player) || testing.contains(player);
 	}
 
 	/** Loads the cached list, then fetches the current one in the background. */
 	public static void load() {
+		String cached = null;
 		try {
 			if (Files.exists(CACHE)) {
-				supporters = parse(Files.readString(CACHE));
+				cached = Files.readString(CACHE);
+				supporters = parse(cached);
 			}
 		} catch (final IOException | RuntimeException e) {
 			LOGGER.warn("Could not read the cached supporters list", e);
 		}
-		final Thread refresh = new Thread(Supporters::refresh, "Horsing Around supporters");
+		final String known = cached;
+		final Thread refresh = new Thread(() -> refresh(known), "Horsing Around supporters");
 		refresh.setDaemon(true);
 		refresh.start();
 	}
 
-	/** Downloads the current list (background thread). */
-	private static void refresh() {
+	/** Downloads the current list (background thread); {@code cached} is the cache's text, or null. */
+	private static void refresh(final String cached) {
 		final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 		try {
 			final HttpRequest request = HttpRequest.newBuilder(LIST).timeout(Duration.ofSeconds(15))
@@ -64,9 +70,16 @@ public final class Supporters {
 				LOGGER.info("Couldn't refresh the supporters list (HTTP {}); using the cached one", response.statusCode());
 				return;
 			}
-			supporters = parse(response.body());
+			final String body = response.body();
+			if (body.equals(cached)) {
+				return;
+			}
+			supporters = parse(body);
+			// Written beside the cache and moved over it, so quitting mid-write can't leave half a list.
+			final Path partial = CACHE.resolveSibling(CACHE.getFileName() + ".tmp");
 			try {
-				Files.writeString(CACHE, response.body());
+				Files.writeString(partial, body);
+				Files.move(partial, CACHE, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
 			} catch (final IOException e) {
 				LOGGER.warn("Couldn't cache the supporters list", e);
 			}
@@ -98,15 +111,15 @@ public final class Supporters {
 
 	/** For tests: make a player a supporter for this session. */
 	public static void addForTesting(final UUID player) {
-		final Set<UUID> ids = new HashSet<>(supporters);
+		final Set<UUID> ids = new HashSet<>(testing);
 		ids.add(player);
-		supporters = Set.copyOf(ids);
+		testing = Set.copyOf(ids);
 	}
 
 	/** For tests. */
 	public static void removeForTesting(final UUID player) {
-		final Set<UUID> ids = new HashSet<>(supporters);
+		final Set<UUID> ids = new HashSet<>(testing);
 		ids.remove(player);
-		supporters = Set.copyOf(ids);
+		testing = Set.copyOf(ids);
 	}
 }
