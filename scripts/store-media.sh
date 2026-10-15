@@ -8,6 +8,10 @@ set -eu
 cd "$(dirname "$0")/.."
 src=${STORE_SHOTS:-build/run/clientGameTest/store}
 out=docs/media
+if [ ! -d "$src" ]; then
+	echo "No store shots in $src: film them with ./gradlew runClientGameTest -Ptests=store first (or set STORE_SHOTS)" >&2
+	exit 1
+fi
 width=${WIDTH:-640}
 quality=${QUALITY:-50}
 mkdir -p "$out"
@@ -33,7 +37,11 @@ if [ "${1:-}" = "--clip" ]; then
 	exit 0
 fi
 if [ $# -eq 0 ]; then
-	set -- $(cd "$src" && for d in */; do echo "${d%/}"; done)
+	set -- $(cd "$src" && for d in */; do if [ -d "$d" ]; then echo "${d%/}"; fi; done)
+	if [ $# -eq 0 ]; then
+		echo "No clips in $src (a clip is a folder of numbered frames)" >&2
+		exit 1
+	fi
 fi
 for name in "$@"; do
 	clip "$name"

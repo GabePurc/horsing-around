@@ -13,8 +13,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// A supporter wearing the cowboy hat: no skull or pumpkin on their head (the helmet is in HumanoidArmorLayerMixin). From
-// 1.21.2 the render state of the player is emptied of both instead (see AvatarRendererMixin).
+// A supporter wearing the cowboy hat: no skull or pumpkin on their head (the helmet is in HumanoidArmorLayerMixin), unless
+// they are invisible (no hat is drawn then). From 1.21.2 the render state of the player is emptied of both instead (see
+// AvatarRendererMixin).
 @Mixin(CustomHeadLayer.class)
 public abstract class CustomHeadLayerMixin {
 	@Inject(method = "render(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;ILnet/minecraft/world/entity/LivingEntity;FFFFFF)V", at = @At("HEAD"), cancellable = true)
@@ -22,7 +23,7 @@ public abstract class CustomHeadLayerMixin {
 		final PoseStack poseStack, final MultiBufferSource buffers, final int lightCoords, final LivingEntity entity, final float limbSwing,
 		final float limbSwingAmount, final float partialTicks, final float ageInTicks, final float headYaw, final float headPitch, final CallbackInfo ci
 	) {
-		if (entity instanceof Player player && Hats.colorFor(player) != HatPayload.NONE) {
+		if (entity instanceof Player player && !player.isInvisible() && Hats.colorFor(player) != HatPayload.NONE) {
 			ci.cancel();
 		}
 	}

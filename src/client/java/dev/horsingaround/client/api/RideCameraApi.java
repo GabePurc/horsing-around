@@ -20,7 +20,10 @@ public final class RideCameraApi {
 		RideCamera.setThirdPersonClaimed(claimed);
 	}
 
-	/** Whether the local player is riding a horse this mod controls. */
+	/**
+	 * Whether the local player is riding a horse this mod manages (as of the last client tick), whether or not they steer
+	 * it (an unsaddled horse, a second seat).
+	 */
 	public static boolean isRiding() {
 		return RideCamera.isRiding();
 	}

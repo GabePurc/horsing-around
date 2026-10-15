@@ -19,9 +19,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Footing: a ridden horse in the air (off a drop, or a jump a little short) moves as if it had a hoof down, so
  * vanilla's step-up puts it onto anything within a step of its hooves that it clips, instead of the collision stopping
  * it dead. The move itself works out the real ground contact again. Then {@link Footing} slips a shoulder caught on a
- * corner past it, and records how much of the move a collision took. Only on the side simulating the ride.
+ * corner past it, and records how much of the move a collision took. Only on the side simulating the ride. Applied after
+ * other mods' hooks here, like the horse mixin, so the move it records is the one that is made.
  */
-@Mixin(Entity.class)
+@Mixin(value = Entity.class, priority = 1500)
 abstract class EntityMixin {
 	@Shadow
 	private boolean onGround;

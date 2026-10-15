@@ -5,8 +5,8 @@ tests themselves are the truth.
 
 ## Client tests (26.3)
 
-`./gradlew runClientGameTest` runs four client tests. All of them log server corrections ("moved wrongly" =
-rubber-banding) and warnings.
+`./gradlew runClientGameTest` runs four client tests. All of them fail on server corrections ("moved wrongly" =
+rubber-banding) and log warnings.
 
 - `RideFeelTest` rides a horse with simulated keys through every mechanic in hand-built lanes and writes
   `build/run/clientGameTest/horsingaround-ride-report.txt`.
@@ -51,7 +51,8 @@ Reading results:
 - Don't test only perfect cases: generated worlds are messy. When feel numbers change on purpose, update the test
   targets too. If a check enforces something wrong, fix the check (and say so in the PR).
 
-Test games run light (lowest settings, no sound, 20 frames a second, a 2 GB heap, and Sodium, Lithium, FerriteCore and
+Test games run light (lowest settings, no sound, the default frame rate the frame-sampled checks are tuned at (20
+fps broke some), a 2 GB heap, and Sodium, Lithium, FerriteCore and
 ImmediatelyFast loaded only into test games). `-PplainGame` drops the mods; `-PfullGraphics` keeps normal settings (the
 gallery always gets them). Leg and body easing runs on game time, so results don't depend on frame rate.
 
@@ -70,7 +71,8 @@ gallery always gets them). Leg and body easing runs on game time, so results don
 `./gradlew :<version>:runSmoke` (`src/smoke`, test only; plain `runSmoke` runs every version, one at a time): a flat
 world, a saddled horse ridden through a stand, walk, gallop, jump and stop with simulated keys, screenshots in
 `build/run/smoke/<version>/screenshots/` (side views of the rider, first and third person, leashed mobs and a lead), and a
-pass/fail in the log. Run it after touching version-specific code; see `docs/porting.md`.
+pass/fail in the log; it also fails if the server corrected any of the rider's moves (with `-PsmokeWithoutMod` those
+are vanilla's own and only warned about). Run it after touching version-specific code; see `docs/porting.md`.
 
 - `-PsmokeNoPack`: no Fresh Animations pack. `-PsmokePlain`: no Entity Model Features, Entity Texture Features or pack.
   These tell this mod's problems from the animation stack's.

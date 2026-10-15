@@ -1,6 +1,15 @@
-# Builds the mod on a clean Linux machine for every push and pull request; the jars (one per Minecraft version) are attached to the run.
+# Builds the mod on a clean Linux machine for every push to main and every pull request; the jars (one per Minecraft
+# version) are attached to the run. On a pull request it also does the release's dry run (nothing is uploaded, no secrets
+# needed), so release notes that don't match the version fail before the release does.
 name: build
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -13,6 +22,9 @@ jobs:
           java-version: 25
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew build
+      - name: Release dry run (the changelog's top entry is this version's)
+        if: github.event_name == 'pull_request'
+        run: ./gradlew publishModrinth -PpublishDryRun
       - uses: actions/upload-artifact@v4
         with:
           name: jars

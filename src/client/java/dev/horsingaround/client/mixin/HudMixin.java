@@ -3,6 +3,7 @@ package dev.horsingaround.client.mixin;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Hud;
@@ -47,7 +48,8 @@ public abstract class HudMixin {
 
 	@Unique
 	private static boolean horsingaround$staminaShowing(final LocalPlayer player) {
-		return player.getVehicle() instanceof RideStateHolder holder && holder.horsingaround$managed() && holder.horsingaround$ride().stamina < 1.0F;
+		final RideState s = RideStateHolder.managedRide(player.getVehicle());
+		return s != null && s.stamina < 1.0F;
 	}
 	//?}
 }

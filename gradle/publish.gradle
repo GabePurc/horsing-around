@@ -8,6 +8,10 @@ def baseVersion = project.version.toString().split('\\+')[0]
 def gameVersions = project.game_versions.split(',')*.trim()
 def shownVersions = gameVersions.size() == 1 ? gameVersions[0] : "${gameVersions.first()}–${gameVersions.last()}"
 def modrinthProject = project.findProperty('modrinth_project_id') ?: ''
+// Alpha or beta for a version named so (0.4.0-beta.1, -rc.1) or a GitHub pre-release (the workflow passes -PpublishBeta), else stable.
+def versionTag = baseVersion.toLowerCase()
+def isAlpha = versionTag.contains('-alpha')
+def isBeta = project.hasProperty('publishBeta') || versionTag.contains('-beta') || versionTag.contains('-rc')
 def dry = project.hasProperty('publishDryRun') || providers.environmentVariable('MODRINTH_TOKEN').getOrNull() == null
 
 // The release notes: CHANGELOG.md's top entry, which must be this version's (written for players, see AGENTS.md).
@@ -22,7 +26,7 @@ publishMods {
 	version = project.version.toString()
 	displayName = "Horsing Around ${baseVersion} for Minecraft ${shownVersions}"
 	changelog = notes
-	type = STABLE
+	type = isAlpha ? ALPHA : isBeta ? BETA : STABLE
 	modLoaders.add('fabric')
 	dryRun = dry
 	modrinth {

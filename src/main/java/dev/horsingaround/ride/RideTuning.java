@@ -1,5 +1,8 @@
 package dev.horsingaround.ride;
 
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+
 /**
  * Every number that shapes how riding feels, in one place. Non-final values are defaults that the player settings
  * ({@link HorseConfig}) scale or replace at runtime. Speeds are multiples of the horse's own movement-speed
@@ -15,11 +18,9 @@ public final class RideTuning {
 	// ---- Gaits and momentum ----
 
 	/** Target speed for each gait. */
-	static final float[] BASE_GAIT_SPEED = {0.0F, 0.35F, 0.6F, 0.85F, 1.15F};
-	public static final float[] GAIT_SPEED = BASE_GAIT_SPEED.clone();
+	public static final float[] GAIT_SPEED = {0.0F, 0.35F, 0.6F, 0.85F, 1.15F};
 	/** Acceleration toward each gait per tick; higher gaits build up more slowly. */
-	static final float[] BASE_GAIT_ACCEL = {0.0F, 0.05F, 0.035F, 0.025F, 0.018F};
-	static final float[] GAIT_ACCEL = BASE_GAIT_ACCEL.clone();
+	static final float[] GAIT_ACCEL = {0.0F, 0.05F, 0.035F, 0.025F, 0.018F};
 	/** Forward key released: horse eases to a stop (~2s from a gallop). */
 	static final float DECEL_COAST = 0.03F;
 	/** Dropped a gait while still moving forward. */
@@ -33,6 +34,8 @@ public final class RideTuning {
 	 * WADE_DEPTH (water this many blocks above the hooves, about chest-deep), less in the shallows.
 	 */
 	static final float WADE_DEPTH = 1.15F;
+	/** Once swimming, it swims on until the water is shallower than this (no flicker at WADE_DEPTH). */
+	static final float SWIM_KEEP_DEPTH = 0.5F;
 	static final float WADE_DRAG = 0.7F;
 	/** How quickly the drag builds with depth (below 1 slows the shallows more). */
 	static final float WADE_DRAG_CURVE = 1.1F;
@@ -54,6 +57,8 @@ public final class RideTuning {
 	 */
 	static final double BANK_MAX_ABOVE_WATER = 1.125;
 	static final float BANK_REACH = 0.6F;
+	/** A bank too high to heave out onto is looked at again only every this many ticks. */
+	static final int BANK_LOOK_TICKS = 4;
 	static final float BANK_HEAVE_TICKS = 6.0F;
 	static final float BANK_HEAVE_TICKS_PER_BLOCK = 6.0F;
 	/** The heave lifts the hooves this far above the bank's top, so the body moves onto it a few ticks before it settles. */
@@ -68,8 +73,9 @@ public final class RideTuning {
 	static final float STAMINA_DRAIN_SWIM = 1.0F / (40 * 20);
 	/** Pushing through leaves holds the horse to this share of its gait speed. */
 	static final float LEAVES_SPEED_FACTOR = 0.75F;
+	static final float LEAVES_RUSTLE_VOLUME_BASE = 0.6F;
 	/** Volume of the rustle while pushing through leaves (the rabbit hop sound). */
-	static float LEAVES_RUSTLE_VOLUME = 0.6F;
+	static float LEAVES_RUSTLE_VOLUME = LEAVES_RUSTLE_VOLUME_BASE;
 
 	/**
 	 * Hitting a wall above this speed sheds momentum and drops the horse to a trot, when the hit takes more than
@@ -132,6 +138,8 @@ public final class RideTuning {
 	static final float HEAD_LEAD_RESPONSE = 0.5F;
 	/** Below a canter the horse side-steps toward the turn while its weight shifts (~0.1-0.2 blocks at a walk). */
 	static final float SIDESTEP = 0.35F;
+	/** The side-step fades out with speed, gone by this share of a gallop's (1 / SIDESTEP_FADE). */
+	static final float SIDESTEP_FADE = 1.4F;
 	/** How far the rider model's head and torso turn toward the view, degrees either side of the horse. */
 	public static final float LOOK_LIMIT = 110.0F;
 
@@ -158,29 +166,34 @@ public final class RideTuning {
 	static final float CUT_WEIGHT_SHIFT = 0.35F;
 	static final float CUT_TURN_ACCEL = 0.5F;
 	static final float CUT_DECEL = 0.1F;
+	/** A hard cut scuffs up the ground only from this share of a trot's speed. */
+	static final float SCUFF_MIN_TROT = 0.8F;
 	/** Sitting back for a cut: the haunches drop this far (blocks) and the nose lifts this much (degrees), eased in and out. */
 	static final float CUT_SQUAT = 0.1F;
 	static final float CUT_SQUAT_PITCH = 5.0F;
 	static final float CUT_SQUAT_EASE = 0.35F;
+	static final float CUT_SOUND_VOLUME_BASE = 0.6F;
 	/** Cutting hard (past halfway) from a trot or faster scuffs the ground: the block's step sound at this volume and a spray of it. */
-	static float CUT_SOUND_VOLUME = 0.6F;
+	static float CUT_SOUND_VOLUME = CUT_SOUND_VOLUME_BASE;
 
 	// ---- Stamina ----
 
 	/** Full stamina lasts ~28s of galloping. */
 	public static final float STAMINA_DRAIN_GALLOP = 1.0F / (28 * 20);
 	/** Stamina regained per tick at each gait (galloping never regenerates). */
-	static final float[] BASE_STAMINA_REGEN = {1.0F / (6 * 20), 1.0F / (6 * 20), 1.0F / (10 * 20), 1.0F / (25 * 20), 0.0F};
-	static final float[] STAMINA_REGEN = BASE_STAMINA_REGEN.clone();
+	static final float[] STAMINA_REGEN = {1.0F / (6 * 20), 1.0F / (6 * 20), 1.0F / (10 * 20), 1.0F / (25 * 20), 0.0F};
 	/** An exhausted horse refuses to gallop until stamina is back to this level. */
 	static final float STAMINA_RECOVERED = 0.3F;
 	/** Below this stamina (or while exhausted) a running horse huffs softly every other stride, a little louder as it tires. */
 	static final float HUFF_STAMINA = 0.2F;
 	static final int HUFF_EVERY_STRIDES = 2;
-	static float HUFF_VOLUME_MIN = 0.12F;
-	static float HUFF_VOLUME_MAX = 0.3F;
+	static final float HUFF_VOLUME_MIN_BASE = 0.12F;
+	static final float HUFF_VOLUME_MAX_BASE = 0.3F;
+	static float HUFF_VOLUME_MIN = HUFF_VOLUME_MIN_BASE;
+	static float HUFF_VOLUME_MAX = HUFF_VOLUME_MAX_BASE;
+	static final float EXHAUSTED_BREATH_VOLUME_BASE = 0.45F;
 	/** The breath that goes with the head toss when stamina runs out. */
-	static float EXHAUSTED_BREATH_VOLUME = 0.45F;
+	static float EXHAUSTED_BREATH_VOLUME = EXHAUSTED_BREATH_VOLUME_BASE;
 	/** Where in the stride the huff lands (0..1 of the leg cycle): on the down of the stride. */
 	static final float HUFF_STRIDE_PHASE = 0.67F;
 	/** Running out of stamina, the horse tosses its head (Fresh Animations' shake motion), over this many ticks. */
@@ -343,7 +356,8 @@ public final class RideTuning {
 	static final float HURDLE_MAX_FORWARD = 0.55F;
 
 	static final int REFUSAL_COOLDOWN_TICKS = 60;
-	static float REFUSAL_VOLUME = 0.5F;
+	static final float REFUSAL_VOLUME_BASE = 0.5F;
+	static float REFUSAL_VOLUME = REFUSAL_VOLUME_BASE;
 
 	/**
 	 * Ledges up to 2 blocks high: riding at one at a walk or trot, the horse jumps up it without stopping, and pressing
@@ -368,6 +382,8 @@ public final class RideTuning {
 	static final float LEDGE_LINE_ANGLE = 30.0F;
 	/** A face met more than LEDGE_FACE_ANGLE off square (riding along it, glancing it) isn't climbed. */
 	static final float LEDGE_FACE_ANGLE = 70.0F;
+	/** A run-up nobody asked for (just riding at it) is given up once the rider looks this much further off the ledge. */
+	static final float LEDGE_LOOK_AWAY_SLACK = 10.0F;
 	static final float LEDGE_REACH = 3.0F;
 	/**
 	 * Riding at a ledge, pressing jump asks for its jump from as far as LEDGE_ASKED_REACH (instead of a plain jump into its
@@ -385,6 +401,8 @@ public final class RideTuning {
 	static final float LEDGE_CROSS_HEIGHT = 0.5F;
 	static final float LEDGE_MAX_FORWARD = 0.3F;
 	static final int LEDGE_APPROACH_TICKS = 40;
+	/** Up in the air on a ledge climb, it is given up as done this many ticks after the run-up's limit. */
+	static final int LEDGE_AIR_TICKS = 40;
 	static final float LEDGE_CROUCH_TICKS = 5.0F;
 	/** Crouching: the body sinks this far (blocks) and the nose lifts this much (degrees). */
 	static final float LEDGE_CROUCH = 0.16F;
@@ -393,7 +411,8 @@ public final class RideTuning {
 	static final int LEDGE_THRUST_TICKS = 3;
 	static final float LEDGE_LIFT_GRAVITY = 0.56F;
 	static final float LEDGE_STAMINA_COST = 0.04F;
-	static float CLIMB_SOUND_VOLUME = 0.35F;
+	static final float CLIMB_SOUND_VOLUME_BASE = 0.35F;
+	static float CLIMB_SOUND_VOLUME = CLIMB_SOUND_VOLUME_BASE;
 
 	// ---- Visuals (client) ----
 
@@ -760,8 +779,9 @@ public final class RideTuning {
 	public static final float CAMERA_HEIGHT_SMOOTHING = 0.6F;
 	/** Further than this from the rider (a teleport), the camera's height jumps straight there. */
 	public static final double CAMERA_HEIGHT_SNAP = 4.0;
+	public static final float FOV_GALLOP_BOOST_BASE = 0.05F;
 	/** FOV widening at a full gallop (scaled by the FOV Effects option). */
-	public static float FOV_GALLOP_BOOST = 0.05F;
+	public static float FOV_GALLOP_BOOST = FOV_GALLOP_BOOST_BASE;
 	/** After this many ticks without vertical mouse movement while moving, the view eases back to a riding pitch. */
 	public static final int PITCH_RECENTER_DELAY = 40;
 	public static final float PITCH_DEFAULT = 10.0F;
@@ -770,11 +790,14 @@ public final class RideTuning {
 	 * First-person ride motion (off when the vanilla View Bobbing option is off): share of the saddle lift the eyes
 	 * get, and share of the saddle rocking that nods the view. Kept gentle; low-passed so there are no sharp edges.
 	 */
-	public static float FP_BOUNCE_SCALE = 0.35F;
-	public static float FP_NOD_SCALE = 0.15F;
+	public static final float FP_BOUNCE_SCALE_BASE = 0.35F;
+	public static final float FP_NOD_SCALE_BASE = 0.15F;
+	public static float FP_BOUNCE_SCALE = FP_BOUNCE_SCALE_BASE;
+	public static float FP_NOD_SCALE = FP_NOD_SCALE_BASE;
 	public static final float FP_SMOOTHING_SECONDS = 0.08F;
+	public static final float FP_HAND_BOB_BASE = 0.6F;
 	/** First-person hands bob with the saddle, more at speed: share of the saddle lift. */
-	public static float FP_HAND_BOB = 0.6F;
+	public static float FP_HAND_BOB = FP_HAND_BOB_BASE;
 	/** Share of the saddle lift the third-person camera takes. */
 	public static final float THIRD_PERSON_BOUNCE_SCALE = 0.12F;
 
@@ -834,5 +857,16 @@ public final class RideTuning {
 	/** 0 at a standstill, 1 at full gallop. */
 	public static float gallopFraction(final float speed) {
 		return Math.min(Math.abs(speed) * (1.0F / GAIT_SPEED[GALLOP]), 1.0F);
+	}
+
+	/** 0 below 0, 1 above 1, easing in and out between. */
+	public static float smoothstep(final float t) {
+		final float x = Math.min(Math.max(t, 0.0F), 1.0F);
+		return x * x * (3.0F - 2.0F * x);
+	}
+
+	/** The horse's top speed (blocks/tick) for its speed attribute; never zero (Slowness can take it there), so it divides. */
+	public static float topSpeed(final LivingEntity horse) {
+		return Math.max((float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR, 1.0E-3F);
 	}
 }

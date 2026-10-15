@@ -1,5 +1,5 @@
 # Publishes a release: when a GitHub release is published (tag v<version>), builds every Minecraft version's jar,
-# uploads each to Modrinth as a version of its own (gradle/publish.gradle) and attaches the jars to the GitHub release.
+# attaches the jars to the GitHub release and uploads each to Modrinth as a version of its own (gradle/publish.gradle).
 # Run by hand (Actions > publish > Run workflow) it is a dry run: nothing is uploaded, and what would go up is kept as
 # the run's publish-dry-run artifact.
 name: publish
@@ -31,19 +31,22 @@ jobs:
             exit 1
           fi
       - run: ./gradlew build
-      - name: Upload to Modrinth
-        if: github.event_name == 'release'
-        run: ./gradlew publishModrinth
-        env:
-          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
-      - name: Dry run
-        if: github.event_name == 'workflow_dispatch'
-        run: ./gradlew publishModrinth -PpublishDryRun
+      # (The jars go onto the GitHub release first: a Modrinth upload that fails part-way leaves the release complete.)
       - name: Attach the jars to the GitHub release
         if: github.event_name == 'release'
         run: gh release upload "$TAG" versions/*/build/libs/horsing-around-*.jar --clobber
         env:
           GH_TOKEN: ${{ github.token }}
+      # (--continue: one version failing to upload doesn't stop the others; the step still fails. A GitHub pre-release goes
+      # up as a beta, see gradle/publish.gradle.)
+      - name: Upload to Modrinth
+        if: github.event_name == 'release'
+        run: ./gradlew publishModrinth --continue ${{ github.event.release.prerelease && '-PpublishBeta' || '' }}
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+      - name: Dry run
+        if: github.event_name == 'workflow_dispatch'
+        run: ./gradlew publishModrinth -PpublishDryRun
       - name: Keep what the dry run would upload
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4

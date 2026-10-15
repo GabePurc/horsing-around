@@ -68,11 +68,11 @@ public abstract class JumpableVehicleBarMixin {
 	//? if >=1.21.6 {
 	@WrapMethod(method = "extractBackground")
 	private void horsingaround$staminaBar(final GuiGraphicsExtractor graphics, final DeltaTracker deltaTracker, final Operation<Void> original) {
-		if (!(this.minecraft.player.getVehicle() instanceof RideStateHolder holder) || !holder.horsingaround$managed()) {
+		final RideState s = RideStateHolder.managedRide(this.minecraft.player.getVehicle());
+		if (s == null) {
 			original.call(graphics, deltaTracker);
 			return;
 		}
-		final RideState s = holder.horsingaround$ride();
 		final int left = this.left(this.minecraft.getWindow());
 		final int top = this.top(this.minecraft.getWindow());
 		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, s.exhausted ? EXHAUSTED_BACKGROUND : BACKGROUND, left, top, WIDTH, HEIGHT);
@@ -84,11 +84,11 @@ public abstract class JumpableVehicleBarMixin {
 	//?} elif >=1.21.2 {
 	/*@WrapMethod(method = "renderJumpMeter")
 	private void horsingaround$staminaBar(final PlayerRideableJumping jumpable, final GuiGraphicsExtractor graphics, final int left, final Operation<Void> original) {
-		if (!(this.minecraft.player.getVehicle() instanceof RideStateHolder holder) || !holder.horsingaround$managed()) {
+		final RideState s = RideStateHolder.managedRide(this.minecraft.player.getVehicle());
+		if (s == null) {
 			original.call(jumpable, graphics, left);
 			return;
 		}
-		final RideState s = holder.horsingaround$ride();
 		final int top = graphics.guiHeight() - 32 + 3;
 		graphics.blitSprite(RenderType::guiTextured, s.exhausted ? EXHAUSTED_BACKGROUND : BACKGROUND, left, top, WIDTH, HEIGHT);
 		final int filled = Mth.lerpDiscrete(s.stamina, 0, WIDTH);
@@ -102,11 +102,11 @@ public abstract class JumpableVehicleBarMixin {
 	*///?} elif >=1.20.2 {
 	/*@WrapMethod(method = "renderJumpMeter")
 	private void horsingaround$staminaBar(final PlayerRideableJumping jumpable, final GuiGraphicsExtractor graphics, final int left, final Operation<Void> original) {
-		if (!(this.minecraft.player.getVehicle() instanceof RideStateHolder holder) || !holder.horsingaround$managed()) {
+		final RideState s = RideStateHolder.managedRide(this.minecraft.player.getVehicle());
+		if (s == null) {
 			original.call(jumpable, graphics, left);
 			return;
 		}
-		final RideState s = holder.horsingaround$ride();
 		final int top = graphics.guiHeight() - 32 + 3;
 		graphics.blitSprite(s.exhausted ? EXHAUSTED_BACKGROUND : BACKGROUND, left, top, WIDTH, HEIGHT);
 		final int filled = Mth.lerpDiscrete(s.stamina, 0, WIDTH);
@@ -124,11 +124,11 @@ public abstract class JumpableVehicleBarMixin {
 	*///?} else {
 	/*@WrapMethod(method = "renderJumpMeter")
 	private void horsingaround$staminaBar(final PlayerRideableJumping jumpable, final GuiGraphicsExtractor graphics, final int left, final Operation<Void> original) {
-		if (!(this.minecraft.player.getVehicle() instanceof RideStateHolder holder) || !holder.horsingaround$managed()) {
+		final RideState s = RideStateHolder.managedRide(this.minecraft.player.getVehicle());
+		if (s == null) {
 			original.call(jumpable, graphics, left);
 			return;
 		}
-		final RideState s = holder.horsingaround$ride();
 		final int top = graphics.guiHeight() - 32 + 3;
 		graphics.blit(ICONS, left, top, 0, 84, WIDTH, HEIGHT);
 		if (s.exhausted) {

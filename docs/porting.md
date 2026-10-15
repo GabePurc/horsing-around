@@ -121,8 +121,9 @@ nothing is registered beforehand.
   Fresh Animations pack on, light settings) makes a flat world, builds a small scene and rides a saddled horse through a
   stand, walk, gallop, jump and stop with simulated keys, taking screenshots (the rider from the side, first person,
   third person from behind, a row of leashed mobs, a cow on the player's lead) into
-  `build/run/smoke/<version>/screenshots/`. It fails unless the log says `Horsing Around smoke test passed` and nothing in
-  it names this mod in an error. Plain `./gradlew runSmoke` runs every version, one game at a time (about a minute each).
+  `build/run/smoke/<version>/screenshots/`. It fails unless the log says `Horsing Around smoke test passed`, nothing in
+  it names this mod in an error, and the server corrected none of the rider's moves ("moved wrongly" and the like; with
+  `-PsmokeWithoutMod` those are vanilla's own and only warned about). Plain `./gradlew runSmoke` runs every version, one game at a time (about a minute each).
   `-PsmokeNoPack` leaves the animation pack off, `-PsmokePlain` leaves Entity Model Features, Entity Texture Features and
   the pack off, to tell this mod's problems from the animation stack's; `-PsmokeWithoutMod` runs the same scene with this
   mod turned off (Fabric Loader's `fabric.debug.disableModIds`; the checks that need the mod are skipped). The test is `src/smoke` (client tick state

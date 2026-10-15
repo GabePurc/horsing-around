@@ -3,6 +3,7 @@ package dev.horsingaround.client.mixin;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import dev.horsingaround.client.RideCamera;
+import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
 //? if <1.21.2
 /*import net.minecraft.client.Minecraft;*/
@@ -20,8 +21,9 @@ public abstract class AbstractClientPlayerMixin {
 	/*private float horsingaround$gallopFov(final float modifier) {
 		final float effectScale = Minecraft.getInstance().options.fovEffectScale().get().floatValue();
 	*///?}
-		return ((AbstractClientPlayer) (Object) this).getVehicle() instanceof RideStateHolder holder && holder.horsingaround$managed()
-			? modifier * RideCamera.fovScale(holder.horsingaround$ride(), effectScale)
-			: modifier;
+		// (Not while looking through a spyglass: vanilla gives that its own fixed zoom.)
+		final AbstractClientPlayer player = (AbstractClientPlayer) (Object) this;
+		final RideState s = player.isScoping() ? null : RideStateHolder.managedRide(player.getVehicle());
+		return s != null ? modifier * RideCamera.fovScale(s, effectScale) : modifier;
 	}
 }

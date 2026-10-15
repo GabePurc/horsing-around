@@ -2,18 +2,13 @@ package dev.horsingaround.client.render;
 
 import static dev.horsingaround.ride.RideTuning.*;
 
-import dev.horsingaround.ride.Foliage;
+import dev.horsingaround.ride.RideController;
 import dev.horsingaround.ride.RideState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.jspecify.annotations.Nullable;
@@ -549,33 +544,8 @@ public final class GroundLegs {
 		return face(ground, y) ? Float.NaN : ground == Double.NEGATIVE_INFINITY ? Float.NEGATIVE_INFINITY : (float) (ground - y);
 	}
 
-	/**
-	 * Top of the ground at (x, z) between {@code highest} and {@code lowest}, the shape's top at that very spot (the low
-	 * half of a stair reads as itself). NaN if something there reaches above {@code highest} (a wall: the hoof is beside
-	 * it, not under it), negative infinity if there is nothing.
-	 */
+	/** Top of the ground at (x, z) between {@code highest} and {@code lowest} (see {@link RideController#surface}). */
 	private static double surface(final Level level, final double x, final double z, final double highest, final double lowest) {
-		final int bx = Mth.floor(x);
-		final int bz = Mth.floor(z);
-		// Leaves the horse pushes through are not ground: a hoof goes on down to what is under them.
-		final boolean leavesOpen = Foliage.leavesOpen(level);
-		for (int by = Mth.floor(highest); by >= Mth.floor(lowest); by--) {
-			final BlockState state = level.getBlockState(POS.set(bx, by, bz));
-			if (state.isAir() || leavesOpen && state.is(BlockTags.LEAVES)) {
-				continue;
-			}
-			final VoxelShape shape = state.getCollisionShape(level, POS);
-			if (shape.isEmpty()) {
-				continue;
-			}
-			// (For the Y axis the other two coordinates go Z then X.)
-			final double height = shape == Shapes.block() ? 1.0 : shape.max(Direction.Axis.Y, z - bz, x - bx);
-			if (height == Double.NEGATIVE_INFINITY) {
-				continue;
-			}
-			final double top = by + height;
-			return top > highest ? Double.NaN : top;
-		}
-		return Double.NEGATIVE_INFINITY;
+		return RideController.surface(level, POS, x, z, highest, lowest, false);
 	}
 }

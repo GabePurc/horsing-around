@@ -56,7 +56,8 @@ dependencies {
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 	// The mixins use MixinExtras 0.4 (@WrapMethod), which Fabric Loader bundles from 0.16 on: for an older loader the
 	// jar carries its own copy (the loader then runs the newest copy any mod brings).
-	def (loaderMajor, loaderMinor) = project.loader_version.tokenize('.')*.toInteger()
+	// (Decided by the oldest loader the jar claims to run on, see loader_minimum in gradle.properties.)
+	def (loaderMajor, loaderMinor) = (project.findProperty('loader_minimum') ?: project.loader_version).tokenize('.')*.toInteger()
 	if (loaderMajor == 0 && loaderMinor < 16) {
 		include(implementation(annotationProcessor("io.github.llamalad7:mixinextras-fabric:${project.mixinextras_version}")))
 	}
@@ -207,7 +208,7 @@ if (mainVersion) {
 // and refuses the config, and nothing in our mixins needs more.
 def mixinJava = javaVersion == 21 ? 17 : javaVersion
 def hatMixins = sc.current.parsed.matches('>=1.21.2') ? '"AvatarRenderStateMixin", "AvatarRendererMixin",' : '"CustomHeadLayerMixin", "HumanoidArmorLayerMixin",'
-def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, loader: project.loader_version, java: javaVersion.toString(), mixinJava: mixinJava.toString(), hatMixins: hatMixins]
+def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, loader: project.findProperty('loader_minimum') ?: project.loader_version, java: javaVersion.toString(), mixinJava: mixinJava.toString(), hatMixins: hatMixins]
 tasks.matching { it.name in ["processResources", "processClientResources"] }.configureEach {
 	inputs.properties resourceProps
 	filesMatching(["fabric.mod.json", "*.mixins.json"]) {

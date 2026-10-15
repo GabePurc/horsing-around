@@ -8,6 +8,8 @@ public final class RideState {
 	public int gait = RideTuning.STOP;
 	/** Ridden by a player, so its collision box is narrowed (see the living-entity mixin); kept in step on every side. */
 	public boolean narrow;
+	/** Left by its rider where only the narrowed box fits (between two trunks): it keeps that box until it is out. */
+	public boolean keptNarrow;
 	/** Current speed as a multiple of the movement-speed attribute; negative when backing up. */
 	public float speed;
 	public float stamina = 1.0F;
@@ -172,21 +174,26 @@ public final class RideState {
 	float ledgeForward;
 	float ledgeLift;
 	int ledgeAirTicks;
+	/** Where the last look for a ledge to climb found none (so standing still against the same face it isn't redone). */
+	double ledgeMissX = Double.NaN;
+	double ledgeMissY;
+	double ledgeMissZ;
+	float ledgeMissYaw;
 	float ledgeCrouch;
 	/**
 	 * Room between the horse's head and its rider (render thread): how far the horse stretches its neck forward and the
-	 * rider sits back from folding over it (radians), when they were last eased (nanos), and how far apart the heads were
-	 * in the last frame drawn (centre to centre, blocks; for tests).
+	 * rider sits back from folding over it (radians), when they were last eased (the horse's age, ticks), and how far apart
+	 * the heads were in the last frame drawn (centre to centre, blocks; for tests).
 	 */
 	public float neckReach;
 	public float sitBack;
-	public long roomAt;
+	public float roomAt = Float.NaN;
 	public float headGap = Float.MAX_VALUE;
 
-	/** Rising up a ledge (the climb, before it comes down onto the top). */
 	/** The move in progress is the horse's in the air, with a hoof put down for it (see the entity mixin): steps up only AIR_STEP. */
 	public boolean airFooting;
 
+	/** Rising up a ledge (the climb, before it comes down onto the top). */
 	public boolean climbingLedge() {
 		return this.ledgeAir && this.ledgeLift > 0.0F;
 	}
@@ -291,6 +298,8 @@ public final class RideState {
 	public float animatedPitch;
 	public float animatedRoll;
 	public long animatedAt;
+	/** The frame (see the saddle motion) it was last measured in. */
+	public int animatedFrame = -10;
 	/** Frames the head toss was applied through the animation pack (for tests). */
 	public int animatedShakeFrames;
 	/**
@@ -437,7 +446,20 @@ public final class RideState {
 		return this.hindLegO + (this.hindLeg - this.hindLegO) * partialTicks;
 	}
 
+	/** Steered by a rider since the ride state was last reset: when the rider gets off, it is reset once. */
+	boolean steered;
+
+	/** The rider's pose on this horse (bow, neck room), cleared once no one is on it so a new ride doesn't pick it up. */
+	void resetPose() {
+		this.bowPull = 0.0F;
+		this.bowLoosedAt = Float.NaN;
+		this.neckReach = 0.0F;
+		this.sitBack = 0.0F;
+		this.roomAt = Float.NaN;
+	}
+
 	void resetMotion() {
+		this.steered = false;
 		this.gait = RideTuning.STOP;
 		this.speed = 0.0F;
 		this.yawVelocity = 0.0F;
@@ -460,6 +482,8 @@ public final class RideState {
 		this.ledgeAir = false;
 		this.ledgeAsked = false;
 		this.ledgeCrouch = 0.0F;
+		this.ledgeLift = 0.0F;
+		this.leapt = false;
 		this.ledgeOnLine = false;
 		this.hurdleOnLine = false;
 		this.jumpLift = 0.0F;

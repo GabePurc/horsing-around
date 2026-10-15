@@ -100,10 +100,12 @@ at most two lines, under the right area; details go in the PR, not here.
 - Bug reports: a GitHub issue form (`.github/ISSUE_TEMPLATE/bug_report.yml`) linked from the README and Mod Menu
 - Builds on any machine: no machine-specific paths, JDK 25 picked through `gradle-daemon-jvm.properties`
 - Code review fixes (2026-10-14): hat throttle, trampling speed window, supporters cache written safely and only on change
+- Whole-codebase review (2026-10-14, PR #42): falls follow each version's vanilla rules, dismount and hurdle state resets, NaN guards, config and
+  supporters hardening, shared helpers (`RidePoser`, one ground probe), release dry run on PRs; smoke and ride tests fail on server corrections
 
 ## Tests and tooling
 
-- `./gradlew runClientGameTest` runs `RideFeelTest`, `TerrainRideTest`, `MountsTest` and `ServerRideTest`; `runClientGameTestParallel --continue` splits them into five light shards and merges the reports; all check for server corrections and log warnings
+- `./gradlew runClientGameTest` runs `RideFeelTest`, `TerrainRideTest`, `MountsTest` and `ServerRideTest`; `runClientGameTestParallel --continue` splits them into five light shards and merges the reports; all fail on server corrections and log warnings; test games run light at the default frame rate
 - Debug pack colours each horse leg part for screenshots (`-PplainTextures` turns it off); F3+B shows the steering overlay (box, line, heading, plan, look-ahead findings)
 - Project docs (user request, 2026-10-14): `AGENTS.md` says how to use the docs (user direction first, intent kept, numbers are snapshots, fix what is wrong, ask only to reverse a user decision, change the feel noticeably or widen scope)
 - Docs trimmed to save tokens (2026-10-14): `research.md` is a short summary with the history in `docs/design-log.md`; tests in `docs/testing.md`, releasing in `docs/releasing.md`; this file condensed
@@ -115,4 +117,5 @@ at most two lines, under the right area; details go in the PR, not here.
 - Skid stop is still open (MVP)
 - Fabulously Optimized 1.20.1 ships Fabric Loader 0.14.23, older than MixinExtras' floor (0.14.25): out of reach
 - Hoof soles meeting a bank's top mid-heave still jump up to 0.34 in a frame (logged by `exits`)
+- "Walking down a staircase of stair blocks": hooves 90th percentile ~0.29-0.31 against a 0.300 limit (tight margin)
 - Leads tied above the llama's and horse's heads on 26.x come from Fresh Animations, not this mod
