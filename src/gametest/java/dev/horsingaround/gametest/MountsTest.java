@@ -47,7 +47,8 @@ public final class MountsTest implements FabricClientGameTest {
 	}
 
 	private enum Arena {
-		GROUND, LAVA, WATER, AIR
+		/** SURFACE: summoned 2 up in 4-deep water, under the channel's glass lid (a horse summoned on the bottom throws its rider, eyes under water, before it can float up). */
+		GROUND, LAVA, WATER, SURFACE, AIR
 	}
 
 	private static final String SADDLE = "equipment:{saddle:{id:\"minecraft:saddle\",count:1}}";
@@ -174,7 +175,7 @@ public final class MountsTest implements FabricClientGameTest {
 			// A glass-walled channel 4 deep, 40 long, from z 2 northward.
 			server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:glass", x - 3, GROUND, -40, x + 3, GROUND + 4, 4));
 			server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:water", x - 2, GROUND, -40, x + 2, GROUND + 3, 3));
-			final Entity horse = mount(ctx, world, new Mount(id, "Tame:1b," + SADDLE + "," + FIREPROOF, null, Arena.WATER), x);
+			final Entity horse = mount(ctx, world, new Mount(id, "Tame:1b," + SADDLE + "," + FIREPROOF, null, id.equals("horse") ? Arena.SURFACE : Arena.WATER), x);
 			final double startZ = horse.getZ();
 			input.lookAt(180.0F, 10.0F);
 			input.holdKey(o -> o.keyUp);
@@ -385,7 +386,7 @@ public final class MountsTest implements FabricClientGameTest {
 	/** Summons the mount at (x, feet height, 0) facing north and seats the player on it. */
 	private static Entity mount(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Mount mount, final int x) {
 		final TestServerContext server = world.getServer();
-		final double y = mount.arena == Arena.AIR ? GROUND + 6 : mount.arena == Arena.LAVA ? GROUND - 1 : GROUND;
+		final double y = mount.arena == Arena.AIR ? GROUND + 6 : mount.arena == Arena.LAVA ? GROUND - 1 : mount.arena == Arena.SURFACE ? GROUND + 2 : GROUND;
 		server.runCommand(String.format(Locale.ROOT, "tp @p %d %d 6 180 10", x, GROUND));
 		ctx.waitTicks(5);
 		world.getConnection().waitForChunksRender();
