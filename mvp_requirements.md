@@ -1,5 +1,11 @@
 # MVP requirements
 
+Status (2026-10-14): the MVP has shipped (0.3.x on Modrinth); skid stop and rear (9) is the one item not built yet
+(`development_plan.md`, Drama at speed). Rarely needed: read it only for scope or acceptance questions. The lists below are the original scope and targets, kept as a record of what the user
+wanted. "Out of scope for MVP" means not needed for the first release, not "never": those are post-MVP ideas
+(`development_plan.md`, The horse has a mind) to take on when the user asks. The acceptance numbers were starting targets; they move
+with the user's tuning (update them here and in the tests together).
+
 The MVP is done when riding a horse, donkey or mule feels clearly weightier and more alive than vanilla, using only
 vanilla keys, with no crashes in singleplayer and on a dedicated server with the mod on both sides.
 
