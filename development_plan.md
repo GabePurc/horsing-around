@@ -39,7 +39,7 @@ How to check a release candidate:
 
 Still open:
 
-- Publishing: Horsing Around is out (0.1.0 to 0.3.1 through CI, Modrinth project `Lc7S9t3K`); the add-on's Modrinth
+- Publishing: Horsing Around is out (0.1.0 to 0.3.2 through CI, Modrinth project `Lc7S9t3K`); the add-on's Modrinth
   project and the gallery (`build/run/clientGameTest/gallery/`) may still need doing, so check with the user.
 - When a pack mod updates or a new popular mod appears, add it to `compatPacks` in `build.gradle` (pin the Modrinth
   version id, not the version number: some mods reuse numbers across Minecraft versions).
