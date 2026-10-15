@@ -231,6 +231,10 @@ public final class MountsTest implements FabricClientGameTest {
 		input.holdKey(o -> o.keyUp);
 		// A camel that just sat down takes about 5 s to sit and stand up again before it walks on.
 		ctx.waitTicks(mount.id.startsWith("camel") ? 160 : 80);
+		// Where the rider sits on the mount, from the side: moving, then standing.
+		ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+		ctx.waitTick();
+		sideScreenshot(ctx, "mount_" + mount.id + "_side_moving");
 		input.releaseKey(o -> o.keyUp);
 		final double travelled = ctx.computeOnClient(mc -> mc.player.getVehicle() == null ? 0.0 : mc.player.getVehicle().position().distanceTo(start));
 		check("rides forward with vanilla controls (blocks)", travelled, 1.0, 80.0);
@@ -238,6 +242,8 @@ public final class MountsTest implements FabricClientGameTest {
 		ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
 		ctx.waitTick();
 		screenshot(ctx, "mount_" + mount.id);
+		ctx.waitTicks(20);
+		sideScreenshot(ctx, "mount_" + mount.id + "_side");
 		firstPerson(ctx);
 		if (mount.id.startsWith("camel")) {
 			// Vanilla's camel dash: hold jump to charge, let go to dash.
