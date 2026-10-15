@@ -2,6 +2,23 @@
 
 Each version's notes are written to paste straight into the Modrinth version page.
 
+## 0.3.2
+
+### Fixed
+- On Minecraft 1.21.4 and older, your horse no longer takes drops that hurt it or you. It now judges falls by those versions' own fall damage, where a harmless drop is 6 blocks, not 8.
+- A horse standing on a magma block can walk off it again.
+- Getting off mid-jump, mid-climb or mid-hurdle no longer leaves your horse stuck in it, and a hurdle that lands in deep water stops pushing the horse along.
+- A horse with no speed (Slowness, or a changed speed attribute) no longer breaks its stride, braking or trampling.
+- Leaving your horse in a gap only a ridden horse fits through no longer squeezes it into the walls.
+- Galloping drains stamina only when you're going faster than a canter, and swimming tires the horse at the swimming rate.
+- The riding camera no longer moves your view while the game is paused, or while you aim a bow or look through a spyglass. The spyglass keeps its normal zoom on horseback.
+- Sprint, jump and back presses are no longer swallowed while you're on foot.
+- Trampling damage stays even on a laggy server.
+- With an animation pack at a low frame rate, the horse's animation no longer plays twice as fast. Foals on 1.21.1 and older now get the new leg movement too.
+- The settings file is saved safely, and a broken one is kept as `horsingaround.json.bad` instead of being lost. The hat colour sliders keep their hue and richness, and you can pick a colour swatch with the keyboard.
+- The 1.20.2, 1.21.4 and 1.21.5 downloads no longer claim to work on later patch versions they weren't built for.
+- Servers are protected against a client flooding them with hat changes.
+
 ## 0.3.1
 
 ### Fixed
