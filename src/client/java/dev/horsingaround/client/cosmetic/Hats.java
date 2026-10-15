@@ -18,6 +18,9 @@ import net.minecraft.world.entity.player.Player;
  */
 public final class Hats {
 	private static final Map<UUID, Integer> WORN = new HashMap<>();
+	/** The signed-in account's id (null when the launcher gave one that isn't a UUID), read once: before 1.20.2 each read parses text. */
+	private static UUID account;
+	private static boolean accountRead;
 
 	private Hats() {
 	}
@@ -37,7 +40,11 @@ public final class Hats {
 	/** Whether the local player can wear the hat (is on the supporters list). */
 	public static boolean canWear() {
 		final Minecraft minecraft = Minecraft.getInstance();
-		return Supporters.isSupporter(minecraft.getUser().getProfileId())
+		if (!accountRead) {
+			account = minecraft.getUser().getProfileId();
+			accountRead = true;
+		}
+		return account != null && Supporters.isSupporter(account)
 			|| minecraft.player != null && Supporters.isSupporter(minecraft.player.getUUID());
 	}
 

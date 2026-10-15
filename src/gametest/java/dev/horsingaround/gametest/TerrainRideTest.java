@@ -101,11 +101,13 @@ public final class TerrainRideTest implements FabricClientGameTest {
 		if (!System.getProperty("horsingaround.tests", "terrain").contains("terrain")) {
 			return;
 		}
+		TestPacks.enable(ctx);
 		listen();
 		boolean completed = false;
-		try (TestSingleplayerContext world = ctx.worldBuilder()
-			.adjustSettings(settings -> settings.setGameMode(WorldCreationUiState.SelectedGameMode.SURVIVAL))
-			.create()) {
+		try (LogWatch watch = LogWatch.begin();
+			TestSingleplayerContext world = ctx.worldBuilder()
+				.adjustSettings(settings -> settings.setGameMode(WorldCreationUiState.SelectedGameMode.SURVIVAL))
+				.create()) {
 			final TestServerContext server = world.getServer();
 			server.runCommand("time set noon");
 			server.runCommand("difficulty normal");
@@ -119,6 +121,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 			}
 			RideController.profile = false;
 			summary(crashes);
+			corrections(watch);
 			completed = true;
 		} finally {
 			RideController.profile = false;
@@ -935,6 +938,16 @@ public final class TerrainRideTest implements FabricClientGameTest {
 		check("ride tick cost on average (ms; a tick has 50)", average, 0.0, 0.3);
 		check("ride tick cost, 99th percentile (ms)", p99, 0.0, 2.0);
 		log("  crashes in all: %d", crashes);
+	}
+
+	/** The server correcting the rider's moves is rubber-banding to a player: none in any ride. */
+	private void corrections(final LogWatch watch) {
+		section("Server corrections");
+		final List<String> corrections = watch.corrections();
+		for (final String line : corrections.subList(0, Math.min(corrections.size(), 20))) {
+			log("  %s", line);
+		}
+		check("the server corrected none of the rider's moves in any ride (" + corrections.size() + ")", corrections.isEmpty());
 	}
 
 	private static void listen() {

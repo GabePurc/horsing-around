@@ -50,6 +50,7 @@ public final class HatTest implements FabricClientGameTest {
 		if (!System.getProperty("horsingaround.tests", "hat").contains("hat")) {
 			return;
 		}
+		TestPacks.enable(ctx);
 		boolean completed = false;
 		try (TestSingleplayerContext world = ctx.worldBuilder()
 			.adjustSettings(settings -> settings.setGameMode(WorldCreationUiState.SelectedGameMode.CREATIVE))

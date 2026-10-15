@@ -326,10 +326,6 @@ public final class RiderPose {
 		}
 	}
 
-	private static float smoothstep(final float t) {
-		final float x = Mth.clamp(t, 0.0F, 1.0F);
-		return x * x * (3.0F - 2.0F * x);
-	}
 
 	/** The pose of an arm, as the render state has it (1.21.2 and 1.21.3: the model works it out from the state; before, it keeps it). */
 	private static HumanoidModel.ArmPose armPose(final HumanoidModel<?> model, final HumanoidRenderState state, final HumanoidArm side) {

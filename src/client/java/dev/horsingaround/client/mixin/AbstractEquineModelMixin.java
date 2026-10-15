@@ -55,6 +55,21 @@ public abstract class AbstractEquineModelMixin {
 	@Shadow
 	@Final
 	protected ModelPart tail;
+	//? if <1.21.2 {
+	/*// (Before 1.21.2 a foal draws legs of its own, which vanilla sets from the grown legs before the ride poses them.)
+	@Shadow
+	@Final
+	private ModelPart rightHindBabyLeg;
+	@Shadow
+	@Final
+	private ModelPart leftHindBabyLeg;
+	@Shadow
+	@Final
+	private ModelPart rightFrontBabyLeg;
+	@Shadow
+	@Final
+	private ModelPart leftFrontBabyLeg;
+	*///?}
 
 	//? if >=1.21.2 {
 	@Inject(method = "setupAnim(Lnet/minecraft/client/renderer/entity/state/EquineRenderState;)V", at = @At("TAIL"))
@@ -70,7 +85,23 @@ public abstract class AbstractEquineModelMixin {
 		final Object state = LegacyRenderState.of(horse);
 		if (state != null) {
 			this.horsingaround$pose((RidePoseState) state);
+			if (((EntityModel<?>) (Object) this).young) {
+				horsingaround$copyPose(this.rightHindLeg, this.rightHindBabyLeg);
+				horsingaround$copyPose(this.leftHindLeg, this.leftHindBabyLeg);
+				horsingaround$copyPose(this.rightFrontLeg, this.rightFrontBabyLeg);
+				horsingaround$copyPose(this.leftFrontLeg, this.leftFrontBabyLeg);
+			}
 		}
+	}
+
+	@Unique
+	private static void horsingaround$copyPose(final ModelPart from, final ModelPart to) {
+		to.x = from.x;
+		to.y = from.y;
+		to.z = from.z;
+		to.xRot = from.xRot;
+		to.yRot = from.yRot;
+		to.zRot = from.zRot;
 	}
 
 	// Before 1.21.2 one model draws every horse, and the game sets only some of its parts each frame (not where the hind

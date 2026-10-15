@@ -19,14 +19,12 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import org.jspecify.annotations.Nullable;
 
 public final class HorsingAround implements ModInitializer {
 	public static final String MOD_ID = "horsingaround";
 
 	public static RiderBridge bridge = RiderBridge.NONE;
 
-	private static @Nullable MinecraftServer server;
 	private static String version = "";
 
 	@Override
@@ -50,11 +48,7 @@ public final class HorsingAround implements ModInitializer {
 		});
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, left) -> HatRelay.left(handler.player));
 		ServerTickEvents.END_SERVER_TICK.register(HatRelay::tick);
-		ServerLifecycleEvents.SERVER_STARTING.register(started -> server = started);
-		ServerLifecycleEvents.SERVER_STOPPED.register(stopped -> {
-			server = null;
-			HatRelay.clear();
-		});
+		ServerLifecycleEvents.SERVER_STOPPED.register(stopped -> HatRelay.clear());
 		CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> Mounts.invalidate());
 		if (MixinAudit.ENABLED) {
 			ServerLifecycleEvents.SERVER_STARTED.register(MixinAudit::server);
@@ -69,17 +63,12 @@ public final class HorsingAround implements ModInitializer {
 		return new RulesPayload(ServerRules.PROTOCOL, version, RideTuning.RIDE_THROUGH_LEAVES);
 	}
 
-	/** The server's settings changed (singleplayer or a LAN host using the settings screen): tell everyone connected. */
-	public static void sendRules() {
-		final MinecraftServer running = server;
-		if (running != null) {
-			running.execute(() -> {
-				for (final ServerPlayer player : running.getPlayerList().getPlayers()) {
-					if (ServerPlayNetworking.canSend(player, RulesPayload.TYPE)) {
-						ServerPlayNetworking.send(player, rules());
-					}
-				}
-			});
+	/** Tells everyone connected the rules again (for tests: a client that lost them gets them back). Server thread. */
+	public static void sendRules(final MinecraftServer server) {
+		for (final ServerPlayer player : server.getPlayerList().getPlayers()) {
+			if (ServerPlayNetworking.canSend(player, RulesPayload.TYPE)) {
+				ServerPlayNetworking.send(player, rules());
+			}
 		}
 	}
 }

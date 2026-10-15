@@ -41,6 +41,8 @@ public final class HatRelay {
 		if (next != null && server.getTickCount() < next) {
 			WAITING.add(id);
 		} else {
+			// (Passing on the latest state also settles a change that was still waiting.)
+			WAITING.remove(id);
 			passOn(server, id);
 		}
 	}

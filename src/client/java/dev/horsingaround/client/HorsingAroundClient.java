@@ -55,16 +55,10 @@ public final class HorsingAroundClient implements ClientModInitializer {
 		//?}
 		// The server tells us it runs the mod (and its rules); until then, and on servers without it, horses ride as in vanilla.
 		//? if >=1.20.5 {
-		ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, context) -> {
-			ServerRules.accept(rules);
-			Hats.sendOwn();
-		});
+		ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, context) -> acceptRules(rules));
 		ClientPlayNetworking.registerGlobalReceiver(PlayerHatPayload.TYPE, (hat, context) -> Hats.receive(hat));
 		//?} else {
-		/*ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, player, sender) -> {
-			ServerRules.accept(rules);
-			Hats.sendOwn();
-		});
+		/*ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, player, sender) -> acceptRules(rules));
 		ClientPlayNetworking.registerGlobalReceiver(PlayerHatPayload.TYPE, (hat, player, sender) -> Hats.receive(hat));
 		*///?}
 		ClientPlayConnectionEvents.INIT.register((handler, minecraft) -> {
@@ -96,13 +90,16 @@ public final class HorsingAroundClient implements ClientModInitializer {
 			RideCamera.tick(minecraft);
 			keys.endTick();
 			while (settings.consumeClick()) {
-				//? if >=26.2 {
-				minecraft.gui.setScreen(new HorseSettingsScreen(minecraft.gui.screen()));
-				//?} else
-				/*minecraft.setScreen(new HorseSettingsScreen(minecraft.screen));*/
+				HorseSettingsScreen.open(minecraft);
 			}
 			SteeringOverlay.tick(minecraft);
 			ServerNotice.tick(minecraft);
 		});
+	}
+
+	/** The server runs the mod: its rules apply, and it hears which hat this player wears. */
+	public static void acceptRules(final RulesPayload rules) {
+		ServerRules.accept(rules);
+		Hats.sendOwn();
 	}
 }

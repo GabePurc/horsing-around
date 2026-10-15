@@ -15,7 +15,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// A supporter wearing the cowboy hat: no helmet on their head (the head item is in CustomHeadLayerMixin).
+// A supporter wearing the cowboy hat: no helmet on their head (the head item is in CustomHeadLayerMixin), unless they are
+// invisible (no hat is drawn then).
 @Mixin(HumanoidArmorLayer.class)
 public abstract class HumanoidArmorLayerMixin {
 	@Inject(
@@ -26,7 +27,7 @@ public abstract class HumanoidArmorLayerMixin {
 		final PoseStack poseStack, final MultiBufferSource buffers, final LivingEntity entity, final EquipmentSlot slot, final int lightCoords,
 		final HumanoidModel<?> model, final CallbackInfo ci
 	) {
-		if (slot == EquipmentSlot.HEAD && entity instanceof Player player && Hats.colorFor(player) != HatPayload.NONE) {
+		if (slot == EquipmentSlot.HEAD && entity instanceof Player player && !player.isInvisible() && Hats.colorFor(player) != HatPayload.NONE) {
 			ci.cancel();
 		}
 	}

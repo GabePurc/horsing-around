@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.horsingaround.HorsingAround;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -12,12 +13,14 @@ import java.net.http.HttpResponse;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.Minecraft;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +33,8 @@ public final class Supporters {
 	private static final Logger LOGGER = LoggerFactory.getLogger(HorsingAround.MOD_ID);
 	private static final URI LIST = URI.create("https://raw.githubusercontent.com/GabePurc/horsing-around/main/supporters.json");
 	private static final Path CACHE = FabricLoader.getInstance().getConfigDir().resolve("horsingaround-supporters.json");
+	/** The list is a few KB; anything over this is not it. */
+	private static final int MAX_BYTES = 1 << 20;
 
 	/** Everyone who gets a hat: {@link #listed} plus {@link #testing}. Replaced whole on a change; read from the render thread. */
 	private static volatile Set<UUID> supporters = Set.of();
@@ -66,21 +71,33 @@ public final class Supporters {
 
 	/** Downloads the current list (background thread); {@code cached} is the cache's text, or null. */
 	private static void refresh(final String cached) {
-		final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+		HttpClient client = null;
 		try {
+			// (Follows redirects: GitHub answers with one when the repository is renamed or moved.)
+			client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).followRedirects(HttpClient.Redirect.NORMAL).build();
 			final HttpRequest request = HttpRequest.newBuilder(LIST).timeout(Duration.ofSeconds(15))
 				.header("User-Agent", "HorsingAround/" + HorsingAround.version()).GET().build();
-			final HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-			if (response.statusCode() != 200) {
-				LOGGER.info("Couldn't refresh the supporters list (HTTP {}); using the cached one", response.statusCode());
-				return;
+			final String body;
+			final HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+			try (InputStream in = response.body()) {
+				if (response.statusCode() != 200) {
+					LOGGER.info("Couldn't refresh the supporters list (HTTP {}); using the cached one", response.statusCode());
+					return;
+				}
+				final byte[] bytes = in.readNBytes(MAX_BYTES + 1);
+				if (bytes.length > MAX_BYTES) {
+					LOGGER.warn("The supporters list is over {} bytes; using the cached one", MAX_BYTES);
+					return;
+				}
+				body = new String(bytes, StandardCharsets.UTF_8);
 			}
-			final String body = response.body();
 			if (body.equals(cached)) {
 				return;
 			}
 			setListed(parse(body));
 			writeCache(body);
+			// A list that arrives after joining a server would otherwise leave the hat unannounced until the next change.
+			Minecraft.getInstance().execute(Hats::sendOwn);
 		} catch (final IOException e) {
 			LOGGER.info("Couldn't refresh the supporters list ({}); using the cached one", e.toString());
 		} catch (final InterruptedException e) {
@@ -137,9 +154,26 @@ public final class Supporters {
 		final Set<UUID> ids = new HashSet<>();
 		final JsonObject root = JsonParser.parseString(json).getAsJsonObject();
 		for (final JsonElement entry : root.getAsJsonArray("supporters")) {
-			ids.add(UUID.fromString(entry.getAsJsonObject().get("uuid").getAsString()));
+			// (One entry written wrong doesn't cost everyone else their hat.)
+			try {
+				ids.add(uuid(entry.getAsJsonObject().get("uuid").getAsString()));
+			} catch (final RuntimeException e) {
+				LOGGER.warn("Skipping a supporters list entry that isn't a player id: {}", entry);
+			}
 		}
 		return Set.copyOf(ids);
+	}
+
+	/** A player id, with or without its dashes (Mojang's own lookup gives it without). */
+	private static UUID uuid(final String text) {
+		final String id = text.trim();
+		if (id.length() == 32 && id.indexOf('-') < 0) {
+			return new UUID(Long.parseUnsignedLong(id.substring(0, 16), 16), Long.parseUnsignedLong(id.substring(16), 16));
+		}
+		if (id.length() != 36) {
+			throw new IllegalArgumentException(id);
+		}
+		return UUID.fromString(id);
 	}
 
 	/** For tests: make a player a supporter for this session. */

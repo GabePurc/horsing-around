@@ -77,6 +77,7 @@ public final class MountsTest implements FabricClientGameTest {
 		if (!System.getProperty("horsingaround.tests", "mounts").contains("mounts")) {
 			return;
 		}
+		TestPacks.enable(ctx);
 		boolean completed = false;
 		try (LogWatch watch = LogWatch.begin();
 			TestSingleplayerContext world = ctx.worldBuilder()
@@ -104,7 +105,7 @@ public final class MountsTest implements FabricClientGameTest {
 			serverWithoutTheMod(ctx, input, world);
 
 			section("Log");
-			final List<String> problems = watch.matching("horsingaround", "Exception", "moved wrongly", "moved too quickly");
+			final List<String> problems = watch.matching("horsingaround", "Exception", "moved wrongly", "moved too quickly", "was expected to be controlling");
 			problems.forEach(line -> log("  %s", line));
 			check("no server corrections, exceptions or mod warnings while riding every mount", problems.isEmpty());
 			completed = true;
@@ -256,8 +257,9 @@ public final class MountsTest implements FabricClientGameTest {
 			check("camel still dashes with a charged jump (fastest blocks/tick)", fastest, 0.4, 3.0);
 			ctx.waitTicks(40);
 		}
-		server.runCommand("item replace entity @p weapon.mainhand with minecraft:air");
+		// (Dismount first: taking the carrot or fungus on a stick away while riding makes the server expect no control.)
 		dismount(ctx, input);
+		server.runCommand("item replace entity @p weapon.mainhand with minecraft:air");
 	}
 
 	/** Llamas can be sat on but not steered. */
@@ -368,7 +370,7 @@ public final class MountsTest implements FabricClientGameTest {
 		final double attribute = ctx.computeOnClient(mc -> ((LivingEntity) mc.player.getVehicle()).getAttributeValue(Attributes.MOVEMENT_SPEED));
 		check("rides at vanilla's top speed (blocks/tick)", vanillaSpeed, attribute * 1.5, attribute * 5.0);
 		ctx.waitTicks(20);
-		world.getServer().runOnServer(server -> HorsingAround.sendRules());
+		world.getServer().runOnServer(HorsingAround::sendRules);
 		ctx.waitTicks(3);
 		check("the server's rules switch it back on", ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$managed()));
 		dismount(ctx, input);
