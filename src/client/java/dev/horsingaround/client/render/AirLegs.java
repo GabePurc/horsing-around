@@ -75,9 +75,4 @@ public final class AirLegs {
 		part.y -= (lift + AIR_LEG_HALF_DEPTH * Math.abs(Mth.sin(xRot))) * air;
 		part.z -= forward * air;
 	}
-
-	private static float smoothstep(final float t) {
-		final float x = Mth.clamp(t, 0.0F, 1.0F);
-		return x * x * (3.0F - 2.0F * x);
-	}
 }

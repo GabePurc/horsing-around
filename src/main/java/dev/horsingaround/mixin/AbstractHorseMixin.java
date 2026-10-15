@@ -24,6 +24,7 @@ import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
@@ -240,8 +241,11 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 		final RideState s = this.horsingaround$ride;
 		final boolean managed = this.horsingaround$managed();
 		final boolean narrow = managed && this.getControllingPassenger() instanceof Player;
-		if (narrow != s.narrow) {
+		// Left in a gap only the narrowed box threads, widened it would be in the walls: it keeps that box until it is out.
+		final boolean kept = !narrow && managed && (s.narrow || s.keptNarrow) && !this.horsingaround$fitsWide();
+		if (narrow != s.narrow || kept != s.keptNarrow) {
 			s.narrow = narrow;
+			s.keptNarrow = kept;
 			this.refreshDimensions();
 		}
 		if (!managed) {
@@ -255,6 +259,14 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 		} else if (this.level() instanceof ServerLevel level) {
 			Trample.tick((AbstractHorse) (Object) this, s, level);
 		}
+	}
+
+	/** Whether vanilla's full-width box fits where the narrowed one is now. */
+	@Unique
+	private boolean horsingaround$fitsWide() {
+		final AABB box = this.getBoundingBox();
+		final double grow = box.getXsize() * (1.0 / RideTuning.RIDDEN_WIDTH_SCALE - 1.0) * 0.5;
+		return this.level().noCollision(this, box.inflate(grow, 0.0, grow));
 	}
 
 	/**

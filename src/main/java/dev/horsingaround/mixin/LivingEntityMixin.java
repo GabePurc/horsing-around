@@ -10,7 +10,6 @@ import dev.horsingaround.ride.RideStateHolder;
 import dev.horsingaround.ride.RideTuning;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
@@ -28,7 +27,7 @@ abstract class LivingEntityMixin {
 	//?} else
 	/*@ModifyReturnValue(method = "getDimensions", at = @At("RETURN"))*/
 	private EntityDimensions horsingaround$riddenWidth(final EntityDimensions dimensions) {
-		if ((Object) this instanceof RideStateHolder holder && holder.horsingaround$ride().narrow) {
+		if ((Object) this instanceof RideStateHolder holder && (holder.horsingaround$ride().narrow || holder.horsingaround$ride().keptNarrow)) {
 			//? if >=1.20.5 {
 			return new EntityDimensions(dimensions.width() * RideTuning.RIDDEN_WIDTH_SCALE, dimensions.height(), dimensions.eyeHeight(), dimensions.attachments(), dimensions.fixed());
 			//?} else
@@ -58,8 +57,7 @@ abstract class LivingEntityMixin {
 		if (holder.horsingaround$ride().inAir && !horse.onGround()) {
 			return 0.0F;
 		}
-		final float topSpeed = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * RideTuning.TERMINAL_VELOCITY_FACTOR;
-		return Math.min(distance / topSpeed * RideTuning.ANIMATION_SPEED_FACTOR, 1.0F);
+		return Math.min(distance / RideTuning.topSpeed(horse) * RideTuning.ANIMATION_SPEED_FACTOR, 1.0F);
 	}
 
 	@ModifyArg(

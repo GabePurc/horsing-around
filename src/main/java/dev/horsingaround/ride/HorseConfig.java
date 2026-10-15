@@ -7,8 +7,10 @@ import com.google.gson.GsonBuilder;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import net.minecraft.util.Mth;
 import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
@@ -24,6 +26,7 @@ public final class HorseConfig {
 	private static final Logger LOGGER = LoggerFactory.getLogger("horsingaround");
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("horsingaround.json");
+	private static final HorseConfig DEFAULTS = new HorseConfig();
 	private static HorseConfig instance = new HorseConfig();
 	/** Range of the camera height setting, blocks. */
 	public static final float CAMERA_HEIGHT_MIN = -0.5F;
@@ -58,19 +61,42 @@ public final class HorseConfig {
 				}
 			} catch (final IOException | RuntimeException e) {
 				LOGGER.warn("Could not read {}, using defaults", FILE, e);
+				keepUnreadable();
 			}
 		}
 		apply();
 	}
 
+	/** Moves a file that couldn't be read aside, so the next save doesn't overwrite what the player wrote in it. */
+	private static void keepUnreadable() {
+		final Path kept = FILE.resolveSibling(FILE.getFileName() + ".bad");
+		try {
+			Files.move(FILE, kept, StandardCopyOption.REPLACE_EXISTING);
+			LOGGER.warn("Kept the unreadable settings as {}", kept);
+		} catch (final IOException e) {
+			LOGGER.warn("Could not keep a copy of {}", FILE, e);
+		}
+	}
+
+	/** Written beside the file and moved over it, so quitting mid-write can't leave half a file. */
 	public static void save() {
+		final Path partial = FILE.resolveSibling(FILE.getFileName() + ".tmp");
 		try {
 			Files.createDirectories(FILE.getParent());
-			try (Writer writer = Files.newBufferedWriter(FILE)) {
+			try (Writer writer = Files.newBufferedWriter(partial)) {
 				GSON.toJson(instance, writer);
 			}
-		} catch (final IOException e) {
+			try {
+				Files.move(partial, FILE, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+			} catch (final AtomicMoveNotSupportedException e) {
+				Files.move(partial, FILE, StandardCopyOption.REPLACE_EXISTING);
+			}
+		} catch (final IOException | RuntimeException e) {
 			LOGGER.warn("Could not save {}", FILE, e);
+			try {
+				Files.deleteIfExists(partial);
+			} catch (final IOException ignored) {
+			}
 		}
 	}
 
@@ -82,25 +108,30 @@ public final class HorseConfig {
 	/** Pushes the settings into the tuning values the camera and sound code read. */
 	public static void apply() {
 		final HorseConfig c = instance;
-		c.cameraDistance = Mth.clamp(c.cameraDistance, 0.5F, 1.5F);
-		c.cameraHeight = Mth.clamp(c.cameraHeight, CAMERA_HEIGHT_MIN, CAMERA_HEIGHT_MAX);
-		c.speedZoom = Mth.clamp(c.speedZoom, 0.0F, 1.0F);
-		c.viewBob = Mth.clamp(c.viewBob, 0.0F, 1.0F);
-		c.handBob = Mth.clamp(c.handBob, 0.0F, 1.0F);
-		c.horseSounds = Mth.clamp(c.horseSounds, 0.0F, 1.0F);
+		c.cameraDistance = clamp(c.cameraDistance, DEFAULTS.cameraDistance, 0.5F, 1.5F);
+		c.cameraHeight = clamp(c.cameraHeight, DEFAULTS.cameraHeight, CAMERA_HEIGHT_MIN, CAMERA_HEIGHT_MAX);
+		c.speedZoom = clamp(c.speedZoom, DEFAULTS.speedZoom, 0.0F, 1.0F);
+		c.viewBob = clamp(c.viewBob, DEFAULTS.viewBob, 0.0F, 1.0F);
+		c.handBob = clamp(c.handBob, DEFAULTS.handBob, 0.0F, 1.0F);
+		c.horseSounds = clamp(c.horseSounds, DEFAULTS.horseSounds, 0.0F, 1.0F);
 		AUTO_THIRD_PERSON = c.thirdPersonOnMount;
 		CAMERA_DISTANCE_SCALE = c.cameraDistance;
 		CAMERA_HEIGHT = c.cameraHeight;
-		FOV_GALLOP_BOOST = 0.05F * c.speedZoom;
-		FP_BOUNCE_SCALE = 0.35F * c.viewBob;
-		FP_NOD_SCALE = 0.15F * c.viewBob;
-		FP_HAND_BOB = 0.6F * c.handBob;
-		HUFF_VOLUME_MIN = 0.12F * c.horseSounds;
-		HUFF_VOLUME_MAX = 0.3F * c.horseSounds;
-		EXHAUSTED_BREATH_VOLUME = 0.45F * c.horseSounds;
-		LEAVES_RUSTLE_VOLUME = 0.6F * c.horseSounds;
-		REFUSAL_VOLUME = 0.5F * c.horseSounds;
-		CLIMB_SOUND_VOLUME = 0.35F * c.horseSounds;
-		CUT_SOUND_VOLUME = 0.6F * c.horseSounds;
+		FOV_GALLOP_BOOST = FOV_GALLOP_BOOST_BASE * c.speedZoom;
+		FP_BOUNCE_SCALE = FP_BOUNCE_SCALE_BASE * c.viewBob;
+		FP_NOD_SCALE = FP_NOD_SCALE_BASE * c.viewBob;
+		FP_HAND_BOB = FP_HAND_BOB_BASE * c.handBob;
+		HUFF_VOLUME_MIN = HUFF_VOLUME_MIN_BASE * c.horseSounds;
+		HUFF_VOLUME_MAX = HUFF_VOLUME_MAX_BASE * c.horseSounds;
+		EXHAUSTED_BREATH_VOLUME = EXHAUSTED_BREATH_VOLUME_BASE * c.horseSounds;
+		LEAVES_RUSTLE_VOLUME = LEAVES_RUSTLE_VOLUME_BASE * c.horseSounds;
+		REFUSAL_VOLUME = REFUSAL_VOLUME_BASE * c.horseSounds;
+		CLIMB_SOUND_VOLUME = CLIMB_SOUND_VOLUME_BASE * c.horseSounds;
+		CUT_SOUND_VOLUME = CUT_SOUND_VOLUME_BASE * c.horseSounds;
+	}
+
+	/** A setting kept in its range; one that isn't a number (a hand-edited file can hold NaN) counts as missing. */
+	private static float clamp(final float value, final float fallback, final float min, final float max) {
+		return Float.isFinite(value) ? Mth.clamp(value, min, max) : fallback;
 	}
 }

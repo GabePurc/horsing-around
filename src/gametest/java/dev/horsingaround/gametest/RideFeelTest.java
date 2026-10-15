@@ -12,7 +12,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.CompletableFuture;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -26,7 +25,6 @@ import net.minecraft.client.gui.components.debug.DebugScreenEntryStatus;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
-import net.minecraft.server.packs.repository.PackRepository;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -68,12 +66,13 @@ public final class RideFeelTest implements FabricClientGameTest {
 			return;
 		}
 		screenshot(ctx, "00a_title_screen");
-		final boolean fresh = enableFreshAnimations(ctx);
+		final boolean fresh = TestPacks.enable(ctx);
 		log("Fresh Animations pack: %s, EMF loaded: %s", fresh ? "enabled" : "not found", FabricLoader.getInstance().isModLoaded("entity_model_features"));
 
-		try (TestSingleplayerContext world = ctx.worldBuilder()
-			.adjustSettings(settings -> settings.setGameMode(WorldCreationUiState.SelectedGameMode.CREATIVE))
-			.create()) {
+		try (LogWatch watch = LogWatch.begin();
+			TestSingleplayerContext world = ctx.worldBuilder()
+				.adjustSettings(settings -> settings.setGameMode(WorldCreationUiState.SelectedGameMode.CREATIVE))
+				.create()) {
 			final TestServerContext server = world.getServer();
 			this.server = server;
 			server.runCommand("time set noon");
@@ -214,6 +213,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			if (sections.isEmpty() || sections.contains("core")) {
 				horseSettings(ctx);
 			}
+			serverCorrections(watch);
 		} finally {
 			writeReport();
 		}
@@ -245,6 +245,16 @@ public final class RideFeelTest implements FabricClientGameTest {
 			this.server.runCommand("clear @p");
 			ctx.waitTicks(2);
 		}
+	}
+
+	/** The server correcting the rider's moves is rubber-banding to a player: none in any lane. */
+	private void serverCorrections(final LogWatch watch) {
+		section("Server corrections");
+		final List<String> corrections = watch.corrections();
+		for (final String line : corrections.subList(0, Math.min(corrections.size(), 20))) {
+			log("  %s", line);
+		}
+		check("the server corrected none of the rider's moves in any lane (" + corrections.size() + ")", corrections.isEmpty());
 	}
 
 	private void mounting(final ClientGameTestContext ctx) {
@@ -555,6 +565,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		double landing = 0.0;
 		double sunk = 0.0;
 		double dip = 0.0;
+		double drawn = 0.0;
 		final StringBuilder touchdown = new StringBuilder();
 		for (int i = 0; i < 12; i++) {
 			ctx.waitTick();
@@ -565,6 +576,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 				Math.min(Math.min(LegProbe.gap[0], LegProbe.gap[1]), Math.min(LegProbe.gap[2], LegProbe.gap[3])),
 				((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().heightOffset(1.0F), LegProbe.frames
 			});
+			drawn = Math.max(drawn, now[2]);
 			if (now[2] > 0) {
 				sunk = Math.min(sunk, now[0]);
 			}
@@ -577,6 +589,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("no surge after landing (fastest tick / before)", landing / before, 0.9, 1.12);
 		check("landing, the legs take the fall: the body sinks a little (blocks)", -dip, 0.03, 0.3);
 		// (A rocking hoof's edge dips about a pixel into the ground, as the animation draws it.)
+		check("landing, the hooves were measured (frames drawn)", drawn, 1.0, 1.0E6);
 		check("landing, no hoof sinks into the ground (most, blocks)", sunk, -0.08, 0.0);
 		check("the stride picks up again after landing (leg-animation speed)", sample(ctx).limbSpeed, 0.85, 1.0);
 		check("legs back in the stride (jump shape, 0..1)", ride(ctx, r -> r.airLegs(1.0F)), 0.0, 0.01);
@@ -1270,6 +1283,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		double drop = 0.0;
 		double jolt = 0.0;
 		double sunk = 0.0;
+		double drawn = 0.0;
 		int climbStart = -1;
 		int shots = 0;
 		final List<double[]> history = new ArrayList<>();
@@ -1281,9 +1295,11 @@ public final class RideFeelTest implements FabricClientGameTest {
 				final RideState r = ((RideStateHolder) horse).horsingaround$ride();
 				return new double[] {
 					horse.tickCount, horse.getZ(), horse.getY(), horse.getY() + r.heightOffset(1.0F), r.pitch(1.0F), r.drawnFit, horse.onGround() ? 1 : 0,
-					horse.isInWater() ? 1 : 0, r.bankTicks, r.swimming ? 1 : 0, Math.min(Math.min(LegProbe.gap[0], LegProbe.gap[1]), Math.min(LegProbe.gap[2], LegProbe.gap[3]))
+					horse.isInWater() ? 1 : 0, r.bankTicks, r.swimming ? 1 : 0, Math.min(Math.min(LegProbe.gap[0], LegProbe.gap[1]), Math.min(LegProbe.gap[2], LegProbe.gap[3])),
+					LegProbe.frames
 				};
 			});
+			drawn = Math.max(drawn, now[11]);
 			if (!history.isEmpty() && now[0] == history.get(history.size() - 1)[0]) {
 				continue;
 			}
@@ -1319,6 +1335,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("the drawn body rises no higher than the bank (most above where it stands, blocks)", peak, -1.0, 0.08);
 		check("settles onto the bank with no snap (most the drawn body falls in a tick, blocks)", drop, 0.0, 0.08);
 		check("no jolt (most the drawn body's rise changes in a tick, blocks/tick)", jolt, 0.0, 0.12);
+		check("the hooves were measured on the way out (frames drawn)", drawn, 1.0, 1.0E6);
 		check("no hoof in the ground on the bank (most, blocks)", sunk, -0.08, 0.0);
 		// (Not checked yet: mid-heave the front soles still jump ~0.34 against the horse in a frame, mostly forward and back,
 		// on Fresh Animations and the plain model alike; it was ~0.5 with each hoof popping up onto the bank at its lip.)
@@ -1364,6 +1381,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		input.releaseKey(keyOf);
 		double lowest = Double.POSITIVE_INFINITY;
 		double sunk = 0.0;
+		double drawn = 0.0;
 		double settled = Double.NaN;
 		int still = 0;
 		int last = -1;
@@ -1375,9 +1393,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 				final RideState r = ((RideStateHolder) horse).horsingaround$ride();
 				return new double[] {
 					horse.tickCount, r.heightOffset(1.0F), r.drawnFit, r.pitch(1.0F), r.cut, LegProbe.gap[0], LegProbe.gap[1], LegProbe.gap[2], LegProbe.gap[3],
-					Math.hypot(horse.getX() - horse.xo, horse.getZ() - horse.zo), Mth.wrapDegrees(horse.getYRot() - 180.0F), horse.getY() + 60.0, LegProbe.bodyInside
+					Math.hypot(horse.getX() - horse.xo, horse.getZ() - horse.zo), Mth.wrapDegrees(horse.getYRot() - 180.0F), horse.getY() + 60.0, LegProbe.bodyInside, LegProbe.frames
 				};
 			});
+			drawn = Math.max(drawn, now[13]);
 			if (now[0] == last) {
 				continue;
 			}
@@ -1397,6 +1416,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 				now[3], now[4], now[5], now[6], now[7], now[8], now[12], now[9], now[10]));
 		}
 		check("stopping, the body stays at its standing height (lowest against standing, blocks)", lowest, -0.03, 0.05);
+		check("the hooves were measured as it stops (frames drawn)", drawn, 1.0, 1.0E6);
 		check("no hoof in the ground as it stops (most, blocks)", sunk, -0.08, 0.0);
 		check("stood still, the body is back at its standing height (blocks)", settled, -0.01, 0.01);
 		sideScreenshot(ctx, "19c_stopped_after_" + key.replace(' ', '_'));
@@ -3884,6 +3904,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		double bodyIn = 0.0;
 		double hoofIn = 0.0;
 		double legIn = 0.0;
+		double drawn = 0.0;
 		int foreHalf = -1;
 		int hindHalf = -1;
 		float maxTilt = 0.0F;
@@ -3923,6 +3944,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 				LegProbe.bodyInside, Math.min(Math.min(LegProbe.gap[0], LegProbe.gap[1]), Math.min(LegProbe.gap[2], LegProbe.gap[3])),
 				Math.max(Math.max(LegProbe.legInside[0], LegProbe.legInside[1]), Math.max(LegProbe.legInside[2], LegProbe.legInside[3])), LegProbe.frames
 			});
+			drawn = Math.max(drawn, probe[3]);
 			if (probe[3] > 0) {
 				bodyIn = Math.max(bodyIn, probe[0]);
 				hoofIn = Math.min(hoofIn, probe[1]);
@@ -3959,6 +3981,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("hooves come up onto the step (most, blocks)", Math.max(maxFore, maxHind), 0.05, 0.5);
 		check("smooth (max rendered height change per tick, blocks)", maxVisualStep, 0.03, trot ? 0.2 : 0.17);
 		check("level again after (pitch deg)", Math.abs(sample(ctx).pitch), 0.0, 1.5);
+		check("the body and legs were measured on the step (frames drawn)", drawn, 1.0, 1.0E6);
 		check("the chest clears the step (most the body is in a block, blocks)", bodyIn, 0.0, 0.05);
 		check("no hoof in the step (most, blocks; a rocking hoof's edge dips a pixel)", hoofIn, -0.08, 0.0);
 		check("no leg in the step (most, blocks)", legIn, 0.0, 0.06);
@@ -4191,39 +4214,6 @@ public final class RideFeelTest implements FabricClientGameTest {
 	}
 
 	// ---- helpers ----
-
-	private static boolean enableFreshAnimations(final ClientGameTestContext ctx) {
-		final CompletableFuture<Void> reload = ctx.computeOnClient(mc -> {
-			final PackRepository packs = mc.getResourcePackRepository();
-			packs.reload();
-			boolean changed = false;
-			for (final String id : packs.getAvailableIds()) {
-				// (-PvanillaModel: the plain horse model, no animation pack.)
-				if (id.contains("FreshAnimations") && !Boolean.getBoolean("horsingaround.vanillaModel")) {
-					packs.addPack(id);
-					changed = true;
-				}
-			}
-			// The test colours go on top (see installDebugPack in build.gradle).
-			for (final String id : packs.getAvailableIds()) {
-				if (id.contains("horsingaround-debug") && !Boolean.getBoolean("horsingaround.plainTextures")) {
-					packs.addPack(id);
-					changed = true;
-				}
-			}
-			if (!changed) {
-				return null;
-			}
-			mc.options.updateResourcePacks(packs);
-			return mc.reloadResourcePacks();
-		});
-		if (reload == null) {
-			return false;
-		}
-		ctx.waitFor(mc -> reload.isDone(), 20 * 120);
-		ctx.waitTicks(40);
-		return true;
-	}
 
 	private static Sample sample(final ClientGameTestContext ctx) {
 		return ctx.computeOnClient(mc -> {

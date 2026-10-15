@@ -111,12 +111,22 @@ def copyDebugPack = { File into ->
 		}
 	}
 }
-def shardDirs = testShards.keySet().collect { rootProject.layout.buildDirectory.dir("run/clientGameTest-${it.toLowerCase()}").get().asFile }
+def shardDirs = testShards.collectEntries { name, shard -> [name, rootProject.layout.buildDirectory.dir("run/clientGameTest-${name.toLowerCase()}").get().asFile] }
+// The reports a shard's tests write (each test writes horsingaround-<test>-report.txt).
+def shardReports = testShards.collectEntries { name, shard -> [name, shard.tests.split(",").collect { "horsingaround-${it}-report.txt".toString() }] }
+// Which shards started in this build: the collector merges only those (the folders of the others hold an earlier run's).
+abstract class ShardRuns implements org.gradle.api.services.BuildService<org.gradle.api.services.BuildServiceParameters.None> {
+	final Set<String> started = java.util.concurrent.ConcurrentHashMap.newKeySet()
+}
+def shardRuns = gradle.sharedServices.registerIfAbsent("shardRuns", ShardRuns) {}
 testShards.each { name, shard ->
-	def dir = rootProject.layout.buildDirectory.dir("run/clientGameTest-${name.toLowerCase()}").get().asFile
+	def dir = shardDirs[name]
+	def shardName = name // (inside the task's closure, "name" is the task's)
 	tasks.matching { it.name == "runClientGameTest${name}" }.configureEach {
 		dependsOn "installFreshAnimations"
+		usesService(shardRuns)
 		doFirst {
+			shardRuns.get().started.add(shardName)
 			// A fresh folder each run, with the Fresh Animations pack, the test colours and the EULA for the server test.
 			dir.deleteDir()
 			new File(dir, "resourcepacks").mkdirs()
@@ -128,27 +138,42 @@ testShards.each { name, shard ->
 		systemProperty "horsingaround.scenario", ""
 		systemProperty "horsingaround.sections", shard.sections
 		systemProperty "horsingaround.plainTextures", project.hasProperty("plainTextures")
+		systemProperty "horsingaround.vanillaModel", project.hasProperty("vanillaModel")
 		usesService(testGameSlots)
 		lightTestGame(it)
 	}
 }
 def mergedReports = rootProject.layout.buildDirectory.dir("run/clientGameTest").get().asFile
 def collectShardReports = tasks.register("collectClientGameTestShards") {
-	description = "Merges the parallel client test shards' reports into build/run/clientGameTest/ and lists failed checks."
+	description = "Merges the reports of the client test shards that ran into build/run/clientGameTest/ and fails on any failed check."
+	usesService(shardRuns)
 	doLast { task ->
+		def started = shardRuns.get().started
+		if (started.isEmpty()) {
+			throw new GradleException("No client test shard ran in this build, so there are no reports to merge.")
+		}
 		mergedReports.mkdirs()
 		def merged = [:]
-		shardDirs.each { dir ->
-			(dir.listFiles() ?: []).findAll { it.name.startsWith("horsingaround-") && it.name.endsWith("-report.txt") }.sort { it.name }.each { report ->
-				merged[report.name] = (merged[report.name] ?: "") + "### " + dir.name + "\n" + report.text
+		def failed = []
+		testShards.keySet().findAll { it in started }.each { name ->
+			def dir = shardDirs[name]
+			shardReports[name].each { reportName ->
+				def report = new File(dir, reportName)
+				if (report.isFile()) {
+					merged[reportName] = (merged[reportName] ?: "") + "### " + dir.name + "\n" + report.text
+				} else {
+					failed << "${name}: no ${reportName} (the game stopped before its test wrote one; see ${dir}/logs/latest.log)".toString()
+				}
 			}
 		}
-		def failed = []
 		merged.each { report, text ->
 			new File(mergedReports, report).text = text
-			text.eachLine { if (it.contains("FAIL")) failed << report + ": " + it.trim() }
+			text.eachLine { if (it.contains("FAIL") || it.contains("INCOMPLETE")) failed << report + ": " + it.trim() }
 		}
-		task.logger.lifecycle(failed.isEmpty() ? "All client test checks passed (${merged.size()} reports)." : "Failed checks:\n" + failed.join("\n"))
+		if (!failed.isEmpty()) {
+			throw new GradleException("Failed client test checks:\n" + failed.join("\n"))
+		}
+		task.logger.lifecycle("All client test checks passed (${merged.size()} reports from the ${started.size()} shards that ran).")
 	}
 }
 tasks.register("runClientGameTestParallel") {

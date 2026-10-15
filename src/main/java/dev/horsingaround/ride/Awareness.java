@@ -148,7 +148,7 @@ public final class Awareness {
 	static float look(final AbstractHorse horse, final RideState s, final float targetYaw, final boolean forward) {
 		body(horse);
 		final double fall = acceptableFall(horse);
-		final float blocksPerUnit = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR;
+		final float blocksPerUnit = topSpeed(horse);
 		final float range = Mth.clamp(Math.abs(s.speed) * blocksPerUnit * LOOK_AHEAD_TICKS + half + STEP, LOOK_AHEAD_MIN, LOOK_AHEAD_MAX);
 		followLine(horse, s, targetYaw);
 		s.wayRoom -= Math.max(s.speed, 0.0F) * blocksPerUnit;
@@ -157,6 +157,7 @@ public final class Awareness {
 		if (!forward || s.gait < TROT) {
 			s.avoidTarget = 0.0F;
 			s.ledgeOnLine = false;
+			s.hurdleOnLine = false;
 			s.way = WAY_NONE;
 			s.wayPoints = 0;
 		} else if (--s.avoidReplan <= 0) {
@@ -183,6 +184,7 @@ public final class Awareness {
 	static void rest(final RideState s) {
 		s.avoidTarget = 0.0F;
 		s.ledgeOnLine = false;
+		s.hurdleOnLine = false;
 		s.way = WAY_NONE;
 		s.wayPoints = 0;
 		s.lineOffset = 0.0F;
@@ -356,6 +358,8 @@ public final class Awareness {
 			rollout(horse, s, heading, 0.0F, 0, speed, unitSpeed, horizon, fall, Float.MAX_VALUE, s.wayX, s.wayZ);
 			if (rollClear) {
 				s.way = WAY_CLEAR;
+				s.wayAngle = 0.0F;
+				s.wayHold = 0;
 				s.wayPace = Float.MAX_VALUE;
 				s.wayPoints = rollPoints;
 				planned(started);
@@ -368,7 +372,7 @@ public final class Awareness {
 		final float commit = stopping(speed, DECEL_BRAKE * blocksPerUnit * BRAKE_PLAN) + PATH_COMMIT;
 		bestCost = Float.MAX_VALUE;
 		furthest = -1.0F;
-		search(horse, s, heading, unitSpeed, 1.0F, horizon, fall, blocksPerUnit, preferred, commit, false);
+		search(horse, s, heading, unitSpeed, 1.0F, horizon, fall, blocksPerUnit, preferred, commit);
 		final float straightReach = lineReach;
 		if (bestCost == Float.MAX_VALUE || !bestClear && bestRoom < stopping(speed, DECEL_BRAKE * blocksPerUnit * BRAKE_PLAN) * PATH_SLOW_ROOM) {
 			// No way at this pace, or the best meets something getting close: a slower pace clear all along, if that loses
@@ -380,7 +384,7 @@ public final class Awareness {
 			final float room = bestRoom;
 			final int what = bestKind;
 			for (final float scale : PATH_SLOWER) {
-				search(horse, s, heading, unitSpeed, scale, horizon, fall, blocksPerUnit, preferred, commit, false);
+				search(horse, s, heading, unitSpeed, scale, horizon, fall, blocksPerUnit, preferred, commit);
 			}
 			if (cost < Float.MAX_VALUE && (bestScale == 1.0F || !bestClear)) {
 				bestCost = cost;
@@ -451,44 +455,43 @@ public final class Awareness {
 	/**
 	 * Plays out the candidate ways at {@code scale} of the pace, the way taken last time first (a good bound to cut the
 	 * rest short), then back for the line, then every angle and hold, then fine-tunes round the best; keeps the best in
-	 * {@link #bestCost} and the rest. A way that meets something counts only with {@code commit} blocks of room before it,
-	 * and not at all if {@code clearOnly}.
+	 * {@link #bestCost} and the rest. A way that meets something counts only with {@code commit} blocks of room before it.
 	 */
 	private static void search(
 		final AbstractHorse horse, final RideState s, final float heading, final float unitSpeed, final float scale, final float horizon, final double fall,
-		final float blocksPerUnit, final float preferred, final float commit, final boolean clearOnly
+		final float blocksPerUnit, final float preferred, final float commit
 	) {
 		final float speed = unitSpeed * scale * blocksPerUnit;
 		// (Straight back for the line first: how far that gets is the bar a way that meets a drop has to beat.)
-		tryWay(horse, s, heading, 0.0F, 0, speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
+		tryWay(horse, s, heading, 0.0F, 0, speed, unitSpeed, scale, horizon, fall, commit);
 		if (scale == 1.0F && (s.way == WAY_CLEAR || s.way == WAY_PARTIAL)) {
 			// The way it is on, carried on from where it has got to (its hold counted down), kept unless another is clearly
 			// better: switching ways mid-turn costs the turn it has started, so it doesn't dither between two.
 			keeping = true;
-			tryWay(horse, s, heading, s.wayAngle, Math.max(s.wayHold - AVOID_REPLAN_TICKS, 0), speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
+			tryWay(horse, s, heading, s.wayAngle, Math.max(s.wayHold - AVOID_REPLAN_TICKS, 0), speed, unitSpeed, scale, horizon, fall, commit);
 			keeping = false;
 		}
 		for (final float a : PATH_ANGLES) {
 			for (int side = 0; side < (a == 0.0F ? 1 : 2); side++) {
 				final float angle = side == 0 ? a * preferred : -a * preferred;
 				for (final int hold : PATH_HOLD_TICKS) {
-					tryWay(horse, s, heading, angle, hold, speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
+					tryWay(horse, s, heading, angle, hold, speed, unitSpeed, scale, horizon, fall, commit);
 				}
 			}
 		}
 		if (bestCost < Float.MAX_VALUE && bestScale == scale && bestHold > 0) {
 			final float angle = bestAngle;
 			final int hold = bestHold;
-			tryWay(horse, s, heading, angle * 0.8F, hold, speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
-			tryWay(horse, s, heading, angle * 1.2F, hold, speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
-			tryWay(horse, s, heading, angle, Math.max(Math.round(hold * 0.7F), 1), speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
-			tryWay(horse, s, heading, angle, Math.round(hold * 1.4F), speed, unitSpeed, scale, horizon, fall, commit, clearOnly);
+			tryWay(horse, s, heading, angle * 0.8F, hold, speed, unitSpeed, scale, horizon, fall, commit);
+			tryWay(horse, s, heading, angle * 1.2F, hold, speed, unitSpeed, scale, horizon, fall, commit);
+			tryWay(horse, s, heading, angle, Math.max(Math.round(hold * 0.7F), 1), speed, unitSpeed, scale, horizon, fall, commit);
+			tryWay(horse, s, heading, angle, Math.round(hold * 1.4F), speed, unitSpeed, scale, horizon, fall, commit);
 		}
 	}
 
 	private static void tryWay(
 		final AbstractHorse horse, final RideState s, final float heading, final float angle, final int hold, final float speed, final float unitSpeed,
-		final float scale, final float horizon, final double fall, final float commit, final boolean clearOnly
+		final float scale, final float horizon, final double fall, final float commit
 	) {
 		// (Changing sides costs more the further it has gone over to the side it is on.)
 		final float extra = (1.0F - scale) * PATH_COST_PACE
@@ -515,7 +518,7 @@ public final class Awareness {
 		if (!rollClear) {
 			// (A way that just runs off sideways, along a cliff edge or a wall, without getting on, is no way on; nor one that
 			// meets a drop no further on than straight ahead would: at a cliff edge it stays put.)
-			if (clearOnly || rollRoom < commit || rollKind == OUT || rollKind == DANGER && rollReach < lineReach + PATH_PARTIAL_GAIN) {
+			if (rollRoom < commit || rollKind == OUT || rollKind == DANGER && rollReach < lineReach + PATH_PARTIAL_GAIN) {
 				return;
 			}
 			// (Meeting something at all costs: it will have to go round it after all, the sooner the more.)
@@ -750,12 +753,6 @@ public final class Awareness {
 		return c;
 	}
 
-
-	/**
-	 * Whether the wall the last probe met {@code blocked} along yaw (with {@link #endGround} under the centre line just
-	 * short of it) is a ledge the horse will jump up when it gets there: the full ledge check, from a body placed just
-	 * short of it.
-	 */
 	/**
 	 * How far along the rider's centre line itself meets the ledge the line (centre and flanks) met {@code blocked} along,
 	 * or -1 if only a flank does (met at a steep angle a flank gets there first, and the centre a little further on).
@@ -776,6 +773,11 @@ public final class Awareness {
 		return meets ? at : -1.0F;
 	}
 
+	/**
+	 * Whether the wall the last probe met {@code blocked} along yaw (with {@link #endGround} under the centre line just
+	 * short of it) is a ledge the horse will jump up when it gets there: the full ledge check, from a body placed just
+	 * short of it.
+	 */
 	private static boolean jumpableLedge(final AbstractHorse horse, final float yaw, final float blocked, final boolean centre) {
 		final float rad = yaw * Mth.DEG_TO_RAD;
 		final double start = Math.max(blocked - STEP - half - 1.0F, 0.0F);
@@ -798,12 +800,7 @@ public final class Awareness {
 		}
 		// Only one ridden at fairly square: a fence or a wall the rider's line runs along or glances (down a fenced street)
 		// is something to keep off, not a jump.
-		final Level level = horse.level();
-		final double m = hurdleFace + 0.05;
-		final boolean stopsX = !level.noBlockCollision(horse, box.move(fx * m, 0.0, 0.0));
-		final boolean stopsZ = !level.noBlockCollision(horse, box.move(0.0, 0.0, fz * m));
-		final double square = stopsX && !stopsZ ? Math.abs(fx) : stopsZ && !stopsX ? Math.abs(fz) : Math.max(Math.abs(fx), Math.abs(fz));
-		return square >= Mth.cos(HURDLE_LINE_ANGLE * Mth.DEG_TO_RAD);
+		return squareness(horse.level(), horse, box, fx, fz, hurdleFace + 0.05) >= Mth.cos(HURDLE_LINE_ANGLE * Mth.DEG_TO_RAD);
 	}
 
 	/**
@@ -1085,6 +1082,10 @@ public final class Awareness {
 			}
 			final FluidState fluid = state.getFluidState();
 			if (!fluid.isEmpty() && fluid.is(FluidTags.LAVA)) {
+				if (whole) {
+					// (All of the block.)
+					spans(Shapes.empty());
+				}
 				return HAZARD;
 			}
 			if (by <= bodyTop && isHazard(state) && !occupied(bx, by, bz)) {
@@ -1093,7 +1094,7 @@ public final class Awareness {
 				}
 				return HAZARD;
 			}
-			final VoxelShape shape = Foliage.leavesOpen(level) && state.is(BlockTags.LEAVES) ? Shapes.empty() : state.getCollisionShape(level, POS);
+			final VoxelShape shape = Foliage.leavesOpen(level) && Foliage.isLeaves(state) ? Shapes.empty() : state.getCollisionShape(level, POS);
 			if (shape.isEmpty() || shape != Shapes.block() && !whole && !covers(shape, inX, inZ)) {
 				if (!fluid.isEmpty() && fluid.is(FluidTags.WATER)) {
 					// Swimming is fine, and water breaks any fall.
@@ -1149,6 +1150,11 @@ public final class Awareness {
 			&& inZ >= shape.min(Direction.Axis.Z) - SHAPE_PAD && inZ <= shape.max(Direction.Axis.Z) + SHAPE_PAD;
 	}
 
+	/** Fences, walls and fence gates: jumped as hurdles, never climbed as ledges. */
+	private static boolean isFence(final BlockState state) {
+		return state.is(BlockTags.FENCES) || state.is(BlockTags.WALLS) || state.is(BlockTags.FENCE_GATES);
+	}
+
 	/** Blocks that hurt or trap a horse walking into or onto them (lava is checked as a fluid). */
 	public static boolean isHazard(final BlockState state) {
 		return state.is(BlockTags.FIRE) || state.is(Blocks.MAGMA_BLOCK) || state.is(Blocks.CACTUS) || state.is(Blocks.SWEET_BERRY_BUSH)
@@ -1157,23 +1163,20 @@ public final class Awareness {
 	}
 
 	/**
-	 * The longest fall the horse will take. Anything that doesn't hurt it (horses take half damage past 6 blocks, so up to
-	 * about 8), and beyond that only while the hurt stays small: up to FALL_HURT_ALLOWANCE for the horse and
-	 * RIDER_FALL_HURT_ALLOWANCE for its rider, who takes the fall with it (vanilla passes a hurting fall on to riders,
-	 * at full damage from 3 blocks). The less health either has left, the more careful it is: the allowances shrink to
-	 * nothing at CAUTIOUS_HEALTH.
+	 * The longest fall the horse will take. Anything that doesn't hurt it (horses take half damage past 6 blocks, rounded
+	 * down from 1.21.5, so up to about 8; rounded up before, so 6), and beyond that only while the hurt stays small: up to
+	 * FALL_HURT_ALLOWANCE for the horse and RIDER_FALL_HURT_ALLOWANCE for its rider, who takes the fall with it (vanilla
+	 * passes a hurting fall on to riders). The less health either has left, the more careful it is: the allowances shrink
+	 * to nothing at CAUTIOUS_HEALTH.
 	 */
 	public static double acceptableFall(final AbstractHorse horse) {
-		final double safe = Vanilla.safeFall(horse);
-		final double multiplier = Math.max(Vanilla.fallDamageMultiplier(horse), 1.0E-3);
 		final double horseAllowance = allowance(horse);
 		final LivingEntity rider = horse.getControllingPassenger();
 		final double riderAllowance = rider == null ? 0.0 : allowance(rider) * RIDER_FALL_HURT_ALLOWANCE / FALL_HURT_ALLOWANCE;
-		double fall = safe;
-		for (int hurt = 0; hurt <= 20 && hurt <= horseAllowance; hurt++) {
-			// The longest fall that hurts the horse this much (damage is rounded down).
-			final double candidate = safe + (hurt + 1) / multiplier - 0.05;
-			if (hurt > 0 && rider != null && riderHurt(rider, candidate) > riderAllowance) {
+		double fall = Vanilla.longestFall(horse, 0);
+		for (int hurt = 1; hurt <= 20 && hurt <= horseAllowance; hurt++) {
+			final double candidate = Vanilla.longestFall(horse, hurt);
+			if (rider != null && Vanilla.riderFallHurt(horse, rider, candidate) > riderAllowance) {
 				break;
 			}
 			fall = candidate;
@@ -1181,13 +1184,9 @@ public final class Awareness {
 		return fall;
 	}
 
-	/** The longest fall that doesn't hurt the horse at all (damage is rounded down), so a rider isn't hurt either. */
+	/** The longest fall that doesn't hurt the horse at all, so a rider isn't hurt either. */
 	static double harmlessFall(final AbstractHorse horse) {
-		return Vanilla.safeFall(horse) + 1.0 / Math.max(Vanilla.fallDamageMultiplier(horse), 1.0E-3) - 0.05;
-	}
-
-	private static double riderHurt(final LivingEntity rider, final double fall) {
-		return Math.floor(Math.max(fall - Vanilla.safeFall(rider), 0.0) * Vanilla.fallDamageMultiplier(rider));
+		return Vanilla.longestFall(horse, 0);
 	}
 
 	/** Hurt (health points) a fall may cost: all of FALL_HURT_ALLOWANCE when healthy, shrinking to none when low. */
@@ -1242,8 +1241,11 @@ public final class Awareness {
 
 	/** Whether the body moved by (dx, dz) would overlap a hazard block (or lava) it doesn't overlap now. */
 	private static boolean entersHazard(final AbstractHorse horse, final double dx, final double dz) {
-		final Level level = horse.level();
-		final AABB box = horse.getBoundingBox();
+		return entersHazard(horse.level(), horse.getBoundingBox(), dx, dz);
+	}
+
+	/** Whether {@code box} moved by (dx, dz) would overlap a hazard block (or lava) it doesn't overlap now. */
+	private static boolean entersHazard(final Level level, final AABB box, final double dx, final double dz) {
 		final int x0 = Mth.floor(box.minX + Math.min(dx, 0.0));
 		final int x1 = Mth.floor(box.maxX + Math.max(dx, 0.0) - 1.0E-7);
 		final int z0 = Mth.floor(box.minZ + Math.min(dz, 0.0));
@@ -1251,6 +1253,10 @@ public final class Awareness {
 		// From the layer under the hooves (stepping down into it) to the body.
 		final int y0 = Mth.floor(box.minY - 1.0);
 		final int y1 = Mth.floor(box.minY + 1.0);
+		final int feet = Mth.floor(box.minY);
+		// Standing on a hazard (a magma block), it walks on off it rather than being held there: the ground under the
+		// hooves doesn't count then (lava still does).
+		final boolean onHazard = isHazard(level.getBlockState(POS.set(Mth.floor((box.minX + box.maxX) * 0.5), Mth.floor(box.minY - 1.0E-3), Mth.floor((box.minZ + box.maxZ) * 0.5))));
 		for (int x = x0; x <= x1; x++) {
 			for (int z = z0; z <= z1; z++) {
 				final boolean overNow = x >= Mth.floor(box.minX) && x <= Mth.floor(box.maxX - 1.0E-7) && z >= Mth.floor(box.minZ) && z <= Mth.floor(box.maxZ - 1.0E-7);
@@ -1261,11 +1267,11 @@ public final class Awareness {
 				}
 				for (int y = y0; y <= y1; y++) {
 					// Already in this cell (not just above it): moving on in it is how it gets back out.
-					if (overNow && y >= Mth.floor(box.minY)) {
+					if (overNow && y >= feet) {
 						continue;
 					}
 					final BlockState state = level.getBlockState(POS.set(x, y, z));
-					if (!state.isAir() && (isHazard(state) || state.getFluidState().is(FluidTags.LAVA))) {
+					if (!state.isAir() && (isHazard(state) && !(onHazard && y < feet) || state.getFluidState().is(FluidTags.LAVA))) {
 						return true;
 					}
 				}
@@ -1296,16 +1302,9 @@ public final class Awareness {
 	}
 
 	/**
-	 * Cheap look for a ledge's face ahead: something solid at the second block up, within LEDGE_REACH of the chest. No
-	 * allocation; {@link #ledge} then checks properly.
-	 */
-	static boolean ledgeAhead(final AbstractHorse horse) {
-		return ledgeAhead(horse, LEDGE_REACH);
-	}
-
-	/**
-	 * Something in the way above a step's height and up to a ledge's within {@code reach} of the chest straight ahead
-	 * (both block rows, so standing on a slab or a snow layer the face still shows).
+	 * Cheap look for a ledge's face ahead: something in the way above a step's height and up to a ledge's within
+	 * {@code reach} of the chest straight ahead (both block rows, so standing on a slab or a snow layer the face still
+	 * shows). No allocation; {@link #ledge} then checks properly.
 	 */
 	static boolean ledgeAhead(final AbstractHorse horse, final float reach) {
 		body(horse);
@@ -1320,7 +1319,7 @@ public final class Awareness {
 			final int z = Mth.floor(horse.getZ() + fz * d);
 			for (int y = y0; y <= y1; y++) {
 				final BlockState state = level.getBlockState(POS.set(x, y, z));
-				if (!state.isAir() && !(Foliage.leavesOpen(level) && state.is(BlockTags.LEAVES)) && !state.getCollisionShape(level, POS).isEmpty()) {
+				if (!state.isAir() && !(Foliage.leavesOpen(level) && Foliage.isLeaves(state)) && !state.getCollisionShape(level, POS).isEmpty()) {
 					return true;
 				}
 			}
@@ -1359,19 +1358,17 @@ public final class Awareness {
 		if (level.noBlockCollision(horse, box.move(fx * (face + 0.05), STEP_UP + 0.05, fz * (face + 0.05)))) {
 			return reject(LEDGE_ONLY_A_STEP);
 		}
-		// Met square enough to climb it: not ridden along it, glancing it (which way it faces: whichever way alone stops the box).
-		final boolean stopsX = !level.noBlockCollision(horse, box.move(fx * (face + 0.05), 0.0, 0.0));
-		final boolean stopsZ = !level.noBlockCollision(horse, box.move(0.0, 0.0, fz * (face + 0.05)));
-		final double square = stopsX && !stopsZ ? Math.abs(fx) : stopsZ && !stopsX ? Math.abs(fz) : Math.max(Math.abs(fx), Math.abs(fz));
-		if (square < Mth.cos(LEDGE_FACE_ANGLE * Mth.DEG_TO_RAD)) {
+		// Met square enough to climb it: not ridden along it, glancing it.
+		if (squareness(level, horse, box, fx, fz, face + 0.05) < Mth.cos(LEDGE_FACE_ANGLE * Mth.DEG_TO_RAD)) {
 			return reject(LEDGE_NO_FACE);
 		}
+		final boolean faceAlongX = faceAlongX(fx, fz);
 		final double top = climb(level, horse, box, yaw, face, wide ? LAND_SIDE : STRAIGHT_ON);
 		if (!wide || !Double.isNaN(top) || ledgeRejection == LEDGE_FENCE || ledgeRejection == LEDGE_NO_HEADROOM) {
 			return top;
 		}
-		// Straight up the face instead (which way it faces; a corner, whichever way the heading is nearer).
-		final float normal = stopsX && (!stopsZ || Math.abs(fx) >= Math.abs(fz)) ? (fx > 0.0 ? -90.0F : 90.0F) : (fz > 0.0 ? 0.0F : 180.0F);
+		// Straight up the face instead.
+		final float normal = faceAlongX ? (fx > 0.0 ? -90.0F : 90.0F) : (fz > 0.0 ? 0.0F : 180.0F);
 		if (Math.abs(Mth.wrapDegrees(normal - yaw)) < 5.0F) {
 			return top;
 		}
@@ -1384,6 +1381,25 @@ public final class Awareness {
 			return reject(why);
 		}
 		return up;
+	}
+
+	/** Which way alone stops the box, from the last {@link #squareness}. */
+	private static boolean stopsX;
+	private static boolean stopsZ;
+
+	/**
+	 * How square the box moved {@code m} along (fx, fz) meets what is there: the heading's share across the way the face
+	 * faces (whichever way alone stops the box; met at a corner, the larger).
+	 */
+	private static double squareness(final Level level, final AbstractHorse horse, final AABB box, final double fx, final double fz, final double m) {
+		stopsX = !level.noBlockCollision(horse, box.move(fx * m, 0.0, 0.0));
+		stopsZ = !level.noBlockCollision(horse, box.move(0.0, 0.0, fz * m));
+		return stopsX && !stopsZ ? Math.abs(fx) : stopsZ && !stopsX ? Math.abs(fz) : Math.max(Math.abs(fx), Math.abs(fz));
+	}
+
+	/** Whether the face the last {@link #squareness} met faces along x: whichever way alone stops the box, else (a corner) whichever the heading is nearer. */
+	private static boolean faceAlongX(final double fx, final double fz) {
+		return stopsX != stopsZ ? stopsX : Math.abs(fx) >= Math.abs(fz);
 	}
 
 	/** How far along (fx, fz) the box first meets something, to a few hundredths (0 touching it); -1 if nothing within {@code reach}. */
@@ -1513,7 +1529,7 @@ public final class Awareness {
 					if (state.isAir()) {
 						continue;
 					}
-					if (state.is(BlockTags.FENCES) || state.is(BlockTags.WALLS) || state.is(BlockTags.FENCE_GATES)) {
+					if (isFence(state)) {
 						return Double.NaN;
 					}
 					final VoxelShape shape = state.getCollisionShape(level, POS, context);
@@ -1540,7 +1556,7 @@ public final class Awareness {
 		for (int x = Mth.floor(box.minX); x <= Mth.floor(box.maxX - 1.0E-7); x++) {
 			for (int z = Mth.floor(box.minZ); z <= Mth.floor(box.maxZ - 1.0E-7); z++) {
 				final BlockState state = horse.level().getBlockState(POS.set(x, y, z));
-				if (state.is(BlockTags.FENCES) || state.is(BlockTags.WALLS) || state.is(BlockTags.FENCE_GATES)) {
+				if (isFence(state)) {
 					return true;
 				}
 			}
@@ -1610,7 +1626,7 @@ public final class Awareness {
 		// Ground to land on beyond, no further down than it falls.
 		final AABB beyond = box.move(fx * clear, 0.0, fz * clear);
 		final double fall = acceptableFall(horse);
-		if (level.noBlockCollision(horse, beyond.expandTowards(0.0, -fall, 0.0)) || entersHazard(horse, fx * clear, fz * clear)) {
+		if (level.noBlockCollision(horse, beyond.expandTowards(0.0, -fall, 0.0)) || entersHazard(level, box, fx * clear, fz * clear)) {
 			hurdleUnsafe = true;
 			return Double.NaN;
 		}
@@ -1641,7 +1657,7 @@ public final class Awareness {
 			final int z = Mth.floor(horse.getZ() + fz * d);
 			for (int y = y0; y <= y1; y++) {
 				final BlockState state = level.getBlockState(POS.set(x, y, z));
-				if (!state.isAir() && !(Foliage.leavesOpen(level) && state.is(BlockTags.LEAVES)) && !state.getCollisionShape(level, POS).isEmpty()) {
+				if (!state.isAir() && !(Foliage.leavesOpen(level) && Foliage.isLeaves(state)) && !state.getCollisionShape(level, POS).isEmpty()) {
 					return true;
 				}
 			}
@@ -1686,7 +1702,7 @@ public final class Awareness {
 					if (state.isAir()) {
 						continue;
 					}
-					if (state.is(BlockTags.FENCES) || state.is(BlockTags.WALLS) || state.is(BlockTags.FENCE_GATES)) {
+					if (isFence(state)) {
 						return Double.NaN;
 					}
 					final VoxelShape shape = state.getCollisionShape(level, POS, context);
@@ -1755,7 +1771,7 @@ public final class Awareness {
 			return true;
 		}
 		final double fall = acceptableFall(horse);
-		final float blocksPerUnit = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR;
+		final float blocksPerUnit = topSpeed(horse);
 		final float speed = Math.max(s.speed, 0.0F) * blocksPerUnit;
 		probe(horse, horse.getX(), horse.getY(), horse.getZ(), horse.getYRot(), LOOK_AHEAD_MAX, fall, side);
 		final float forward = speed > 0.0F ? speed + JUMP_FORWARD_BOOST * power : 0.0F;

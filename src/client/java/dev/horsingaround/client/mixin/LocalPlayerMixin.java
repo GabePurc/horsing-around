@@ -11,6 +11,6 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class LocalPlayerMixin {
 	@ModifyExpressionValue(method = "aiStep", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/PlayerRideableJumping;getJumpCooldown()I"), require = 1)
 	private int horsingaround$noChargedJump(final int cooldown) {
-		return ((LocalPlayer) (Object) this).getVehicle() instanceof RideStateHolder holder && holder.horsingaround$managed() ? 1 : cooldown;
+		return RideStateHolder.managedRide(((LocalPlayer) (Object) this).getVehicle()) != null ? 1 : cooldown;
 	}
 }

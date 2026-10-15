@@ -8,7 +8,6 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.core.Direction;
@@ -53,6 +52,7 @@ public final class RideController {
 		final AbstractHorse horse, final RideState s, final Player rider, final Input in, final int spurs, final int reins, final int jumps
 	) {
 		final long started = profile ? System.nanoTime() : 0L;
+		s.steered = true;
 		// A or D alone ride on at the gait as well, across the view; with W they angle the horse off it.
 		final boolean across = !in.forward() && !in.backward() && in.left() != in.right();
 		final boolean forward = in.forward() || across;
@@ -93,7 +93,7 @@ public final class RideController {
 		final double depth = horse.isInWater() && Mounts.floats(horse) ? horse.getFluidHeight(FluidTags.WATER) : 0.0;
 		// Start swimming once out of depth; keep swimming until the hooves find the bottom (no flicker at the threshold).
 		// A heave out of the water carries on until the hooves are on the bank.
-		s.swimming = !horse.onGround() && (s.bankTicks > 0 || depth > (s.swimming ? 0.5 : WADE_DEPTH));
+		s.swimming = !horse.onGround() && (s.bankTicks > 0 || depth > (s.swimming ? SWIM_KEEP_DEPTH : WADE_DEPTH));
 		if (s.swimming) {
 			// Deep water takes the way off quickly.
 			target = Math.min(target, SWIM_SPEED);
@@ -161,12 +161,13 @@ public final class RideController {
 			}
 		}
 
-		// Stamina.
+		// Stamina: swimming tires it, and galloping (asked to gallop and going faster than a canter: held back by what is
+		// ahead, or swimming, it isn't).
 		final boolean wasExhausted = s.exhausted;
-		if (s.gait == GALLOP) {
-			spend(s, STAMINA_DRAIN_GALLOP);
-		} else if (s.swimming) {
+		if (s.swimming) {
 			spend(s, STAMINA_DRAIN_SWIM);
+		} else if (s.gait == GALLOP && s.speed > GAIT_SPEED[CANTER]) {
+			spend(s, STAMINA_DRAIN_GALLOP);
 		} else {
 			regenerate(s, s.gait);
 		}
@@ -193,9 +194,17 @@ public final class RideController {
 		if (s.ledgeTicks > 0) {
 			ledgeJump(horse, s, forward);
 		} else if (LEDGE_CLIMB && horse.onGround() && !s.swimming && depth == 0.0 && s.bankTicks == 0
-			&& (asked || forward && s.speed > 0.0F && s.speed <= GAIT_SPEED[TROT] + 0.05F) && Awareness.ledgeAhead(horse, reach)) {
+			&& (asked || forward && s.speed > 0.0F && s.speed <= GAIT_SPEED[TROT] + 0.05F) && Awareness.ledgeAhead(horse, reach)
+			// (Held against a face that isn't a ledge, nothing changes from tick to tick: it isn't looked at again until the
+			// horse moves or turns, or the rider presses jump.)
+			&& (asked || horse.getX() != s.ledgeMissX || horse.getY() != s.ledgeMissY || horse.getZ() != s.ledgeMissZ || horse.getYRot() != s.ledgeMissYaw)) {
 			final double top = Awareness.ledge(horse, horse.getYRot(), reach);
-			if (!Double.isNaN(top)) {
+			if (Double.isNaN(top)) {
+				s.ledgeMissX = horse.getX();
+				s.ledgeMissY = horse.getY();
+				s.ledgeMissZ = horse.getZ();
+				s.ledgeMissYaw = horse.getYRot();
+			} else {
 				s.ledgeTicks = 1;
 				s.ledgeAir = false;
 				s.ledgeAsked = asked;
@@ -236,7 +245,8 @@ public final class RideController {
 					s.jumpLift = lift;
 					final float needed = Math.max((Awareness.hurdleClear + HURDLE_MARGIN) / Math.max(over, 1),
 						(Awareness.hurdleClear - Awareness.hurdleFace + HURDLE_MARGIN) / Math.max(over - up, 1));
-					s.hurdleForward = Mth.clamp(needed, pace, HURDLE_MAX_FORWARD);
+					// (Never slower than it is going; what clearing it needs, up to the most a hurdle gives.)
+					s.hurdleForward = Math.max(pace, Math.min(needed, HURDLE_MAX_FORWARD));
 					s.hurdleYaw = horse.getYRot();
 					s.hurdles++;
 				} else if (AVOID_DANGER && (Awareness.hurdleUnsafe || Awareness.refusesJump(horse, s, power))) {
@@ -251,9 +261,7 @@ public final class RideController {
 					s.leapt = true;
 					s.jumpBuffer = 0;
 					s.jumpRecovery = JUMP_RECOVERY_TICKS;
-					final boolean exhaustedBeforeJump = s.exhausted;
-					spend(s, JUMP_STAMINA_COST);
-					tiredness(horse, s, exhaustedBeforeJump);
+					exert(horse, s, JUMP_STAMINA_COST);
 				}
 			}
 		}
@@ -261,9 +269,9 @@ public final class RideController {
 			s.jumpBuffer--;
 		}
 		// Over a hurdle, held at its speed until it lands, so meeting the face as it rises doesn't stop it dead (and should
-		// it come down on top of the fence or wall, on until it is off it).
+		// it come down on top of the fence or wall, on until it is off it). Landing in deep water, it swims from there.
 		if (s.hurdleForward > 0.0F) {
-			if (horse.onGround() && !s.leapt && !Awareness.onHurdle(horse)) {
+			if (s.swimming || horse.onGround() && !s.leapt && !Awareness.onHurdle(horse)) {
 				s.hurdleForward = 0.0F;
 			} else {
 				final float rad = s.hurdleYaw * Mth.DEG_TO_RAD;
@@ -292,7 +300,7 @@ public final class RideController {
 		s.heading = horse.getYRot() + s.yawVelocity;
 		s.bankRate = s.turnIntent * maxTurn;
 		// Weight committed ahead of the rotation pushes the horse a little sideways into the turn.
-		s.sidestep = (s.turnIntent - s.yawVelocity / maxTurn) * SIDESTEP * (1.0F - Math.min(speedFraction * 1.4F, 1.0F));
+		s.sidestep = (s.turnIntent - s.yawVelocity / maxTurn) * SIDESTEP * (1.0F - Math.min(speedFraction * SIDESTEP_FADE, 1.0F));
 
 		// The guard also watches a drop off a step (not a jump: a leap is meant to clear things).
 		if (AVOID_DANGER && !s.swimming && s.ledgeTicks == 0 && s.bankTicks == 0 && (horse.onGround() || !s.leapt)) {
@@ -320,7 +328,7 @@ public final class RideController {
 		final float airPush = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * Math.max(s.speed, 0.0F) * AIR_CONTROL;
 		final double lighter = Vanilla.gravity(horse) * LEDGE_LIFT_GRAVITY;
 		if (s.ledgeAir) {
-			if (horse.onGround() || s.ledgeTicks > LEDGE_APPROACH_TICKS + 40) {
+			if (horse.onGround() || s.ledgeTicks > LEDGE_APPROACH_TICKS + LEDGE_AIR_TICKS) {
 				endLedge(s);
 				// Up on top it settles before it will jump again, and a press made on the way up is spent.
 				s.jumpRecovery = LEDGE_SETTLE_TICKS;
@@ -344,7 +352,7 @@ public final class RideController {
 		// The run-up.
 		final double top = Awareness.ledge(horse, s.ledgeYaw, Math.max(s.ledgeReach, LEDGE_REACH));
 		if (!(forward || s.ledgeAsked) || !horse.onGround() || Double.isNaN(top) || s.ledgeTicks > LEDGE_APPROACH_TICKS
-			|| !s.ledgeAsked && Math.abs(Mth.wrapDegrees(s.riderYaw - s.ledgeYaw)) > LEDGE_FACE_ANGLE + 10.0F) {
+			|| !s.ledgeAsked && Math.abs(Mth.wrapDegrees(s.riderYaw - s.ledgeYaw)) > LEDGE_FACE_ANGLE + LEDGE_LOOK_AWAY_SLACK) {
 			endLedge(s);
 			return;
 		}
@@ -385,9 +393,7 @@ public final class RideController {
 		s.ledgeTakeoffTick = horse.tickCount;
 		// The push isn't folded into the velocity on leaving the ground; the jump sets the motion itself.
 		s.jumpedOff = true;
-		final boolean exhaustedBefore = s.exhausted;
-		spend(s, LEDGE_STAMINA_COST);
-		tiredness(horse, s, exhaustedBefore);
+		exert(horse, s, LEDGE_STAMINA_COST);
 		hoofSound(horse, SoundEvents.HORSE_JUMP);
 		final double forwardSpeed = Math.max(s.ledgeForward - airPush, 0.0F);
 		horse.setDeltaMovement(fx * forwardSpeed, climbSpeed(lift, 0, lighter), fz * forwardSpeed);
@@ -406,7 +412,8 @@ public final class RideController {
 		for (float launch = 0.3F; launch < 1.5F; launch += 0.01F) {
 			double y = 0.0;
 			double vy = launch;
-			while (vy > 0.0) {
+			// (At most a few seconds of rise: with no gravity, or less than none, it never comes down.)
+			for (int tick = 0; tick < 100 && vy > 0.0; tick++) {
 				y += vy;
 				vy = (vy - gravity) * 0.98;
 			}
@@ -509,7 +516,7 @@ public final class RideController {
 
 	/** A hard cut from a trot or faster scuffs up the ground under the hind hooves, thrown out of the turn ({@code side} 1 right). */
 	private static void scuff(final AbstractHorse horse, final RideState s, final int side) {
-		if (s.speed < GAIT_SPEED[TROT] * 0.8F) {
+		if (s.speed < GAIT_SPEED[TROT] * SCUFF_MIN_TROT) {
 			return;
 		}
 		final BlockState ground = horse.getBlockStateOn();
@@ -562,7 +569,7 @@ public final class RideController {
 		if (--s.bankLook > 0 || !(horse.horizontalCollision || Awareness.bankAhead(horse))) {
 			return false;
 		}
-		s.bankLook = 4;
+		s.bankLook = BANK_LOOK_TICKS;
 		final double top = Awareness.bank(horse, horse.getYRot(), depth);
 		if (Double.isNaN(top) || wading && top - horse.getY() <= RIDDEN_STEP_HEIGHT) {
 			return false;
@@ -601,10 +608,6 @@ public final class RideController {
 		horse.setDeltaMovement(forwardX, vy, forwardZ);
 	}
 
-	private static float smoothstep(final float t) {
-		final float x = Mth.clamp(t, 0.0F, 1.0F);
-		return x * x * (3.0F - 2.0F * x);
-	}
 
 	/**
 	 * On the ground part of each tick's travel comes from that tick's push, which is lost in the air, and an airborne
@@ -623,7 +626,13 @@ public final class RideController {
 			return;
 		}
 		s.jumpedOff = false;
-		final float push = horse.getSpeed() * (1.0F - AIR_CONTROL) * Math.signum(s.speed);
+		// What the ground (the one it left, or lands on) pushed it with beyond the air's push, as vanilla moves an entity:
+		// the full push on most ground, far less on ice or slime.
+		final float friction = horse.level().getBlockState(grounded
+			? BlockPos.containing(horse.getX(), horse.getY() - 0.5000001, horse.getZ())
+			: BlockPos.containing(horse.xo, horse.yo - 0.5000001, horse.zo)).getBlock().getFriction();
+		final float grip = 0.216F / (friction * friction * friction);
+		final float push = horse.getSpeed() * Math.max(grip - AIR_CONTROL, 0.0F) * Math.signum(s.speed);
 		if (push == 0.0F) {
 			return;
 		}
@@ -689,8 +698,12 @@ public final class RideController {
 
 	/** Called every tick a horse has no rider. */
 	public static void tickUnridden(final RideState s) {
-		if (s.gait != STOP || s.speed != 0.0F) {
+		// (Whatever it was doing when the rider got off, standing still included: a heave, a ledge hop, a hurdle.)
+		if (s.steered) {
 			s.resetMotion();
+		}
+		if (s.bowPull != 0.0F || s.neckReach != 0.0F || s.sitBack != 0.0F) {
+			s.resetPose();
 		}
 		if (s.stamina < 1.0F) {
 			regenerate(s, STOP);
@@ -851,7 +864,7 @@ public final class RideController {
 		}
 		boolean face = false;
 		boolean chest = false;
-		final float pace = Math.min(groundSpeed / ((float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR), 1.0F);
+		final float pace = Math.min(groundSpeed / topSpeed(horse), 1.0F);
 		if (pace > LEAF_BRUSH_MIN_PACE && Foliage.leavesOpen(horse.level()) && horse.getControllingPassenger() instanceof Player rider) {
 			final float yaw = bodyYaw * Mth.DEG_TO_RAD;
 			final double fx = -Mth.sin(yaw);
@@ -863,7 +876,7 @@ public final class RideController {
 				final float ahead = i == 0 ? LEAF_LOOK_NEAR : LEAF_LOOK_FAR;
 				final int x = Mth.floor(rider.getX() + fx * ahead);
 				final int z = Mth.floor(rider.getZ() + fz * ahead);
-				if (!face && horse.level().getBlockState(PROBE.set(x, faceY, z)).is(BlockTags.LEAVES)) {
+				if (!face && Foliage.isLeaves(horse.level().getBlockState(PROBE.set(x, faceY, z)))) {
 					face = true;
 					// The face meets a new clump: a shove.
 					final long clump = BlockPos.asLong(x, faceY, z);
@@ -872,7 +885,7 @@ public final class RideController {
 						s.leafPushVelocity += LEAF_PUSH_KICK * pace;
 					}
 				}
-				chest |= horse.level().getBlockState(PROBE.set(x, chestY, z)).is(BlockTags.LEAVES);
+				chest |= Foliage.isLeaves(horse.level().getBlockState(PROBE.set(x, chestY, z)));
 			}
 		}
 		// The hand goes up quickly and comes down once clear.
@@ -894,8 +907,7 @@ public final class RideController {
 		final double gravity = Math.max(Vanilla.gravity(horse), 1.0E-3);
 		final double weightless = Mth.clamp(-(rise - s.lastDrawnRise) / gravity, -1.0, 1.0);
 		s.lastDrawnRise = rise;
-		final float topSpeed = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * TERMINAL_VELOCITY_FACTOR;
-		final float pace = Math.min(groundSpeed / Math.max(topSpeed, 1.0E-3F), 1.0F);
+		final float pace = Math.min(groundSpeed / topSpeed(horse), 1.0F);
 		final float target = Mth.clamp((float) (TAIL_WEIGHT * weightless - TAIL_DRAG * rise) + s.airLegs * TAIL_STREAM * pace * pace, -TAIL_MAX_DOWN, TAIL_MAX_UP);
 		s.tailVelocity += (target - s.tailLift) * TAIL_SPRING - s.tailVelocity * TAIL_DAMPING;
 		s.tailLift = Mth.clamp(s.tailLift + s.tailVelocity, -TAIL_MAX_DOWN, TAIL_MAX_UP);
@@ -1100,24 +1112,34 @@ public final class RideController {
 	 * {@code highest} (a wall), negative infinity if there is nothing down to {@code lowest}.
 	 */
 	private static double surface(final AbstractHorse horse, final double x, final double z, final double highest, final double lowest) {
-		final BlockPos.MutableBlockPos pos = PROBE;
+		return surface(horse.level(), PROBE, x, z, highest, lowest, true);
+	}
+
+	/**
+	 * Top of the ground at (x, z) between {@code highest} and {@code lowest}, the shape's top at that very spot (the low
+	 * half of a stair reads as itself). NaN if something there reaches above {@code highest} (a wall: a hoof is beside it,
+	 * not under it), negative infinity if there is nothing. {@code wading}: under water, no deeper than a wade from the
+	 * surface (deeper, the horse swims). {@code pos} is the caller's own scratch position.
+	 */
+	public static double surface(
+		final Level level, final BlockPos.MutableBlockPos pos, final double x, final double z, final double highest, final double lowest, final boolean wading
+	) {
 		final int bx = Mth.floor(x);
 		final int bz = Mth.floor(z);
 		final int top = Mth.floor(highest);
 		final int bottom = Mth.floor(lowest);
-		// Under water, hooves go no deeper than a wade from the surface (deeper, the horse swims).
 		double wade = Double.NEGATIVE_INFINITY;
 		// Leaves the horse pushes through are not ground: hooves go on down to what is under them.
-		final boolean leavesOpen = Foliage.leavesOpen(horse.level());
+		final boolean leavesOpen = Foliage.leavesOpen(level);
 		for (int by = top; by >= bottom; by--) {
-			final BlockState state = horse.level().getBlockState(pos.set(bx, by, bz));
-			if (state.isAir() || leavesOpen && state.is(BlockTags.LEAVES)) {
+			final BlockState state = level.getBlockState(pos.set(bx, by, bz));
+			if (state.isAir() || leavesOpen && Foliage.isLeaves(state)) {
 				continue;
 			}
-			if (wade == Double.NEGATIVE_INFINITY && state.getFluidState().is(FluidTags.WATER)) {
+			if (wading && wade == Double.NEGATIVE_INFINITY && state.getFluidState().is(FluidTags.WATER)) {
 				wade = by + state.getFluidState().getOwnHeight() - WADE_DEPTH;
 			}
-			final VoxelShape shape = state.getCollisionShape(horse.level(), pos);
+			final VoxelShape shape = state.getCollisionShape(level, pos);
 			if (shape.isEmpty()) {
 				if (by <= wade) {
 					return wade;
@@ -1133,6 +1155,13 @@ public final class RideController {
 			return surface > highest ? Double.NaN : surface;
 		}
 		return wade;
+	}
+
+	/** A jump's cost: stamina spent at once, with the snort should it run out. */
+	private static void exert(final AbstractHorse horse, final RideState s, final float amount) {
+		final boolean wasExhausted = s.exhausted;
+		spend(s, amount);
+		tiredness(horse, s, wasExhausted);
 	}
 
 	private static void spend(final RideState s, final float amount) {

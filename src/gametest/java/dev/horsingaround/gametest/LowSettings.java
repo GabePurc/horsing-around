@@ -6,15 +6,12 @@ import net.minecraft.server.level.ParticleStatus;
 import net.minecraft.sounds.SoundSource;
 
 /**
- * Test games run light: the lowest graphics settings, no sound, and the frame rate capped at one frame per game tick
- * (the tests step tick by tick; screenshots and what the mod works out per frame still get a fresh frame every tick).
- * Applied as the game starts, before anything loads, when the run asks for it ({@code horsingaround.lowSettings}; off
- * for the gallery's store screenshots).
+ * Test games run light: the lowest graphics settings and no sound. The frame rate is left at the game's default: the
+ * checks that sample what is drawn frame by frame (legs, body tilt, screenshots between ticks) are tuned at it, and at
+ * one frame a tick several of them read the wrong moment. Applied as the game starts, before anything loads, when the
+ * run asks for it ({@code horsingaround.lowSettings}; off for the gallery's store screenshots).
  */
 public final class LowSettings {
-	/** Frames a second: one per game tick. */
-	static final int FRAMES = 20;
-
 	private LowSettings() {
 	}
 
@@ -22,7 +19,6 @@ public final class LowSettings {
 		if (!Boolean.getBoolean("horsingaround.lowSettings")) {
 			return;
 		}
-		options.framerateLimit().set(FRAMES);
 		options.enableVsync().set(false);
 		// (Render distance stays at the test framework's 5: the tests build their lanes by command, which needs the chunks.)
 		options.simulationDistance().set(5);

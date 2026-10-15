@@ -52,9 +52,7 @@ public final class RideCamera {
 	/** End of every client tick, after entities have moved. */
 	static void tick(final Minecraft minecraft) {
 		final LocalPlayer player = minecraft.player;
-		final RideState s = player != null && player.getVehicle() instanceof RideStateHolder holder && holder.horsingaround$managed()
-			? holder.horsingaround$ride()
-			: null;
+		final RideState s = player == null ? null : RideStateHolder.managedRide(player.getVehicle());
 
 		if ((s != null) != riding) {
 			riding = s != null;
@@ -75,7 +73,8 @@ public final class RideCamera {
 			}
 		}
 		ride = s;
-		if (s == null) {
+		// (Paused, the world stands still, and so does the view: no easing the pitch while the game menu is open.)
+		if (s == null || minecraft.isPaused()) {
 			return;
 		}
 
@@ -90,9 +89,9 @@ public final class RideCamera {
 		eyeY += (eyeYEase - eyeY) * CAMERA_HEIGHT_SMOOTHING;
 
 		// The view eases back to a riding pitch, except while another camera places the third-person view (there the
-		// pitch is the player's aim).
+		// pitch is the player's aim) or the rider aims something (a bow, a spyglass).
 		float pitch = player.getXRot();
-		if (Math.abs(pitch - lastPitch) > 0.01F || s.speed < GAIT_SPEED[TROT] || otherThirdPerson(minecraft)) {
+		if (Math.abs(pitch - lastPitch) > 0.01F || s.speed < GAIT_SPEED[TROT] || otherThirdPerson(minecraft) || player.isUsingItem()) {
 			pitchIdleTicks = 0;
 		} else if (++pitchIdleTicks > PITCH_RECENTER_DELAY) {
 			pitch += (PITCH_DEFAULT - pitch) * PITCH_RECENTER_RATE;
@@ -102,7 +101,8 @@ public final class RideCamera {
 	}
 
 	public static boolean isActive(final Entity cameraEntity, final Minecraft minecraft) {
-		return riding && cameraEntity == minecraft.player && ownThirdPerson(minecraft);
+		// (Still riding as of the last tick, and not got off since: the frames after a dismount don't keep the ride's view.)
+		return riding && cameraEntity == minecraft.player && minecraft.player.isPassenger() && ownThirdPerson(minecraft);
 	}
 
 	/** This mod places the third-person (back) view: it is on, and no add-on or other camera mod has taken it over. */
@@ -125,6 +125,13 @@ public final class RideCamera {
 	 * edges. Zero when not riding or with View Bobbing off.
 	 */
 	public static void updateFrame(final Minecraft minecraft, final float partialTicks) {
+		SaddleMotion.nextFrame();
+		if (ride == null && frameLift == 0.0F && framePitch == 0.0F) {
+			// (Not riding, and the last ride's motion has died away.)
+			frameLimbSpeed = 0.0F;
+			lastFrameNanos = 0L;
+			return;
+		}
 		final long now = System.nanoTime();
 		final float dt = lastFrameNanos == 0L ? 0.0F : Math.min((now - lastFrameNanos) * 1.0E-9F, 0.1F);
 		lastFrameNanos = now;
@@ -137,10 +144,19 @@ public final class RideCamera {
 			pitch = saddle.pitch;
 			limbSpeed = saddle.limbSpeed;
 		}
+		if (!Float.isFinite(lift) || !Float.isFinite(pitch)) {
+			// (One bad sample from an animation pack would stay in the filter for good.)
+			lift = 0.0F;
+			pitch = 0.0F;
+		}
 		final float k = 1.0F - (float) Math.exp(-dt / FP_SMOOTHING_SECONDS);
 		frameLift += (lift - frameLift) * k;
 		framePitch += (pitch - framePitch) * k;
 		frameLimbSpeed = limbSpeed;
+		if (ride == null && Math.abs(frameLift) < 1.0E-4F && Math.abs(framePitch) < 1.0E-3F) {
+			frameLift = 0.0F;
+			framePitch = 0.0F;
+		}
 	}
 
 	/** Smoothed saddle lift this frame, blocks (0 with View Bobbing off). */
@@ -185,7 +201,7 @@ public final class RideCamera {
 	 * saddle's lift and rocking. The view never pitches or rolls with the horse; the rider holds their head level.
 	 */
 	public static boolean isFirstPersonRide(final Entity cameraEntity, final Minecraft minecraft) {
-		return riding && cameraEntity == minecraft.player && minecraft.options.getCameraType().isFirstPerson();
+		return riding && cameraEntity == minecraft.player && minecraft.player.isPassenger() && minecraft.options.getCameraType().isFirstPerson();
 	}
 
 	/** Returns the eye height offset; writes the view nod (degrees, positive looks down) into {@code nodOut[0]}. */

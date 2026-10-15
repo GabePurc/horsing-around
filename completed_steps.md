@@ -373,12 +373,69 @@
   temporary file behind; a cache that didn't parse no longer lets an identical download be skipped; test supporters are
   folded into the one list the renderer reads; the hat throttle checks wait for the colour instead of a fixed tick count
   (fourth review, 2026-10-14)
+- [x] Whole-codebase review (fifth, 2026-10-14):
+  - Falls follow each version's own vanilla rules: before 1.21.5 fall damage rounds up and the horse hands its rider its
+    own damage, so on those versions a harmless drop is 6 blocks, not 8 (`Vanilla.longestFall`, `riderFallHurt`)
+  - A horse standing on a magma block can walk off it (it was held there by its own hazard guard); lava beside a planned
+    way counts wherever in its block it is
+  - Dismounting at a standstill mid-heave, mid-hop or mid-hurdle resets the ride state (only a moving dismount did); a
+    hurdle that lands in deep water stops pushing the horse; a stale hurdle flag no longer stops a walking horse short
+  - A horse with no speed (Slowness VII, `/attribute`) no longer turns trampling, its stride and its braking into NaN
+    (`RideTuning.topSpeed`); the hurdle arc can't loop forever with gravity at or below zero
+  - Left by its rider in a gap only the narrowed box fits, the horse keeps that box until it is out instead of being
+    widened into the walls
+  - The camera no longer eases the view's pitch while the game is paused; the generated saddle bob keeps time with
+    vanilla's legs in water; Entity Model Features' replaced models are no longer kept alive after a resource reload
+  - One malformed supporters entry is skipped instead of dropping the whole list (undashed ids are read too)
+  - The 1.20.2, 1.21.4 and 1.21.5 jars no longer claim later patch versions (`~` ranges)
+  - The dedicated-server test checks each lane for exceptions and mod warnings (the per-lane log clear hid them)
+  - Verified: every version builds and passes the mixin audit and the dedicated-server game tests; the full client suite
+    passes (1,163 checks) except one lane that failed once and passed twice on rerun ("2-block climb: a block out,
+    pressing jump": the horse had turned 72 degrees away before the press)
+- [x] Whole-codebase review, the rest of its findings (2026-10-14):
+  - Riding: the hurdle planner looks for hazards beyond the fence from where it plans, not from the horse; a corner hit
+    picks its face by the heading; a straight-back way forgets the old detour's turn; hurdle speed is never less than the
+    horse is going; galloping drains stamina only at more than a canter's pace, and swimming at the swim rate; walking off
+    ice or slime carries only the push that ground gave; a face that isn't a ledge isn't re-checked every tick while
+    pressed against it; Trample builds no lambda a tick and one damage source a hit
+  - Leaves: one test (the class the collision mixin opens) for planning, footing and rustling; one ground probe for the
+    ride and the drawn legs; one `smoothstep`, `topSpeed` and `managedRide`; stray feel numbers named in `RideTuning`;
+    the pose maths moved out of the renderer mixin into `client/render/RidePoser`; dead code removed (`clearOnly`, a
+    `ledgeAhead` overload, cloned tuning arrays, the server field behind `sendRules`)
+  - Drawing: foals before 1.21.2 get the ride's legs; before 1.21.9 the legs read this frame's drawn pose (not the last
+    frame's, nor a horse inventory preview's); the neck and seat room eases on game time, lets go when the rider is in
+    first person before 26.3, and with the bow's follow-through is cleared when the rider gets off; whether a pack animated
+    the horse is judged by frames, not 100 ms (a hitch or a low frame rate no longer doubles the animation); stirrups are
+    held only under a rider; a changed Entity Model Features API disables the hook instead of crashing every frame
+  - Camera: no pitch easing while aiming a bow or spyglass; the spyglass keeps vanilla's zoom; the frames after a dismount
+    drop the ride's view; a bad sample can't stick the bob at NaN; nothing is worked out per frame when not riding
+  - Settings and hats: the hat sliders keep hue and richness, a swatch keeps the scroll and the keyboard can pick one; the
+    config is written atomically, NaN reads as the default and an unreadable file is kept as `.bad`; tuning numbers live in
+    `RideTuning` only; supporters download follows redirects and caps the size, and a late list re-sends the player's hat;
+    the relay doesn't re-send a passed-on change; an invisible supporter keeps vanilla's floating helmet; the 1.20.1
+    profile id is read once
+  - Tests: log lines carry their exception; ride and terrain fail on server corrections; every client test enables the
+    animation pack in the parallel runner too; leg checks need frames measured; smoke fails on corrections; the mounts
+    test dismounts before taking the stick; the shard merge fails on a missing report or INCOMPLETE; the light settings
+    finally apply (they were undone by the test framework's snapshot), at the default frame rate (20 fps broke six
+    frame-sampled checks); the server test uses the real rules receiver
+  - Release: jars attach to the GitHub release before the Modrinth upload, which runs with `--continue`; pre-releases go
+    up as beta; Loom pinned to 1.18.4; each jar asks only for the Fabric Loader its Fabric API needs (`loader_minimum`);
+    pull requests run the release dry run; `store-media.sh` fails on a missing folder
+  - Left as they are: idle horses keep their per-tick visual update (they are posed on purpose, and a still horse would
+    miss a block taken from under it); render-state clears (cheap insurance against mods reusing states); the per-horse
+    `RideState` size, the two walk-animation hooks, and test-only counters in hot paths
+  - Verified: every version builds and passes the mixin audit and the dedicated-server game tests; smoke passes on
+    1.20.1, 1.21.4 and 26.2 (the three render paths changed); the ride shards pass all 851 checks with the light
+    settings at the default frame rate, terrain, mounts, server and hat pass (332 checks); "Walking down a staircase of
+    stair blocks" hooves 90th percentile read 0.308, 0.288 and 0.290 against a 0.300 limit (a tight margin, not changed
+    here)
 
 ## Tooling
 
 - [x] In-game smoke test on every Minecraft version (`./gradlew :<version>:runSmoke`, plain `runSmoke` runs all one at a time; `src/smoke`, test only, `gradle/smoke-test.gradle`): a client of that version makes a flat world, rides a saddled horse through a stand, walk, gallop, jump and stop with simulated keys, and takes screenshots (rider from the side, first and third person, a row of leashed mobs, a cow on the player's lead) into `build/run/smoke/<version>/`; fails unless the log says it passed and names this mod in no error; `-PsmokeNoPack` and `-PsmokePlain` leave out the animation pack, and Entity Model Features and Entity Texture Features too
 - [x] Automated client ride test (`./gradlew runClientGameTest`, `-Ptests=ride`, `-Psections=core,cuts,stairs,picking,steps`): checks covering 19 messy 2-block ledges, legs in the air (the stride stops, front legs fold then reach for the ground, at most ~0.1 rad a tick), the 2-block ledge bound, hard cuts (20, 60, 90 and 150 degrees off at a gallop, against cuts switched off; standing pivot), A or D alone riding across the view, the rider pushed back and shielding their face in leaves, climbing out onto a 1-block bank and not a 2-block one, narrow 2-block ledges jumped at a trot and a gallop, a ledge catching the flank and a 2-block pillar gone round, a row of trunks threaded (the 12 shoulder-camera checks moved to the add-on repo), steps in two beats (up and down, walk and trot), footing (across a ditch at a gallop and a trot, past a trunk that catches the shoulder), a leafy 2-block ledge, the horse picking its way (tree detour at pace, long wall slow-down, beside a wall and along a cliff edge at full pace, cliff and lava refusal, safe drop, gap jumped and refused, ledge jump at a walk and from a gallop, fence left alone), gradual and smooth climbing out of water, wading pace, swimming (speed, head above water, rider kept, climbing out), saddle side-sway follow, rider inertia (surge and braking), Fresh Animations stirrups held, trampling (walk vs gallop), horse settings in Mod Menu and live apply, downhill speed continuity, landing surge, jump arc, huff rhythm, head toss on the FA model, mouse steering, A/D 45-degree offset without view pull, riding through leaves, free aim and look limit, aiming while turning, Fresh Animations body sync, staircase climbing (smoothness, pitch), weight-shift timing, gait animation speeds, first-person bob, mounting camera, free look, walk/gallop speed, spur timing, A/D turn rate and lean, running and standing jumps, stamina and exhaustion, coasting, braking, reversing, mouse steering, dismount; writes `build/run/clientGameTest/horsingaround-ride-report.txt` and screenshots (back, front and side views)
 - [x] Legs as drawn (`-Psections=drawn`): a test-only probe measures the ridden horse's legs exactly as the model renderer drew them (after Fresh Animations and this mod posed them): each hoof against the ground under it, each leg's top against the body, which way each knee juts; on flat ground (the pack's own baseline), up and down slopes and stairs, and standing on stairs and a step, with close shots against a white wall
-- [x] Light, parallel test games: lowest settings, 20 fps, 2 GB heap, Sodium/Lithium/FerriteCore/ImmediatelyFast in test games only; `runClientGameTestParallel --continue` runs five shards two at a time (`-PtestGames=N`) and merges the reports
+- [x] Light, parallel test games: lowest settings (the default frame rate), 2 GB heap, Sodium/Lithium/FerriteCore/ImmediatelyFast in test games only; `runClientGameTestParallel --continue` runs five shards two at a time (`-PtestGames=N`) and merges the reports
 - [x] Test colours: in the client tests horses wear colour-coded textures (`src/gametest/debugpack`: upper leg blue, knee white, cannon orange, hoof black, sole magenta) so screenshots show what each piece of each leg is doing; `-PplainTextures` turns them off, the store gallery never uses them
 - [x] Dedicated-server ride test (`-Ptests=server`; the user accepted the Minecraft EULA for the local test server on 2026-10-07) and a bare dedicated-server game test (`./gradlew runGameTest`); every client test logs server corrections ("moved wrongly") and warnings, and one failing test no longer stops the others (`TestSummary` fails the run at the end)

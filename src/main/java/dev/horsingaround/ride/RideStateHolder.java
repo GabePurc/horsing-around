@@ -1,10 +1,16 @@
 package dev.horsingaround.ride;
 
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.entity.Entity;
 import org.jspecify.annotations.Nullable;
 
 /** Implemented on {@code AbstractHorse} by mixin. */
 public interface RideStateHolder {
+	/** The ride of {@code entity} if it is a horse this mod manages (a player's vehicle, say), else null. */
+	static @Nullable RideState managedRide(final @Nullable Entity entity) {
+		return entity instanceof RideStateHolder holder && holder.horsingaround$managed() ? holder.horsingaround$ride() : null;
+	}
+
 	RideState horsingaround$ride();
 
 	/** Whether this horse gets the new controls (see {@link Mounts}); false for camels and llamas. */

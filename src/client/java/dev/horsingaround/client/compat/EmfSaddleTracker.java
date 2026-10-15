@@ -1,12 +1,15 @@
 //? if >=1.21 {
 package dev.horsingaround.client.compat;
 
+import dev.horsingaround.HorsingAround;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
 import dev.horsingaround.client.mixin.ModelPartAccessor;
 import dev.horsingaround.client.render.AirLegs;
 import dev.horsingaround.client.render.GroundLegs;
+import dev.horsingaround.client.render.SaddleMotion;
 import dev.horsingaround.ride.RideTuning;
+import java.lang.ref.WeakReference;
 import java.util.Map;
 import java.util.WeakHashMap;
 import net.minecraft.client.Minecraft;
@@ -16,6 +19,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import traben.entity_model_features.EMFAnimationApi;
 import traben.entity_model_features.models.animation.state.EMFEntityRenderState;
 import traben.entity_model_features.models.parts.EMFModelPartRoot;
@@ -47,110 +52,129 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		}
 	}
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(HorsingAround.MOD_ID);
+	/** Set once a call into Entity Model Features fails to link. */
+	private boolean broken;
+
 	/** Frames the stirrups were held (for tests). */
 	public static int stirrupFrames;
 
-	/** The tail part per model: the pack's own (Fresh Animations' "tail2") or vanilla's (searched once). */
-	private final Map<ModelPart, ModelPart> tails = new WeakHashMap<>();
+	/** The parts this hook moves, per model (looked up the first time a model is seen; pack reloads create new models). */
+	private final Map<ModelPart, Parts> models = new WeakHashMap<>();
+	private static final String[] LEG_NAMES = {"left_front_leg", "right_front_leg", "left_hind_leg", "right_hind_leg"};
 
-	/** The tail swings with the horse's motion, on top of the pack's own tail animation. */
-	private void swingTail(final EMFModelPartRoot root, final RideState ride, final float partialTicks) {
-		final float lift = ride.tailLift(partialTicks);
-		if (lift == 0.0F) {
-			return;
+	private Parts parts(final EMFModelPartRoot root) {
+		Parts parts = this.models.get(root);
+		if (parts == null) {
+			parts = new Parts(root);
+			this.models.put(root, parts);
 		}
-		ModelPart tail = this.tails.get(root);
-		if (tail == null && !this.tails.containsKey(root)) {
-			tail = find(root, "tail2");
-			if (tail == null) {
-				tail = root.getAllVanillaPartsByNameEMF().get("tail");
+		return parts;
+	}
+
+	/**
+	 * One model's parts. Held weakly: every Entity Model Features part points back at its model, so a part held here
+	 * would keep the model (the map's key) alive, and with it every model a resource reload replaced.
+	 */
+	private static final class Parts {
+		/** Front left, front right, hind left, hind right (null where the model has none). */
+		private static final int LEGS = 0;
+		/** The pack's own tail (Fresh Animations' "tail2") or vanilla's. */
+		private static final int TAIL = 4;
+		/**
+		 * The part that carries the head: the pack's own neck where it has one (Fresh Animations leaves vanilla's empty and
+		 * animates "neck2" inside the body), else vanilla's.
+		 */
+		private static final int NECK = 5;
+		/** The body and the stirrups (on a saddle model). */
+		private static final int BODY = 6;
+		private static final int LEFT_STIRRUP = 7;
+		private static final int RIGHT_STIRRUP = 8;
+
+		private final WeakReference<?>[] parts = new WeakReference<?>[9];
+
+		Parts(final EMFModelPartRoot root) {
+			final Map<String, ? extends ModelPart> vanilla = root.getAllVanillaPartsByNameEMF();
+			for (int i = 0; i < LEG_NAMES.length; i++) {
+				this.set(LEGS + i, vanilla.get(LEG_NAMES[i]));
 			}
-			this.tails.put(root, tail);
+			final ModelPart tail = find(root, "tail2");
+			this.set(TAIL, tail != null ? tail : vanilla.get("tail"));
+			ModelPart neck = find(root, "neck2");
+			if (neck == null) {
+				neck = vanilla.get("head_parts");
+			}
+			this.set(NECK, neck != null ? neck : vanilla.get("neck"));
+			this.set(BODY, vanilla.get("body"));
+			this.set(LEFT_STIRRUP, find(root, "left_saddle"));
+			this.set(RIGHT_STIRRUP, find(root, "right_saddle"));
 		}
-		if (tail != null) {
-			tail.xRot += lift;
+
+		private void set(final int index, final ModelPart part) {
+			this.parts[index] = part == null ? null : new WeakReference<>(part);
+		}
+
+		ModelPart get(final int index) {
+			final WeakReference<?> part = this.parts[index];
+			return part == null ? null : (ModelPart) part.get();
 		}
 	}
 
-	/** Stirrup parts found per saddle model (searched once; pack reloads create new models). */
-	private final Map<ModelPart, ModelPart[]> stirrups = new WeakHashMap<>();
-	/** Leg parts per model (front left, front right, hind left, hind right; null where the model has none). */
-	private final Map<ModelPart, ModelPart[]> legs = new WeakHashMap<>();
-	private static final String[] LEG_NAMES = {"left_front_leg", "right_front_leg", "left_hind_leg", "right_hind_leg"};
+	/** The tail swings with the horse's motion, on top of the pack's own tail animation. */
+	private static void swingTail(final Parts parts, final RideState ride, final float partialTicks) {
+		final float lift = ride.tailLift(partialTicks);
+		final ModelPart tail = parts.get(Parts.TAIL);
+		if (lift != 0.0F && tail != null) {
+			tail.xRot += lift;
+		}
+	}
 
 	/**
 	 * Legs after the pack has animated them: hooves on the ground on steps and slopes (upright against the body's tilt,
 	 * the pair on higher ground folding onto it), and in the air, the shape of a jump. On every layer (body, saddle,
 	 * armour) so they stay together.
 	 */
-	private void stepLegs(final EMFModelPartRoot root, final RideState ride, final float partialTicks) {
+	private static void stepLegs(final EMFModelPartRoot root, final Parts parts, final RideState ride, final float partialTicks) {
 		final float tilt = ride.pitch(partialTicks) * Mth.DEG_TO_RAD;
 		final float fore = ride.foreLeg(partialTicks);
 		final float hind = ride.hindLeg(partialTicks);
 		final float air = ride.airLegs(partialTicks);
-		ModelPart[] parts = this.legs.get(root);
-		if (parts == null) {
-			parts = new ModelPart[LEG_NAMES.length];
-			for (int i = 0; i < LEG_NAMES.length; i++) {
-				parts[i] = root.getAllVanillaPartsByNameEMF().get(LEG_NAMES[i]);
-			}
-			this.legs.put(root, parts);
-		}
+		final ModelPart leftFront = parts.get(Parts.LEGS);
+		final ModelPart rightFront = parts.get(Parts.LEGS + 1);
+		final ModelPart leftHind = parts.get(Parts.LEGS + 2);
+		final ModelPart rightHind = parts.get(Parts.LEGS + 3);
 		final boolean footing = GroundLegs.pose(
-			parts[0], parts[1], parts[2], parts[3], tilt, fore, hind, 16.0F / root.yScale, ride, root, air < RideTuning.AIR_GROUNDED || !ride.leapt()
+			leftFront, rightFront, leftHind, rightHind, tilt, fore, hind, 16.0F / root.yScale, ride, root, air < RideTuning.AIR_GROUNDED || !ride.leapt()
 		);
 		// (A step down is a short fall, not a jump: with the hooves finding their ground, no jump shape. Landing a jump,
 		// the jump's shape eases out, and any hoof it leaves in the ground comes up onto it.)
 		if (air <= 0.0F || footing && !ride.leapLegs()) {
 			return;
 		}
-		AirLegs.pose(parts[0], parts[1], parts[2], parts[3], air, ride.airRise(partialTicks));
-		GroundLegs.floor(parts[0], parts[1], parts[2], parts[3], 16.0F / root.yScale, ride, root);
-	}
-
-	/** The neck part per model: the pack's own (Fresh Animations' "neck2", inside the body) or vanilla's (searched once). */
-	private final Map<ModelPart, ModelPart> necks = new WeakHashMap<>();
-
-	/**
-	 * The part that carries the head: the pack's own neck where it has one (Fresh Animations leaves vanilla's empty and
-	 * animates "neck2" inside the body), else vanilla's.
-	 */
-	private ModelPart neck(final EMFModelPartRoot root) {
-		ModelPart neck = this.necks.get(root);
-		if (neck == null && !this.necks.containsKey(root)) {
-			neck = find(root, "neck2");
-			if (neck == null) {
-				neck = root.getAllVanillaPartsByNameEMF().get("head_parts");
-			}
-			if (neck == null) {
-				neck = root.getAllVanillaPartsByNameEMF().get("neck");
-			}
-			this.necks.put(root, neck);
-		}
-		return neck;
+		AirLegs.pose(leftFront, rightFront, leftHind, rightHind, air, ride.airRise(partialTicks));
+		GroundLegs.floor(leftFront, rightFront, leftHind, rightHind, 16.0F / root.yScale, ride, root);
 	}
 
 	/**
 	 * Swing the pack's stirrups forward to meet the seated leg and hold them there against the body's pitch, so the
 	 * feet (which the rider pose holds still against the horse) stay in them.
 	 */
-	private void holdStirrups(final EMFModelPartRoot root) {
-		ModelPart[] parts = this.stirrups.get(root);
-		if (parts == null) {
-			parts = new ModelPart[] {root.getAllVanillaPartsByNameEMF().get("body"), find(root, "left_saddle"), find(root, "right_saddle")};
-			this.stirrups.put(root, parts);
-		}
-		if (parts[1] == null && parts[2] == null) {
+	private static void holdStirrups(final Parts parts) {
+		final ModelPart left = parts.get(Parts.LEFT_STIRRUP);
+		final ModelPart right = parts.get(Parts.RIGHT_STIRRUP);
+		if (left == null && right == null) {
 			return;
 		}
-		final float bodyPitch = parts[0] == null ? 0.0F : parts[0].xRot - parts[0].getInitialPose().xRot();
-		final float swing = -RideTuning.STIRRUP_SWING - bodyPitch;
+		final ModelPart body = parts.get(Parts.BODY);
+		final float swing = -RideTuning.STIRRUP_SWING - (body == null ? 0.0F : body.xRot - body.getInitialPose().xRot());
 		stirrupFrames++;
-		for (int i = 1; i < 3; i++) {
-			if (parts[i] != null) {
-				parts[i].xRot = swing;
-				parts[i].zRot = 0.0F;
-			}
+		if (left != null) {
+			left.xRot = swing;
+			left.zRot = 0.0F;
+		}
+		if (right != null) {
+			right.xRot = swing;
+			right.zRot = 0.0F;
 		}
 	}
 
@@ -169,6 +193,20 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 
 	@Override
 	public void onAnimationEnd(final AnimationContext context, final boolean unused) {
+		if (this.broken) {
+			return;
+		}
+		try {
+			this.animated(context);
+		} catch (final LinkageError e) {
+			// (A release of Entity Model Features without something this was built against: stand aside for good, and the
+			// horses and riders go on as without an animation pack.)
+			this.broken = true;
+			LOGGER.warn("Entity Model Features changed under the animation hook; riders follow a generated gait motion instead", e);
+		}
+	}
+
+	private void animated(final AnimationContext context) {
 		// Entity Model Features animates more than entities (with Fresh Animations, a shulker box drawn as an item icon) and
 		// then hands every hook no state at all: nothing of ours to do there.
 		final EMFEntityRenderState state = context.activeState();
@@ -178,12 +216,13 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		final EMFModelPartRoot root = context.animatingModelRoot();
 		final RideState ride = holder.horsingaround$ride();
 		final float partialTicks = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
-		this.stepLegs(root, ride, partialTicks);
-		this.swingTail(root, ride, partialTicks);
+		final Parts parts = this.parts(root);
+		stepLegs(root, parts, ride, partialTicks);
+		swingTail(parts, ride, partialTicks);
 		// Climbing, the neck reaches forward, and further when the rider would be in the way of the head; and a horse that
 		// just ran out of stamina tosses its head. Applied after the pack so its own neck logic isn't disturbed, and on
 		// every layer (each has its own neck: armour and bridle follow the head).
-		final ModelPart neckPart = this.neck(root);
+		final ModelPart neckPart = parts.get(Parts.NECK);
 		if (neckPart != null) {
 			neckPart.xRot += RideTuning.neckCounter((ride.pitch(partialTicks) + ride.jumpPitch(partialTicks)) * Mth.DEG_TO_RAD) + ride.neckReach;
 			final float shake = ride.headShake(((Entity) holder).tickCount + partialTicks, this.phase);
@@ -196,10 +235,13 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 			}
 		}
 		if (!root.isMainModel) {
-			this.holdStirrups(root);
+			// (Stirrups meet a seated rider's feet; a saddled horse no one rides keeps the pack's own.)
+			if (((Entity) holder).isVehicle()) {
+				holdStirrups(parts);
+			}
 			return;
 		}
-		final ModelPart body = root.getAllVanillaPartsByNameEMF().get("body");
+		final ModelPart body = parts.get(Parts.BODY);
 		if (body == null) {
 			return;
 		}
@@ -238,6 +280,7 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		s.animatedPitch = pitch;
 		s.animatedRoll = roll;
 		s.animatedAt = now;
+		s.animatedFrame = SaddleMotion.frame();
 	}
 }
 //?}

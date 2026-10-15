@@ -2,6 +2,7 @@ package dev.horsingaround.gametest;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LogEvent;
@@ -16,10 +17,13 @@ import org.apache.logging.log4j.core.config.Property;
  * rubber-banding).
  */
 final class LogWatch extends AbstractAppender implements AutoCloseable {
+	// (A name of its own: Log4j keeps one appender per name, so watches that overlap, one for a whole test and one for a
+	// part of it, would otherwise cancel each other.)
+	private static final AtomicInteger COUNT = new AtomicInteger();
 	private final List<String> warnings = new ArrayList<>();
 
 	private LogWatch() {
-		super("horsingaround-log-watch", null, null, true, Property.EMPTY_ARRAY);
+		super("horsingaround-log-watch-" + COUNT.incrementAndGet(), null, null, true, Property.EMPTY_ARRAY);
 	}
 
 	static LogWatch begin() {
@@ -35,7 +39,12 @@ final class LogWatch extends AbstractAppender implements AutoCloseable {
 	@Override
 	public void append(final LogEvent event) {
 		if (event.getLevel().isMoreSpecificThan(Level.WARN)) {
-			final String line = event.getLevel() + " [" + event.getLoggerName() + "] " + event.getMessage().getFormattedMessage();
+			String line = event.getLevel() + " [" + event.getLoggerName() + "] " + event.getMessage().getFormattedMessage();
+			// A logged exception ("LOGGER.error(\"...\", e)") is the point of the "Exception" needle
+			final Throwable thrown = event.getThrown();
+			if (thrown != null) {
+				line += " " + thrown;
+			}
 			synchronized (this.warnings) {
 				this.warnings.add(line);
 			}

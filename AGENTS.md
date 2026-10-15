@@ -57,8 +57,8 @@ for one):
 (forests, mountains, hills, hazards, river, badlands) like a player would and writes
 `horsingaround-terrain-report.txt` with traces of any crash, hurt or dead end; `MountsTest` rides every vanilla mount
 (only the horse family gets the new riding) and mob riders; `ServerRideTest` starts a real dedicated server with the
-mod (the target setup: a family server) and checks the server accepts every move. All of them log server corrections
-("moved wrongly" = rubber-banding) and warnings. Screenshots land in
+mod (the target setup: a family server) and checks the server accepts every move. All of them fail on server corrections
+("moved wrongly" = rubber-banding) and log warnings. Screenshots land in
 `build/run/clientGameTest/screenshots/` (view them; with hitboxes on, F3+B, the ridden horse also draws its steering
 and step state). In the client tests horses wear colour-coded test textures (`src/gametest/debugpack`: upper leg blue,
 a white band, cannon orange, hoof black, sole magenta; `-PplainTextures` for real ones), and `LegProbe` measures the legs
@@ -80,7 +80,7 @@ stack's, and `-PsmokeWithoutMod` runs the same scene with this mod turned off. L
 without the pack: most players run the plain horse model, and a bug there (idle horses' legs adrift before 1.21.2) only
 showed without it. Run it after touching version-specific code; see `docs/porting.md`.
 
-Test games run light (lowest settings, no sound, 20 frames a second, a 2 GB heap, and Sodium, Lithium, FerriteCore and
+Test games run light (lowest settings, no sound, the default frame rate the frame-sampled checks are tuned at, a 2 GB heap, and Sodium, Lithium, FerriteCore and
 ImmediatelyFast loaded only into test games; `-PplainGame` drops the mods, `-PfullGraphics` keeps normal settings, and
 the gallery always gets them). Prefer `./gradlew runClientGameTestParallel --continue` for full runs (user request,
 2026-10-08): it splits the client tests into five shards (`testShards` in `build.gradle`; folders

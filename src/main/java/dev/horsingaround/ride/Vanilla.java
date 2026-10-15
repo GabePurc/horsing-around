@@ -52,6 +52,29 @@ final class Vanilla {
 		/*return entity instanceof AbstractHorse ? 0.5 : 1.0;*/
 	}
 
+	/**
+	 * The longest fall (blocks) that costs the entity at most {@code hurt} health points, less a margin for error. From
+	 * 1.21.5 vanilla rounds fall damage down; before, it rounded it up, so any fall past the safe distance hurts.
+	 */
+	static double longestFall(final LivingEntity entity, final int hurt) {
+		final double multiplier = Math.max(fallDamageMultiplier(entity), 1.0E-3);
+		//? if >=1.21.5 {
+		return safeFall(entity) + (hurt + 1) / multiplier - 0.05;
+		//?} else
+		/*return safeFall(entity) + hurt / multiplier - 0.05;*/
+	}
+
+	/**
+	 * Health points a fall of {@code fall} blocks costs the horse's rider. From 1.21.5 the rider takes the fall themselves
+	 * (from their own safe distance, rounded down); before, the horse handed its own damage on to its riders.
+	 */
+	static double riderFallHurt(final LivingEntity horse, final LivingEntity rider, final double fall) {
+		//? if >=1.21.5 {
+		return Math.floor(Math.max(fall - safeFall(rider), 0.0) * fallDamageMultiplier(rider));
+		//?} else
+		/*return Math.ceil(Math.max(fall - safeFall(horse), 0.0) * fallDamageMultiplier(horse));*/
+	}
+
 	//? if <1.20.2 {
 	/*// (Before 1.20.2 only the version that looks at entities too exists; the blocks alone are what vanilla's later one looks at.)
 	static boolean noBlockCollision(final CollisionGetter level, final Entity entity, final AABB box) {

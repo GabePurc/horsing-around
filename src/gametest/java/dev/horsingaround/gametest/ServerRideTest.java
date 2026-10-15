@@ -1,5 +1,6 @@
 package dev.horsingaround.gametest;
 
+import dev.horsingaround.client.HorsingAroundClient;
 import dev.horsingaround.client.cosmetic.Hats;
 import dev.horsingaround.client.cosmetic.Supporters;
 import dev.horsingaround.net.RulesPayload;
@@ -50,6 +51,7 @@ public final class ServerRideTest implements FabricClientGameTest {
 		if (!System.getProperty("horsingaround.tests", "server").contains("server")) {
 			return;
 		}
+		TestPacks.enable(ctx);
 		boolean completed = false;
 		try (LogWatch watch = LogWatch.begin(); TestDedicatedServerContext server = ctx.worldBuilder().createServer()) {
 			server.runCommand("time set noon");
@@ -88,7 +90,7 @@ public final class ServerRideTest implements FabricClientGameTest {
 				check("the client doesn't hear from the server's mod", !ctx.computeOnClient(mc -> ServerRules.present));
 				course(ctx, server, connection, watch, false);
 			} finally {
-				ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, context) -> ServerRules.accept(rules));
+				ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, context) -> HorsingAroundClient.acceptRules(rules));
 			}
 
 			section("Log");
@@ -234,6 +236,10 @@ public final class ServerRideTest implements FabricClientGameTest {
 		final List<String> corrections = watch.corrections();
 		corrections.forEach(line -> log("    %s", line));
 		check(what + ": the server accepted every move (corrections)", corrections.size(), 0, 0);
+		// (The watch starts afresh for each lane, so the run's closing check sees only the last one: the rest is checked here.)
+		final List<String> problems = watch.matching("horsingaround", "Exception");
+		problems.forEach(line -> log("    %s", line));
+		check(what + ": no exceptions or mod warnings", problems.isEmpty());
 		watch.clear();
 		check(what + ": rider still mounted", ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse));
 	}

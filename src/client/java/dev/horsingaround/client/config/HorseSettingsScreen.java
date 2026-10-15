@@ -48,8 +48,31 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	private static final int SECTION_COLOR = 0xE3B778;
 	private static final URI SUPPORT = URI.create("https://buymeacoffee.com/blintzbug");
 
+	/**
+	 * The hat colour as the sliders show it: hue (degrees), richness and brightness (0-1). Kept here and only turned into
+	 * the colour (never back), so a slider at its end (grey has no hue) doesn't lose the others, and rounding to 8-bit
+	 * channels doesn't drift them.
+	 */
+	private float[] hsv;
+
 	public HorseSettingsScreen(final Screen parent) {
 		super(parent, Minecraft.getInstance().options, Component.translatable(KEY + "title"));
+		this.hsv = HatColors.toHsv(HorseConfig.get().hatColor);
+	}
+
+	/** Opens the settings over whatever is showing now (the key binding). */
+	public static void open(final Minecraft minecraft) {
+		//? if >=26.2 {
+		show(minecraft, minecraft.gui.screen());
+		//?} else
+		/*show(minecraft, minecraft.screen);*/
+	}
+
+	private static void show(final Minecraft minecraft, final Screen parent) {
+		//? if >=26.2 {
+		minecraft.gui.setScreen(new HorseSettingsScreen(parent));
+		//?} else
+		/*minecraft.setScreen(new HorseSettingsScreen(parent));*/
 	}
 
 	//? if <1.20.5 {
@@ -179,17 +202,34 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		}));
 		this.addWide(new HatPaletteWidget(310, c.hatColor, color -> {
 			c.hatColor = color;
+			this.hsv = HatColors.toHsv(color);
 			Hats.sendOwn();
-			this.rebuildWidgets();
+			// The sliders have to show the new colour, so the widgets are made again, but the list stays where it is.
+			this.rebuildKeepingScroll();
 		}));
-		final float[] hsv = HatColors.toHsv(c.hatColor);
 		this.list.addSmall(
-			slider("hat_hue", 0, 359, Math.round(hsv[0]), "degrees", hue -> c.hatColor = HatColors.fromHsv(hue, HatColors.toHsv(c.hatColor)[1], HatColors.toHsv(c.hatColor)[2])),
-			slider("hat_richness", 0, 100, Math.round(hsv[1] * 100.0F), "percent", rich -> c.hatColor = HatColors.fromHsv(HatColors.toHsv(c.hatColor)[0], rich / 100.0F, HatColors.toHsv(c.hatColor)[2]))
+			slider("hat_hue", 0, 359, Math.min(Math.round(this.hsv[0]), 359), "degrees", hue -> this.setHsv(c, 0, hue)),
+			slider("hat_richness", 0, 100, Math.round(this.hsv[1] * 100.0F), "percent", rich -> this.setHsv(c, 1, rich / 100.0F))
 		);
 		this.list.addBig(
-			slider("hat_brightness", 5, 100, Math.round(hsv[2] * 100.0F), "percent", bright -> c.hatColor = HatColors.fromHsv(HatColors.toHsv(c.hatColor)[0], HatColors.toHsv(c.hatColor)[1], bright / 100.0F))
+			slider("hat_brightness", 5, 100, Math.max(Math.round(this.hsv[2] * 100.0F), 5), "percent", bright -> this.setHsv(c, 2, bright / 100.0F))
 		);
+	}
+
+	/** A hat slider moved: one of hue, richness and brightness changes and the colour follows. */
+	private void setHsv(final HorseConfig c, final int part, final float value) {
+		this.hsv[part] = value;
+		c.hatColor = HatColors.fromHsv(this.hsv[0], this.hsv[1], this.hsv[2]);
+	}
+
+	/** Makes the widgets again, with the list scrolled where it was (a plain rebuild jumps back to the top). */
+	private void rebuildKeepingScroll() {
+		//? if >=1.21.4 {
+		final double scroll = this.list.scrollAmount();
+		//?} else
+		/*final double scroll = this.list.getScrollAmount();*/
+		this.rebuildWidgets();
+		this.list.setScrollAmount(scroll);
 	}
 
 	/** A heading row (before 1.21.11 the list has no headings; the text goes in a row of its own). */
@@ -239,10 +279,7 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 
 	private void reset() {
 		HorseConfig.reset();
-		//? if >=26.2 {
-		this.minecraft.gui.setScreen(new HorseSettingsScreen(this.lastScreen));
-		//?} else
-		/*this.minecraft.setScreen(new HorseSettingsScreen(this.lastScreen));*/
+		show(this.minecraft, this.lastScreen);
 	}
 
 	@Override

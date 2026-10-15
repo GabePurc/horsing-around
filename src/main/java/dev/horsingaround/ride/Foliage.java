@@ -2,11 +2,10 @@ package dev.horsingaround.ride;
 
 import dev.horsingaround.net.ServerRules;
 import net.minecraft.core.BlockPos;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import org.jspecify.annotations.Nullable;
@@ -19,11 +18,19 @@ public final class Foliage {
 	}
 
 	/**
-	 * Whether ridden horses pass through leaves on this side: the setting, and on a client also the server's agreement
-	 * (it checks every move the rider's client makes).
+	 * Whether ridden horses pass through leaves on this side: on a server running the mod, and on a client once that
+	 * server agrees (it checks every move the rider's client makes).
 	 */
 	public static boolean leavesOpen(final Level level) {
 		return RideTuning.RIDE_THROUGH_LEAVES && (!level.isClientSide() || ServerRules.rideThroughLeaves);
+	}
+
+	/**
+	 * Leaves a ridden horse pushes through: what the collision mixin opens (every leaves block, by its class: cheaper than
+	 * a tag on a path every collision query takes), so planning, footing and rustling all agree with it.
+	 */
+	public static boolean isLeaves(final BlockState state) {
+		return state.getBlock() instanceof LeavesBlock;
 	}
 
 	/** Whether leaves should not block this entity: a horse ridden by a player, or that horse's rider. */
@@ -45,7 +52,7 @@ public final class Foliage {
 			for (int y = Mth.floor(box.minY); y <= y1; y++) {
 				for (int z = Mth.floor(box.minZ); z <= z1; z++) {
 					final BlockState state = horse.level().getBlockState(SCAN.set(x, y, z));
-					if (state.is(BlockTags.LEAVES)) {
+					if (isLeaves(state)) {
 						return state;
 					}
 				}
