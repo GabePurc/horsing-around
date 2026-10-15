@@ -51,14 +51,38 @@ final class LogWatch extends AbstractAppender implements AutoCloseable {
 		}
 	}
 
-	/** Warnings and errors so far containing any of {@code needles} (all of them with none given). */
+	/**
+	 * Another mod's online service failing (Emotecraft's emote server and account token, seen in the compatibility runs):
+	 * the test machine's network, not something a ride does. Lines naming this mod always count.
+	 */
+	private static final String[] OFFLINE = {
+		"java.net.", "UnknownHostException", "WebSocket", "Bad Gateway", "AuthFailed", "ForbiddenOperationException"
+	};
+
+	private static boolean offline(final String line) {
+		if (line.contains("horsingaround")) {
+			return false;
+		}
+		for (final String needle : OFFLINE) {
+			if (line.contains(needle)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Warnings and errors so far containing any of {@code needles} (all of them with none given), less other mods' offline noise. */
 	List<String> matching(final String... needles) {
 		synchronized (this.warnings) {
-			if (needles.length == 0) {
-				return List.copyOf(this.warnings);
-			}
 			final List<String> found = new ArrayList<>();
 			for (final String line : this.warnings) {
+				if (offline(line)) {
+					continue;
+				}
+				if (needles.length == 0) {
+					found.add(line);
+					continue;
+				}
 				for (final String needle : needles) {
 					if (line.contains(needle)) {
 						found.add(line);
