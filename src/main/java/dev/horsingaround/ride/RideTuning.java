@@ -30,6 +30,11 @@ public final class RideTuning {
 	static final float REVERSE_SPEED = -0.2F;
 	static final float REVERSE_ACCEL = 0.03F;
 	/**
+	 * Double-tapping W within this many ticks spurs up a gait and keeps the horse riding on with W let go, until S. Vanilla's
+	 * window for double-tap sprinting.
+	 */
+	static final int RUN_TAP_TICKS = 7;
+	/**
 	 * Wading: while the horse can touch the bottom it keeps its footing and slows with depth: by up to this share at
 	 * WADE_DEPTH (water this many blocks above the hooves, about chest-deep), less in the shallows.
 	 */

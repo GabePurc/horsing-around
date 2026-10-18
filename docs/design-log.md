@@ -712,3 +712,12 @@ further ahead (up to 4.5 blocks), so the climb picks up through the stride. Goin
 falls as soon as its hooves step off). Gallop: sharpest change in the climb 0.019, tilt 0.7 degrees/tick, most tilt 10
 degrees; canter: 0.040, 1.9, 14.
 
+## Double-tap W to lock a run (user direction, 2026-10-18)
+
+The user asked for a double tap of W to raise the speed and lock the horse into riding on until S, with the sprint key
+working exactly as before. A double tap (within vanilla's 7-tick double-tap-sprint window, `RUN_TAP_TICKS`) is one
+sprint tap plus the lock: the horse rides as if W were held (A/D angle it 45 degrees, as with W), so another double tap
+or a sprint tap steps up again. S (a tap or held) ends the lock; with W let go the horse then coasts (or brakes while S
+is held). Presses are W's clicks made while it was up (`RiderKeys.forwardPresses`): vanilla also clicks for the OS key
+repeat while W is held, and its held state (`Input`) only catches up a tick after the click, so an edge on it would count
+one press twice.

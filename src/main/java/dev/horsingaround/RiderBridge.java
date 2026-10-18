@@ -15,6 +15,11 @@ public interface RiderBridge {
 		}
 
 		@Override
+		public int forwardPresses() {
+			return 0;
+		}
+
+		@Override
 		public int spurPresses() {
 			return 0;
 		}
@@ -38,9 +43,12 @@ public interface RiderBridge {
 	Input input(Player rider);
 
 	/**
-	 * Presses of the sprint, back and jump keys since the last call. Counting presses rather than sampling held state
-	 * catches taps shorter than a tick and works with toggle-sprint.
+	 * Presses of the forward, sprint, back and jump keys since the last call. Counting presses rather than sampling held
+	 * state catches taps shorter than a tick and works with toggle-sprint. Forward presses leave out the key repeat while
+	 * W is held.
 	 */
+	int forwardPresses();
+
 	int spurPresses();
 
 	int reinPresses();

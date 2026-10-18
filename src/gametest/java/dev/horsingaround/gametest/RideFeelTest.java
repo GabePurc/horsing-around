@@ -20,6 +20,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.components.debug.DebugScreenEntries;
 import net.minecraft.client.gui.components.debug.DebugScreenEntryStatus;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
@@ -107,6 +108,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 				exhaustion(ctx, input);
 				coastStop(ctx, input);
 				brakeAndReverse(ctx, input);
+				runLock(ctx, input);
 				freeAim(ctx, input);
 				standingJump(ctx);
 				dismount(ctx, input);
@@ -668,6 +670,74 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("backs up while S held", sample(ctx).gait == RideTuning.STOP && signedSpeed(ctx) < -0.01);
 		input.releaseKey(o -> o.keyDown);
 		ticksUntilStopped(ctx, 40);
+	}
+
+	private void runLock(final ClientGameTestContext ctx, final TestInput input) {
+		section("Double-tap W: locked into riding on until S");
+		// Rested, so the sprint tap below can reach a gallop; still tired from the gallop until exhausted afterwards, as the
+		// sections after this one expect (the standing jump).
+		final float stamina = ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().stamina);
+		final boolean exhausted = ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().exhausted);
+		ctx.runOnClient(mc -> {
+			final RideState s = ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride();
+			s.stamina = 1.0F;
+			s.exhausted = false;
+		});
+		// Taps shorter than a tick (pressed and let go between ride ticks).
+		input.pressKey(o -> o.keyUp);
+		ctx.waitTicks(3);
+		input.pressKey(o -> o.keyUp);
+		ctx.waitTick();
+		check("double tap from a standstill spurs up to a trot", sample(ctx).gait == RideTuning.TROT);
+		check("...and locks the run", runLocked(ctx));
+		ctx.waitTicks(50);
+		check("trots on with W let go (blocks/tick)", averageSpeed(ctx, 10), TROT_SPEED * 0.85, TROT_SPEED * 1.15);
+		// Holding W: one press, then (after the OS's repeat delay) the key repeat, which vanilla also counts as clicks.
+		// Neither spurs nor unlocks.
+		input.holdKey(o -> o.keyUp);
+		ctx.waitTicks(10);
+		for (int i = 0; i < 10; i++) {
+			ctx.runOnClient(mc -> KeyMapping.click(mc.options.keyUp.getDefaultKey()));
+			ctx.waitTick();
+		}
+		input.releaseKey(o -> o.keyUp);
+		ctx.waitTicks(10);
+		check("holding W (key repeat too) keeps the gait and the lock", sample(ctx).gait == RideTuning.TROT && runLocked(ctx));
+		// Taps held over a couple of ride ticks.
+		input.holdKey(o -> o.keyUp);
+		ctx.waitTicks(2);
+		input.releaseKey(o -> o.keyUp);
+		ctx.waitTicks(2);
+		input.holdKey(o -> o.keyUp);
+		ctx.waitTicks(2);
+		input.releaseKey(o -> o.keyUp);
+		ctx.waitTick();
+		check("another double tap spurs up to a canter", sample(ctx).gait == RideTuning.CANTER);
+		input.pressKey(o -> o.keySprint);
+		ctx.waitTick();
+		check("sprint still spurs up a gait while locked", sample(ctx).gait == RideTuning.GALLOP && runLocked(ctx));
+		ctx.waitTicks(50);
+		check("gallops on with no keys held (blocks/tick)", averageSpeed(ctx, 10), GALLOP_SPEED * 0.9, GALLOP_SPEED * 1.1);
+		input.pressKey(o -> o.keyDown);
+		check("S unlocks the run", !runLocked(ctx));
+		check("...and the horse eases to a stop from a gallop (ticks)", ticksUntilStopped(ctx, 120), 25, 70);
+		input.pressKey(o -> o.keyUp);
+		ctx.waitTicks(12);
+		input.pressKey(o -> o.keyUp);
+		ctx.waitTick();
+		check("taps 12 ticks apart don't lock", !runLocked(ctx) && sample(ctx).gait == RideTuning.STOP);
+		ticksUntilStopped(ctx, 40);
+		// (Or the next section's first W would make a double tap with the last one.)
+		ctx.waitTicks(10);
+		ctx.runOnClient(mc -> {
+			final RideState s = ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride();
+			s.stamina = stamina;
+			s.exhausted = exhausted;
+		});
+	}
+
+	private static boolean runLocked(final ClientGameTestContext ctx) {
+		return ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().runLocked);
 	}
 
 	private void freeAim(final ClientGameTestContext ctx, final TestInput input) {

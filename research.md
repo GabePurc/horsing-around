@@ -14,7 +14,8 @@ whatever the speed; no stamina; no visual weight.
 ## Riding
 
 - Gaits (walk, trot, canter, gallop): sprint taps step up, S taps step down, releasing W coasts to a stop, S held
-  brakes hard then backs up. Speeds are multiples of each horse's own speed attribute (breeding matters); canter a
+  brakes hard then backs up. A double tap of W (user, 2026-10-18) steps up too and locks the horse into riding on with W
+  let go, until S. Speeds are multiples of each horse's own speed attribute (breeding matters); canter a
   little below vanilla top speed, gallop a little above.
 - Momentum: gradual acceleration and coasting, harder braking; a head-on wall hit at speed sheds momentum, a graze
   slips past.

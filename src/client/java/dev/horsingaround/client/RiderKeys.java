@@ -16,6 +16,8 @@ final class RiderKeys implements RiderBridge {
 	/** Client ticks so far, and the last one the ride read the presses on. */
 	private int tick;
 	private int readTick = Integer.MIN_VALUE;
+	/** W was down at the last read. */
+	private boolean forwardDown;
 
 	RiderKeys(final Minecraft minecraft) {
 		this.minecraft = minecraft;
@@ -73,6 +75,18 @@ final class RiderKeys implements RiderBridge {
 	*///?}
 
 	@Override
+	public int forwardPresses() {
+		this.dropStale();
+		final KeyMapping key = this.minecraft.options.keyUp;
+		final int clicks = drain(key);
+		final boolean wasDown = this.forwardDown;
+		this.forwardDown = key.isDown();
+		// Vanilla also clicks for the key repeat while W is held, so only clicks made while it was up are presses (one,
+		// or taps shorter than a tick). Letting go and pressing again within one tick is missed, as in vanilla.
+		return wasDown ? 0 : clicks;
+	}
+
+	@Override
 	public int spurPresses() {
 		this.dropStale();
 		return drain(this.minecraft.options.keySprint);
@@ -112,6 +126,8 @@ final class RiderKeys implements RiderBridge {
 	private void dropStale() {
 		if (this.readTick < this.tick - 1) {
 			final Options options = this.minecraft.options;
+			drain(options.keyUp);
+			this.forwardDown = options.keyUp.isDown();
 			drain(options.keySprint);
 			drain(options.keyDown);
 			drain(options.keyJump);
