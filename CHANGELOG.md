@@ -2,6 +2,11 @@
 
 Each version's notes are written to paste straight into the Modrinth version page.
 
+## 0.4.0
+
+### New
+- **Double-tap W to ride on without holding it.** Your horse steps up a gait, just like tapping sprint, and keeps going at that pace with W let go. Double-tap again or tap sprint to go faster. Press S to take back control: let go and it eases to a stop, or hold S to pull up. Sprint works exactly as before.
+
 ## 0.3.2
 
 ### Fixed
