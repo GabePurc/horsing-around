@@ -27,9 +27,10 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * simulates the ride (the rider's client), before vanilla applies rotation and travel.
  *
  * <p>Controls: W rides at the current gait, sprint taps spur up a gait, S taps rein down a gait, S held brakes then
- * backs up, letting go lets the horse ease to a stop. The horse heads where the camera looks; with W, A/D angle it 45
- * degrees off the view, and A or D alone ride it across the view (90 degrees off), at the gait too. The view is never
- * moved. Space jumps immediately, harder the faster the horse is going.
+ * backs up, letting go lets the horse ease to a stop. A double tap of W spurs up a gait too and locks the horse into
+ * riding on with W let go, until S. The horse heads where the camera looks; with W, A/D angle it 45 degrees off the view,
+ * and A or D alone ride it across the view (90 degrees off), at the gait too. The view is never moved. Space jumps
+ * immediately, harder the faster the horse is going.
  */
 public final class RideController {
 	/** Scratch position for ground probes; visuals only tick on the client thread. */
@@ -43,19 +44,23 @@ public final class RideController {
 	}
 
 	/**
-	 * @param in     keys currently held
-	 * @param spurs  sprint presses since last tick
-	 * @param reins  back presses since last tick
-	 * @param jumps  jump presses since last tick
+	 * @param in      keys currently held
+	 * @param urges   forward presses since last tick
+	 * @param spurred sprint presses since last tick
+	 * @param reins   back presses since last tick
+	 * @param jumps   jump presses since last tick
 	 */
 	public static void tick(
-		final AbstractHorse horse, final RideState s, final Player rider, final Input in, final int spurs, final int reins, final int jumps
+		final AbstractHorse horse, final RideState s, final Player rider, final Input in, final int urges, final int spurred, final int reins,
+		final int jumps
 	) {
 		final long started = profile ? System.nanoTime() : 0L;
 		s.steered = true;
+		final int spurs = spurred + (runTap(s, in, urges, reins) ? 1 : 0);
 		// A or D alone ride on at the gait as well, across the view; with W they angle the horse off it.
-		final boolean across = !in.forward() && !in.backward() && in.left() != in.right();
-		final boolean forward = in.forward() || across;
+		final boolean ahead = in.forward() || s.runLocked;
+		final boolean across = !ahead && !in.backward() && in.left() != in.right();
+		final boolean forward = ahead || across;
 		if (horse.onGround()) {
 			s.leapt = false;
 		}
@@ -1180,6 +1185,27 @@ public final class RideController {
 		if (s.exhausted && s.stamina >= STAMINA_RECOVERED) {
 			s.exhausted = false;
 		}
+	}
+
+	/** A double tap of W locks the horse into riding on (and spurs it up a gait, returning true); S unlocks it. */
+	private static boolean runTap(final RideState s, final Input in, final int urges, final int reins) {
+		if (s.sinceForwardTap < Integer.MAX_VALUE) {
+			s.sinceForwardTap++;
+		}
+		boolean doubled = false;
+		if (urges > 0) {
+			doubled = urges > 1 || s.sinceForwardTap <= RUN_TAP_TICKS;
+			// (A third tap starts a new pair.)
+			s.sinceForwardTap = doubled ? Integer.MAX_VALUE : 0;
+		}
+		if (reins > 0 || in.backward()) {
+			s.runLocked = false;
+			return false;
+		}
+		if (doubled) {
+			s.runLocked = true;
+		}
+		return doubled;
 	}
 
 	/** Re-engaging forward while still moving resumes the gait that matches current momentum. */

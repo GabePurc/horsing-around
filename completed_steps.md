@@ -8,6 +8,7 @@ at most two lines, under the right area; details go in the PR, not here.
 ## Riding core
 
 - Gaits (walk, trot, canter, gallop): sprint tap up, S tap down, release W to coast, hold S to brake then back up; key taps count as presses (sub-tick taps, toggle-sprint)
+- Double-tap W: steps up a gait and locks the horse into riding on with W let go, until S (vanilla's 7-tick window; W's key repeat ignored)
 - Per-gait momentum; weight-shift turning (head leads, then the horse commits and banks, then the body turns); grip-limited turning circle that widens with speed; tight turns scrub speed
 - Steering: the horse heads where the rider looks, the view is never pulled; W+A/D rides 45 degrees off the view, A or D alone 90; standing still with no keys is free look
 - Hard cuts: the further the view is off the horse's heading, the harder it cuts (sits back, more grip, slows to make it); only while riding on, letting go stands it up (`-Psections=cuts`, `strafe`)

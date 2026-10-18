@@ -6,6 +6,10 @@ import org.joml.Matrix4f;
 /** Per-horse riding state. Movement fields are only meaningful on the instance simulating the ride (the rider's client). */
 public final class RideState {
 	public int gait = RideTuning.STOP;
+	/** Locked into riding on by a double tap of W: rides as if W were held, until S. */
+	public boolean runLocked;
+	/** Ride ticks since W was last pressed, for the double tap. */
+	int sinceForwardTap = Integer.MAX_VALUE;
 	/** Ridden by a player, so its collision box is narrowed (see the living-entity mixin); kept in step on every side. */
 	public boolean narrow;
 	/** Left by its rider where only the narrowed box fits (between two trunks): it keeps that box until it is out. */
@@ -461,6 +465,8 @@ public final class RideState {
 	void resetMotion() {
 		this.steered = false;
 		this.gait = RideTuning.STOP;
+		this.runLocked = false;
+		this.sinceForwardTap = Integer.MAX_VALUE;
 		this.speed = 0.0F;
 		this.yawVelocity = 0.0F;
 		this.turnIntent = 0.0F;

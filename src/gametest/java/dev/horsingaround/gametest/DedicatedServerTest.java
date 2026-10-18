@@ -35,6 +35,11 @@ public final class DedicatedServerTest {
 		}
 
 		@Override
+		public int forwardPresses() {
+			return 0;
+		}
+
+		@Override
 		public int spurPresses() {
 			return 0;
 		}

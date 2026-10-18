@@ -126,7 +126,8 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 		final RideState s = this.horsingaround$ride;
 		final RiderBridge bridge = HorsingAround.bridge;
 		RideController.tick(
-			(AbstractHorse) (Object) this, s, controller, bridge.input(controller), bridge.spurPresses(), bridge.reinPresses(), bridge.jumpPresses()
+			(AbstractHorse) (Object) this, s, controller, bridge.input(controller), bridge.forwardPresses(), bridge.spurPresses(), bridge.reinPresses(),
+			bridge.jumpPresses()
 		);
 		if (s.pendingJump > 0.0F) {
 			// Vanilla's tickRidden launches the jump later this same tick.

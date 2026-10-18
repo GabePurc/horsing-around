@@ -22,9 +22,10 @@ And opinions.
 
 ### It builds up
 
-Walk, trot, canter, gallop. Tap sprint to ask for more, tap S to ease back. Let go of W and your horse rolls to a stop
-instead of slamming into invisible brakes. Hold S and it pulls up hard, then backs up. Every horse's own speed still
-matters, so the champion you spent all week breeding is still the fastest one in the stable.
+Walk, trot, canter, gallop. Tap sprint to ask for more, tap S to ease back. Double-tap W to ask for more and your horse
+keeps going without W held, until you tap S. Let go of W and your horse rolls to a stop instead of slamming into
+invisible brakes. Hold S and it pulls up hard, then backs up. Every horse's own speed still matters, so the champion
+you spent all week breeding is still the fastest one in the stable.
 
 <img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/gaits.webp" alt="A horse picking up from a walk to a trot, a canter and a gallop" width="100%">
 
