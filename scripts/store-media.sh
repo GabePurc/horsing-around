@@ -21,15 +21,15 @@ trap 'rm -rf "$tmp"' EXIT
 clip() {
 	name=$1
 	rm -f "$tmp"/*.png
-	ffmpeg -loglevel error -framerate 24 -start_number "${2:-0}" -i "$src/$name/%04d.png" ${3:+-frames:v $3} -vf "scale=$width:-2:flags=lanczos" "$tmp/%04d.png"
-	# The test films 24 frames a second; WebP times frames in whole milliseconds, so 42, 42, 41 keeps the pace exact.
+	ffmpeg -loglevel error -framerate 30 -start_number "${2:-0}" -i "$src/$name/%04d.png" ${3:+-frames:v $3} -vf "scale=$width:-2:flags=lanczos" "$tmp/%04d.png"
+	# The test films 30 frames a second; WebP times frames in whole milliseconds, so 33, 33, 34 keeps the pace exact.
 	# Every frame a whole picture (-kmax 1), not a patch drawn over the one before: browsers then decode each frame on its
 	# own, cheaply, instead of falling behind on a chain of a few hundred and playing slow or stuttering. Barely bigger,
 	# since the camera moves and nearly everything changes each frame anyway.
 	set --
 	i=0
 	for f in "$tmp"/*.png; do
-		if [ $((i % 3)) -eq 2 ]; then set -- "$@" -d 41 "$f"; else set -- "$@" -d 42 "$f"; fi
+		if [ $((i % 3)) -eq 2 ]; then set -- "$@" -d 34 "$f"; else set -- "$@" -d 33 "$f"; fi
 		i=$((i + 1))
 	done
 	img2webp -loop 0 -lossy -q $quality -m 6 -kmin 0 -kmax 1 "$@" -o "$out/$name.webp" > /dev/null

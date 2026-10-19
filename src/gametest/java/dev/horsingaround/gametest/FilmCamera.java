@@ -120,6 +120,9 @@ public final class FilmCamera {
 	private static float fov;
 	/** Whether the frame being drawn is one a clip records (the window's own frames in between don't move the camera on). */
 	private static boolean recording;
+	/** Whether a clip is recording, and whether one of its frames is being drawn (client thread). */
+	private static boolean clip;
+	private static boolean drawingClip;
 	/** The two recorded frames before: when (clip ticks) and where the shot put the camera (before the floor and the crane). */
 	private static float lastTime;
 	private static float prevTime;
@@ -372,6 +375,21 @@ public final class FilmCamera {
 			}
 		}
 		return false;
+	}
+
+	/** A clip starts or stops recording: meanwhile only its own frames draw the world (see {@code GameRendererMixin}). */
+	public static void clip(final boolean on) {
+		clip = on;
+	}
+
+	/** Around each of a clip's frames. */
+	public static void drawingClip(final boolean on) {
+		drawingClip = on;
+	}
+
+	/** Whether the window's own frame should leave the world undrawn: a clip is recording and this isn't one of its frames. */
+	public static boolean windowFramesHeld() {
+		return clip && !drawingClip;
 	}
 
 	/** Whether the frames drawn next are a clip's (see {@link #recording}). */
