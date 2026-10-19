@@ -64,10 +64,12 @@ gallery always gets them). Leg and body easing runs on game time, so results don
 - `./gradlew runGameTest`: loads the mod on a bare dedicated server (no client code) and rides there.
 - `-Ptests=gallery`: clean store screenshots.
 - `-Ptests=store`: films the README's clips and stills in a generated world (`StoreMediaTest`; `-Pscenario=gaits,river`
-  for some), with ATMOSPHERICS loaded for the sky. Clips are widescreen at 24 frames a second, each frame four pictures
-  blended (motion blur), with slow motion where a shot asks; `FilmCamera` moves the camera between set-ups on a smooth
-  path, never below the ground or grass, craning up when something would block the horse. The log gives each clip's
-  sharpest camera change of speed. Every client test run clears `build/run/clientGameTest`, so encode the frames before
+  for some), with ATMOSPHERICS loaded for the sky. Clips are widescreen at 30 frames a second, slowed down where a shot
+  asks. Each frame is drawn at its own moment on the game's own timer (the mod's legs and Fresh Animations read the
+  partial tick from it), and while a clip records only its frames draw the world, so frame-to-frame animation moves with
+  them alone. `FilmCamera` moves the camera between set-ups on a smooth path, never below the ground or grass, craning up
+  when something would block the horse. The log gives each clip's sharpest camera change of speed and how its legs moved
+  (`<clip>-legs.csv`: the soles against the body, a line a frame). Every client test run clears `build/run/clientGameTest`, so encode the frames before
   the next run. `-PshaderPack=<path to a shader pack zip>` shoots with Iris and that pack, stills only (the user wants clips
   without shaders, which are easier to see). `scripts/store-media.sh` turns them into `docs/media/`. The README is also
   the Modrinth description; its images load from `raw.githubusercontent.com/.../main/docs/media/`, so they show only

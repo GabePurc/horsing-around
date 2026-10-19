@@ -83,6 +83,11 @@ public final class LegProbe {
 		reset();
 	}
 
+	/** Measures the frames drawn from now on, or stops, keeping what it has so far (the store clips measure only their own frames). */
+	public static void listen(final boolean on) {
+		armed = on;
+	}
+
 	/**
 	 * Frame by frame: the frames where the body (the middle of its underside) or a sole (against the body) jumped much
 	 * faster than it moved the frame before (a snap or a hitch between ticks), what each was, and how many.

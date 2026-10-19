@@ -1,11 +1,11 @@
 package dev.horsingaround.gametest;
 
-import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.renderpearl.api.commands.CommandEncoder;
 import com.mojang.renderpearl.api.commands.GpuFence;
 import com.mojang.datafixers.util.Pair;
 import dev.horsingaround.client.config.HorseSettingsScreen;
+import dev.horsingaround.gametest.mixin.DeltaTrackerTimerAccessor;
 import dev.horsingaround.client.cosmetic.Hats;
 import dev.horsingaround.client.cosmetic.Supporters;
 import dev.horsingaround.ride.HorseConfig;
@@ -15,13 +15,10 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.function.Predicate;
@@ -50,7 +47,6 @@ import net.minecraft.server.level.ParticleStatus;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
-import net.minecraft.util.Util;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
@@ -80,10 +76,8 @@ public final class StoreMediaTest implements FabricClientGameTest {
 	private static final int HEIGHT = 720;
 	/** Clips are widescreen, like a film (2.39:1). */
 	private static final int CLIP_HEIGHT = 536;
-	/** Clip frames a second of screen time, a film's. */
-	private static final int FPS = 24;
-	/** Pictures blended into each clip frame (motion blur). */
-	private static final int SHUTTER_SAMPLES = 4;
+	/** Clip frames a second of screen time. */
+	private static final int FPS = 30;
 	private static final int CANTER = 2;
 	private static final int GALLOP = 3;
 	/** Chestnut with white stockings and blaze; bay; dark brown with white spots (variant | markings << 8). */
@@ -114,6 +108,8 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		new Want("river", Ground.RIVER, 0, any(Biomes.RIVER), 0.0F, 360.0F, "river"));
 
 	private static final Logger LOGGER = LoggerFactory.getLogger("horsingaround-store");
+	/** The clip being recorded's legs as drawn, a line a frame (client thread). */
+	private static final List<String> LEGS = new ArrayList<>();
 	private final List<String> log = new ArrayList<>();
 	private Path out;
 	private String only;
@@ -510,9 +506,9 @@ public final class StoreMediaTest implements FabricClientGameTest {
 
 	/**
 	 * Clears the route for the camera and the horse: two-block plants from a strip 100 blocks down it and 15 either side
-	 * (low shots through tall grass saw nothing but grass), and whole trees standing within 12 of it (they came between
-	 * the camera and the horse, and the horse weaved round them). Trees further off stay as scenery, and the grass
-	 * underfoot stays.
+	 * (low shots through tall grass saw nothing but grass), and whole trees standing within 20 of it (they came between
+	 * the camera and the horse, the horse weaved round them, and the camera's floor rose over any within its reach). Trees
+	 * further off stay as scenery, and the grass underfoot stays.
 	 */
 	private static void clearRoute(final TestServerContext server, final Spot spot, final int y) {
 		final double fx = -Mth.sin(spot.yaw * Mth.DEG_TO_RAD);
@@ -530,8 +526,8 @@ public final class StoreMediaTest implements FabricClientGameTest {
 			final ServerLevel level = s.overworld();
 			final BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
 			final List<BlockPos> trunks = new ArrayList<>();
-			for (int along = -10; along <= 100; along++) {
-				for (int side = -12; side <= 12; side++) {
+			for (int along = -10; along <= 110; along++) {
+				for (int side = -20; side <= 20; side++) {
 					final int x = Mth.floor(spot.start.getX() + 0.5 + fx * along + fz * side);
 					final int z = Mth.floor(spot.start.getZ() + 0.5 + fz * along - fx * side);
 					// The lowest log in the column: the foot of the trunk.
@@ -641,67 +637,9 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		};
 	}
 
-	/** A frame being exposed: its samples' sum so far. */
-	private static final class Exposure {
-		private final int index;
-		private final double open;
-		private final double length;
-		/** Samples drawn, and those that came back and were added. */
-		private int samples;
-		private int added;
-		private int @Nullable [] sum;
-		private int width;
-		private int height;
-
-		private Exposure(final int index, final double open, final double length) {
-			this.index = index;
-			this.open = open;
-			this.length = length;
-		}
-
-		/** When sample {@code i} is taken, clip ticks. */
-		private double time(final int i) {
-			return this.open + this.length * (i + 0.5) / SHUTTER_SAMPLES;
-		}
-
-		private void add(final NativeImage image) {
-			if (this.sum == null) {
-				this.width = image.getWidth();
-				this.height = image.getHeight();
-				this.sum = new int[this.width * this.height * 3];
-			}
-			this.added++;
-			final int[] s = this.sum;
-			for (int y = 0, i = 0; y < this.height; y++) {
-				for (int x = 0; x < this.width; x++, i += 3) {
-					final int argb = image.getPixel(x, y);
-					s[i] += argb >> 16 & 0xFF;
-					s[i + 1] += argb >> 8 & 0xFF;
-					s[i + 2] += argb & 0xFF;
-				}
-			}
-		}
-
-		private NativeImage develop() {
-			final int[] s = this.sum;
-			final NativeImage image = new NativeImage(this.width, this.height, false);
-			for (int y = 0, i = 0; y < this.height; y++) {
-				for (int x = 0; x < this.width; x++, i += 3) {
-					final int r = (s[i] + this.added / 2) / this.added;
-					final int g = (s[i + 1] + this.added / 2) / this.added;
-					final int b = (s[i + 2] + this.added / 2) / this.added;
-					image.setPixelABGR(x, y, 0xFF000000 | b << 16 | g << 8 | r);
-				}
-			}
-			return image;
-		}
-	}
-
 	/**
 	 * {@code ticks} of play into store/{@code clip}/ (widescreen) as {@link #FPS} frames a second of screen time, slowed
-	 * down where {@code speed} says. Like a film camera's, each frame's shutter is open for half its time: the frame is
-	 * {@link #SHUTTER_SAMPLES} pictures over that half blended together, so fast movement blurs the way it does in a film
-	 * instead of strobing.
+	 * down where {@code speed} says: each frame one picture of its own moment, sharp like the game's own frames.
 	 */
 	private void record(final ClientGameTestContext ctx, final String clip, final int ticks, final Speed speed, final IntConsumer eachTick) {
 		final Path dir = this.out.resolve(clip);
@@ -719,11 +657,17 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		}
 		ctx.getInput().resizeWindow(WIDTH, CLIP_HEIGHT);
 		final double[] from = ctx.computeOnClient(mc -> new double[] {mc.player.getX(), mc.player.getZ()});
-		final AtomicInteger saving = new AtomicInteger();
-		final List<Exposure> exposing = new ArrayList<>();
+		ctx.runOnClient(mc -> {
+			FilmCamera.clip(true);
+			LegProbe.arm(true);
+			LegProbe.listen(false);
+			LEGS.clear();
+			LEGS.add("# time (clip ticks), partial tick, then per leg (FL, FR, HL, HR) the sole against the top of the leg: x, y, z");
+		});
 		int frames = 0;
-		double shutter = 20.0 / FPS * speed.at(0.0) / 2.0;
-		double middle = shutter / 2.0;
+		// The next frame's moment and the one before, in clip ticks.
+		double next = 0.0;
+		double last = -20.0 / FPS * speed.at(0.0);
 		for (int t = 0; t < ticks; t++) {
 			eachTick.accept(t);
 			ctx.waitTick();
@@ -732,73 +676,91 @@ public final class StoreMediaTest implements FabricClientGameTest {
 				FilmCamera.clock(tick);
 				FilmCamera.tick();
 			});
-			// Open the frames whose shutter opens in this tick, then take every sample due in it, oldest first.
-			while (middle - shutter / 2.0 < t + 1 && middle + shutter / 2.0 <= ticks) {
-				exposing.add(new Exposure(frames++, middle - shutter / 2.0, shutter));
-				final double step = 20.0 / FPS * speed.at(middle);
-				middle += step;
-				shutter = 20.0 / FPS * speed.at(middle) / 2.0;
-			}
-			for (final Iterator<Exposure> it = exposing.iterator(); it.hasNext();) {
-				final Exposure frame = it.next();
-				while (frame.samples < SHUTTER_SAMPLES && frame.time(frame.samples) < t + 1) {
-					final float partialTick = (float) (frame.time(frame.samples) - t);
-					ctx.runOnClient(mc -> drawFrame(mc, partialTick, frame::add));
-					frame.samples++;
-				}
-				if (frame.samples == SHUTTER_SAMPLES) {
-					it.remove();
-					if (frame.added < SHUTTER_SAMPLES) {
-						LOGGER.warn("[store] {} frame {}: {} of {} pictures came back", clip, frame.index, frame.added, SHUTTER_SAMPLES);
-						if (frame.added == 0) {
-							continue;
+			for (; next < t + 1; next += 20.0 / FPS * speed.at(next)) {
+				final float partialTick = (float) (next - t);
+				final float step = (float) (next - last);
+				final Path file = dir.resolve(String.format(Locale.ROOT, "%04d.png", frames++));
+				final double at = next;
+				ctx.runOnClient(mc -> {
+					drawFrame(mc, partialTick, step, file);
+					final StringBuilder row = new StringBuilder(String.format(Locale.ROOT, "%.4f,%.4f", at, partialTick));
+					for (int leg = 0; leg < 4; leg++) {
+						for (int i = 0; i < 3; i++) {
+							row.append(String.format(Locale.ROOT, ",%.4f", LegProbe.sole[leg][i] - LegProbe.top[leg][i]));
 						}
 					}
-					final Path file = dir.resolve(String.format(Locale.ROOT, "%04d.png", frame.index));
-					saving.incrementAndGet();
-					Util.ioPool().execute(() -> {
-						try (NativeImage image = frame.develop()) {
-							image.writeToFile(file);
-						} catch (final IOException e) {
-							LOGGER.warn("[store] couldn't save {}", file, e);
-						} finally {
-							saving.decrementAndGet();
-						}
-					});
-				}
+					LEGS.add(row.toString());
+				});
+				last = next;
 			}
 		}
-		ctx.waitFor(mc -> saving.get() == 0, 20 * 60);
+		ctx.runOnClient(mc -> FilmCamera.clip(false));
 		ctx.getInput().resizeWindow(WIDTH, HEIGHT);
+		// The legs as drawn, frame to frame: a sole or the body jumping much faster than the frame before is a hitch.
+		final String legs = ctx.computeOnClient(mc -> String.format(Locale.ROOT, "legs: %d frames measured, %d hitches%s, soles moved at most %.2f a frame",
+			LegProbe.frames, LegProbe.spikeCount, LegProbe.spikeCount == 0 ? "" : " (" + LegProbe.spikes.toString().strip().replace('\n', ';') + ")",
+			LegProbe.soleSnapMost));
+		ctx.runOnClient(mc -> LegProbe.arm(false));
 		final double travelled = ctx.computeOnClient(mc -> Math.hypot(mc.player.getX() - from[0], mc.player.getZ() - from[1]));
 		final String smoothness = ctx.computeOnClient(mc -> FilmCamera.smoothness());
 		try {
 			final List<String> path = ctx.computeOnClient(mc -> FilmCamera.path());
 			Files.write(this.out.resolve(clip + "-camera.csv"), path);
+			final List<String> legPath = ctx.computeOnClient(mc -> new ArrayList<>(LEGS));
+			Files.write(this.out.resolve(clip + "-legs.csv"), legPath);
 		} catch (final IOException e) {
 			throw new UncheckedIOException(e);
 		}
-		final String line = String.format(Locale.ROOT, "%s: %d frames (%.1f s), rode %d blocks; %s", clip, frames, frames / (double) FPS, Math.round(travelled),
-			smoothness);
+		final String line = String.format(Locale.ROOT, "%s: %d frames (%.1f s), rode %d blocks; %s; %s", clip, frames, frames / (double) FPS,
+			Math.round(travelled), smoothness, legs);
 		this.log.add(line);
 		LOGGER.info("[store] {}", line);
 	}
 
 	/**
-	 * Draws the world {@code partialTick} of the way through the current tick and hands the picture to {@code sink}.
-	 * Waits for the picture to come back from the graphics card before returning: left to come back later, it sometimes
-	 * caught the next frame's drawing, so a clip showed one moment twice and then jumped.
+	 * Draws the world {@code partialTick} of the way through the current tick, {@code step} ticks after the frame before,
+	 * and saves it to {@code file}.
+	 * <ul>
+	 * <li>The moment goes on the game's own frame timer for the frame, not only into the delta the renderer is handed: the
+	 * mod's legs and Entity Model Features' animations read the timer, and without this every frame in a tick drew the legs
+	 * as they were at the tick's last real frame, so they only moved once a tick (stuttering in slow motion).</li>
+	 * <li>It waits for the picture to come back from the graphics card before returning: left to come back later, it
+	 * sometimes caught the next frame's drawing, so a clip showed one moment twice and then jumped.</li>
+	 * </ul>
 	 */
-	private static void drawFrame(final Minecraft mc, final float partialTick, final Consumer<NativeImage> sink) {
-		final DeltaTracker delta = new FrameDelta(partialTick);
-		FilmCamera.recording(true);
-		mc.gameRenderer.update(delta);
-		FilmCamera.recording(false);
-		mc.gameRenderer.extract(delta, true);
-		mc.gameRenderer.render();
+	private static void drawFrame(final Minecraft mc, final float partialTick, final float step, final Path file) {
+		final DeltaTracker timer = mc.getDeltaTracker();
+		final DeltaTrackerTimerAccessor clock = (DeltaTrackerTimerAccessor) timer;
+		final float deltaTicks = clock.horsingaroundtest$deltaTicks();
+		final float partial = clock.horsingaroundtest$partialTick();
+		final float pausedPartial = clock.horsingaroundtest$pausedPartialTick();
+		final float realtime = clock.horsingaroundtest$realtimeDeltaTicks();
+		clock.horsingaroundtest$setDeltaTicks(step);
+		clock.horsingaroundtest$setPartialTick(partialTick);
+		clock.horsingaroundtest$setPausedPartialTick(partialTick);
+		clock.horsingaroundtest$setRealtimeDeltaTicks(step);
+		try {
+			FilmCamera.drawingClip(true);
+			FilmCamera.recording(true);
+			mc.gameRenderer.update(timer);
+			FilmCamera.recording(false);
+			mc.gameRenderer.extract(timer, true);
+			LegProbe.listen(true);
+			mc.gameRenderer.render();
+		} finally {
+			LegProbe.listen(false);
+			FilmCamera.drawingClip(false);
+			FilmCamera.recording(false);
+			clock.horsingaroundtest$setDeltaTicks(deltaTicks);
+			clock.horsingaroundtest$setPartialTick(partial);
+			clock.horsingaroundtest$setPausedPartialTick(pausedPartial);
+			clock.horsingaroundtest$setRealtimeDeltaTicks(realtime);
+		}
 		Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(), image -> {
 			try (image) {
-				sink.accept(image);
+				image.writeToFile(file);
+			} catch (final IOException e) {
+				LOGGER.warn("[store] couldn't save {}", file, e);
 			}
 		});
 		final CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
@@ -809,23 +771,8 @@ public final class StoreMediaTest implements FabricClientGameTest {
 			}
 		}
 		RenderSystem.executePendingTasks();
-	}
-
-	/** A sample {@code partialTick} into the tick (the time since the sample before only matters to a few effects). */
-	private record FrameDelta(float partialTick) implements DeltaTracker {
-		@Override
-		public float getGameTimeDeltaTicks() {
-			return 10.0F / FPS / SHUTTER_SAMPLES;
-		}
-
-		@Override
-		public float getGameTimeDeltaPartialTick(final boolean ignoreFrozenGame) {
-			return this.partialTick;
-		}
-
-		@Override
-		public float getRealtimeDeltaTicks() {
-			return 10.0F / FPS / SHUTTER_SAMPLES;
+		if (!Files.isRegularFile(file)) {
+			LOGGER.warn("[store] {} didn't come back from the graphics card", file);
 		}
 	}
 
