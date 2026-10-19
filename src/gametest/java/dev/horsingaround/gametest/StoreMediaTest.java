@@ -22,6 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -36,7 +37,9 @@ import net.minecraft.client.CameraType;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.InactivityFpsLimit;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.core.BlockPos;
@@ -246,9 +249,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		});
 		input.holdKey(o -> o.keyUp);
 		this.record(ctx, "gaits", 160, REAL_TIME, t -> {
-			if (t == 40 || t == 75 || t == 110) {
-				input.pressKey(o -> o.keySprint);
-			}
+			tap(input, o -> o.keySprint, t, 40, 75, 110);
 			input.lookAt(spot.yaw, 12.0F);
 		});
 		this.still(ctx, "gallery_gaits");
@@ -270,9 +271,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 			FilmCamera.key(70, FilmCamera.Setup.orbit(sun - 60.0F, 9.0F, 1.8F, 1.4F, 0.0F, 42.0F));
 		});
 		this.record(ctx, "jump", 70, slowMotion(25.0, 38.0, 0.4, 5.0), t -> {
-			if (t == 26) {
-				input.pressKey(o -> o.keyJump);
-			}
+			tap(input, o -> o.keyJump, t, 26);
 			input.lookAt(spot.yaw, 12.0F);
 		});
 		this.stop(ctx);
@@ -419,9 +418,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		final double[] refused = {Double.NaN};
 		input.holdKey(o -> o.keyUp);
 		this.record(ctx, "cliff", 120, t -> Double.isNaN(refused[0]) ? 1.0 : slowMotion(refused[0] + 4.0, refused[0] + 24.0, 0.35, 4.0).at(t), t -> {
-			if (t == 2 || t == 6 || t == 10) {
-				input.pressKey(o -> o.keySprint);
-			}
+			tap(input, o -> o.keySprint, t, 2, 6, 10);
 			input.lookAt(spot.yaw, 12.0F);
 			if (Double.isNaN(refused[0]) && ctx.computeOnClient(mc -> ((RideStateHolder) horse).horsingaround$ride().headShakeStart) != shakeBefore) {
 				refused[0] = t;
@@ -452,9 +449,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		});
 		input.holdKey(o -> o.keyUp);
 		this.record(ctx, "river", 220, REAL_TIME, t -> {
-			if (t == 4) {
-				input.pressKey(o -> o.keySprint);
-			}
+			tap(input, o -> o.keySprint, t, 4);
 			input.lookAt(spot.yaw, 12.0F);
 		});
 		this.still(ctx, "gallery_river");
@@ -589,6 +584,21 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		}, limit + 20);
 		ctx.waitTicks(60);
 		LOGGER.info("[store] chunks ready after {} ticks ({} still missing), {} fps", waited[0], missing[0], ctx.computeOnClient(mc -> mc.getFps()));
+	}
+
+	/**
+	 * A tap of {@code key} during a clip, at each of the clip ticks {@code at}: held for one tick and let go the next. Not
+	 * {@code pressKey}, which runs a game tick of its own: inside {@link #record} that tick was never filmed, so the clip
+	 * skipped a moment at every press (a lurch at the jump's takeoff, a hitch at each sprint tap).
+	 */
+	private static void tap(final TestInput input, final Function<Options, KeyMapping> key, final int t, final int... at) {
+		for (final int tick : at) {
+			if (t == tick) {
+				input.holdKey(key);
+			} else if (t == tick + 1) {
+				input.releaseKey(key);
+			}
+		}
 	}
 
 	/** Holds W and taps sprint up to the gait (1 trot, 2 canter, 3 gallop). */
