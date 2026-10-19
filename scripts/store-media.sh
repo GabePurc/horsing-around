@@ -1,6 +1,8 @@
 #!/bin/sh
 # Turns the store shots filmed by `./gradlew runClientGameTest -Ptests=store` into the README's media in docs/media/:
-# clips into looping animated WebP, stills into JPEG. Needs ffmpeg, ImageMagick and img2webp (libwebp) on the PATH.
+# each clip into an MP4 video (the Modrinth description plays these: hardware-decoded and small, they stay smooth where
+# animated images stutter) and a looping animated WebP (GitHub's README, which drops <video> tags), both in a frame of
+# the logo's orange; stills into JPEG. Needs ffmpeg (with libx264), ImageMagick and img2webp (libwebp) on the PATH.
 # Usage: scripts/store-media.sh [clip ...]   (all filmed clips when none are named)
 #        scripts/store-media.sh --clip <clip> <first frame> <frames>   (part of a clip)
 #        scripts/store-media.sh --still <shot> <name>   (a still, e.g. hat_2, as docs/media/<name>.jpg)
@@ -14,14 +16,30 @@ if [ ! -d "$src" ]; then
 fi
 width=${WIDTH:-720}
 quality=${QUALITY:-50}
+video_width=${VIDEO_WIDTH:-960}
+crf=${CRF:-25}
+# The orange of the outline round the horse in the logo (src/main/resources/assets/horsingaround/icon.png).
+frame=FC6E46
 mkdir -p "$out"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
+# A frame of about 1% of the width round the picture.
+framed() {
+	border=$(($1 / 100))
+	echo "scale=$(($1 - 2 * border)):-2:flags=lanczos,pad=iw+$((2 * border)):ih+$((2 * border)):$border:$border:color=0x$frame"
+}
+
 clip() {
 	name=$1
+	# The video, colours tagged so browsers show the orange as it is.
+	ffmpeg -loglevel error -y -framerate 30 -start_number "${2:-0}" -i "$src/$name/%04d.png" ${3:+-frames:v $3} \
+		-vf "$(framed "$video_width"),scale=out_color_matrix=bt709:out_range=tv,format=yuv420p" \
+		-c:v libx264 -preset slow -crf "$crf" -profile:v high -x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709 \
+		-movflags +faststart -an "$out/$name.mp4"
+	echo "$out/$name.mp4 $(du -h "$out/$name.mp4" | cut -f1)"
 	rm -f "$tmp"/*.png
-	ffmpeg -loglevel error -framerate 30 -start_number "${2:-0}" -i "$src/$name/%04d.png" ${3:+-frames:v $3} -vf "scale=$width:-2:flags=lanczos" "$tmp/%04d.png"
+	ffmpeg -loglevel error -framerate 30 -start_number "${2:-0}" -i "$src/$name/%04d.png" ${3:+-frames:v $3} -vf "$(framed "$width")" "$tmp/%04d.png"
 	# The test films 30 frames a second; WebP times frames in whole milliseconds, so 33, 33, 34 keeps the pace exact.
 	# Every frame a whole picture (-kmax 1), not a patch drawn over the one before: browsers then decode each frame on its
 	# own, cheaply, instead of falling behind on a chain of a few hundred and playing slow or stuttering. Barely bigger,

@@ -262,8 +262,9 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		ctx.runOnClient(mc -> {
 			FilmCamera.shoot(horse, 0.1F);
 			FilmCamera.key(0, FilmCamera.Setup.orbit(sun + 50.0F, 8.0F, 1.1F, 1.4F, 1.0F, 40.0F));
-			FilmCamera.key(22, FilmCamera.Setup.orbit(sun, 6.0F, 1.0F, 1.6F, 0.0F, 36.0F));
-			FilmCamera.key(40, FilmCamera.Setup.orbit(sun - 5.0F, 6.0F, 1.0F, 1.6F, 0.0F, 36.0F));
+			// Aimed above the saddle and a little wide, so the rider stays in the frame at the top of the leap.
+			FilmCamera.key(22, FilmCamera.Setup.orbit(sun, 6.0F, 1.0F, 2.1F, 0.0F, 42.0F));
+			FilmCamera.key(40, FilmCamera.Setup.orbit(sun - 5.0F, 6.0F, 1.0F, 2.1F, 0.0F, 42.0F));
 			FilmCamera.key(70, FilmCamera.Setup.orbit(sun - 60.0F, 9.0F, 1.8F, 1.4F, 0.0F, 42.0F));
 		});
 		this.record(ctx, "jump", 70, slowMotion(25.0, 38.0, 0.4, 5.0), t -> {

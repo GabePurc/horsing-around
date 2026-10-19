@@ -99,6 +99,8 @@ at most two lines, under the right area; details go in the PR, not here.
 - MIT licence, README doubling as the Modrinth page (banner, buttons, looping clips and stills in `docs/media/`), gallery shots (`-Ptests=gallery`), store filming (`-Ptests=store`, `StoreMediaTest`, `scripts/store-media.sh`)
 - Store clips re-shot for 0.4.0 like a film (30 fps, slow motion, moving camera set-ups, golden-hour sky); every frame drawn at
   its own moment on the game's timer, read back before the next and encoded as a keyframe, so legs and pace stay smooth
+- Modrinth description plays the clips as MP4 video (`scripts/modrinth-description.sh`), GitHub's README as WebP; both framed
+  in the logo's orange
 - CI: GitHub Actions builds every push; a published release (tag `v<version>`) uploads each version's jar to Modrinth (`gradle/publish.gradle`, `publish.yml`, notes from `CHANGELOG.md`'s top entry)
 - Bug reports: a GitHub issue form (`.github/ISSUE_TEMPLATE/bug_report.yml`) linked from the README and Mod Menu
 - Builds on any machine: no machine-specific paths, JDK 25 picked through `gradle-daemon-jvm.properties`
