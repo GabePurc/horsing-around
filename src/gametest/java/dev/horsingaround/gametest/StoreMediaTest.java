@@ -1,6 +1,9 @@
 package dev.horsingaround.gametest;
 
+import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.renderpearl.api.commands.CommandEncoder;
+import com.mojang.renderpearl.api.commands.GpuFence;
 import com.mojang.datafixers.util.Pair;
 import dev.horsingaround.client.config.HorseSettingsScreen;
 import dev.horsingaround.client.cosmetic.Hats;
@@ -12,10 +15,13 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -27,6 +33,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
+import net.minecraft.client.CloudStatus;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.InactivityFpsLimit;
 import net.minecraft.client.Minecraft;
@@ -36,17 +43,22 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.QuartPos;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ParticleStatus;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
+import net.minecraft.util.Util;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.RandomState;
+import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,14 +75,20 @@ public final class StoreMediaTest implements FabricClientGameTest {
 	private static final String SEED = "mustang";
 	private static final int WIDTH = 1280;
 	private static final int HEIGHT = 720;
-	/** Clip frame rate: a frame every 2/3 of a tick. */
-	private static final int FPS = 30;
+	/** Clips are widescreen, like a film (2.39:1). */
+	private static final int CLIP_HEIGHT = 536;
+	/** Clip frames a second of screen time, a film's. */
+	private static final int FPS = 24;
+	/** Pictures blended into each clip frame (motion blur). */
+	private static final int SHUTTER_SAMPLES = 4;
 	private static final int CANTER = 2;
 	private static final int GALLOP = 3;
 	/** Chestnut with white stockings and blaze; bay; dark brown with white spots (variant | markings << 8). */
 	private static final int CHESTNUT = 2 | 1 << 8;
 	private static final int BAY = 3;
 	private static final int DARK = 6 | 3 << 8;
+	/** Late afternoon: the sun low in the west (13 degrees up), the light still full. */
+	private static final int GOLDEN_HOUR = 11200;
 
 	private enum Ground {
 		OPEN, RIVER
@@ -85,7 +103,8 @@ public final class StoreMediaTest implements FabricClientGameTest {
 	}
 
 	private static final List<Want> WANTS = List.of(
-		new Want("savanna", Ground.OPEN, 90, any(Biomes.SAVANNA, Biomes.SAVANNA_PLATEAU), 0.0F, 360.0F, "gaits", "jump", "rider", "hat", "settings"),
+		// Heading roughly south, so filming from the horse's left looks west into the evening sun.
+		new Want("savanna", Ground.OPEN, 90, any(Biomes.SAVANNA, Biomes.SAVANNA_PLATEAU), -35.0F, 35.0F, "gaits", "jump", "rider", "hat", "settings"),
 		new Want("plains", Ground.OPEN, 110, any(Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS, Biomes.MEADOW), 0.0F, 360.0F, "turn", "stamina"),
 		// The sunset shots look west into the sun: heading roughly south, filmed from the horse's left.
 		new Want("badlands", Ground.OPEN, 80, any(Biomes.BADLANDS, Biomes.WOODED_BADLANDS, Biomes.ERODED_BADLANDS), -35.0F, 35.0F, "sunset", "cliff"),
@@ -125,8 +144,19 @@ public final class StoreMediaTest implements FabricClientGameTest {
 			// Shots at the window's size rather than resized offscreen: shader packs only render to the window properly.
 			ctx.getInput().resizeWindow(WIDTH, HEIGHT);
 			ctx.runOnClient(mc -> {
-				mc.options.renderDistance().set(10);
+				// Far enough that the haze, not the edge of the world, is what the distance fades into.
+				mc.options.renderDistance().set(20);
+				// The server only sends as far as the client last told it (the test framework's 5 chunks) until told again.
+				mc.options.broadcastOptions();
 				mc.options.fov().set(60);
+				// The run folder's options can carry a light test game's settings; film with the full look, sky and all.
+				mc.options.cloudStatus().set(CloudStatus.FANCY);
+				mc.options.particles().set(ParticleStatus.ALL);
+				mc.options.ambientOcclusion().set(true);
+				mc.options.entityShadows().set(true);
+				mc.options.biomeBlendRadius().set(2);
+				mc.options.mipmapLevels().set(4);
+				mc.options.fovEffectScale().set(0.0);
 				// The test game is a background window most of the time: don't let it idle down to a few frames a second.
 				mc.options.enableVsync().set(false);
 				mc.options.framerateLimit().set(260);
@@ -173,6 +203,8 @@ public final class StoreMediaTest implements FabricClientGameTest {
 			.adjustSettings(settings -> {
 				settings.setGameMode(WorldCreationUiState.SelectedGameMode.CREATIVE);
 				settings.setSeed(seed);
+				// No villages or ruined portals wandering into shots (the terrain is the same without them).
+				settings.setGenerateStructures(false);
 			})
 			.create();
 		final TestServerContext server = world.getServer();
@@ -195,13 +227,25 @@ public final class StoreMediaTest implements FabricClientGameTest {
 
 	// ---- Shots ----
 
-	/** Walk, trot, canter, gallop, filmed alongside. */
+	/**
+	 * Walk, trot, canter, gallop: tracking low alongside with the sun behind the horse, swinging round ahead of it as it
+	 * picks up, then the camera pulls up and lets it gallop past and away.
+	 */
 	private void gaits(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
-		final AbstractHorse horse = this.mount(ctx, world, spot, CHESTNUT, 9500);
+		final AbstractHorse horse = this.mount(ctx, world, spot, CHESTNUT, GOLDEN_HOUR);
 		final TestInput input = ctx.getInput();
-		FilmCamera.film(horse, 80.0F, 8.0F, 1.8F, 10.0F, 1.5F, 0.08F);
+		final float sun = intoTheSun(spot);
+		ctx.runOnClient(mc -> {
+			FilmCamera.shoot(horse, 0.08F);
+			FilmCamera.key(0, FilmCamera.Setup.orbit(sun - 8.0F, 5.5F, 1.1F, 1.4F, 0.0F, 40.0F));
+			FilmCamera.key(40, FilmCamera.Setup.orbit(sun, 6.0F, 1.1F, 1.4F, 0.3F, 40.0F));
+			FilmCamera.key(80, FilmCamera.Setup.orbit(sun + 35.0F, 7.0F, 1.2F, 1.4F, 1.0F, 40.0F));
+			FilmCamera.key(112, FilmCamera.Setup.orbit(sun + 60.0F, 8.0F, 1.3F, 1.4F, 1.5F, 38.0F));
+			FilmCamera.key(122, FilmCamera.Setup.held(1.4F, 1.5F, 38.0F));
+			FilmCamera.key(160, FilmCamera.Setup.held(1.3F, 0.0F, 26.0F));
+		});
 		input.holdKey(o -> o.keyUp);
-		this.record(ctx, "gaits", 160, t -> {
+		this.record(ctx, "gaits", 160, REAL_TIME, t -> {
 			if (t == 40 || t == 75 || t == 110) {
 				input.pressKey(o -> o.keySprint);
 			}
@@ -211,15 +255,22 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		this.stop(ctx);
 	}
 
-	/** A jump at a gallop, filmed from the side. */
+	/** A jump at a gallop: low and side on with the sun behind, slowing right down through the jump, then swinging behind as it gallops on. */
 	private void jump(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
-		final AbstractHorse horse = this.mount(ctx, world, spot, BAY, 9500);
+		final AbstractHorse horse = this.mount(ctx, world, spot, BAY, GOLDEN_HOUR);
 		final TestInput input = ctx.getInput();
+		final float sun = intoTheSun(spot);
 		this.gait(ctx, GALLOP);
 		ctx.waitTicks(30);
-		FilmCamera.film(horse, 95.0F, 6.5F, 1.4F, 6.0F, 1.0F, 0.1F);
-		this.record(ctx, "jump", 50, t -> {
-			if (t == 18) {
+		ctx.runOnClient(mc -> {
+			FilmCamera.shoot(horse, 0.1F);
+			FilmCamera.key(0, FilmCamera.Setup.orbit(sun + 50.0F, 8.0F, 1.1F, 1.4F, 1.0F, 40.0F));
+			FilmCamera.key(22, FilmCamera.Setup.orbit(sun, 6.0F, 1.0F, 1.6F, 0.0F, 36.0F));
+			FilmCamera.key(40, FilmCamera.Setup.orbit(sun - 5.0F, 6.0F, 1.0F, 1.6F, 0.0F, 36.0F));
+			FilmCamera.key(70, FilmCamera.Setup.orbit(sun - 60.0F, 9.0F, 1.8F, 1.4F, 0.0F, 42.0F));
+		});
+		this.record(ctx, "jump", 70, slowMotion(25.0, 38.0, 0.4, 5.0), t -> {
+			if (t == 26) {
 				input.pressKey(o -> o.keyJump);
 			}
 			input.lookAt(spot.yaw, 12.0F);
@@ -279,16 +330,26 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		this.stop(ctx);
 	}
 
-	/** A gallop that swings wide one way and then the other, filmed from behind. */
+	/**
+	 * A gallop that swings wide one way and then the other: from high above and behind, so the arcs show, then cut to low
+	 * in front as it leans into the second turn, slowing down through the lean.
+	 */
 	private void turn(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
-		final AbstractHorse horse = this.mount(ctx, world, spot, CHESTNUT, 10500);
+		final AbstractHorse horse = this.mount(ctx, world, spot, CHESTNUT, GOLDEN_HOUR);
 		final TestInput input = ctx.getInput();
 		this.gait(ctx, GALLOP);
 		ctx.waitTicks(25);
-		// From behind and a little above, following the turns gently, like the riding camera but without its per-frame easing.
-		FilmCamera.film(horse, 10.0F, 6.5F, 2.0F, 14.0F, 0.0F, 0.12F);
+		ctx.runOnClient(mc -> {
+			// The heading followed slowly, so from above the camera hangs back through the turns and the curve shows.
+			FilmCamera.shoot(horse, 0.06F);
+			FilmCamera.key(0, FilmCamera.Setup.orbit(0.0F, 7.0F, 7.0F, 0.9F, 2.5F, 42.0F));
+			FilmCamera.key(56, FilmCamera.Setup.orbit(-15.0F, 8.0F, 8.0F, 0.9F, 2.5F, 42.0F));
+			FilmCamera.cut(58, FilmCamera.Setup.orbit(165.0F, 7.0F, 1.2F, 1.6F, 0.0F, 36.0F));
+			FilmCamera.key(105, FilmCamera.Setup.orbit(200.0F, 7.5F, 1.2F, 1.6F, 0.0F, 36.0F));
+			FilmCamera.key(130, FilmCamera.Setup.orbit(215.0F, 9.0F, 1.6F, 1.5F, 0.0F, 40.0F));
+		});
 		final float[] yaw = {spot.yaw};
-		this.record(ctx, "turn", 130, t -> {
+		this.record(ctx, "turn", 130, slowMotion(78.0, 96.0, 0.5, 6.0), t -> {
 			if (t >= 20 && t < 40) {
 				yaw[0] += 3.5F;
 			} else if (t >= 70 && t < 100) {
@@ -330,10 +391,11 @@ public final class StoreMediaTest implements FabricClientGameTest {
 
 	/**
 	 * Galloping at the edge of a canyon carved across the route 38+ blocks ahead (badlands are terracotta all the way down,
-	 * so the walls look like any canyon's), filmed from over the drop: the horse won't go over.
+	 * so the walls look like any canyon's): a long lens from over the drop as it charges at the edge, widening as it comes,
+	 * then, the moment it refuses, a cut to close beside it and slow motion through the head toss.
 	 */
 	private void cliff(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
-		final AbstractHorse horse = this.mount(ctx, world, spot, DARK, 10000);
+		final AbstractHorse horse = this.mount(ctx, world, spot, DARK, GOLDEN_HOUR);
 		final TestServerContext server = world.getServer();
 		final double fx = -Mth.sin(spot.yaw * Mth.DEG_TO_RAD);
 		final double fz = Mth.cos(spot.yaw * Mth.DEG_TO_RAD);
@@ -345,37 +407,66 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		}
 		ctx.waitTicks(40);
 		final TestInput input = ctx.getInput();
-		FilmCamera.film(horse, 155.0F, 10.0F, 1.0F, 4.0F, 0.0F, 0.05F);
+		// Hanging over the drop, a little to the horse's left, looking back up the route.
+		final Vec3 overTheDrop = new Vec3(spot.start.getX() + 0.5 + fx * 42.0 + fz * 4.0, y + 2.5, spot.start.getZ() + 0.5 + fz * 42.0 - fx * 4.0);
+		final float side = intoTheSun(spot);
+		ctx.runOnClient(mc -> {
+			FilmCamera.shoot(horse, 0.1F);
+			FilmCamera.key(0, FilmCamera.Setup.fixed(overTheDrop, 1.4F, 0.0F, 16.0F));
+			FilmCamera.key(60, FilmCamera.Setup.fixed(overTheDrop, 1.4F, 0.0F, 40.0F));
+		});
+		final int shakeBefore = ctx.computeOnClient(mc -> ((RideStateHolder) horse).horsingaround$ride().headShakeStart);
+		final double[] refused = {Double.NaN};
 		input.holdKey(o -> o.keyUp);
-		this.record(ctx, "cliff", 120, t -> {
+		this.record(ctx, "cliff", 120, t -> Double.isNaN(refused[0]) ? 1.0 : slowMotion(refused[0] + 4.0, refused[0] + 24.0, 0.35, 4.0).at(t), t -> {
 			if (t == 2 || t == 6 || t == 10) {
 				input.pressKey(o -> o.keySprint);
 			}
 			input.lookAt(spot.yaw, 12.0F);
+			if (Double.isNaN(refused[0]) && ctx.computeOnClient(mc -> ((RideStateHolder) horse).horsingaround$ride().headShakeStart) != shakeBefore) {
+				refused[0] = t;
+				ctx.runOnClient(mc -> {
+					FilmCamera.cut(t + 1, FilmCamera.Setup.orbit(side, 5.0F, 1.2F, 1.8F, 0.0F, 32.0F));
+					FilmCamera.key(t + 40, FilmCamera.Setup.orbit(side - 25.0F, 6.0F, 1.6F, 1.6F, 0.0F, 34.0F));
+				});
+			}
 		});
 		this.still(ctx, "gallery_cliff");
 		this.stop(ctx);
 	}
 
-	/** Trotting into a river, swimming across with the head up, and climbing out the far side. */
+	/**
+	 * Trotting into a river, swimming across with the head up and climbing out the far side: low at the water's edge,
+	 * swinging round in front while it swims, then craning up and back over the river as it climbs out.
+	 */
 	private void river(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
-		final AbstractHorse horse = this.mount(ctx, world, spot, CHESTNUT, 4000);
+		final AbstractHorse horse = this.mount(ctx, world, spot, CHESTNUT, GOLDEN_HOUR);
 		final TestInput input = ctx.getInput();
-		FilmCamera.film(horse, 80.0F, 8.0F, 3.5F, 20.0F, 1.0F, 0.05F);
+		ctx.runOnClient(mc -> {
+			FilmCamera.shoot(horse, 0.06F);
+			FilmCamera.key(0, FilmCamera.Setup.orbit(80.0F, 7.0F, 1.1F, 1.1F, 1.0F, 40.0F));
+			FilmCamera.key(50, FilmCamera.Setup.orbit(95.0F, 6.0F, 0.8F, 1.0F, 0.5F, 38.0F));
+			FilmCamera.key(110, FilmCamera.Setup.orbit(140.0F, 6.0F, 0.8F, 1.0F, 0.0F, 36.0F));
+			FilmCamera.key(160, FilmCamera.Setup.orbit(150.0F, 7.0F, 1.0F, 1.2F, 0.0F, 38.0F));
+			FilmCamera.key(220, FilmCamera.Setup.orbit(60.0F, 11.0F, 6.0F, 1.2F, 1.0F, 45.0F));
+		});
 		input.holdKey(o -> o.keyUp);
-		this.record(ctx, "river", 240, t -> {
+		this.record(ctx, "river", 220, REAL_TIME, t -> {
 			if (t == 4) {
 				input.pressKey(o -> o.keySprint);
 			}
-			if (t == 120) {
-				this.still(ctx, "gallery_river");
-			}
 			input.lookAt(spot.yaw, 12.0F);
 		});
+		this.still(ctx, "gallery_river");
 		this.stop(ctx);
 	}
 
 	// ---- Riding and filming ----
+
+	/** The orbit angle that films the horse from the side looking west, into the evening sun (the sun crosses east to west). */
+	private static float intoTheSun(final Spot spot) {
+		return Mth.wrapDegrees(90.0F - spot.yaw);
+	}
 
 	private boolean wanted(final String... shots) {
 		if (this.only.isEmpty()) {
@@ -406,6 +497,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		final int y = server.computeOnServer(s -> standY(s.overworld(), p.getX(), p.getZ()));
 		server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air replace #minecraft:logs", p.getX() - 2, y, p.getZ() - 2, p.getX() + 2, y + 4, p.getZ() + 2));
 		server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air replace #minecraft:leaves", p.getX() - 2, y, p.getZ() - 2, p.getX() + 2, y + 4, p.getZ() + 2));
+		clearRoute(server, spot, y);
 		server.runCommand(String.format(Locale.ROOT, "tp @p %.1f %d %.1f %.1f 0", p.getX() + 0.5, y, p.getZ() + 0.5, spot.yaw));
 		server.runCommand(String.format(Locale.ROOT, "summon minecraft:horse %.1f %d %.1f {Tame:1b,Variant:%d,Rotation:[%.1ff,0f],"
 			+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},attributes:[{id:\"minecraft:movement_speed\",base:0.25d}],Tags:[\"store\"]}",
@@ -422,25 +514,81 @@ public final class StoreMediaTest implements FabricClientGameTest {
 	}
 
 	/**
+	 * Clears the route for the camera and the horse: two-block plants from a strip 100 blocks down it and 15 either side
+	 * (low shots through tall grass saw nothing but grass), and whole trees standing within 12 of it (they came between
+	 * the camera and the horse, and the horse weaved round them). Trees further off stay as scenery, and the grass
+	 * underfoot stays.
+	 */
+	private static void clearRoute(final TestServerContext server, final Spot spot, final int y) {
+		final double fx = -Mth.sin(spot.yaw * Mth.DEG_TO_RAD);
+		final double fz = Mth.cos(spot.yaw * Mth.DEG_TO_RAD);
+		for (int along = -10; along <= 100; along += 9) {
+			for (int side = -15; side <= 15; side += 10) {
+				final int cx = Mth.floor(spot.start.getX() + 0.5 + fx * along + fz * side);
+				final int cz = Mth.floor(spot.start.getZ() + 0.5 + fz * along - fx * side);
+				for (final String plant : new String[] {"tall_grass", "large_fern", "tall_dry_grass"}) {
+					server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air replace minecraft:%s", cx - 6, y - 4, cz - 6, cx + 6, y + 6, cz + 6, plant));
+				}
+			}
+		}
+		server.runOnServer(s -> {
+			final ServerLevel level = s.overworld();
+			final BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
+			final List<BlockPos> trunks = new ArrayList<>();
+			for (int along = -10; along <= 100; along++) {
+				for (int side = -12; side <= 12; side++) {
+					final int x = Mth.floor(spot.start.getX() + 0.5 + fx * along + fz * side);
+					final int z = Mth.floor(spot.start.getZ() + 0.5 + fz * along - fx * side);
+					// The lowest log in the column: the foot of the trunk.
+					for (int dy = -4; dy <= 12; dy++) {
+						if (level.getBlockState(at.set(x, y + dy, z)).is(BlockTags.LOGS)) {
+							trunks.add(at.immutable());
+							break;
+						}
+					}
+				}
+			}
+			for (final BlockPos trunk : trunks) {
+				for (int dx = -5; dx <= 5; dx++) {
+					for (int dz = -5; dz <= 5; dz++) {
+						for (int dy = -1; dy <= 16; dy++) {
+							final BlockState state = level.getBlockState(at.set(trunk.getX() + dx, trunk.getY() + dy, trunk.getZ() + dz));
+							if (state.is(BlockTags.LOGS) || state.is(BlockTags.LEAVES)) {
+								level.setBlock(at, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+							}
+						}
+					}
+				}
+			}
+		});
+	}
+
+	/**
 	 * Waits for the chunks round the player (far from spawn they are still being generated), then gives them a few seconds
 	 * to draw. Not {@code waitForChunksRender}: Sodium, which Iris needs, never builds chunks out of sight, so in generated
 	 * terrain "every chunk drawn" may never come.
 	 */
 	private static void waitForWorld(final ClientGameTestContext ctx) {
-		final int ticks = ctx.waitFor(mc -> {
+		final int limit = 20 * 60 * 5;
+		final int[] waited = {0};
+		final int[] missing = {0};
+		ctx.waitFor(mc -> {
 			final int cx = mc.player.getBlockX() >> 4;
 			final int cz = mc.player.getBlockZ() >> 4;
-			for (int dx = -4; dx <= 4; dx++) {
-				for (int dz = -4; dz <= 4; dz++) {
-					if (mc.level.getChunkSource().getChunk(cx + dx, cz + dz, ChunkStatus.FULL, false) == null) {
-						return false;
+			final int r = mc.options.getEffectiveRenderDistance() - 1;
+			missing[0] = 0;
+			for (int dx = -r; dx <= r; dx++) {
+				for (int dz = -r; dz <= r; dz++) {
+					// The server sends a circle of chunks, not a square.
+					if (dx * dx + dz * dz <= r * r && mc.level.getChunkSource().getChunk(cx + dx, cz + dz, ChunkStatus.FULL, false) == null) {
+						missing[0]++;
 					}
 				}
 			}
-			return true;
-		}, 20 * 60 * 10);
+			return missing[0] == 0 || ++waited[0] > limit;
+		}, limit + 20);
 		ctx.waitTicks(60);
-		LOGGER.info("[store] chunks ready after {} ticks, {} fps", ticks, ctx.computeOnClient(mc -> mc.getFps()));
+		LOGGER.info("[store] chunks ready after {} ticks ({} still missing), {} fps", waited[0], missing[0], ctx.computeOnClient(mc -> mc.getFps()));
 	}
 
 	/** Holds W and taps sprint up to the gait (1 trot, 2 canter, 3 gallop). */
@@ -467,8 +615,85 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		ctx.runOnClient(mc -> FilmCamera.stop());
 	}
 
-	/** {@code ticks} of play at {@link #FPS} frames a second into store/{@code clip}/. */
-	private void record(final ClientGameTestContext ctx, final String clip, final int ticks, final IntConsumer eachTick) {
+	/** How fast a clip plays at clip tick {@code t}: 1 is real time, 0.4 two and a half times slower. */
+	private interface Speed {
+		double at(double t);
+	}
+
+	private static final Speed REAL_TIME = t -> 1.0;
+
+	/** Real time, easing down to {@code speed} over the {@code ramp} ticks before {@code from} and back up over those after {@code to}. */
+	private static Speed slowMotion(final double from, final double to, final double speed, final double ramp) {
+		return t -> {
+			final double away = t < from ? (from - t) / ramp : t > to ? (t - to) / ramp : 0.0;
+			final double c = Math.min(away, 1.0);
+			return Mth.lerp(c * c * (3.0 - 2.0 * c), speed, 1.0);
+		};
+	}
+
+	/** A frame being exposed: its samples' sum so far. */
+	private static final class Exposure {
+		private final int index;
+		private final double open;
+		private final double length;
+		/** Samples drawn, and those that came back and were added. */
+		private int samples;
+		private int added;
+		private int @Nullable [] sum;
+		private int width;
+		private int height;
+
+		private Exposure(final int index, final double open, final double length) {
+			this.index = index;
+			this.open = open;
+			this.length = length;
+		}
+
+		/** When sample {@code i} is taken, clip ticks. */
+		private double time(final int i) {
+			return this.open + this.length * (i + 0.5) / SHUTTER_SAMPLES;
+		}
+
+		private void add(final NativeImage image) {
+			if (this.sum == null) {
+				this.width = image.getWidth();
+				this.height = image.getHeight();
+				this.sum = new int[this.width * this.height * 3];
+			}
+			this.added++;
+			final int[] s = this.sum;
+			for (int y = 0, i = 0; y < this.height; y++) {
+				for (int x = 0; x < this.width; x++, i += 3) {
+					final int argb = image.getPixel(x, y);
+					s[i] += argb >> 16 & 0xFF;
+					s[i + 1] += argb >> 8 & 0xFF;
+					s[i + 2] += argb & 0xFF;
+				}
+			}
+		}
+
+		private NativeImage develop() {
+			final int[] s = this.sum;
+			final NativeImage image = new NativeImage(this.width, this.height, false);
+			for (int y = 0, i = 0; y < this.height; y++) {
+				for (int x = 0; x < this.width; x++, i += 3) {
+					final int r = (s[i] + this.added / 2) / this.added;
+					final int g = (s[i + 1] + this.added / 2) / this.added;
+					final int b = (s[i + 2] + this.added / 2) / this.added;
+					image.setPixelABGR(x, y, 0xFF000000 | b << 16 | g << 8 | r);
+				}
+			}
+			return image;
+		}
+	}
+
+	/**
+	 * {@code ticks} of play into store/{@code clip}/ (widescreen) as {@link #FPS} frames a second of screen time, slowed
+	 * down where {@code speed} says. Like a film camera's, each frame's shutter is open for half its time: the frame is
+	 * {@link #SHUTTER_SAMPLES} pictures over that half blended together, so fast movement blurs the way it does in a film
+	 * instead of strobing.
+	 */
+	private void record(final ClientGameTestContext ctx, final String clip, final int ticks, final Speed speed, final IntConsumer eachTick) {
 		final Path dir = this.out.resolve(clip);
 		try {
 			if (Files.isDirectory(dir)) {
@@ -482,52 +707,105 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		} catch (final IOException e) {
 			throw new UncheckedIOException(e);
 		}
+		ctx.getInput().resizeWindow(WIDTH, CLIP_HEIGHT);
 		final double[] from = ctx.computeOnClient(mc -> new double[] {mc.player.getX(), mc.player.getZ()});
 		final AtomicInteger saving = new AtomicInteger();
-		int frame = 0;
+		final List<Exposure> exposing = new ArrayList<>();
+		int frames = 0;
+		double shutter = 20.0 / FPS * speed.at(0.0) / 2.0;
+		double middle = shutter / 2.0;
 		for (int t = 0; t < ticks; t++) {
 			eachTick.accept(t);
 			ctx.waitTick();
-			ctx.runOnClient(mc -> FilmCamera.tick());
-			// The frames whose moment falls in this tick, drawn at that point between its start and end. Not
-			// takeScreenshot: it runs ticks until the picture is back from the graphics card, one or several, so the
-			// frames come out unevenly spaced in time.
-			for (double at = frame * 20.0 / FPS; at < t + 1; at = ++frame * 20.0 / FPS) {
-				final float partialTick = (float) (at - t);
-				final Path file = dir.resolve(String.format(Locale.ROOT, "%04d.png", frame));
-				saving.incrementAndGet();
-				ctx.runOnClient(mc -> drawFrame(mc, partialTick, file, saving));
+			final int tick = t;
+			ctx.runOnClient(mc -> {
+				FilmCamera.clock(tick);
+				FilmCamera.tick();
+			});
+			// Open the frames whose shutter opens in this tick, then take every sample due in it, oldest first.
+			while (middle - shutter / 2.0 < t + 1 && middle + shutter / 2.0 <= ticks) {
+				exposing.add(new Exposure(frames++, middle - shutter / 2.0, shutter));
+				final double step = 20.0 / FPS * speed.at(middle);
+				middle += step;
+				shutter = 20.0 / FPS * speed.at(middle) / 2.0;
+			}
+			for (final Iterator<Exposure> it = exposing.iterator(); it.hasNext();) {
+				final Exposure frame = it.next();
+				while (frame.samples < SHUTTER_SAMPLES && frame.time(frame.samples) < t + 1) {
+					final float partialTick = (float) (frame.time(frame.samples) - t);
+					ctx.runOnClient(mc -> drawFrame(mc, partialTick, frame::add));
+					frame.samples++;
+				}
+				if (frame.samples == SHUTTER_SAMPLES) {
+					it.remove();
+					if (frame.added < SHUTTER_SAMPLES) {
+						LOGGER.warn("[store] {} frame {}: {} of {} pictures came back", clip, frame.index, frame.added, SHUTTER_SAMPLES);
+						if (frame.added == 0) {
+							continue;
+						}
+					}
+					final Path file = dir.resolve(String.format(Locale.ROOT, "%04d.png", frame.index));
+					saving.incrementAndGet();
+					Util.ioPool().execute(() -> {
+						try (NativeImage image = frame.develop()) {
+							image.writeToFile(file);
+						} catch (final IOException e) {
+							LOGGER.warn("[store] couldn't save {}", file, e);
+						} finally {
+							saving.decrementAndGet();
+						}
+					});
+				}
 			}
 		}
 		ctx.waitFor(mc -> saving.get() == 0, 20 * 60);
+		ctx.getInput().resizeWindow(WIDTH, HEIGHT);
 		final double travelled = ctx.computeOnClient(mc -> Math.hypot(mc.player.getX() - from[0], mc.player.getZ() - from[1]));
-		this.log.add(String.format(Locale.ROOT, "%s: %d frames, rode %d blocks", clip, frame, Math.round(travelled)));
-		LOGGER.info("[store] {}: {} frames, rode {} blocks", clip, frame, Math.round(travelled));
+		final String smoothness = ctx.computeOnClient(mc -> FilmCamera.smoothness());
+		try {
+			final List<String> path = ctx.computeOnClient(mc -> FilmCamera.path());
+			Files.write(this.out.resolve(clip + "-camera.csv"), path);
+		} catch (final IOException e) {
+			throw new UncheckedIOException(e);
+		}
+		final String line = String.format(Locale.ROOT, "%s: %d frames (%.1f s), rode %d blocks; %s", clip, frames, frames / (double) FPS, Math.round(travelled),
+			smoothness);
+		this.log.add(line);
+		LOGGER.info("[store] {}", line);
 	}
 
-	/** Draws the world {@code partialTick} of the way through the current tick and saves it once the picture is back. */
-	private static void drawFrame(final Minecraft mc, final float partialTick, final Path file, final AtomicInteger saving) {
+	/**
+	 * Draws the world {@code partialTick} of the way through the current tick and hands the picture to {@code sink}.
+	 * Waits for the picture to come back from the graphics card before returning: left to come back later, it sometimes
+	 * caught the next frame's drawing, so a clip showed one moment twice and then jumped.
+	 */
+	private static void drawFrame(final Minecraft mc, final float partialTick, final Consumer<NativeImage> sink) {
 		final DeltaTracker delta = new FrameDelta(partialTick);
+		FilmCamera.recording(true);
 		mc.gameRenderer.update(delta);
+		FilmCamera.recording(false);
 		mc.gameRenderer.extract(delta, true);
 		mc.gameRenderer.render();
-		RenderSystem.getDevice().createCommandEncoder().submit();
 		Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(), image -> {
 			try (image) {
-				image.writeToFile(file);
-			} catch (final IOException e) {
-				LOGGER.warn("[store] couldn't save {}", file, e);
-			} finally {
-				saving.decrementAndGet();
+				sink.accept(image);
 			}
 		});
+		final CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
+		try (GpuFence fence = encoder.createFence()) {
+			encoder.submit();
+			if (!fence.awaitCompletion(TimeUnit.SECONDS.toNanos(10))) {
+				LOGGER.warn("[store] a frame took over 10 s to come back from the graphics card");
+			}
+		}
+		RenderSystem.executePendingTasks();
 	}
 
-	/** A frame {@code partialTick} into the tick, 1/FPS of a second after the one before. */
+	/** A sample {@code partialTick} into the tick (the time since the sample before only matters to a few effects). */
 	private record FrameDelta(float partialTick) implements DeltaTracker {
 		@Override
 		public float getGameTimeDeltaTicks() {
-			return 20.0F / FPS;
+			return 10.0F / FPS / SHUTTER_SAMPLES;
 		}
 
 		@Override
@@ -537,7 +815,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 
 		@Override
 		public float getRealtimeDeltaTicks() {
-			return 20.0F / FPS;
+			return 10.0F / FPS / SHUTTER_SAMPLES;
 		}
 	}
 
