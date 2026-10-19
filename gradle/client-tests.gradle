@@ -46,14 +46,22 @@ dependencies {
 }
 // (Not with -PshaderPack, below: that loads its own Sodium.)
 def performanceMods = project.hasProperty("plainGame") || project.hasProperty("shaderPack") ? null : configurations.testPerformanceMods
+// Store filming also loads ATMOSPHERICS, for its skies, clouds and haze (user request, 2026-10-19). Not with a shader
+// pack, which draws its own sky.
+configurations.register("storeLookMods") { transitive = false }
+dependencies {
+	storeLookMods "maven.modrinth:atmospherics:DbHCSFGO" // 2.6.7 for 26.3
+}
+def storeLook = clientTests.contains("store") && !project.hasProperty("shaderPack") ? configurations.storeLookMods : null
 // The server test starts a local dedicated server in the test run folder; the user accepted the Minecraft EULA
 // (https://aka.ms/MinecraftEULA) for it on 2026-10-07.
 def gameTestEula = rootProject.layout.buildDirectory.file("run/clientGameTest/eula.txt").get().asFile
 def lightTestGame = { task ->
 	task.systemProperty "horsingaround.lowSettings", lowSettings
 	task.maxHeapSize = "2G"
-	if (performanceMods != null) {
-		task.systemProperty "fabric.addMods", performanceMods.asPath
+	def addMods = [performanceMods, storeLook].findAll { it != null }.collect { it.asPath }
+	if (!addMods.isEmpty()) {
+		task.systemProperty "fabric.addMods", addMods.join(File.pathSeparator)
 	}
 }
 tasks.matching { it.name == "runClientGameTest" }.configureEach {

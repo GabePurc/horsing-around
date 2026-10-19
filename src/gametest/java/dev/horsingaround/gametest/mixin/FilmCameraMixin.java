@@ -9,8 +9,9 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/** Test-only: while {@link FilmCamera} is filming, it has the last word on where the camera is. */
+/** Test-only: while {@link FilmCamera} is filming, it has the last word on where the camera is and its lens. */
 @Mixin(Camera.class)
 abstract class FilmCameraMixin {
 	@Unique
@@ -29,6 +30,14 @@ abstract class FilmCameraMixin {
 		if (FilmCamera.place(deltaTracker.getGameTimeDeltaPartialTick(true), POS, ROT)) {
 			this.setRotation(ROT[0], ROT[1]);
 			this.setPosition(POS[0], POS[1], POS[2]);
+		}
+	}
+
+	@Inject(method = "calculateFov", at = @At("RETURN"), cancellable = true)
+	private void horsingaroundtest$lens(final float partialTicks, final CallbackInfoReturnable<Float> cir) {
+		final float fov = FilmCamera.fov();
+		if (fov > 0.0F) {
+			cir.setReturnValue(fov);
 		}
 	}
 }

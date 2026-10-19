@@ -12,7 +12,7 @@ if [ ! -d "$src" ]; then
 	echo "No store shots in $src: film them with ./gradlew runClientGameTest -Ptests=store first (or set STORE_SHOTS)" >&2
 	exit 1
 fi
-width=${WIDTH:-640}
+width=${WIDTH:-720}
 quality=${QUALITY:-50}
 mkdir -p "$out"
 tmp=$(mktemp -d)
@@ -20,10 +20,19 @@ trap 'rm -rf "$tmp"' EXIT
 
 clip() {
 	name=$1
-	# The test films 30 frames a second.
 	rm -f "$tmp"/*.png
-	ffmpeg -loglevel error -framerate 30 -start_number "${2:-0}" -i "$src/$name/%04d.png" ${3:+-frames:v $3} -vf "scale=$width:-2:flags=lanczos" "$tmp/%04d.png"
-	img2webp -loop 0 -lossy -q $quality -m 6 -d 33 "$tmp"/*.png -o "$out/$name.webp" > /dev/null
+	ffmpeg -loglevel error -framerate 24 -start_number "${2:-0}" -i "$src/$name/%04d.png" ${3:+-frames:v $3} -vf "scale=$width:-2:flags=lanczos" "$tmp/%04d.png"
+	# The test films 24 frames a second; WebP times frames in whole milliseconds, so 42, 42, 41 keeps the pace exact.
+	# Every frame a whole picture (-kmax 1), not a patch drawn over the one before: browsers then decode each frame on its
+	# own, cheaply, instead of falling behind on a chain of a few hundred and playing slow or stuttering. Barely bigger,
+	# since the camera moves and nearly everything changes each frame anyway.
+	set --
+	i=0
+	for f in "$tmp"/*.png; do
+		if [ $((i % 3)) -eq 2 ]; then set -- "$@" -d 41 "$f"; else set -- "$@" -d 42 "$f"; fi
+		i=$((i + 1))
+	done
+	img2webp -loop 0 -lossy -q $quality -m 6 -kmin 0 -kmax 1 "$@" -o "$out/$name.webp" > /dev/null
 	echo "$out/$name.webp $(du -h "$out/$name.webp" | cut -f1)"
 }
 
