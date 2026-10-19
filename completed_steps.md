@@ -107,6 +107,8 @@ at most two lines, under the right area; details go in the PR, not here.
 ## Tests and tooling
 
 - `./gradlew runClientGameTest` runs `RideFeelTest`, `TerrainRideTest`, `MountsTest` and `ServerRideTest`; `runClientGameTestParallel --continue` splits them into five light shards and merges the reports; all fail on server corrections and log warnings; test games run light at the default frame rate
+- The running jump is traced every tick (`HorseTrace`): each tick starts where the last ended and the takeoff moves one step
+  (a reported takeoff lurch was the store test missing the tick `pressKey` runs)
 - Debug pack colours each horse leg part for screenshots (`-PplainTextures` turns it off); F3+B shows the steering overlay (box, line, heading, plan, look-ahead findings)
 - Project docs (user request, 2026-10-14): `AGENTS.md` says how to use the docs (user direction first, intent kept, numbers are snapshots, fix what is wrong, ask only to reverse a user decision, change the feel noticeably or widen scope)
 - Docs trimmed to save tokens (2026-10-14): `research.md` is a short summary with the history in `docs/design-log.md`; tests in `docs/testing.md`, releasing in `docs/releasing.md`; this file condensed

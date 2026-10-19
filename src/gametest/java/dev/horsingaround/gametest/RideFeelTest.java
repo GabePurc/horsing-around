@@ -476,6 +476,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 	private void runningJump(final ClientGameTestContext ctx, final TestInput input) {
 		section("Running jump");
+		ctx.runOnClient(mc -> HorseTrace.arm(true));
 		final double before = averageSpeed(ctx, 3);
 		final double startY = sample(ctx).y;
 		final float staminaBefore = sample(ctx).stamina;
@@ -588,6 +589,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 		}
 		ctx.runOnClient(mc -> LegProbe.arm(false));
 		log("  landing: %s", touchdown);
+		takeoffTick(ctx.computeOnClient(mc -> {
+			HorseTrace.arm(false);
+			return HorseTrace.ticks();
+		}));
 		check("no surge after landing (fastest tick / before)", landing / before, 0.9, 1.12);
 		check("landing, the legs take the fall: the body sinks a little (blocks)", -dip, 0.03, 0.3);
 		// (A rocking hoof's edge dips about a pixel into the ground, as the animation draws it.)
@@ -795,6 +800,38 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("rider reads the horse's animated body every frame (Fresh Animations)", fresh);
 		check("Fresh Animations stirrups are held for the feet", dev.horsingaround.client.compat.EmfSaddleTracker.stirrupFrames > 0);
 		check("animated saddle motion at a gallop (blocks peak to peak)", high - low, 0.02, 0.4);
+	}
+
+	/**
+	 * The takeoff is one tick's move, like every other tick: each tick starts where the last ended (nothing moves the horse
+	 * between ticks, no tick is run twice) and the takeoff tick goes one step, not a lurch of two. Traced every tick, since
+	 * the press itself runs the takeoff tick (pressKey ticks once after the press) before the test's own samples start.
+	 */
+	private void takeoffTick(final List<HorseTrace.Tick> trace) {
+		double seam = 0.0;
+		int missed = 0;
+		int takeoff = -1;
+		for (int i = 1; i < trace.size(); i++) {
+			final HorseTrace.Tick last = trace.get(i - 1);
+			final HorseTrace.Tick tick = trace.get(i);
+			seam = Math.max(seam, tick.seam(last));
+			missed += tick.count() - last.count() - 1;
+			if (takeoff < 0 && last.onGround() && !tick.onGround()) {
+				takeoff = i;
+			}
+		}
+		check("every tick of the jump starts where the last ended (most off, blocks)", seam, 0.0, 1.0E-6);
+		check("...with no game tick missed or run twice (ticks)", missed, 0, 0);
+		check("takeoff traced", takeoff > 0 && takeoff + 1 < trace.size());
+		if (takeoff > 0 && takeoff + 1 < trace.size()) {
+			final HorseTrace.Tick ground = trace.get(takeoff - 1);
+			final HorseTrace.Tick up = trace.get(takeoff);
+			final HorseTrace.Tick next = trace.get(takeoff + 1);
+			log("  takeoff: last ground step %.3f, takeoff step %.3f rise %.3f, next step %.3f rise %.3f", ground.step(), up.step(), up.rise(), next.step(), next.rise());
+			// One step rises the launch speed, the next that less a tick of gravity (about 1.2 times); two in one would be ~2.7.
+			check("takeoff tick rises one step: its rise / the next tick's", up.rise() / next.rise(), 1.0, 1.5);
+			check("...and strides one: its step / the last on the ground", up.step() / ground.step(), 0.85, 1.4);
+		}
 	}
 
 	private void standingJump(final ClientGameTestContext ctx) {
