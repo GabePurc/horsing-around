@@ -71,9 +71,11 @@ gallery always gets them). Leg and body easing runs on game time, so results don
   when something would block the horse. The log gives each clip's sharpest camera change of speed and how its legs moved
   (`<clip>-legs.csv`: the soles against the body, a line a frame). Every client test run clears `build/run/clientGameTest`, so encode the frames before
   the next run. `-PshaderPack=<path to a shader pack zip>` shoots with Iris and that pack, stills only (the user wants clips
-  without shaders, which are easier to see). `scripts/store-media.sh` turns them into `docs/media/`. The README is also
-  the Modrinth description; its images load from `raw.githubusercontent.com/.../main/docs/media/`, so they show only
-  once merged to main.
+  without shaders, which are easier to see). `scripts/store-media.sh` turns them into `docs/media/`: each clip as MP4 and as
+  animated WebP, framed in the logo's orange. The README (on GitHub) shows the WebPs; the Modrinth description is the
+  README with the clips as video (`scripts/modrinth-description.sh` writes it to `build/modrinth-description.md` for
+  pasting), because five large animated images stutter in a browser where video doesn't. Both load from
+  `raw.githubusercontent.com/.../main/docs/media/`, so they show only once merged to main.
 
 ## Smoke test (every version)
 
