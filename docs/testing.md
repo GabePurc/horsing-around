@@ -50,6 +50,9 @@ Reading results:
   leg work by those numbers and close shots, not by formulas.
 - Don't test only perfect cases: generated worlds are messy. When feel numbers change on purpose, update the test
   targets too. If a check enforces something wrong, fix the check (and say so in the PR).
+- `TestInput.pressKey` runs a game tick of its own after the press (screenshots can run a few too). In a loop that
+  samples or films every tick, press with `holdKey` then `releaseKey` instead, or trace every tick with `HorseTrace`;
+  otherwise the press tick goes missing and looks like the horse moved two ticks in one.
 
 Test games run light (lowest settings, no sound, the default frame rate the frame-sampled checks are tuned at (20
 fps broke some), a 2 GB heap, and Sodium, Lithium, FerriteCore and
