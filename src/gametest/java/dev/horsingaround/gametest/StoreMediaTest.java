@@ -342,8 +342,8 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		final float lit = sunBehind(spot);
 		ctx.runOnClient(mc -> {
 			FilmCamera.shoot(horse, 0.08F);
-			FilmCamera.key(0, FilmCamera.Setup.orbit(lit - 75.0F, 3.4F, 2.55F, 2.4F, 0.2F, 28.0F));
-			FilmCamera.key(50, FilmCamera.Setup.orbit(lit - 45.0F, 3.5F, 2.55F, 2.4F, 0.1F, 28.0F));
+			FilmCamera.key(0, FilmCamera.Setup.orbit(lit - 75.0F, 3.6F, 2.3F, 2.35F, 0.2F, 28.0F));
+			FilmCamera.key(50, FilmCamera.Setup.orbit(lit - 45.0F, 3.6F, 2.3F, 2.35F, 0.1F, 28.0F));
 			FilmCamera.key(90, FilmCamera.Setup.orbit(lit - 5.0F, 4.8F, 2.3F, 2.1F, 0.0F, 34.0F));
 		});
 		this.record(ctx, "hat", 90, t -> 0.6, t -> input.lookAt(spot.yaw, 6.0F));
