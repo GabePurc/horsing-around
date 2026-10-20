@@ -15,6 +15,8 @@ move like animals now.
 
 > **How it's made:** the code is written by AI, but every decision is made by me, a person partway through a computer
 > science degree. I decide what the mod does, how each part of it should feel, and when it's good enough to release.
+> This is not just a one shot prompt AI slop project, I am putting effort into making it as good as it can be, and AI is
+> a great tool for doing exactly that.
 
 ### Gaits
 
