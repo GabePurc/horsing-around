@@ -13,6 +13,9 @@ I've always loved the horses in Red Dead Redemption 2, and riding in Minecraft n
 is my go at changing that without leaving vanilla behind: same horses, same keys, nothing new on your screen. They just
 move like animals now.
 
+> **How it's made:** the code is written by AI, but every decision is made by me, a person partway through a computer
+> science degree. I decide what the mod does, how each part of it should feel, and when it's good enough to release.
+
 ### Gaits
 
 Walk, trot, canter and gallop. Speed builds up and fades out instead of switching on and off, and a well-bred horse
