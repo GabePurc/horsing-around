@@ -6,8 +6,11 @@
 		"DeltaTrackerTimerAccessor",
 		"FilmCameraMixin",
 		"GameRendererMixin",
+		"GuiMixin",
 		"ModelFeatureRendererMixin",
-		"OptionsMixin"
+		"OptionsMixin",
+		"RideCameraAccessor",
+		"ScreenMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
