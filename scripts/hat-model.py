@@ -48,14 +48,15 @@ def head_transform(display):
     CustomHeadLayer.translateToHead (up 4 pixels, turned round, scaled 0.625 and flipped upright)."""
     r = display.get("rotation", [0, 0, 0])
     t = display.get("translation", [0, 0, 0])
-    if display.get("scale", [1, 1, 1]) != [1, 1, 1]:
-        sys.exit("a head display scale isn't supported")
+    k = display.get("scale", [1, 1, 1])
+    if len(set(k)) != 1:
+        sys.exit("the head display scale must be the same on every axis")
+    scale = 0.625 * k[0]
     item = mul(mul(rot("x", r[0]), rot("y", r[1])), rot("z", r[2]))  # ItemTransform: rotationXYZ
     flip = [[-1, 0, 0], [0, -1, 0], [0, 0, 1]]  # turned round, then scaled (1, -1, -1)
     rotation = mul(flip, item)
-    offset = [a - b for a, b in zip([0, -4 - 0.625 * t[1], 0.625 * t[2]], [0.625 * x for x in apply(rotation, [8, 8, 8])])]
-    offset[0] -= 0.625 * t[0]
-    return 0.625, rotation, offset
+    offset = [a - b for a, b in zip([-0.625 * t[0], -4 - 0.625 * t[1], 0.625 * t[2]], [scale * x for x in apply(rotation, [8, 8, 8])])]
+    return scale, rotation, offset
 
 
 def euler_zyx(m):
