@@ -101,6 +101,8 @@ at most two lines, under the right area; details go in the PR, not here.
   its own moment on the game's timer, read back before the next and encoded as a keyframe, so legs and pace stay smooth
 - Modrinth description plays the clips as MP4 video (`scripts/modrinth-description.sh`), GitHub's README as WebP; both framed
   in the logo's orange
+- Every picture in the description is a clip (user request, 2026-10-20): rider, hat and the as-you-play shots (stamina bar,
+  riding camera, settings, 16:9 with the HUD) replaced the stills, which went to the Modrinth gallery
 - CI: GitHub Actions builds every push; a published release (tag `v<version>`) uploads each version's jar to Modrinth (`gradle/publish.gradle`, `publish.yml`, notes from `CHANGELOG.md`'s top entry)
 - Bug reports: a GitHub issue form (`.github/ISSUE_TEMPLATE/bug_report.yml`) linked from the README and Mod Menu
 - Builds on any machine: no machine-specific paths, JDK 25 picked through `gradle-daemon-jvm.properties`

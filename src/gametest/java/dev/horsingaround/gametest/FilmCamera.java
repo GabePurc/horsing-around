@@ -382,6 +382,11 @@ public final class FilmCamera {
 		clip = on;
 	}
 
+	/** Whether a clip is recording (client thread). */
+	public static boolean recordingClip() {
+		return clip;
+	}
+
 	/** Around each of a clip's frames. */
 	public static void drawingClip(final boolean on) {
 		drawingClip = on;

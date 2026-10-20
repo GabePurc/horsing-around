@@ -37,7 +37,7 @@ side it sits back and cuts round.
 Galloping uses stamina, shown where the jump bar used to be. Run it out and the horse drops to a canter, breathing hard,
 until it gets its wind back.
 
-<img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/stamina.jpg" alt="The stamina bar running low on a long gallop" width="100%">
+<img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/stamina.webp" alt="Galloping the stamina bar down until the horse drops to a canter" width="100%">
 
 ### Jumping
 
@@ -64,7 +64,7 @@ speed you'll trample chickens and other small animals, but never players or your
 Horse and rider lean into turns. The rider keeps their feet in the stirrups and hands on the reins, folds forward over
 a jump, draws a bow like an archer and puts an arm up when you crash through leaves. The hoofbeats change with the gait.
 
-<img src="https://cdn.modrinth.com/data/Lc7S9t3K/images/e9b5e4b83582e07873256cbb2be4335a8697d660.jpeg" alt="A rider sitting the saddle in front of a castle" width="100%">
+<img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/rider.webp" alt="Close on the rider at a canter, leaning into a turn and drawing a bow" width="100%">
 
 ### Camera
 
@@ -74,7 +74,7 @@ leans in for the shot. Press O to swap shoulders, or centre the camera in the se
 and smooths out the bumps. On foot, third person is Minecraft's own. In first person the view moves gently with the
 saddle.
 
-<img src="https://cdn.modrinth.com/data/Lc7S9t3K/images/27665758a3b8c87976ed22a7367113b06f23fde3.jpeg" alt="Riding through a forest in first person" width="100%">
+<img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/camera.webp" alt="Riding over the shoulder: an arrow into a target, a swap to the other shoulder, then first person" width="100%">
 
 ## Controls
 
@@ -111,7 +111,7 @@ third person, which shoulder the camera sits over (or centred), how far back and
 loud the horse's breathing and snorting are. If motion bothers you, all of it turns down. Open the settings from
 [Mod Menu](https://modrinth.com/mod/modmenu) or with the "Open horse settings" key.
 
-<img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/settings.jpg" alt="The horse settings screen" width="100%">
+<img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/settings.webp" alt="Moving the camera from the horse settings while the world carries on behind" width="100%">
 
 ## Other mods
 
@@ -146,7 +146,7 @@ your server who has the mod sees it. It's only cosmetic: your helmet is hidden u
 
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/hat.jpg" alt="A rider wearing the supporters' cowboy hat" width="100%">
+<img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/hat.webp" alt="A rider in the supporters' cowboy hat at a canter" width="100%">
 
 <a href="https://buymeacoffee.com/blintzbug"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-coffee.png" alt="Buy me a coffee" height="40"></a>
 

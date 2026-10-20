@@ -1,11 +1,13 @@
 package dev.horsingaround.gametest;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.renderpearl.api.commands.CommandEncoder;
 import com.mojang.renderpearl.api.commands.GpuFence;
 import com.mojang.datafixers.util.Pair;
 import dev.horsingaround.client.config.HorseSettingsScreen;
 import dev.horsingaround.gametest.mixin.DeltaTrackerTimerAccessor;
+import dev.horsingaround.gametest.mixin.RideCameraAccessor;
 import dev.horsingaround.client.cosmetic.Hats;
 import dev.horsingaround.client.cosmetic.Supporters;
 import dev.horsingaround.ride.HorseConfig;
@@ -19,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.DoubleConsumer;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.function.Predicate;
@@ -38,10 +41,16 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
 import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.events.ContainerEventHandler;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.QuartPos;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ParticleStatus;
 import net.minecraft.server.level.ServerLevel;
@@ -76,6 +85,8 @@ public final class StoreMediaTest implements FabricClientGameTest {
 	private static final int HEIGHT = 720;
 	/** Clips are widescreen, like a film (2.39:1). */
 	private static final int CLIP_HEIGHT = 536;
+	/** The shots as you play them (the HUD, the riding camera, the settings) are the whole window, 16:9. */
+	private static final int PLAY_HEIGHT = HEIGHT;
 	/** Clip frames a second of screen time. */
 	private static final int FPS = 30;
 	private static final int CANTER = 2;
@@ -101,8 +112,10 @@ public final class StoreMediaTest implements FabricClientGameTest {
 
 	private static final List<Want> WANTS = List.of(
 		// Heading roughly south, so filming from the horse's left looks west into the evening sun.
-		new Want("savanna", Ground.OPEN, 90, any(Biomes.SAVANNA, Biomes.SAVANNA_PLATEAU), -35.0F, 35.0F, "gaits", "jump", "rider", "hat", "settings"),
-		new Want("plains", Ground.OPEN, 110, any(Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS, Biomes.MEADOW), 0.0F, 360.0F, "turn", "stamina"),
+		new Want("savanna", Ground.OPEN, 90, any(Biomes.SAVANNA, Biomes.SAVANNA_PLATEAU), -35.0F, 35.0F, "gaits", "jump", "rider", "hat",
+			// The camera shot last: it leaves a target standing on the route.
+			"stamina", "settings", "camera"),
+		new Want("plains", Ground.OPEN, 110, any(Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS, Biomes.MEADOW), 0.0F, 360.0F, "turn"),
 		// The sunset shots look west into the sun: heading roughly south, filmed from the horse's left.
 		new Want("badlands", Ground.OPEN, 80, any(Biomes.BADLANDS, Biomes.WOODED_BADLANDS, Biomes.ERODED_BADLANDS), -35.0F, 35.0F, "sunset", "cliff"),
 		new Want("river", Ground.RIVER, 0, any(Biomes.RIVER), 0.0F, 360.0F, "river"));
@@ -183,6 +196,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 						case "settings" -> this.settings(ctx, world, spot);
 						case "turn" -> this.turn(ctx, world, spot);
 						case "stamina" -> this.stamina(ctx, world, spot);
+						case "camera" -> this.camera(ctx, world, spot);
 						case "sunset" -> this.sunset(ctx, world, spot);
 						case "cliff" -> this.cliff(ctx, world, spot);
 						case "river" -> this.river(ctx, world, spot);
@@ -274,22 +288,48 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		this.stop(ctx);
 	}
 
-	/** The rider in the saddle at a canter, close up from ahead. */
+	/**
+	 * The rider at a canter, close: feet in the stirrups and hands on the reins, leaning into a turn and back, then drawing
+	 * a bow like an archer and loosing, slowed down through the draw. From the horse's right, the low sun behind the camera
+	 * lighting the rider.
+	 */
 	private void rider(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
-		final AbstractHorse horse = this.mount(ctx, world, spot, CHESTNUT, 11000);
+		final AbstractHorse horse = this.mount(ctx, world, spot, CHESTNUT, GOLDEN_HOUR);
+		world.getServer().runCommand("item replace entity @p weapon.mainhand with minecraft:bow");
+		final TestInput input = ctx.getInput();
+		final float lit = sunBehind(spot);
 		this.gait(ctx, CANTER);
 		ctx.waitTicks(30);
-		FilmCamera.film(horse, 150.0F, 4.2F, 1.7F, 9.0F, 0.0F, 0.15F);
-		for (int i = 0; i < 4; i++) {
-			this.steer(ctx, spot.yaw, 6);
-			this.still(ctx, "rider_" + i);
-		}
+		ctx.runOnClient(mc -> {
+			FilmCamera.shoot(horse, 0.08F);
+			FilmCamera.key(0, FilmCamera.Setup.orbit(lit - 60.0F, 4.6F, 1.9F, 2.0F, 0.4F, 34.0F));
+			FilmCamera.key(45, FilmCamera.Setup.orbit(lit - 45.0F, 4.3F, 1.8F, 2.0F, 0.3F, 32.0F));
+			FilmCamera.key(85, FilmCamera.Setup.orbit(lit - 15.0F, 4.0F, 1.8F, 2.1F, 0.0F, 30.0F));
+			FilmCamera.key(125, FilmCamera.Setup.orbit(lit + 10.0F, 4.4F, 1.9F, 2.0F, 0.0F, 30.0F));
+			FilmCamera.key(150, FilmCamera.Setup.orbit(lit + 25.0F, 6.0F, 2.0F, 1.8F, 0.5F, 36.0F));
+		});
+		final float[] yaw = {spot.yaw};
+		this.record(ctx, "rider", 150, slowMotion(68.0, 110.0, 0.45, 6.0), t -> {
+			if (t >= 10 && t < 30) {
+				yaw[0] += 1.5F;
+			} else if (t >= 35 && t < 55) {
+				yaw[0] -= 1.5F;
+			}
+			if (t == 70) {
+				input.holdKey(o -> o.keyUse);
+			} else if (t == 104) {
+				input.releaseKey(o -> o.keyUse);
+			}
+			input.lookAt(yaw[0], 6.0F);
+		});
+		this.still(ctx, "gallery_rider");
 		this.stop(ctx);
 	}
 
-	/** The supporters' cowboy hat on a rider at a canter, close up from ahead. */
+	/** The supporters' cowboy hat on a rider at a canter: close on the face from ahead, round to the side and back, a little slowed. */
 	private void hat(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
-		final AbstractHorse horse = this.mount(ctx, world, spot, CHESTNUT, 11000);
+		final AbstractHorse horse = this.mount(ctx, world, spot, BAY, GOLDEN_HOUR);
+		final TestInput input = ctx.getInput();
 		final UUID me = ctx.computeOnClient(mc -> mc.player.getUUID());
 		ctx.runOnClient(mc -> {
 			Supporters.addForTesting(me);
@@ -299,11 +339,15 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		});
 		this.gait(ctx, CANTER);
 		ctx.waitTicks(30);
-		FilmCamera.film(horse, 140.0F, 3.4F, 2.0F, 10.0F, 0.0F, 0.15F);
-		for (int i = 0; i < 4; i++) {
-			this.steer(ctx, spot.yaw, 6);
-			this.still(ctx, "hat_" + i);
-		}
+		final float lit = sunBehind(spot);
+		ctx.runOnClient(mc -> {
+			FilmCamera.shoot(horse, 0.08F);
+			FilmCamera.key(0, FilmCamera.Setup.orbit(lit - 75.0F, 3.4F, 2.55F, 2.4F, 0.2F, 28.0F));
+			FilmCamera.key(50, FilmCamera.Setup.orbit(lit - 45.0F, 3.5F, 2.55F, 2.4F, 0.1F, 28.0F));
+			FilmCamera.key(90, FilmCamera.Setup.orbit(lit - 5.0F, 4.8F, 2.3F, 2.1F, 0.0F, 34.0F));
+		});
+		this.record(ctx, "hat", 90, t -> 0.6, t -> input.lookAt(spot.yaw, 6.0F));
+		this.still(ctx, "gallery_hat");
 		ctx.runOnClient(mc -> {
 			HorseConfig.get().hat = false;
 			Hats.sendOwn();
@@ -312,18 +356,220 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		this.stop(ctx);
 	}
 
-	/** The settings screen over the world, sitting on a horse. */
+	/**
+	 * The settings as you play (16:9): opened from the saddle, the camera swapped from shoulder to shoulder and pulled
+	 * further back, then closed and ridden off. The game doesn't pause behind the menu while filming, so each change
+	 * shows on the camera behind it; the cursor is drawn in.
+	 */
 	private void settings(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
-		this.mount(ctx, world, spot, BAY, 9500);
-		ctx.runOnClient(mc -> {
-			mc.options.guiScale().set(2);
-			mc.resizeGui();
+		this.mount(ctx, world, spot, BAY, GOLDEN_HOUR);
+		final TestInput input = ctx.getInput();
+		final int blur = ctx.computeOnClient(mc -> {
+			playView(mc, true);
+			final int was = mc.options.menuBackgroundBlurriness().get();
+			// Unblurred, so the camera's moves behind the menu show.
+			mc.options.menuBackgroundBlurriness().set(0);
+			return was;
 		});
-		ctx.setScreen(() -> new HorseSettingsScreen(null));
-		ctx.waitTicks(5);
-		this.still(ctx, "settings");
+		this.steer(ctx, spot.yaw, 20);
+		final String shoulder = Component.translatable("options.horsingaround.shoulder").getString();
+		final String distance = Component.translatable("options.horsingaround.camera_distance").getString();
+		final String done = CommonComponents.GUI_DONE.getString();
+		// The cursor's moves (clip tick, x, y in window coordinates) and its clicks (the ticks the left button goes down and up; 26.3 numbers
+		// mouse buttons from 1), once the menu is laid out. Dragging the slider is the cursor moving with the button down.
+		final List<double[]> path = new ArrayList<>();
+		final List<int[]> clicks = new ArrayList<>();
+		this.record(ctx, "settings", 200, PLAY_HEIGHT, REAL_TIME, t -> {
+			if (t == 15) {
+				ctx.runOnClient(HorseSettingsScreen::open);
+			} else if (t == 16) {
+				ctx.runOnClient(mc -> settingsMoves(mc, shoulder, distance, done, path, clicks));
+			} else if (t == 162) {
+				input.holdKey(o -> o.keyUp);
+			}
+			for (final int[] click : clicks) {
+				if (t == click[0]) {
+					input.holdMouse(InputConstants.MOUSE_BUTTON_LEFT);
+				} else if (t == click[1]) {
+					input.releaseMouse(InputConstants.MOUSE_BUTTON_LEFT);
+				}
+			}
+			tap(input, o -> o.keySprint, t, 174);
+			input.lookAt(spot.yaw, 6.0F);
+		}, time -> {
+			// Not from the moment it clicks Done on: once the menu closes, moving the cursor would turn the view.
+			if (path.size() > 1 && time < path.getLast()[0]) {
+				final double[] at = glide(path, time);
+				input.setCursorPos(at[0], at[1]);
+			}
+		});
+		this.still(ctx, "gallery_settings");
 		ctx.setScreen(() -> null);
+		ctx.runOnClient(mc -> {
+			HorseConfig.reset();
+			HorseConfig.save();
+			mc.options.menuBackgroundBlurriness().set(blur);
+			playView(mc, false);
+		});
 		this.stop(ctx);
+	}
+
+	/** The settings clip's slider is taken here and let go here (clip ticks). */
+	private static final int DRAG_START = 104;
+	private static final int DRAG_END = 126;
+
+	/**
+	 * The settings clip's cursor moves: from the middle of the window (where the game leaves it when a menu opens) to the
+	 * shoulder button, clicked through left, centred and back to right, to the camera distance handle, dragged to the far
+	 * end, and to Done. Window coordinates; the shoulder button is skipped where it doesn't exist.
+	 */
+	private static void settingsMoves(final Minecraft mc, final String shoulder, final String distance, final String done, final List<double[]> path,
+		final List<int[]> clicks) {
+		final Screen screen = mc.gui.screen();
+		final double scale = (double) mc.getWindow().getScreenWidth() / mc.getWindow().getGuiScaledWidth();
+		final AbstractWidget side = screen == null ? null : widget(screen.children(), shoulder);
+		final AbstractWidget slider = screen == null ? null : widget(screen.children(), distance);
+		final AbstractWidget close = screen == null ? null : widget(screen.children(), done);
+		path.add(new double[] {16, mc.getWindow().getScreenWidth() / 2.0, mc.getWindow().getScreenHeight() / 2.0});
+		path.add(new double[] {22, mc.getWindow().getScreenWidth() / 2.0, mc.getWindow().getScreenHeight() / 2.0});
+		if (side != null) {
+			path.add(new double[] {32, (side.getX() + side.getWidth() * 0.62) * scale, (side.getY() + side.getHeight() / 2.0) * scale});
+			path.add(new double[] {88, (side.getX() + side.getWidth() * 0.62) * scale, (side.getY() + side.getHeight() / 2.0) * scale});
+			clicks.add(new int[] {36, 37});
+			clicks.add(new int[] {60, 61});
+			clicks.add(new int[] {84, 85});
+		}
+		if (slider != null) {
+			final double y = (slider.getY() + slider.getHeight() / 2.0) * scale;
+			// The handle at 100% (the slider runs 50% to 150%), then dragged to the far end.
+			path.add(new double[] {100, (slider.getX() + 4 + (slider.getWidth() - 8) * 0.5) * scale, y});
+			path.add(new double[] {DRAG_START, (slider.getX() + 4 + (slider.getWidth() - 8) * 0.5) * scale, y});
+			path.add(new double[] {DRAG_END - 4, (slider.getX() + slider.getWidth() - 2) * scale, y});
+			path.add(new double[] {138, (slider.getX() + slider.getWidth() - 2) * scale, y});
+			clicks.add(new int[] {DRAG_START, DRAG_END});
+		}
+		if (close != null) {
+			path.add(new double[] {150, (close.getX() + close.getWidth() * 0.45) * scale, (close.getY() + close.getHeight() / 2.0) * scale});
+			path.add(new double[] {156, (close.getX() + close.getWidth() * 0.45) * scale, (close.getY() + close.getHeight() / 2.0) * scale});
+			clicks.add(new int[] {156, 157});
+		}
+	}
+
+	/** The widget among {@code children} (and theirs) whose label starts with {@code label}. */
+	private static @Nullable AbstractWidget widget(final List<? extends GuiEventListener> children, final String label) {
+		for (final GuiEventListener child : children) {
+			if (child instanceof AbstractWidget w && w.getMessage().getString().startsWith(label)) {
+				return w;
+			}
+			if (child instanceof ContainerEventHandler container) {
+				final AbstractWidget found = widget(container.children(), label);
+				if (found != null) {
+					return found;
+				}
+			}
+		}
+		return null;
+	}
+
+	/** Where along {@code path} (clip tick, x, y) the cursor is at {@code time}: easing in and out of each move. */
+	private static double[] glide(final List<double[]> path, final double time) {
+		for (int i = 1; i < path.size(); i++) {
+			final double[] a = path.get(i - 1);
+			final double[] b = path.get(i);
+			if (time <= b[0]) {
+				final double u = Mth.clamp((time - a[0]) / (b[0] - a[0]), 0.0, 1.0);
+				final double e = u * u * (3.0 - 2.0 * u);
+				return new double[] {Mth.lerp(e, a[1], b[1]), Mth.lerp(e, a[2], b[2])};
+			}
+		}
+		final double[] last = path.getLast();
+		return new double[] {last[1], last[2]};
+	}
+
+	/**
+	 * The riding camera as you play it (16:9, the HUD on): over the right shoulder with the crosshair, leaning in as a bow
+	 * draws and the arrow going where the crosshair points (a target off the route), a swap to the left shoulder with the
+	 * swap key, then first person.
+	 */
+	private void camera(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
+		final AbstractHorse horse = this.mount(ctx, world, spot, BAY, GOLDEN_HOUR);
+		final TestServerContext server = world.getServer();
+		final TestInput input = ctx.getInput();
+		kit(server);
+		this.gait(ctx, CANTER);
+		this.steer(ctx, spot.yaw, 20);
+		final double[] from = ctx.computeOnClient(mc -> new double[] {horse.getX(), horse.getZ()});
+		this.steer(ctx, spot.yaw, 5);
+		final double[] now = ctx.computeOnClient(mc -> new double[] {horse.getX(), horse.getZ()});
+		final double pace = Math.hypot(now[0] - from[0], now[1] - from[1]) / 5.0;
+		// The target on two hay bales 4 blocks right of the route, about 14 blocks off when the arrow goes (close, so it barely drops).
+		final double fx = -Mth.sin(spot.yaw * Mth.DEG_TO_RAD);
+		final double fz = Mth.cos(spot.yaw * Mth.DEG_TO_RAD);
+		final double ahead = pace * (5 + LOOSE) + 14.0;
+		final int tx = Mth.floor(now[0] + fx * ahead - fz * 4.0);
+		final int tz = Mth.floor(now[1] + fz * ahead + fx * 4.0);
+		final int ty = server.computeOnServer(s -> standY(s.overworld(), tx, tz));
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:hay_block", tx, ty, tz, tx, ty + 1, tz));
+		server.runCommand(String.format(Locale.ROOT, "setblock %d %d %d minecraft:target", tx, ty + 2, tz));
+		this.steer(ctx, spot.yaw, 5);
+		// The crosshair on the target's upper half: the arrow flies at what is under it and drops a little on the way.
+		final Vec3 target = new Vec3(tx + 0.5, ty + 2.85, tz + 0.5);
+		final KeyMapping swap = ctx.computeOnClient(mc -> keyNamed(mc, "key.horsingaround.swap_shoulder"));
+		// 26.3's Friends List key is O by default too, and the game takes it first: unbound while filming, so O swaps.
+		final InputConstants.Key friends = ctx.computeOnClient(mc -> {
+			final InputConstants.Key was = mc.options.keyFriends.getDefaultKey();
+			mc.options.keyFriends.setKey(InputConstants.UNKNOWN);
+			KeyMapping.resetMapping();
+			return was;
+		});
+		ctx.runOnClient(mc -> playView(mc, true));
+		this.record(ctx, "camera", 190, PLAY_HEIGHT, REAL_TIME, t -> {
+			if (t == DRAW) {
+				input.holdKey(o -> o.keyUse);
+			} else if (t == LOOSE) {
+				input.releaseKey(o -> o.keyUse);
+			} else if (t == 135) {
+				ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.FIRST_PERSON));
+			}
+			if (swap != null) {
+				tap(input, o -> swap, t, 95);
+			}
+			// Aimed from the camera, so the crosshair sits on the target.
+			final float[] aim = ctx.computeOnClient(mc -> {
+				final Vec3 cam = mc.gameRenderer.mainCamera().position();
+				final double dx = target.x - cam.x;
+				final double dz = target.z - cam.z;
+				final double flat = Math.sqrt(dx * dx + dz * dz);
+				final double dy = target.y - cam.y;
+				return new float[] {(float) (Mth.atan2(-dx, dz) * Mth.RAD_TO_DEG), (float) (-Mth.atan2(dy, flat) * Mth.RAD_TO_DEG)};
+			});
+			final float onTarget = t < DRAW ? 0.0F : t < DRAW + 14 ? ease((t - DRAW) / 14.0F) : t < LOOSE + 6 ? 1.0F
+				: t < LOOSE + 26 ? 1.0F - ease((t - LOOSE - 6) / 20.0F) : 0.0F;
+			// After the shot, a little left of the route, to ride past the target.
+			final float route = t < LOOSE ? spot.yaw : spot.yaw - 8.0F;
+			input.lookAt(Mth.rotLerp(onTarget, route, aim[0]), Mth.lerp(onTarget, 6.0F, aim[1]));
+		});
+		this.still(ctx, "gallery_camera");
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air", tx, ty, tz, tx, ty + 2, tz));
+		ctx.runOnClient(mc -> {
+			mc.options.keyFriends.setKey(friends);
+			KeyMapping.resetMapping();
+			playView(mc, false);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			HorseConfig.reset();
+			HorseConfig.save();
+		});
+		unkit(server);
+		this.stop(ctx);
+	}
+
+	/** The camera clip's bow: drawn from this clip tick and loosed at this one. */
+	private static final int DRAW = 30;
+	private static final int LOOSE = 54;
+
+	private static float ease(final float u) {
+		final float c = Mth.clamp(u, 0.0F, 1.0F);
+		return c * c * (3.0F - 2.0F * c);
 	}
 
 	/**
@@ -356,18 +602,25 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		this.stop(ctx);
 	}
 
-	/** The stamina bar running low on a long gallop (the HUD on). */
+	/**
+	 * The stamina bar as you play (16:9, the HUD on): galloping it down until it runs out, the head toss and the drop to a
+	 * canter, then the bar filling again.
+	 */
 	private void stamina(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
-		this.mount(ctx, world, spot, BAY, 10500);
+		this.mount(ctx, world, spot, BAY, GOLDEN_HOUR);
+		final TestInput input = ctx.getInput();
+		kit(world.getServer());
 		this.gait(ctx, GALLOP);
-		ctx.runOnClient(mc -> {
-			((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().stamina = 0.3F;
-			hud(mc, true);
-		});
 		this.steer(ctx, spot.yaw, 25);
-		ctx.runOnClient(mc -> mc.gui.hud.getChat().clearMessages(false));
-		this.still(ctx, "stamina");
-		ctx.runOnClient(mc -> hud(mc, false));
+		// Enough to run out about six seconds in.
+		ctx.runOnClient(mc -> {
+			((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().stamina = 0.22F;
+			playView(mc, true);
+		});
+		this.record(ctx, "stamina", 190, PLAY_HEIGHT, REAL_TIME, t -> input.lookAt(spot.yaw + 10.0F * Mth.sin(t * Mth.TWO_PI / 190.0F), 6.0F));
+		this.still(ctx, "gallery_stamina");
+		ctx.runOnClient(mc -> playView(mc, false));
+		unkit(world.getServer());
 		this.stop(ctx);
 	}
 
@@ -460,6 +713,49 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		return Mth.wrapDegrees(90.0F - spot.yaw);
 	}
 
+	/** The orbit angle that films the horse from the side with the sun behind the camera, lighting it (its right, heading south). */
+	private static float sunBehind(final Spot spot) {
+		return Mth.wrapDegrees(intoTheSun(spot) + 180.0F);
+	}
+
+	/** Survival with a few things in the hotbar and the bow in hand, so the HUD looks as it does in play. */
+	private static void kit(final TestServerContext server) {
+		server.runCommand("gamemode survival @p");
+		server.runCommand("clear @p");
+		server.runCommand("item replace entity @p hotbar.0 with minecraft:bow");
+		server.runCommand("item replace entity @p hotbar.1 with minecraft:iron_sword");
+		server.runCommand("item replace entity @p hotbar.2 with minecraft:bread 12");
+		server.runCommand("item replace entity @p hotbar.3 with minecraft:lead");
+		server.runCommand("item replace entity @p hotbar.8 with minecraft:arrow 32");
+	}
+
+	private static void unkit(final TestServerContext server) {
+		server.runCommand("clear @p");
+		server.runCommand("gamemode creative @p");
+	}
+
+	/** The game as you play it, for the 16:9 shots: the HUD on at the size a 720p window has and nothing popped up over it; or the HUD off again. */
+	private static void playView(final Minecraft mc, final boolean on) {
+		if (on) {
+			mc.options.guiScale().set(3);
+			mc.resizeGui();
+		}
+		hud(mc, on);
+		mc.gui.hud.getChat().clearMessages(false);
+		// The recipes the kit unlocks pop up for a few seconds after it.
+		mc.gui.toastManager().clear();
+	}
+
+	/** The key bound to {@code name}, or null (looked up by name, so these shots build where a key doesn't exist yet). */
+	private static @Nullable KeyMapping keyNamed(final Minecraft mc, final String name) {
+		for (final KeyMapping key : mc.options.keyMappings) {
+			if (key.getName().equals(name)) {
+				return key;
+			}
+		}
+		return null;
+	}
+
 	private boolean wanted(final String... shots) {
 		if (this.only.isEmpty()) {
 			return true;
@@ -480,6 +776,9 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		ctx.runOnClient(mc -> FilmCamera.stop());
 		server.runCommand("ride @p dismount");
 		server.runCommand("kill @e[type=minecraft:horse]");
+		// Arrows from a shot before, and what the horse trampled (the rider picks it up and the hotbar fills).
+		server.runCommand("kill @e[type=minecraft:arrow]");
+		server.runCommand("kill @e[type=minecraft:item]");
 		server.runCommand("time set " + time);
 		final BlockPos p = spot.start;
 		server.runCommand(String.format(Locale.ROOT, "tp @p %d %d %d", p.getX(), p.getY() + 3, p.getZ()));
@@ -643,6 +942,18 @@ public final class StoreMediaTest implements FabricClientGameTest {
 	 * down where {@code speed} says: each frame one picture of its own moment, sharp like the game's own frames.
 	 */
 	private void record(final ClientGameTestContext ctx, final String clip, final int ticks, final Speed speed, final IntConsumer eachTick) {
+		this.record(ctx, clip, ticks, CLIP_HEIGHT, speed, eachTick, time -> {
+		});
+	}
+
+	private void record(final ClientGameTestContext ctx, final String clip, final int ticks, final int height, final Speed speed, final IntConsumer eachTick) {
+		this.record(ctx, clip, ticks, height, speed, eachTick, time -> {
+		});
+	}
+
+	/** As above, {@code height} pixels tall, running {@code eachFrame} before each frame with its moment in clip ticks. */
+	private void record(final ClientGameTestContext ctx, final String clip, final int ticks, final int height, final Speed speed, final IntConsumer eachTick,
+		final DoubleConsumer eachFrame) {
 		final Path dir = this.out.resolve(clip);
 		try {
 			if (Files.isDirectory(dir)) {
@@ -656,7 +967,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		} catch (final IOException e) {
 			throw new UncheckedIOException(e);
 		}
-		ctx.getInput().resizeWindow(WIDTH, CLIP_HEIGHT);
+		ctx.getInput().resizeWindow(WIDTH, height);
 		final double[] from = ctx.computeOnClient(mc -> new double[] {mc.player.getX(), mc.player.getZ()});
 		ctx.runOnClient(mc -> {
 			FilmCamera.clip(true);
@@ -682,6 +993,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 				final float step = (float) (next - last);
 				final Path file = dir.resolve(String.format(Locale.ROOT, "%04d.png", frames++));
 				final double at = next;
+				eachFrame.accept(at);
 				ctx.runOnClient(mc -> {
 					drawFrame(mc, partialTick, step, file);
 					final StringBuilder row = new StringBuilder(String.format(Locale.ROOT, "%.4f,%.4f", at, partialTick));
@@ -740,6 +1052,8 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		clock.horsingaroundtest$setPartialTick(partialTick);
 		clock.horsingaroundtest$setPausedPartialTick(partialTick);
 		clock.horsingaroundtest$setRealtimeDeltaTicks(step);
+		// The riding camera eases its framing on the real clock between frames: give it the frame's own step instead.
+		RideCameraAccessor.horsingaroundtest$setLastFrameNanos(System.nanoTime() - (long) (step * 50_000_000.0F));
 		try {
 			FilmCamera.drawingClip(true);
 			FilmCamera.recording(true);
