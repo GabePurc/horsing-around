@@ -1141,7 +1141,7 @@ public final class RideController {
 			if (state.isAir() || leavesOpen && Foliage.isLeaves(state)) {
 				continue;
 			}
-			if (wading && wade == Double.NEGATIVE_INFINITY && state.getFluidState().is(FluidTags.WATER)) {
+			if (wading && wade == Double.NEGATIVE_INFINITY && !state.getFluidState().isEmpty() && state.getFluidState().is(FluidTags.WATER)) {
 				wade = by + state.getFluidState().getOwnHeight() - WADE_DEPTH;
 			}
 			final VoxelShape shape = state.getCollisionShape(level, pos);
