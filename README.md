@@ -9,149 +9,134 @@
 
 </div>
 
-I've always loved the horses in Red Dead Redemption 2. The weight of them. The way a gallop builds and builds, the way
-they lean into a turn, the way they flat-out refuse to throw themselves off a cliff just because you asked nicely. Then
-I'd climb onto a horse in Minecraft and it would turn on a dime, stop on a dime, and walk face-first into the nearest oak
-tree.
+I've always loved the horses in Red Dead Redemption 2, and riding in Minecraft never felt anything like them. This mod
+is my go at changing that without leaving vanilla behind: same horses, same keys, nothing new on your screen. They just
+move like animals now.
 
-So I made this. Horsing Around makes riding in Minecraft feel like riding an actual animal, while still feeling like
-Minecraft: no new items, no new keybinds, no new clutter on your screen. Same horse, same keys. It just has weight now.
-And opinions.
+> **How it's made:** the code is written by AI, but every decision is made by me, a person partway through a computer
+> science degree. I decide what the mod does, how each part of it should feel, and when it's good enough to release.
 
-## What it feels like
+### Gaits
 
-### It builds up
-
-Walk, trot, canter, gallop. Tap sprint to ask for more, tap S to ease back. Double-tap W to ask for more and your horse
-keeps going without W held, until you tap S. Let go of W and your horse rolls to a stop instead of slamming into
-invisible brakes. Hold S and it pulls up hard, then backs up. Every horse's own speed still matters, so the champion
-you spent all week breeding is still the fastest one in the stable.
+Walk, trot, canter and gallop. Speed builds up and fades out instead of switching on and off, and a well-bred horse
+still outruns the rest.
 
 <img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/gaits.webp" alt="A horse picking up from a walk to a trot, a canter and a gallop" width="100%">
 
-### It turns like it weighs half a ton
+### Turning
 
-Because it does. Your horse goes where you look, but at a gallop it swings wide and at a walk it pivots in place. Look
-way off to the side and it sits back on its haunches and cuts round hard. Hold W with A or D to ride at an angle to
-where you're looking, or A or D alone to ride straight across your view. Standing still? Look around all you want. The
-horse stays put.
+The horse goes where you look. At a gallop it swings wide, at a walk it turns on the spot, and if you look hard to one
+side it sits back and cuts round.
 
 <img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/turn.webp" alt="Galloping through wide turns, horse and rider leaning in" width="100%">
 
-### It gets tired
+### Stamina
 
-Galloping burns stamina, and the jump bar turns into a stamina bar. Push too hard and your horse drops to a canter,
-blowing hard, until it gets its wind back. Pace yourself, partner.
+Galloping uses stamina, shown where the jump bar used to be. Run it out and the horse drops to a canter, breathing hard,
+until it gets its wind back.
 
 <img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/stamina.jpg" alt="The stamina bar running low on a long gallop" width="100%">
 
-### It jumps when you say jump
+### Jumping
 
-Press the button, it jumps. No charging the bar. It carries all its speed into the air, tucks its legs up, and reaches
-for the ground on the way down.
+Press jump and it jumps. There's no bar to charge, and it keeps its speed through the air.
 
 <img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/jump.webp" alt="A galloping horse jumping, legs tucked" width="100%">
 
-### It has a mind of its own (a little)
+### Footing
 
-From a trot it weaves around trees and rocks, slows down for walls, and will absolutely not gallop off a cliff or into
-lava. It'll snort and toss its head at you for even suggesting it. Ride straight at a ledge up to two blocks high and it
-hops right up without breaking stride. Fences are still fences, though. No cheating.
+From a trot it steers round trees and rocks and slows down for walls. It won't take a drop that would hurt it or walk
+into lava, however hard you push. Ledges up to two blocks high it climbs. Fences you'll have to jump.
 
 <img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/cliff.webp" alt="A galloping horse refusing to go over a cliff edge" width="100%">
 
-### It looks alive
+### Water and trees
 
-Horse and rider lean into every turn. Your rider actually sits the saddle: feet in the stirrups, hands on the reins,
-rocking with the gait, folding over the neck on a jump, throwing a hand up to shield their face when you crash through
-leaves. The hoofbeats change with the gait, so a gallop finally sounds like a gallop.
-
-<img src="https://cdn.modrinth.com/data/Lc7S9t3K/images/e9b5e4b83582e07873256cbb2be4335a8697d660.jpeg" alt="A rider sitting the saddle in front of a castle" width="100%">
-
-### The world pushes back
-
-Ride through leaves instead of getting wedged into every tree (it slows you down, branches are branches). Wade into a
-river, swim across with your horse's head above the water, and haul yourself up the bank on the far side. Gallop
-through a flock of chickens and... well, try not to. Players and your own pets are always safe. Skeleton horses still
-stroll along the bottom of lakes like the spooky little guys they are.
+Horses swim with their heads up and climb out onto the far bank. Leaves slow you down instead of stopping you dead. At
+speed you'll trample chickens and other small animals, but never players or your own pets.
 
 <img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/river.webp" alt="Swimming a horse across a river and climbing out the far bank" width="100%">
 
-### The camera rides along
+### The rider
 
-Climb on and the view swings into third person, pulls back as you pick up speed, and smooths out the bumps. Prefer
-first person? The view gently moves with the saddle.
+Horse and rider lean into turns. The rider keeps their feet in the stirrups and hands on the reins, folds forward over
+a jump, draws a bow like an archer and puts an arm up when you crash through leaves. The hoofbeats change with the gait.
+
+<img src="https://cdn.modrinth.com/data/Lc7S9t3K/images/e9b5e4b83582e07873256cbb2be4335a8697d660.jpeg" alt="A rider sitting the saddle in front of a castle" width="100%">
+
+### Camera
+
+Getting on switches you to third person. The camera pulls back as you speed up and smooths out the bumps. In first
+person the view moves gently with the saddle.
 
 <img src="https://cdn.modrinth.com/data/Lc7S9t3K/images/27665758a3b8c87976ed22a7367113b06f23fde3.jpeg" alt="Riding through a forest in first person" width="100%">
 
-## Which mounts?
+## Controls
 
-Horses, donkeys, mules, skeleton horses and zombie horses all get the full treatment. Camels, llamas, pigs, striders,
-happy ghasts and nautiluses ride exactly the way they always have. I didn't touch them. And yes, zombie and skeleton
-horsemen still saddle up and come for you.
+No new keybinds.
 
-Making a horse mod of your own? Add your horse to the entity type tag `horsingaround:managed` and it gets the new riding
-too.
+| Key | On horseback |
+| --- | --- |
+| W | Walk on. Let go and the horse slows to a stop. |
+| Sprint | Tap for the next gait up. |
+| W, twice | Next gait up, and the horse keeps going with W let go until you press S. |
+| S | Tap for the next gait down. Hold to stop hard, then back up. |
+| Mouse | Steer. Standing still, you can look around and the horse stays put. |
+| A / D | With W, ride at an angle to where you're looking. Alone, ride straight across it. |
+| Jump | Jump, straight away. |
 
-## Riding with friends
+## Which mounts
 
-I built this with my family's server in mind. Put Horsing Around (and Fabric API) on the server and in everyone's game,
-and you're off. Friends without the mod can still join and ride like normal. Hop onto a server that doesn't have it and
-the mod politely steps aside, and lets you know the first time you climb onto a horse.
+Horses, donkeys, mules, skeleton horses and zombie horses. Camels, llamas, pigs, striders, happy ghasts and nautiluses
+ride exactly as they did before.
 
-## Make it comfortable
+Making a horse mod? Add your horse to the entity type tag `horsingaround:managed` and it rides this way too.
 
-Every horse rides the same for everyone, the way I tuned it. What you can change is how riding looks and sounds to
-you, in [Mod Menu](https://modrinth.com/mod/modmenu) or with the "Open horse settings" key: whether the camera switches
-to third person when you mount, how far back and how high it sits, how much the view widens at speed, how much your view
-and hands move with the stride in first person, and how loud the horse's breathing and snorting are. If fast motion
-bothers you, you can turn all the movement right down.
+## Servers
+
+I made this for my family's server. Put it (and Fabric API) on the server and in each player's game. Players without
+it can still join and ride as normal. On a server that doesn't have it, your horse rides like vanilla and the mod tells
+you so the first time you get on.
+
+## Settings
+
+Horses ride the same for everyone. What you can change is how it looks and sounds to you: whether getting on switches to
+third person, where the camera sits, how much the view widens at speed, how much the first-person view sways, and how
+loud the horse's breathing and snorting are. If motion bothers you, all of it turns down. Open the settings from
+[Mod Menu](https://modrinth.com/mod/modmenu) or with the "Open horse settings" key.
 
 <img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/settings.jpg" alt="The horse settings screen" width="100%">
 
-## Plays nice with others
+## Other mods
 
-I built and tested this with [Fresh Animations](https://modrinth.com/resourcepack/fresh-animations) (Entity Model
-Features + Entity Texture Features), because that's how I play. Your rider follows every bounce of the animated horse,
-and it looks fantastic.
-
-When another mod also changes how horses ride (like Horseman's free camera) or how riders sit (like Not Enough
-Animations), Horsing Around takes the reins on its own horses and leaves the rest of that mod alone. Shoulder Surfing
-gets the camera whenever it's switched on.
+I play with [Fresh Animations](https://modrinth.com/resourcepack/fresh-animations) (Entity Model Features + Entity
+Texture Features), so that's what I test against first, and the rider follows the animated horse. If another mod also
+changes how horses ride (Horseman's free camera) or how riders sit (Not Enough Animations), Horsing Around handles its
+own horses and leaves the rest of that mod alone. Shoulder Surfing takes over the camera whenever it's on.
 
 <details>
-<summary><b>Every mod I test it with</b></summary>
+<summary><b>Every mod it's tested with</b></summary>
 
-I put it through automated test rides alongside a big pile of popular mods: Sodium, Iris, Lithium, C2ME, FerriteCore,
-ImmediatelyFast, Entity Culling, More Culling, Not Enough Animations, Emotecraft, Better Combat, First-person Model,
-Shoulder Surfing Reloaded, Camera Overhaul, Freecam, Do a Barrel Roll, AppleSkin, Raised, Better Mount HUD, Jade,
-Xaero's Minimap, Horse Expert, Horseman, Bareback Horse Riding and Mounts Stay Still.
+Automated test rides run alongside Sodium, Iris, Lithium, C2ME, FerriteCore, ImmediatelyFast, Entity Culling, More
+Culling, Not Enough Animations, Emotecraft, Better Combat, First-person Model, Shoulder Surfing Reloaded, Camera
+Overhaul, Freecam, Do a Barrel Roll, AppleSkin, Raised, Better Mount HUD, Jade, Xaero's Minimap, Horse Expert, Horseman,
+Bareback Horse Riding and Mounts Stay Still.
 
 </details>
 
-Found something that doesn't get along? [Open an issue](https://github.com/GabePurc/horsing-around/issues/new?template=bug_report.yml) and I'll
-take a look.
+Something not getting along? [Open an issue](https://github.com/GabePurc/horsing-around/issues/new?template=bug_report.yml).
 
-## What's next
+## Requirements
 
-Horse perks and leveling are coming, so the horse that's carried you across the whole map is better than one you tamed
-yesterday. This is my first public version, and I'm only getting started.
+Minecraft 1.20.1 to 26.3 (pick the file for your version), Fabric Loader 0.14.25 or newer (or whatever your Fabric API
+needs), and Fabric API. Mod Menu is optional.
 
-## Want a better camera on foot too?
+## Buy me a coffee, get a hat
 
-Check out **Horsing Around: Over the Shoulder**, an over-the-shoulder camera for getting around on foot that also takes
-over the riding camera when both are installed.
-
-## Buy me a coffee? (and get a hat)
-
-I make this in my spare time because I love it, and it'll always be free. If it's made your rides a little better and
-you'd like to chip in, you can [buy me a coffee](https://buymeacoffee.com/blintzbug). It genuinely keeps me going, and
-it means more horse features, sooner. No pressure at all, though: telling your friends about it helps just as much.
-
-As a thank-you, supporters get a **cowboy hat** to wear in game. Put your Minecraft username in your coffee message and
-within a day or two it'll appear in your horse settings: switch it on, pick any colour you like, and ride off into the
-sunset. Everyone with the mod on your server sees it. It's purely cosmetic (your helmet still protects you, it's just
-hidden under the hat), and it never gives anyone an advantage.
+The mod is free and will stay that way. If you'd like to support it, you can
+[buy me a coffee](https://buymeacoffee.com/blintzbug), and you'll get a cowboy hat in game. Put your Minecraft username
+in the coffee message and within a day or two it shows up in your horse settings, in any colour you like. Everyone on
+your server who has the mod sees it. It's only cosmetic: your helmet is hidden under it but still protects you.
 
 <div align="center">
 
@@ -163,15 +148,16 @@ hidden under the hat), and it never gives anyone an advantage.
 
 ## Privacy
 
-When the game starts, the mod downloads the list of supporters (`supporters.json` in this repository) from GitHub so it
-knows who gets a hat. That's a plain download: nothing about you is sent anywhere. If it can't connect, it uses the last
-copy it saw.
+At startup the mod downloads the supporter list (`supporters.json` in this repository) from GitHub to know who gets a
+hat. Nothing about you is sent. If it can't connect, it uses the last list it saw.
 
-## Requirements
+## What's next
 
-Minecraft 1.20.1 to 26.3 (download the file for your version), Fabric Loader 0.14.25 or newer (or the newer one Fabric API needs for your version), and Fabric API. Mod
-Menu is optional.
+Horse perks and levelling, so the horse that's carried you across the map is better than one you tamed yesterday.
+
+Want a better camera on foot too? [Horsing Around: Over the Shoulder](https://github.com/GabePurc/horsing-around-over-the-shoulder)
+is an over-the-shoulder camera that also takes over the riding camera when both are installed.
 
 ## License
 
-[MIT](https://github.com/GabePurc/horsing-around/blob/main/LICENSE). Take it apart, learn from it, build on it.
+[MIT](https://github.com/GabePurc/horsing-around/blob/main/LICENSE)
