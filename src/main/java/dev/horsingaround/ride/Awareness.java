@@ -1271,7 +1271,7 @@ public final class Awareness {
 						continue;
 					}
 					final BlockState state = level.getBlockState(POS.set(x, y, z));
-					if (!state.isAir() && (isHazard(state) && !(onHazard && y < feet) || state.getFluidState().is(FluidTags.LAVA))) {
+					if (!state.isAir() && (isHazard(state) && !(onHazard && y < feet) || !state.getFluidState().isEmpty() && state.getFluidState().is(FluidTags.LAVA))) {
 						return true;
 					}
 				}

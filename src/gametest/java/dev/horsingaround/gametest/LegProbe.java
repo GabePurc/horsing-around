@@ -1,7 +1,7 @@
 package dev.horsingaround.gametest;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import dev.horsingaround.client.mixin.ModelPartAccessor;
+import dev.horsingaround.client.render.PartData;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
@@ -282,7 +282,7 @@ public final class LegProbe {
 			}
 		}
 		final boolean body = inBody || "body".equals(name);
-		final ModelPartAccessor access = (ModelPartAccessor) (Object) part;
+		final PartData access = (PartData) (Object) part;
 		if (dumping && (leg >= 0 || depth <= 1 || body && depth <= 2)) {
 			final PartPose initial = part.getInitialPose();
 			dump.append("  ".repeat(depth)).append(String.format(Locale.ROOT,

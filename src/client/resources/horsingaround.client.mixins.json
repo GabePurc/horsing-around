@@ -14,7 +14,7 @@
 		"LivingEntityRenderStateMixin",
 		"LivingEntityRendererMixin",
 		"LocalPlayerMixin",
-		"ModelPartAccessor",
+		"ModelPartMixin",
 		"MultiPlayerGameModeMixin",
 		"PickMixin",
 		"PlayerModelMixin"

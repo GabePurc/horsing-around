@@ -1,9 +1,6 @@
 package dev.horsingaround.client.render;
 
-import dev.horsingaround.client.mixin.ModelPartAccessor;
 import java.util.List;
-import java.util.Map;
-import java.util.WeakHashMap;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.util.Mth;
@@ -38,8 +35,7 @@ public final class Legs {
 		}
 	}
 
-	/** Legs by part (the part the model swings); a part with no leg box maps to NONE. Models are rebuilt on reload. */
-	private static final Map<ModelPart, Leg> LEGS = new WeakHashMap<>();
+	/** Kept on a part with no leg box (see PartData), so it is measured once. */
 	private static final Leg NONE = new Leg(0.0F, 0.0F, 0.0F, 1.0F, 0.0F);
 	/** Frames a leg was drawn up onto higher ground (for tests). */
 	public static int drawnFrames;
@@ -49,10 +45,11 @@ public final class Legs {
 
 	/** The leg's shape (measured the first time); null if the part has no leg box. */
 	public static @Nullable Leg of(final ModelPart part) {
-		Leg leg = LEGS.get(part);
+		final PartData data = (PartData) (Object) part;
+		Leg leg = data.horsingaround$leg();
 		if (leg == null) {
 			leg = find(part, 0.0F, 0.0F, 0.0F, 0);
-			LEGS.put(part, leg == null ? NONE : leg);
+			data.horsingaround$setLeg(leg == null ? NONE : leg);
 		}
 		return leg == NONE ? null : leg;
 	}
@@ -81,7 +78,7 @@ public final class Legs {
 	 * turned): the tallest six-sided box.
 	 */
 	private static @Nullable Leg find(final ModelPart part, final float dx, final float dy, final float dz, final int depth) {
-		final ModelPartAccessor access = (ModelPartAccessor) (Object) part;
+		final PartData access = (PartData) (Object) part;
 		final List<ModelPart.Cube> cubes = access.horsingaround$cubes();
 		ModelPart.Cube best = null;
 		float bestHeight = 0.0F;

@@ -4,14 +4,12 @@ package dev.horsingaround.client.compat;
 import dev.horsingaround.HorsingAround;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
-import dev.horsingaround.client.mixin.ModelPartAccessor;
 import dev.horsingaround.client.render.AirLegs;
 import dev.horsingaround.client.render.GroundLegs;
+import dev.horsingaround.client.render.PartData;
 import dev.horsingaround.client.render.SaddleMotion;
 import dev.horsingaround.ride.RideTuning;
-import java.lang.ref.WeakReference;
 import java.util.Map;
-import java.util.WeakHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
@@ -59,23 +57,23 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 	/** Frames the stirrups were held (for tests). */
 	public static int stirrupFrames;
 
-	/** The parts this hook moves, per model (looked up the first time a model is seen; pack reloads create new models). */
-	private final Map<ModelPart, Parts> models = new WeakHashMap<>();
 	private static final String[] LEG_NAMES = {"left_front_leg", "right_front_leg", "left_hind_leg", "right_hind_leg"};
 
-	private Parts parts(final EMFModelPartRoot root) {
-		Parts parts = this.models.get(root);
-		if (parts == null) {
-			parts = new Parts(root);
-			this.models.put(root, parts);
+	/**
+	 * The parts this hook moves, kept on the model's root (looked up the first time a model is seen; pack reloads create
+	 * new models, and the old ones go with their parts).
+	 */
+	private static Parts parts(final EMFModelPartRoot root) {
+		final PartData data = (PartData) (Object) root;
+		if (data.horsingaround$rootParts() instanceof Parts known) {
+			return known;
 		}
+		final Parts parts = new Parts(root);
+		data.horsingaround$setRootParts(parts);
 		return parts;
 	}
 
-	/**
-	 * One model's parts. Held weakly: every Entity Model Features part points back at its model, so a part held here
-	 * would keep the model (the map's key) alive, and with it every model a resource reload replaced.
-	 */
+	/** One model's parts. */
 	private static final class Parts {
 		/** Front left, front right, hind left, hind right (null where the model has none). */
 		private static final int LEGS = 0;
@@ -91,7 +89,7 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		private static final int LEFT_STIRRUP = 7;
 		private static final int RIGHT_STIRRUP = 8;
 
-		private final WeakReference<?>[] parts = new WeakReference<?>[9];
+		private final ModelPart[] parts = new ModelPart[9];
 
 		Parts(final EMFModelPartRoot root) {
 			final Map<String, ? extends ModelPart> vanilla = root.getAllVanillaPartsByNameEMF();
@@ -111,12 +109,11 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		}
 
 		private void set(final int index, final ModelPart part) {
-			this.parts[index] = part == null ? null : new WeakReference<>(part);
+			this.parts[index] = part;
 		}
 
 		ModelPart get(final int index) {
-			final WeakReference<?> part = this.parts[index];
-			return part == null ? null : (ModelPart) part.get();
+			return this.parts[index];
 		}
 	}
 
@@ -179,7 +176,7 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 	}
 
 	private static ModelPart find(final ModelPart part, final String name) {
-		for (final Map.Entry<String, ModelPart> child : ((ModelPartAccessor) (Object) part).horsingaround$children().entrySet()) {
+		for (final Map.Entry<String, ModelPart> child : ((PartData) (Object) part).horsingaround$children().entrySet()) {
 			if (child.getKey().equals(name) || child.getKey().endsWith("_" + name) && child.getKey().startsWith("EMF")) {
 				return child.getValue();
 			}
@@ -216,7 +213,7 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		final EMFModelPartRoot root = context.animatingModelRoot();
 		final RideState ride = holder.horsingaround$ride();
 		final float partialTicks = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
-		final Parts parts = this.parts(root);
+		final Parts parts = parts(root);
 		stepLegs(root, parts, ride, partialTicks);
 		swingTail(parts, ride, partialTicks);
 		// Climbing, the neck reaches forward, and further when the rider would be in the way of the head; and a horse that
