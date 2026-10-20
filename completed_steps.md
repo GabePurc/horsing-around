@@ -20,7 +20,7 @@ at most two lines, under the right area; details go in the PR, not here.
 
 - Riding camera: third person on mount (restored on dismount), pulls back with speed, speed FOV, pitch eases to a riding angle when the mouse is idle; height follows in two eased stages; passes through leaves
 - First person: eyes follow the smoothed saddle height and never pitch or roll with the horse; reduced bob, nod and hoof-strike shake with View Bobbing; hands and held items bob with the saddle
-- Over the Shoulder add-on lives in its own repo (`../Over the Shoulder`), reached only through `RideCameraApi`; while it is on it owns the third-person view and this mod stops placing the camera
+- Over-the-shoulder riding camera (default right; left, or off for centred; O swaps), folded in from the retired add-on: centre crosshair with targeting and server rotation aimed at it, leans in to aim, walls pull it in and it eases out; on foot third person stays vanilla
 - Steps aside while Shoulder Surfing Reloaded drives the camera
 
 ## Jumping, ledges, 2-block climbs, hurdles

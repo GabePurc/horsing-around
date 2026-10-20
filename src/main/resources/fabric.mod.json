@@ -39,7 +39,9 @@
 	},
 	"icon": "assets/horsingaround/icon.png",
 	"suggests": {
-		"modmenu": "*",
+		"modmenu": "*"
+	},
+	"breaks": {
 		"horsingaround_shoulder": "*"
 	},
 	"custom": {

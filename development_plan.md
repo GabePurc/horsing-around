@@ -35,12 +35,11 @@ How to check a release candidate:
    terrain, mounts, dedicated-server ride).
 2. `./gradlew runCompat --continue`: each pack of popular mods in a production game. Look at
    `build/run/compat/<pack>/compat-findings.txt` and the reports.
-3. The add-on: `./gradlew runClientGameTest` in `../Over the Shoulder`.
 
 Still open:
 
-- Publishing: Horsing Around is out (0.1.0 to 0.4.0 through CI, Modrinth project `Lc7S9t3K`); the add-on's Modrinth
-  project and the gallery (`build/run/clientGameTest/gallery/`) may still need doing, so check with the user.
+- Publishing: Horsing Around is out (0.1.0 to 0.5.0 through CI, Modrinth project `Lc7S9t3K`); the gallery
+  (`build/run/clientGameTest/gallery/`) may still need doing, so check with the user.
 - When a pack mod updates or a new popular mod appears, add it to `compatPacks` in `build.gradle` (pin the Modrinth
   version id, not the version number: some mods reuse numbers across Minecraft versions).
 - Known outside our control: Horseman crashes the second in-process server of the client test (its server config

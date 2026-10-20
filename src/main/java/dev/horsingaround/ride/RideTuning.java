@@ -767,7 +767,7 @@ public final class RideTuning {
 	public static boolean AUTO_THIRD_PERSON = true;
 	/**
 	 * How far the riding camera sits back, at a standstill and at a full gallop, as designed; the player's camera distance
-	 * setting scales it (CAMERA_DISTANCE_SCALE) for this mod's own camera only. A camera add-on gets the designed values.
+	 * setting scales it (CAMERA_DISTANCE_SCALE).
 	 */
 	public static final float CAMERA_DISTANCE_STILL = 4.0F;
 	public static final float CAMERA_DISTANCE_GALLOP = 5.5F;
@@ -784,10 +784,32 @@ public final class RideTuning {
 	public static final float CAMERA_HEIGHT_SMOOTHING = 0.6F;
 	/** Further than this from the rider (a teleport), the camera's height jumps straight there. */
 	public static final double CAMERA_HEIGHT_SNAP = 4.0;
+	/**
+	 * Over the shoulder (the player's setting, on by default): the third-person riding camera sits SHOULDER_SIDE blocks
+	 * off the rider's right or left, level, and SHOULDER_RAISE higher than the centred camera. CAMERA_SIDE is the setting
+	 * (+ right, - left, 0 centred). It always looks exactly where the rider looks, and the centre crosshair shows.
+	 */
+	public static final float SHOULDER_SIDE = 0.6F;
+	public static final float SHOULDER_RAISE = 0.15F;
+	public static float CAMERA_SIDE = SHOULDER_SIDE;
+	/** Drawing a bow or crossbow, a trident or a spyglass over the shoulder, the camera leans in to this distance. */
+	public static final float SHOULDER_AIM_DISTANCE = 2.55F;
+	/** How quickly the framing moves (swapping shoulders, leaning in to aim), per second. */
+	public static final float SHOULDER_EASE_RATE = 6.0F;
+	/** The camera snaps in when a wall comes between it and the rider, and eases back out at this rate per second. */
+	public static final float CAMERA_WALL_RECOVER_RATE = 4.0F;
+	/** The camera keeps this far off walls, blocks. */
+	public static final float CAMERA_WALL_MARGIN = 0.15F;
+	/** Over the shoulder, what is under the centre crosshair is searched for this far (entities within the second). */
+	public static final float AIM_RANGE = 96.0F;
+	public static final float AIM_ENTITY_RANGE = 48.0F;
 	public static final float FOV_GALLOP_BOOST_BASE = 0.05F;
 	/** FOV widening at a full gallop (scaled by the FOV Effects option). */
 	public static float FOV_GALLOP_BOOST = FOV_GALLOP_BOOST_BASE;
-	/** After this many ticks without vertical mouse movement while moving, the view eases back to a riding pitch. */
+	/**
+	 * After this many ticks without vertical mouse movement while moving, the view eases back to a riding pitch (centred
+	 * camera only: over the shoulder the pitch is the rider's aim).
+	 */
 	public static final int PITCH_RECENTER_DELAY = 40;
 	public static final float PITCH_DEFAULT = 10.0F;
 	public static final float PITCH_RECENTER_RATE = 0.04F;

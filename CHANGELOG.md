@@ -2,6 +2,16 @@
 
 Each version's notes are written to paste straight into the Modrinth version page.
 
+## 0.5.0
+
+### New
+- **Over-the-shoulder riding camera.** In third person on horseback, the camera now sits just off your right shoulder with a crosshair in the middle of the screen: arrows, swings and anything you throw go where it points. Draw a bow or raise a spyglass and it leans in for the shot. Press **O** to swap shoulders, or choose right, left or centred under **Over the shoulder** in the settings. On foot, third person is Minecraft's own.
+
+### Changed
+- Over the shoulder, your view stays where you leave it, since that's where you're aiming. The centred camera still eases back to a riding angle when you leave the mouse alone.
+- After a wall pushes the riding camera in, it now glides back out instead of jumping.
+- Horsing Around: Over the Shoulder is now built in. Remove it from your mods folder: the game won't start with both installed.
+
 ## 0.4.0
 
 ### New

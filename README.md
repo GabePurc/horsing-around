@@ -68,8 +68,11 @@ a jump, draws a bow like an archer and puts an arm up when you crash through lea
 
 ### Camera
 
-Getting on switches you to third person. The camera pulls back as you speed up and smooths out the bumps. In first
-person the view moves gently with the saddle.
+Getting on switches you to third person, with the camera just off your right shoulder and a crosshair in the middle
+of the screen: arrows, swings and anything you throw go where it points. Draw a bow or raise a spyglass and the camera
+leans in for the shot. Press O to swap shoulders, or centre the camera in the settings. It pulls back as you speed up
+and smooths out the bumps. On foot, third person is Minecraft's own. In first person the view moves gently with the
+saddle.
 
 <img src="https://cdn.modrinth.com/data/Lc7S9t3K/images/27665758a3b8c87976ed22a7367113b06f23fde3.jpeg" alt="Riding through a forest in first person" width="100%">
 
@@ -86,6 +89,7 @@ No new keybinds.
 | Mouse | Steer. Standing still, you can look around and the horse stays put. |
 | A / D | With W, ride at an angle to where you're looking. Alone, ride straight across it. |
 | Jump | Jump, straight away. |
+| O | Swap the camera to your other shoulder. |
 
 ## Which mounts
 
@@ -103,7 +107,7 @@ you so the first time you get on.
 ## Settings
 
 Horses ride the same for everyone. What you can change is how it looks and sounds to you: whether getting on switches to
-third person, where the camera sits, how much the view widens at speed, how much the first-person view sways, and how
+third person, which shoulder the camera sits over (or centred), how far back and how high it sits, how much the view widens at speed, how much the first-person view sways, and how
 loud the horse's breathing and snorting are. If motion bothers you, all of it turns down. Open the settings from
 [Mod Menu](https://modrinth.com/mod/modmenu) or with the "Open horse settings" key.
 
@@ -156,9 +160,6 @@ hat. Nothing about you is sent. If it can't connect, it uses the last list it sa
 ## What's next
 
 Horse perks and levelling, so the horse that's carried you across the map is better than one you tamed yesterday.
-
-Want a better camera on foot too? [Horsing Around: Over the Shoulder](https://github.com/GabePurc/horsing-around-over-the-shoulder)
-is an over-the-shoulder camera that also takes over the riding camera when both are installed.
 
 ## License
 

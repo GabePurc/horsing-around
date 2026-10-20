@@ -37,8 +37,10 @@ whatever the speed; no stamina; no visual weight.
 - Third person on mount (user: RDR2-style): behind and a bit above, pulls back with speed, glides over bumps, eases to
   a slight downward riding angle when the mouse is idle, never fights the mouse for yaw. Comfort beats realism: gentle,
   low-passed first-person bob, no shake, level horizon.
-- Over the shoulder is a separate add-on (`../Over the Shoulder`) through `RideCameraApi`; while it is on, this mod
-  leaves the third-person view to it entirely.
+- Over the shoulder by default (user, 2026-10-20; was a separate add-on): the riding camera sits off the right shoulder
+  (setting: right, left, or off for centred; O swaps), looks exactly where the rider looks, and shows the centre
+  crosshair; targeting and the rotation the server hears point at what is under it (`RideAim`). It leans in to aim and
+  leaves the pitch alone (centred, the pitch still eases back). Only while riding: on foot, third person is vanilla.
 
 ## Jumping
 
