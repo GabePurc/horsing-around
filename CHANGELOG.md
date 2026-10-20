@@ -2,6 +2,11 @@
 
 Each version's notes are written to paste straight into the Modrinth version page.
 
+## 0.5.1
+
+### Changed
+- The supporter cowboy hat has a new look: a creased crown, a dark band and a brim that curls up at the sides. Every hat colour works as before.
+
 ## 0.5.0
 
 ### New
