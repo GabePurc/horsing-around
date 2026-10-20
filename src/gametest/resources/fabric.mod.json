@@ -8,6 +8,7 @@
 		"fabric-client-gametest": [
 			"dev.horsingaround.gametest.RideFeelTest",
 			"dev.horsingaround.gametest.TerrainRideTest",
+			"dev.horsingaround.gametest.PerfTest",
 			"dev.horsingaround.gametest.MountsTest",
 			"dev.horsingaround.gametest.ServerRideTest",
 			"dev.horsingaround.gametest.HatTest",
