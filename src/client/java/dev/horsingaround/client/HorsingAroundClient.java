@@ -17,6 +17,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityRenderLayerRegist
 import net.fabricmc.fabric.api.client.rendering.v1.ModelLayerRegistry;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import dev.horsingaround.net.ServerRules;
+import dev.horsingaround.ride.HorseConfig;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
@@ -79,18 +80,23 @@ public final class HorsingAroundClient implements ClientModInitializer {
 				helper.register(new HatLayer(avatar, context.getModelSet()));
 			}
 		});
-		final KeyMapping settings = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-			"key.horsingaround.settings", InputConstants.UNKNOWN.getValue(),
-			//? if >=1.21.9 {
-			KeyMapping.Category.register(Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "horses"))
-			//?} else
-			/*"key.category.horsingaround.horses"*/
-		));
+		//? if >=1.21.9 {
+		final KeyMapping.Category category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "horses"));
+		//?} else
+		/*final String category = "key.category.horsingaround.horses";*/
+		final KeyMapping settings = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.horsingaround.settings", InputConstants.UNKNOWN.getValue(), category));
+		final KeyMapping swapShoulder = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.horsingaround.swap_shoulder", InputConstants.KEY_O, category));
 		ClientTickEvents.END_CLIENT_TICK.register(minecraft -> {
 			RideCamera.tick(minecraft);
 			keys.endTick();
 			while (settings.consumeClick()) {
 				HorseSettingsScreen.open(minecraft);
+			}
+			while (swapShoulder.consumeClick()) {
+				// (Only while riding: on foot the key does nothing, and other mods may share it.)
+				if (RideCamera.isRiding()) {
+					HorseConfig.swapShoulder();
+				}
 			}
 			SteeringOverlay.tick(minecraft);
 			ServerNotice.tick(minecraft);

@@ -8,7 +8,6 @@ import net.minecraft.client.Camera;
 //? if >=26.1
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 //? if >=1.21.11 && <26.1
 /*import net.minecraft.world.level.Level;*/
@@ -72,25 +71,10 @@ public abstract class CameraMixin {
 	@Shadow
 	protected abstract void setPosition(double x, double y, double z);
 
-	//? if >=1.21 {
-	@Shadow
-	protected abstract void move(float forwards, float up, float right);
-
-	@Shadow
-	private float getMaxZoom(final float cameraDist) {
-		throw new AssertionError();
-	}
-	//?} else {
-	/*@Shadow
-	protected abstract void move(double forwards, double up, double right);
-
-	@Shadow
-	private double getMaxZoom(final double cameraDist) {
-		throw new AssertionError();
-	}
-	*///?}
-
-	/** While riding, the third-person camera passes through leaves like the horse does instead of snapping in. */
+	/**
+	 * While riding, vanilla's third-person placement (the front view; this mod places the back view itself) passes through
+	 * leaves like the horse does instead of snapping in.
+	 */
 	@ModifyExpressionValue(method = "getMaxZoom", at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/ClipContext$Block;VISUAL:Lnet/minecraft/world/level/ClipContext$Block;"))
 	private ClipContext.Block horsingaround$seeThroughLeaves(final ClipContext.Block original) {
 		return RideCamera.isRiding() ? ClipContext.Block.COLLIDER : original;
@@ -113,19 +97,17 @@ public abstract class CameraMixin {
 	//?}
 
 	/**
-	 * Places the third-person camera while riding (instead of vanilla's placement, so the wall-collision raycast runs
-	 * only once), and in first person carries the eyes with the saddle. Another camera mod that is driving the camera
-	 * (see {@link RideCamera#isActive}) is left alone.
+	 * Places the third-person camera while riding (over the shoulder or centred, instead of vanilla's placement), and in
+	 * first person carries the eyes with the saddle. Another camera mod that is driving the camera (see
+	 * {@link RideCamera#isActive}) is left alone.
 	 */
 	//? if >=26.1 {
 	@WrapMethod(method = "alignWithEntity")
 	private void horsingaround$rideCamera(final float partialTicks, final Operation<Void> original) {
 		final Entity e = this.entity;
 		if (RideCamera.isActive(e, this.minecraft)) {
-			this.setRotation(e.getViewYRot(partialTicks), e.getViewXRot(partialTicks));
-			this.setPosition(Mth.lerp(partialTicks, e.xo, e.getX()), RideCamera.pivotY(partialTicks), Mth.lerp(partialTicks, e.zo, e.getZ()));
+			this.horsingaround$placeRide(e, partialTicks);
 			this.detached = true;
-			this.move(-this.getMaxZoom(RideCamera.distance(partialTicks)), 0.0F, 0.0F);
 			return;
 		}
 		original.call(partialTicks);
@@ -174,11 +156,19 @@ public abstract class CameraMixin {
 		this.entity = e;
 		this.detached = true;
 		this.partialTickTime = partialTicks;
-		this.setRotation(e.getViewYRot(partialTicks), e.getViewXRot(partialTicks));
-		this.setPosition(Mth.lerp(partialTicks, e.xo, e.getX()), RideCamera.pivotY(partialTicks), Mth.lerp(partialTicks, e.zo, e.getZ()));
-		this.move(-this.getMaxZoom(RideCamera.distance(partialTicks)), 0.0F, 0.0F);
+		this.horsingaround$placeRide(e, partialTicks);
 	}
 	*///?}
+
+	/** The third-person riding camera's rotation and place (see {@link RideCamera#place}). */
+	@Unique
+	private void horsingaround$placeRide(final Entity e, final float partialTicks) {
+		final float yaw = e.getViewYRot(partialTicks);
+		final float pitch = e.getViewXRot(partialTicks);
+		this.setRotation(yaw, pitch);
+		RideCamera.place(e, partialTicks, yaw, pitch);
+		this.setPosition(RideCamera.cameraX(), RideCamera.cameraY(), RideCamera.cameraZ());
+	}
 
 	/** In first person the eyes follow the saddle. */
 	@Unique

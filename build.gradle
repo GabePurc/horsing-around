@@ -82,21 +82,6 @@ dependencies {
 	}
 }
 
-// Dev convenience: runClient also loads the Over the Shoulder add-on when it has been built in a sibling checkout
-// (separate repo; first folder in over_the_shoulder_libs that has a jar). The ride test runs without it so this mod's
-// own riding camera is what gets tested.
-// (Built for the main version only.)
-def overTheShoulderJars = !mainVersion ? [] : project.over_the_shoulder_libs.split(',').collect { dir ->
-	fileTree(repoDir.dir(dir.trim())) {
-		include 'horsing-around-shoulder-*.jar'
-		exclude '*-sources.jar'
-	}.files
-}.find { !it.isEmpty() } ?: []
-if (!overTheShoulderJars.isEmpty()) {
-	def addMods = overTheShoulderJars.join(File.pathSeparator)
-	tasks.matching { it.name == "runClient" }.configureEach { systemProperty "fabric.addMods", addMods }
-}
-
 // Fresh Animations is a resource pack; fetch it once and drop it into both dev run folders.
 def freshAnimationsZip = repoDir.file(".gradle/dev-packs/${project.fresh_animations_file}").asFile
 ext.freshAnimationsZip = freshAnimationsZip

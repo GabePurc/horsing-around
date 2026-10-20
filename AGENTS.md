@@ -43,9 +43,6 @@ Firm rules, because the user asked for them or because breaking them breaks play
 - Nothing that changes how horses ride is a setting (user direction, 2026-10-08). Player settings (`HorseConfig`, JSON
   in the config folder, vanilla-style screen from Mod Menu, an optional dependency) are only comfort and preference:
   camera, first-person motion, sound volume.
-- The add-on Horsing Around: Over the Shoulder (its own repo, `../Over the Shoulder`) reaches this mod only through
-  `dev.horsingaround.client.api.RideCameraApi` and keeps a compile-only copy: its public signatures are a contract,
-  change both repos together.
 - Per-tick paths must not allocate beyond what vanilla already does, and must not do work for horses that are not
   being ridden. Prefer one mixin per vanilla class; keep logic in plain classes under `ride/`.
 - Every version keeps building and passing its audit (below). Builds work on any machine: never commit
@@ -63,8 +60,7 @@ must still build (`./gradlew build`) and pass `./gradlew auditMixins` (every ver
 server). Jars land in `versions/<version>/build/libs/`. Gradle picks JDK 25 through `gradle/gradle-daemon-jvm.properties`.
 
 Play-test: `./gradlew runClient` (26.3; `./gradlew :<version>:runClient` for another). Dev runs load Mod Menu, Entity
-Model Features, Entity Texture Features and the Fresh Animations pack (the user's target setup), and the add-on if it
-has been built in `../Over the Shoulder`.
+Model Features, Entity Texture Features and the Fresh Animations pack (the user's target setup).
 
 ## Testing
 

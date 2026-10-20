@@ -721,3 +721,19 @@ or a sprint tap steps up again. S (a tap or held) ends the lock; with W let go t
 is held). Presses are W's clicks made while it was up (`RiderKeys.forwardPresses`): vanilla also clicks for the OS key
 repeat while W is held, and its held state (`Input`) only catches up a tick after the click, so an edge on it would count
 one press twice.
+
+## Over the shoulder, folded in (user direction, 2026-10-20)
+
+The Over the Shoulder add-on becomes a camera setting of this mod, for riding only: over the right shoulder by default,
+swappable to the left or off (centred). On foot, third person stays vanilla.
+
+- Kept from the add-on, riding framing: 0.6 blocks off the shoulder, 0.15 higher than the centred pivot (0.35 over the
+  eyes by default), leaning in to 2.55 blocks while drawing a bow or crossbow, readying a trident, or using a spyglass;
+  framing eases at 6/s; walls snap the camera in and it eases back out (both modes now, which also removed the
+  version-specific `getMaxZoom` calls). The camera distance and height settings apply to both modes.
+- Kept too: the centre crosshair as the aim (user direction, 2026-10-06). The game picks its target and reports its
+  rotation (and, from 1.21, the item-use rotation) toward what is under the crosshair; the rider's own view, and so the
+  steering, is untouched. Over the shoulder the pitch isn't eased back to a riding angle (it is the aim), as with the
+  add-on; centred it still is.
+- O swaps shoulders while riding (the add-on's key). The add-on's API (`RideCameraApi`) is gone, and the mod declares the
+  add-on incompatible, so an old copy left installed gets a clear message instead of a crash.

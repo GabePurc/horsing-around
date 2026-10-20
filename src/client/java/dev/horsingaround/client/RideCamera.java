@@ -12,11 +12,19 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.CrossbowItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemUseAnimation;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 /**
- * RDR2-style riding camera: third person, a little higher than vanilla, pulls back as the horse speeds up, filters
- * out vertical jolts, and eases the view back to a riding pitch when the mouse is left alone. Steering stays on the
- * mouse and A/D, so the camera never fights the rider for yaw.
+ * RDR2-style riding camera: third person over the rider's shoulder (or centred, the player's choice), a little higher
+ * than vanilla, pulls back as the horse speeds up and leans in to aim, filters out vertical jolts. Centred, it eases the
+ * view back to a riding pitch when the mouse is left alone. Steering stays on the mouse and A/D, so the camera never
+ * fights the rider for yaw. Only while riding a managed horse: on foot the third-person view is vanilla's.
  */
 public final class RideCamera {
 	private static boolean riding;
@@ -29,24 +37,30 @@ public final class RideCamera {
 	private static double eyeYEase;
 	private static float lastPitch;
 	private static RideState ride;
-	/**
-	 * Set by a camera add-on that places the third-person camera itself (Over the Shoulder): then everything this mod does
-	 * to the third-person view steps aside for it (placement, height and distance settings, easing the pitch back).
-	 */
-	static boolean thirdPersonClaimed;
 	private static final SaddleMotion SADDLE = new SaddleMotion();
 	/** Low-passed saddle motion for the current frame. */
 	private static float frameLift;
 	private static float framePitch;
 	private static float frameLimbSpeed;
 	private static long lastFrameNanos;
+	private static float frameDt;
 	private static int pitchIdleTicks;
+	/**
+	 * Third-person framing, eased per frame: the sideways offset (blocks, + right), the extra height over the shoulder,
+	 * the lean-in to aim (0 to 1), and the share (0 to 1) of the offset the camera can travel before a wall.
+	 */
+	private static float frameSide;
+	private static float frameRaise;
+	private static float frameAim;
+	private static float frameReach = 1.0F;
+	/** The next frame takes the framing as it is (just mounted), without easing into it. */
+	private static boolean framingFresh = true;
+	/** Where the camera was placed this frame. */
+	private static double cameraX;
+	private static double cameraY;
+	private static double cameraZ;
 
 	private RideCamera() {
-	}
-
-	public static void setThirdPersonClaimed(final boolean claimed) {
-		thirdPersonClaimed = claimed;
 	}
 
 	/** End of every client tick, after entities have moved. */
@@ -62,6 +76,7 @@ public final class RideCamera {
 					switchedPerspective = true;
 				}
 				distance = distanceO = CAMERA_DISTANCE_STILL;
+				framingFresh = true;
 				eyeY = eyeYO = eyeYEase = player.getEyeY() + s.heightOffset(1.0F);
 				lastPitch = player.getXRot();
 				pitchIdleTicks = 0;
@@ -88,10 +103,10 @@ public final class RideCamera {
 		eyeYEase += (eye - eyeYEase) * CAMERA_HEIGHT_SMOOTHING;
 		eyeY += (eyeYEase - eyeY) * CAMERA_HEIGHT_SMOOTHING;
 
-		// The view eases back to a riding pitch, except while another camera places the third-person view (there the
-		// pitch is the player's aim) or the rider aims something (a bow, a spyglass).
+		// The view eases back to a riding pitch, except over the shoulder or while another camera places the third-person
+		// view (there the pitch is the player's aim), or while the rider aims something (a bow, a spyglass).
 		float pitch = player.getXRot();
-		if (Math.abs(pitch - lastPitch) > 0.01F || s.speed < GAIT_SPEED[TROT] || otherThirdPerson(minecraft) || player.isUsingItem()) {
+		if (Math.abs(pitch - lastPitch) > 0.01F || s.speed < GAIT_SPEED[TROT] || aimingView(minecraft) || player.isUsingItem()) {
 			pitchIdleTicks = 0;
 		} else if (++pitchIdleTicks > PITCH_RECENTER_DELAY) {
 			pitch += (PITCH_DEFAULT - pitch) * PITCH_RECENTER_RATE;
@@ -105,19 +120,20 @@ public final class RideCamera {
 		return riding && cameraEntity == minecraft.player && minecraft.player.isPassenger() && ownThirdPerson(minecraft);
 	}
 
-	/** This mod places the third-person (back) view: it is on, and no add-on or other camera mod has taken it over. */
+	/** Over the shoulder: this mod places the view, off the rider's shoulder, with the centre crosshair as the aim. */
+	public static boolean isOverShoulder(final Entity cameraEntity, final Minecraft minecraft) {
+		return CAMERA_SIDE != 0.0F && isActive(cameraEntity, minecraft);
+	}
+
+	/** This mod places the third-person (back) view: it is on, and no other camera mod has taken it over. */
 	private static boolean ownThirdPerson(final Minecraft minecraft) {
-		return !thirdPersonClaimed && minecraft.options.getCameraType() == CameraType.THIRD_PERSON_BACK && !CameraMods.otherCameraActive();
+		return minecraft.options.getCameraType() == CameraType.THIRD_PERSON_BACK && !CameraMods.otherCameraActive();
 	}
 
-	/** A third-person view that an add-on or another camera mod places. */
-	private static boolean otherThirdPerson(final Minecraft minecraft) {
-		return !minecraft.options.getCameraType().isFirstPerson() && (thirdPersonClaimed || CameraMods.otherCameraActive());
-	}
-
-	/** Whether a camera add-on (Over the Shoulder) has taken over the third-person view. */
-	public static boolean isThirdPersonClaimed() {
-		return thirdPersonClaimed;
+	/** A third-person view whose pitch is the player's aim: over the shoulder, or placed by another camera mod. */
+	private static boolean aimingView(final Minecraft minecraft) {
+		return CAMERA_SIDE != 0.0F && ownThirdPerson(minecraft)
+			|| !minecraft.options.getCameraType().isFirstPerson() && CameraMods.otherCameraActive();
 	}
 
 	/**
@@ -135,6 +151,10 @@ public final class RideCamera {
 		final long now = System.nanoTime();
 		final float dt = lastFrameNanos == 0L ? 0.0F : Math.min((now - lastFrameNanos) * 1.0E-9F, 0.1F);
 		lastFrameNanos = now;
+		frameDt = dt;
+		if (ride != null) {
+			frame(minecraft.player);
+		}
 		float lift = 0.0F;
 		float pitch = 0.0F;
 		float limbSpeed = 0.0F;
@@ -157,6 +177,112 @@ public final class RideCamera {
 			frameLift = 0.0F;
 			framePitch = 0.0F;
 		}
+	}
+
+	/** Eases the third-person framing toward where the setting and the rider's aiming put it. */
+	private static void frame(final LocalPlayer player) {
+		final float side = CAMERA_SIDE;
+		final float raise = side != 0.0F ? SHOULDER_RAISE : 0.0F;
+		final float aim = side != 0.0F && isAiming(player) ? 1.0F : 0.0F;
+		if (framingFresh) {
+			framingFresh = false;
+			frameSide = side;
+			frameRaise = raise;
+			frameAim = aim;
+			frameReach = 1.0F;
+			return;
+		}
+		final float k = blend(SHOULDER_EASE_RATE);
+		frameSide += (side - frameSide) * k;
+		frameRaise += (raise - frameRaise) * k;
+		frameAim += (aim - frameAim) * k;
+	}
+
+	/** Drawing a bow or crossbow, readying a trident or spear, looking through a spyglass, or holding a loaded crossbow. */
+	private static boolean isAiming(final LivingEntity rider) {
+		if (rider.isUsingItem()) {
+			final ItemUseAnimation animation = rider.getUseItem().getUseAnimation();
+			return animation == ItemUseAnimation.BOW
+				|| animation == ItemUseAnimation.CROSSBOW
+				//? if >=1.21.11
+				|| animation == ItemUseAnimation.TRIDENT
+				|| animation == ItemUseAnimation.SPEAR
+				|| animation == ItemUseAnimation.SPYGLASS;
+		}
+		final ItemStack main = rider.getMainHandItem();
+		return main.getItem() instanceof CrossbowItem && CrossbowItem.isCharged(main);
+	}
+
+	/** Share of the way to a target that an easing at {@code ratePerSecond} covers this frame. */
+	private static float blend(final float ratePerSecond) {
+		return 1.0F - (float) Math.exp(-ratePerSecond * frameDt);
+	}
+
+	/**
+	 * Places the third-person riding camera for this frame (read it back with {@link #cameraX()} and so on). It looks
+	 * exactly where the rider looks ({@code yaw}, {@code pitch}) and orbits the head: a level sideways offset (over the
+	 * shoulder), a little up, then back along the view, pulled in by walls (snapping in, easing back out).
+	 */
+	public static void place(final Entity rider, final float partialTicks, final float yaw, final float pitch) {
+		final double px = Mth.lerp(partialTicks, rider.xo, rider.getX());
+		final double py = pivotY(partialTicks);
+		final double pz = Mth.lerp(partialTicks, rider.zo, rider.getZ());
+		final float yawRad = yaw * Mth.DEG_TO_RAD;
+		final float pitchRad = pitch * Mth.DEG_TO_RAD;
+		final float back = Mth.lerp(frameAim, distance(partialTicks), SHOULDER_AIM_DISTANCE * CAMERA_DISTANCE_SCALE);
+		// The view direction is (-sin yaw cos pitch, -sin pitch, cos yaw cos pitch); the rider's right is (-cos yaw, 0, -sin yaw).
+		final double ox = -Mth.cos(yawRad) * frameSide + Mth.sin(yawRad) * Mth.cos(pitchRad) * back;
+		final double oy = frameRaise + Mth.sin(pitchRad) * back;
+		final double oz = -Mth.sin(yawRad) * frameSide - Mth.cos(yawRad) * Mth.cos(pitchRad) * back;
+		final float clearance = clearance(rider.level(), rider, px, py, pz, ox, oy, oz);
+		frameReach = clearance < frameReach ? clearance : frameReach + (clearance - frameReach) * blend(CAMERA_WALL_RECOVER_RATE);
+		cameraX = px + ox * frameReach;
+		cameraY = py + oy * frameReach;
+		cameraZ = pz + oz * frameReach;
+	}
+
+	/**
+	 * Share (0 to 1) of the offset the camera can travel from the pivot before a wall, from a few jittered rays as vanilla
+	 * does. Leaves don't stop a ridden horse, so they don't push the camera in either.
+	 */
+	private static float clearance(
+		final BlockGetter level, final Entity rider, final double x, final double y, final double z, final double ox, final double oy, final double oz
+	) {
+		final double length = Math.sqrt(ox * ox + oy * oy + oz * oz);
+		if (length < 1.0E-4) {
+			return 1.0F;
+		}
+		double share = 1.0;
+		for (int i = 0; i < 8; i++) {
+			final Vec3 from = new Vec3(x + ((i & 1) * 2 - 1) * 0.1, y + ((i >> 1 & 1) * 2 - 1) * 0.1, z + ((i >> 2 & 1) * 2 - 1) * 0.1);
+			final HitResult hit = level.clip(new ClipContext(from, from.add(ox, oy, oz), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, rider));
+			if (hit.getType() != HitResult.Type.MISS) {
+				share = Math.min(share, Math.max((hit.getLocation().distanceTo(from) - CAMERA_WALL_MARGIN) / length, 0.0));
+			}
+		}
+		return (float) share;
+	}
+
+	public static double cameraX() {
+		return cameraX;
+	}
+
+	public static double cameraY() {
+		return cameraY;
+	}
+
+	public static double cameraZ() {
+		return cameraZ;
+	}
+
+	/** The camera's sideways offset from the rider's head this frame, blocks (+ right), after walls pull it in. */
+	public static float sideOffset() {
+		return frameSide * frameReach;
+	}
+
+	/** The camera's height over the pivot this frame, besides backing off along the view, after walls pull it in. */
+	public static float raiseOffset() {
+		return frameRaise * frameReach;
 	}
 
 	/** Smoothed saddle lift this frame, blocks (0 with View Bobbing off). */
@@ -186,7 +312,7 @@ public final class RideCamera {
 		return eyeY(partialTicks) + CAMERA_HEIGHT + frameLift * THIRD_PERSON_BOUNCE_SCALE;
 	}
 
-	/** This mod's own camera distance: the designed distance at this speed, scaled by the player's setting. */
+	/** The camera distance: the designed distance at this speed, scaled by the player's setting. */
 	public static float distance(final float partialTicks) {
 		return designedDistance(partialTicks) * CAMERA_DISTANCE_SCALE;
 	}

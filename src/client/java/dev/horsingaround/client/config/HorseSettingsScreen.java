@@ -1,13 +1,13 @@
 package dev.horsingaround.client.config;
 
 import dev.horsingaround.HorsingAround;
-import dev.horsingaround.client.RideCamera;
 import dev.horsingaround.client.cosmetic.HatColors;
 import dev.horsingaround.client.cosmetic.Hats;
 import java.net.URI;
-import java.util.List;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.function.IntConsumer;
+import com.mojang.serialization.Codec;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import dev.horsingaround.ride.HorseConfig;
@@ -154,20 +154,21 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 			c.thirdPersonOnMount = v;
 			HorseConfig.apply();
 		}));
-		final OptionInstance<Integer> distance = percent("camera_distance", 50, 150, c.cameraDistance, v -> c.cameraDistance = v);
-		final OptionInstance<Integer> height = blocks("camera_height", HorseConfig.CAMERA_HEIGHT_MIN, HorseConfig.CAMERA_HEIGHT_MAX, c.cameraHeight, v -> c.cameraHeight = v);
-		this.list.addSmall(distance, height);
-		this.list.addBig(percent("speed_zoom", 0, 100, c.speedZoom, v -> c.speedZoom = v));
-		if (RideCamera.isThirdPersonClaimed()) {
-			// Over the Shoulder places the third-person riding camera, with its own distance and height.
-			for (final OptionInstance<Integer> option : List.of(distance, height)) {
-				final AbstractWidget widget = this.list.findOption(option);
-				if (widget != null) {
-					widget.active = false;
-					widget.setTooltip(Tooltip.create(Component.translatable(KEY + "camera_claimed.tooltip")));
-				}
+		this.list.addBig(new OptionInstance<>(
+			KEY + "shoulder", tooltip("shoulder"),
+			(caption, shoulder) -> Options.genericValueLabel(caption, Component.translatable(KEY + "shoulder." + shoulder.name().toLowerCase(Locale.ROOT))),
+			new OptionInstance.Enum<>(Arrays.asList(HorseConfig.Shoulder.values()), Codec.STRING.xmap(HorseConfig.Shoulder::valueOf, HorseConfig.Shoulder::name)),
+			c.shoulder,
+			shoulder -> {
+				c.shoulder = shoulder;
+				HorseConfig.apply();
 			}
-		}
+		));
+		this.list.addSmall(
+			percent("camera_distance", 50, 150, c.cameraDistance, v -> c.cameraDistance = v),
+			blocks("camera_height", HorseConfig.CAMERA_HEIGHT_MIN, HorseConfig.CAMERA_HEIGHT_MAX, c.cameraHeight, v -> c.cameraHeight = v)
+		);
+		this.list.addBig(percent("speed_zoom", 0, 100, c.speedZoom, v -> c.speedZoom = v));
 
 		this.addHeader(section("comfort"));
 		this.list.addSmall(

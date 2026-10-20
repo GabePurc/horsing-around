@@ -1,6 +1,8 @@
 package dev.horsingaround.client.mixin;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import dev.horsingaround.client.RideCamera;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import dev.horsingaround.ride.RideState;
@@ -17,15 +19,25 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
 /**
- * The stamina bar (in the jump bar's slot) shows whenever stamina is not full, whatever else wants the slot. Before 1.21.6
- * the slot was the jump bar's alone (no locator bar), so there is nothing to patch.
+ * The centre crosshair shows while the riding camera is over the shoulder (aiming goes where it points). The stamina
+ * bar (in the jump bar's slot) shows whenever stamina is not full, whatever else wants the slot; before 1.21.6 the slot
+ * was the jump bar's alone (no locator bar), so there is nothing to patch.
  */
 @Mixin(Hud.class)
 public abstract class HudMixin {
-	//? if >=1.21.6 {
 	@Shadow
 	@Final
 	private Minecraft minecraft;
+
+	//? if >=26.1 {
+	@ModifyExpressionValue(method = "extractCrosshair", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/CameraType;isFirstPerson()Z"))
+	//?} else
+	/*@ModifyExpressionValue(method = "renderCrosshair", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/CameraType;isFirstPerson()Z"))*/
+	private boolean horsingaround$shoulderCrosshair(final boolean firstPerson) {
+		return firstPerson || RideCamera.isOverShoulder(this.minecraft.getCameraEntity(), this.minecraft);
+	}
+
+	//? if >=1.21.6 {
 
 	/** Over the locator bar. */
 	@ModifyReturnValue(method = "willPrioritizeJumpInfo", at = @At("RETURN"))

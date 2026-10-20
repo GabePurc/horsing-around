@@ -99,10 +99,11 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 			if (sections.isEmpty() || sections.contains("core")) {
 				mounting(ctx);
+				overTheShoulder(ctx, input);
 				freeLook(ctx, input);
 				walk(ctx, input);
 				gallop(ctx, input);
-				staminaBarAndCameraAddOn(ctx, input);
+				staminaBarAndRidingPitch(ctx, input);
 				turn(ctx, input);
 				runningJump(ctx, input);
 				exhaustion(ctx, input);
@@ -263,10 +264,11 @@ public final class RideFeelTest implements FabricClientGameTest {
 		section("Mounting");
 		check("ridden, the horse's box narrows to its body (width, blocks)", ctx.computeOnClient(mc -> (double) mc.player.getVehicle().getBbWidth()), 0.85, 0.95);
 		check("camera switched to third person", ctx.computeOnClient(mc -> mc.options.getCameraType()) == CameraType.THIRD_PERSON_BACK);
-		// The pivot sits CAMERA_HEIGHT above the rider's eyes and the camera backs off along the view (10 deg down).
+		// The pivot sits CAMERA_HEIGHT above the rider's eyes, SHOULDER_RAISE more over the shoulder, and the camera backs
+		// off along the view (10 deg down).
 		if (ctx.computeOnClient(mc -> RideCamera.isActive(mc.player, mc))) {
 			final double above = cameraAboveEyes(ctx);
-			check("riding camera sits low behind the rider (camera above the eyes, standing, blocks)", above, 0.75, 1.05);
+			check("riding camera sits low behind the rider (camera above the eyes, standing, blocks)", above, 0.9, 1.2);
 			ctx.runOnClient(mc -> {
 				HorseConfig.get().cameraHeight = RideTuning.CAMERA_HEIGHT_DEFAULT + 0.5F;
 				HorseConfig.apply();
@@ -348,13 +350,108 @@ public final class RideFeelTest implements FabricClientGameTest {
 	}
 
 	/**
-	 * The stamina bar holds the jump bar's slot in survival too, where the experience bar wants it (and Better Mount HUD,
-	 * in the compatibility runs, hides the jump bar unless jump is held). Then a camera add-on (Over the Shoulder) taking
-	 * the third-person view: this mod stops easing the pitch and placing the camera, and its distance setting doesn't
-	 * reach the add-on.
+	 * The riding camera over the shoulder (the default), standing: off the right shoulder; the game targets what is under
+	 * the centre crosshair and the server hears the rotation toward it (that aims arrows) while the view stays put; a
+	 * spyglass leans the camera in; the swap key and the setting move it, and off it sits centred.
 	 */
-	private void staminaBarAndCameraAddOn(final ClientGameTestContext ctx, final TestInput input) {
-		section("Stamina bar in survival, and a camera add-on");
+	private void overTheShoulder(final ClientGameTestContext ctx, final TestInput input) {
+		section("Over the shoulder");
+		if (!ctx.computeOnClient(mc -> RideCamera.isActive(mc.player, mc))) {
+			log("  skipped (another camera mod places the view)");
+			return;
+		}
+		// (After the side shots, a frame or two from the riding camera again.)
+		input.lookAt(180.0F, 10.0F);
+		ctx.waitTicks(5);
+		check("over the right shoulder by default (camera right of the eyes, blocks)", cameraSideOffset(ctx), 0.5, 0.65);
+
+		input.lookAt(180.0F, 45.0F);
+		ctx.waitTicks(10);
+		final String[] blocks = ctx.computeOnClient(mc -> {
+			final net.minecraft.client.Camera camera = mc.gameRenderer.mainCamera();
+			final net.minecraft.world.phys.Vec3 from = camera.position();
+			final org.joml.Vector3fc f = camera.forwardVector();
+			final net.minecraft.world.phys.Vec3 to = from.add(f.x() * 32.0, f.y() * 32.0, f.z() * 32.0);
+			final net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition(1.0F);
+			final net.minecraft.world.phys.Vec3 look = mc.player.getViewVector(1.0F).scale(32.0);
+			return new String[] {
+				String.valueOf(mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getType() != net.minecraft.world.phys.HitResult.Type.MISS ? hit.getBlockPos() : null),
+				clipBlock(mc, from, to),
+				clipBlock(mc, eye, eye.add(look))
+			};
+		});
+		log("  targeted %s, under the crosshair %s, along the eyes %s", blocks[0], blocks[1], blocks[2]);
+		check("the game targets the block under the centre crosshair", blocks[0].equals(blocks[1]));
+		screenshot(ctx, "01c_shoulder_crosshair");
+		final float[] aim = ctx.computeOnClient(mc -> new float[] {mc.player.getYRot(), dev.horsingaround.client.RideAim.yaw()});
+		final float serverYaw = this.server.computeOnServer(s -> s.getPlayerList().getPlayers().get(0).getYRot());
+		check("the aim turns toward the crosshair's target while the view stays (deg between)", Math.abs(Mth.wrapDegrees(aim[1] - aim[0])), 3.0, 25.0);
+		check("the server hears the rotation toward the crosshair's target (deg off)", Math.abs(Mth.wrapDegrees(serverYaw - aim[1])), 0.0, 1.0);
+
+		input.lookAt(180.0F, 10.0F);
+		hold(ctx, "spyglass");
+		final double out = cameraFromEyes(ctx);
+		input.holdKey(o -> o.keyUse);
+		ctx.waitTicks(20);
+		final double in = cameraFromEyes(ctx);
+		input.releaseKey(o -> o.keyUse);
+		hold(ctx, "air");
+		check("a spyglass leans the camera in (blocks from the eyes, " + String.format(Locale.ROOT, "%.2f", out) + " before)", in, 2.4, 3.0);
+
+		ctx.runOnClient(mc -> KeyMapping.click(com.mojang.blaze3d.platform.InputConstants.Type.KEYBOARD.getOrCreate(com.mojang.blaze3d.platform.InputConstants.KEY_O)));
+		ctx.waitTicks(20);
+		check("O swaps to the left shoulder (blocks)", cameraSideOffset(ctx), -0.65, -0.5);
+		check("the swap is saved as the setting", HorseConfig.get().shoulder == HorseConfig.Shoulder.LEFT);
+		screenshot(ctx, "01d_shoulder_left");
+		ctx.runOnClient(mc -> {
+			HorseConfig.get().shoulder = HorseConfig.Shoulder.OFF;
+			HorseConfig.apply();
+		});
+		ctx.waitTicks(20);
+		check("off: centred behind the rider (blocks)", Math.abs(cameraSideOffset(ctx)), 0.0, 0.02);
+		check("off: no crosshair aim (the eyes aim as in vanilla)", ctx.computeOnClient(mc -> !dev.horsingaround.client.RideAim.isActive()));
+		ctx.runOnClient(mc -> HorseConfig.reset());
+		ctx.waitTicks(20);
+	}
+
+	/** The block a line from {@code from} to {@code to} first meets, as text ("null" for none). */
+	private static String clipBlock(final net.minecraft.client.Minecraft mc, final net.minecraft.world.phys.Vec3 from, final net.minecraft.world.phys.Vec3 to) {
+		final net.minecraft.world.phys.BlockHitResult hit = mc.level.clip(new net.minecraft.world.level.ClipContext(
+			from, to, net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.NONE, mc.player));
+		return String.valueOf(hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS ? null : hit.getBlockPos());
+	}
+
+	/** The camera's place against the rider's eyes along the rider's right, blocks (negative = left). */
+	private static double cameraSideOffset(final ClientGameTestContext ctx) {
+		return ctx.computeOnClient(mc -> {
+			final float partialTicks = framePartialTicks(mc);
+			final net.minecraft.world.phys.Vec3 camera = mc.gameRenderer.mainCamera().position();
+			final net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition(partialTicks);
+			final float yaw = mc.player.getViewYRot(partialTicks) * Mth.DEG_TO_RAD;
+			return (camera.x - eye.x) * -Mth.cos(yaw) + (camera.z - eye.z) * -Mth.sin(yaw);
+		});
+	}
+
+	/** How far the camera is from the rider's eyes, blocks. */
+	private static double cameraFromEyes(final ClientGameTestContext ctx) {
+		return ctx.computeOnClient(mc -> mc.gameRenderer.mainCamera().position().distanceTo(mc.player.getEyePosition(framePartialTicks(mc))));
+	}
+
+	/**
+	 * Partial tick the last drawn frame placed the camera at: test code runs between frames, after the rider moved for
+	 * the latest tick, while the camera still shows the frame before.
+	 */
+	private static float framePartialTicks(final net.minecraft.client.Minecraft mc) {
+		return mc.gameRenderer.gameRenderState().levelRenderState.cameraRenderState.cameraEntityPartialTicks;
+	}
+
+	/**
+	 * The stamina bar holds the jump bar's slot in survival too, where the experience bar wants it (and Better Mount HUD,
+	 * in the compatibility runs, hides the jump bar unless jump is held). Then the view's pitch with the mouse left alone:
+	 * centred, it eases back to a riding pitch; over the shoulder it is the rider's aim and stays put.
+	 */
+	private void staminaBarAndRidingPitch(final ClientGameTestContext ctx, final TestInput input) {
+		section("Stamina bar in survival, and the riding pitch");
 		this.server.runCommand("gamemode survival @a");
 		ctx.waitTicks(3);
 		final String bar = contextualBar(ctx);
@@ -367,24 +464,18 @@ public final class RideFeelTest implements FabricClientGameTest {
 		input.pressKey(o -> o.keyDown);
 		input.lookAt(180.0F, 35.0F);
 		ctx.waitTicks(75);
-		check("idle mouse at a canter: the view eases back toward a riding pitch (deg)", ctx.computeOnClient(mc -> (double) mc.player.getXRot()), 9.0, 30.0);
-		ctx.runOnClient(mc -> dev.horsingaround.client.api.RideCameraApi.setThirdPersonClaimed(true));
-		input.lookAt(180.0F, 35.0F);
-		ctx.waitTicks(75);
-		check("an add-on placing the view: the pitch is left to the player (deg)", ctx.computeOnClient(mc -> (double) mc.player.getXRot()), 34.9, 35.1);
-		check("an add-on placing the view: this mod doesn't place the camera", ctx.computeOnClient(mc -> !RideCamera.isActive(mc.player, mc)));
+		check("over the shoulder: the pitch is left to the rider (deg)", ctx.computeOnClient(mc -> (double) mc.player.getXRot()), 34.9, 35.1);
 		ctx.runOnClient(mc -> {
+			HorseConfig.get().shoulder = HorseConfig.Shoulder.OFF;
 			HorseConfig.get().cameraDistance = 1.4F;
 			HorseConfig.apply();
 		});
-		check("the add-on gets the designed riding distance, not this mod's distance setting (share)",
-			ctx.computeOnClient(mc -> (double) (dev.horsingaround.client.api.RideCameraApi.distance(1.0F) / RideCamera.designedDistance(1.0F))), 0.999, 1.001);
-		check("this mod's own camera takes the distance setting (share)", ctx.computeOnClient(mc -> (double) (RideCamera.distance(1.0F) / RideCamera.designedDistance(1.0F))),
+		input.lookAt(180.0F, 35.0F);
+		ctx.waitTicks(75);
+		check("centred, idle mouse at a canter: the view eases back toward a riding pitch (deg)", ctx.computeOnClient(mc -> (double) mc.player.getXRot()), 9.0, 30.0);
+		check("the camera takes the distance setting (share)", ctx.computeOnClient(mc -> (double) (RideCamera.distance(1.0F) / RideCamera.designedDistance(1.0F))),
 			1.399, 1.401);
-		ctx.runOnClient(mc -> {
-			HorseConfig.reset();
-			dev.horsingaround.client.api.RideCameraApi.setThirdPersonClaimed(false);
-		});
+		ctx.runOnClient(mc -> HorseConfig.reset());
 		input.lookAt(180.0F, 10.0F);
 		input.pressKey(o -> o.keySprint);
 		ctx.waitTicks(30);

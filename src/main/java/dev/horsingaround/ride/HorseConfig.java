@@ -32,8 +32,21 @@ public final class HorseConfig {
 	public static final float CAMERA_HEIGHT_MIN = -0.5F;
 	public static final float CAMERA_HEIGHT_MAX = 1.5F;
 
+	/** Where the third-person riding camera sits: over a shoulder, or centred behind the rider. */
+	public enum Shoulder {
+		RIGHT(1.0F), LEFT(-1.0F), OFF(0.0F);
+
+		/** + right, - left. */
+		public final float sign;
+
+		Shoulder(final float sign) {
+			this.sign = sign;
+		}
+	}
+
 	// Camera.
 	public boolean thirdPersonOnMount = true;
+	public Shoulder shoulder = Shoulder.RIGHT;
 	public float cameraDistance = 1.0F;
 	/** Riding camera height above the rider's eyes, blocks. */
 	public float cameraHeight = CAMERA_HEIGHT_DEFAULT;
@@ -105,6 +118,13 @@ public final class HorseConfig {
 		apply();
 	}
 
+	/** The riding camera to the other shoulder (on over the right one, if it was centred), saved. */
+	public static void swapShoulder() {
+		instance.shoulder = instance.shoulder == Shoulder.RIGHT ? Shoulder.LEFT : Shoulder.RIGHT;
+		apply();
+		save();
+	}
+
 	/** Pushes the settings into the tuning values the camera and sound code read. */
 	public static void apply() {
 		final HorseConfig c = instance;
@@ -114,9 +134,14 @@ public final class HorseConfig {
 		c.viewBob = clamp(c.viewBob, DEFAULTS.viewBob, 0.0F, 1.0F);
 		c.handBob = clamp(c.handBob, DEFAULTS.handBob, 0.0F, 1.0F);
 		c.horseSounds = clamp(c.horseSounds, DEFAULTS.horseSounds, 0.0F, 1.0F);
+		if (c.shoulder == null) {
+			// (Missing, or a value this version doesn't know.)
+			c.shoulder = DEFAULTS.shoulder;
+		}
 		AUTO_THIRD_PERSON = c.thirdPersonOnMount;
 		CAMERA_DISTANCE_SCALE = c.cameraDistance;
 		CAMERA_HEIGHT = c.cameraHeight;
+		CAMERA_SIDE = SHOULDER_SIDE * c.shoulder.sign;
 		FOV_GALLOP_BOOST = FOV_GALLOP_BOOST_BASE * c.speedZoom;
 		FP_BOUNCE_SCALE = FP_BOUNCE_SCALE_BASE * c.viewBob;
 		FP_NOD_SCALE = FP_NOD_SCALE_BASE * c.viewBob;
