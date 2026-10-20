@@ -119,6 +119,9 @@ at most two lines, under the right area; details go in the PR, not here.
 - Project docs (user request, 2026-10-14): `AGENTS.md` says how to use the docs (user direction first, intent kept, numbers are snapshots, fix what is wrong, ask only to reverse a user decision, change the feel noticeably or widen scope)
 - Docs trimmed to save tokens (2026-10-14): `research.md` is a short summary with the history in `docs/design-log.md`; tests in `docs/testing.md`, releasing in `docs/releasing.md`; this file condensed
 
+- Performance pass (user request, 2026-10-20): `-Ptests=perf -Pprofile` measures the mod under a 57-horse load (about
+  70 us a client frame, next to nothing on the server); weak-map lookups per horse model part replaced by fields on the part
+
 ## Open / known limits
 
 - Trotting down a slope of full blocks keeps hooves off the ground at times: a known limit (user decision, see `research.md`), tests set to what it does

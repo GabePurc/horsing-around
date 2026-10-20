@@ -63,6 +63,12 @@ gallery always gets them). Leg and body easing runs on game time, so results don
 
 - `./gradlew runGameTest`: loads the mod on a bare dedicated server (no client code) and rides there.
 - `-Ptests=gallery`: clean store screenshots.
+- `-Ptests=perf`: load, not pass/fail (`PerfTest`, not in full runs): 56 horses of every kind in a pen, the player
+  galloping circles round them for 90 s; logs server tick time, frame rate and plan times to
+  `horsingaround-perf-report.txt`. With `-Pprofile` any run records a Java Flight Recording (1 ms CPU samples) to
+  `build/run/clientGameTest/horsingaround-profile.jfr`: count the samples with a `dev.horsingaround` frame (the
+  mod's share) and see which of its methods they go through. Last measured (2026-10-20):
+  about 3% of the client thread's Java samples (~70 us a frame) and 0.1-0.3% of the server's.
 - `-Ptests=store`: films the README's clips and stills in a generated world (`StoreMediaTest`; `-Pscenario=gaits,river`
   for some), with ATMOSPHERICS loaded for the sky. Clips are widescreen at 30 frames a second, slowed down where a shot
   asks; the ones shown as you play (the stamina bar, the riding camera, the settings) are 16:9 with the HUD, and while a

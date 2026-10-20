@@ -30,7 +30,8 @@ public final class Hats {
 		if (player instanceof LocalPlayer) {
 			return canWear() ? ownHat() : HatPayload.NONE;
 		}
-		if (!Supporters.isSupporter(player.getUUID())) {
+		// (No one on this server wears one, the usual case: no lookups at all.)
+		if (WORN.isEmpty() || !Supporters.isSupporter(player.getUUID())) {
 			return HatPayload.NONE;
 		}
 		final Integer color = WORN.get(player.getUUID());

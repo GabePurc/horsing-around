@@ -59,6 +59,10 @@ def gameTestEula = rootProject.layout.buildDirectory.file("run/clientGameTest/eu
 def lightTestGame = { task ->
 	task.systemProperty "horsingaround.lowSettings", lowSettings
 	task.maxHeapSize = "2G"
+	if (project.hasProperty("profile")) {
+		// A Java Flight Recorder recording of the whole run, for finding what the mod costs (docs/testing.md).
+		task.jvmArgs "-XX:StartFlightRecording=filename=horsingaround-profile.jfr,settings=profile,jdk.ExecutionSample#period=1ms,dumponexit=true"
+	}
 	def addMods = [performanceMods, storeLook].findAll { it != null }.collect { it.asPath }
 	if (!addMods.isEmpty()) {
 		task.systemProperty "fabric.addMods", addMods.join(File.pathSeparator)
