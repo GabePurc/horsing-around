@@ -2,6 +2,12 @@
 
 Each version's notes are written to paste straight into the Modrinth version page.
 
+## 0.5.2
+
+### Changed
+- Small performance improvements: horses take a little less work to draw each frame, and the checks of the ground under their hooves are quicker. Riding looks and feels exactly the same.
+- With over 50 horses around you while you gallop, the mod uses under 1% of each frame.
+
 ## 0.5.1
 
 ### Changed
