@@ -80,8 +80,8 @@ gallery always gets them). Leg and body easing runs on game time, so results don
   the next run. `-PshaderPack=<path to a shader pack zip>` shoots with Iris and that pack, stills only (the user wants clips
   without shaders, which are easier to see). `scripts/store-media.sh` turns them into `docs/media/`: each clip as MP4 and as
   animated WebP, framed in the logo's orange. The README (on GitHub) shows the WebPs; the Modrinth description is the
-  README with the clips as video (`scripts/modrinth-description.sh` writes it to `build/modrinth-description.md` for
-  pasting), because five large animated images stutter in a browser where video doesn't. Both load from
+  README with the clips as video, because large animated images stutter in a browser where video doesn't; CurseForge
+  drops video, so its description keeps the WebPs (`scripts/store-descriptions.sh` writes both to `build/` for pasting). Both load from
   `raw.githubusercontent.com/.../main/docs/media/`, so they show only once merged to main.
 
 ## Smoke test (every version)

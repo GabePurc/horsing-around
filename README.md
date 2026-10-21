@@ -2,10 +2,10 @@
 
 <img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/banner.png" alt="Horsing Around" width="100%">
 
-<a href="https://buymeacoffee.com/blintzbug"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-coffee.png" alt="Buy me a coffee" height="40"></a>
-<a href="https://modrinth.com/mod/fabric-api"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-fabric-api.png" alt="Requires Fabric API" height="40"></a>
-<a href="https://github.com/GabePurc/horsing-around"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-source.png" alt="Source on GitHub" height="40"></a>
-<a href="https://github.com/GabePurc/horsing-around/issues/new?template=bug_report.yml"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-bug.png" alt="Report a bug" height="40"></a>
+<a href="https://buymeacoffee.com/blintzbug"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-coffee.png" alt="Buy me a coffee" width="188"></a>
+<a href="https://modrinth.com/mod/fabric-api"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-fabric-api.png" alt="Requires Fabric API" width="223"></a>
+<a href="https://github.com/GabePurc/horsing-around"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-source.png" alt="Source on GitHub" width="201"></a>
+<a href="https://github.com/GabePurc/horsing-around/issues/new?template=bug_report.yml"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-bug.png" alt="Report a bug" width="162"></a>
 
 </div>
 
@@ -148,7 +148,7 @@ your server who has the mod sees it. It's only cosmetic: your helmet is hidden u
 
 <img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/hat.webp" alt="A rider in the supporters' cowboy hat at a canter" width="100%">
 
-<a href="https://buymeacoffee.com/blintzbug"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-coffee.png" alt="Buy me a coffee" height="40"></a>
+<a href="https://buymeacoffee.com/blintzbug"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-coffee.png" alt="Buy me a coffee" width="188"></a>
 
 </div>
 
