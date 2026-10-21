@@ -104,6 +104,8 @@ at most two lines, under the right area; details go in the PR, not here.
 - Every picture in the description is a clip (user request, 2026-10-20): rider, hat and the as-you-play shots (stamina bar,
   riding camera, settings, 16:9 with the HUD) replaced the stills, which went to the Modrinth gallery
 - CI: GitHub Actions builds every push; a published release (tag `v<version>`) uploads each version's jar to Modrinth (`gradle/publish.gradle`, `publish.yml`, notes from `CHANGELOG.md`'s top entry)
+- CurseForge (project 1758139): releases upload there too (`publishCurseforge`, secret `CURSEFORGE_TOKEN`); 0.5.2 was
+  the first, through the publish workflow's manual "curseforge" option
 - Bug reports: a GitHub issue form (`.github/ISSUE_TEMPLATE/bug_report.yml`) linked from the README and Mod Menu
 - Builds on any machine: no machine-specific paths, JDK 25 picked through `gradle-daemon-jvm.properties`
 - Code review fixes (2026-10-14): hat throttle, trampling speed window, supporters cache written safely and only on change
