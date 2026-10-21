@@ -177,7 +177,7 @@ tasks.register("auditMixins") {
 	dependsOn "auditClientMixins", "auditServerMixins"
 }
 
-// Release to Modrinth (./gradlew publishModrinth, run by .github/workflows/publish.yml on a GitHub release).
+// Release to Modrinth and CurseForge (./gradlew publishModrinth publishCurseforge, run by .github/workflows/publish.yml on a GitHub release).
 apply from: repoDir.file('gradle/publish.gradle')
 
 // The smoke test (src/smoke) runs on every version, the client tests below on the main one only.

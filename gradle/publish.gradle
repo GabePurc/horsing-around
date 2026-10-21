@@ -1,18 +1,19 @@
-// Release to Modrinth: ./gradlew publishModrinth uploads every version's jar as a Modrinth version of its own (its game
-// versions from game_versions in versions/<version>/gradle.properties, Fabric, Fabric API required, Mod Menu optional,
-// the release notes from the top entry of CHANGELOG.md). .github/workflows/publish.yml runs it when a GitHub release is
-// published. -PpublishDryRun, or no MODRINTH_TOKEN in the environment, uploads nothing: what would go up is written to
-// each version's build/publishMods/ instead.
+// Release to Modrinth and CurseForge: ./gradlew publishModrinth (publishCurseforge) uploads every version's jar as a
+// version (file) of its own (its game versions from game_versions in versions/<version>/gradle.properties, Fabric, Fabric
+// API required, Mod Menu optional, the release notes from the top entry of CHANGELOG.md). .github/workflows/publish.yml
+// runs both when a GitHub release is published. -PpublishDryRun, or neither MODRINTH_TOKEN nor CURSEFORGE_TOKEN in the
+// environment, uploads nothing: what would go up is written to each version's build/publishMods/ instead.
 
 def baseVersion = project.version.toString().split('\\+')[0]
 def gameVersions = project.game_versions.split(',')*.trim()
 def shownVersions = gameVersions.size() == 1 ? gameVersions[0] : "${gameVersions.first()}–${gameVersions.last()}"
 def modrinthProject = project.findProperty('modrinth_project_id') ?: ''
+def curseforgeProject = project.findProperty('curseforge_project_id') ?: ''
 // Alpha or beta for a version named so (0.4.0-beta.1, -rc.1) or a GitHub pre-release (the workflow passes -PpublishBeta), else stable.
 def versionTag = baseVersion.toLowerCase()
 def isAlpha = versionTag.contains('-alpha')
 def isBeta = project.hasProperty('publishBeta') || versionTag.contains('-beta') || versionTag.contains('-rc')
-def dry = project.hasProperty('publishDryRun') || providers.environmentVariable('MODRINTH_TOKEN').getOrNull() == null
+def dry = project.hasProperty('publishDryRun') || ['MODRINTH_TOKEN', 'CURSEFORGE_TOKEN'].every { providers.environmentVariable(it).getOrNull() == null }
 
 // The release notes: CHANGELOG.md's top entry, which must be this version's (written for players, see AGENTS.md).
 def changelogLines = rootProject.layout.projectDirectory.file('CHANGELOG.md').asFile.readLines()
@@ -36,15 +37,26 @@ publishMods {
 		requires('fabric-api')
 		optional('modmenu')
 	}
+	curseforge {
+		accessToken = providers.environmentVariable('CURSEFORGE_TOKEN')
+		projectId = curseforgeProject ?: 'not-set'
+		minecraftVersions.addAll(gameVersions)
+		client = true
+		server = true
+		changelogType = 'markdown'
+		requires('fabric-api')
+		optional('modmenu')
+	}
 }
 
-tasks.matching { it.name == 'publishModrinth' }.configureEach {
+tasks.matching { it.name in ['publishModrinth', 'publishCurseforge'] }.configureEach { task ->
+	def curseforge = task.name == 'publishCurseforge'
 	doFirst {
 		if (notesVersion != baseVersion) {
 			throw new GradleException("CHANGELOG.md's top entry is for ${notesVersion ?: 'nothing'}, not ${baseVersion}: write this version's release notes first")
 		}
-		if (!dry && !modrinthProject) {
-			throw new GradleException('No Modrinth project: set modrinth_project_id in gradle.properties')
+		if (!dry && !(curseforge ? curseforgeProject : modrinthProject)) {
+			throw new GradleException("No ${curseforge ? 'CurseForge' : 'Modrinth'} project: set ${curseforge ? 'curseforge' : 'modrinth'}_project_id in gradle.properties")
 		}
 	}
 }
