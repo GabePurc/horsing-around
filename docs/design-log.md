@@ -808,3 +808,9 @@ landings straddled the edge.
   turn like a body with weight (`RideController.turn`): a top speed (6 and 5 degrees a tick), easing in toward the gap, and
   the speed changing by at most 1.5 and 1 degrees a tick each tick, never overshooting. The jump tilt also follows the curve
   between ticks. Galloping up a mountain: turns faster than 150 degrees a second 10 to 1.
+- Legs fluttering off a drop at speed (play-test, 2026-10-23, recorded): in the air, the legs took the jump's shape only
+  while no hoof found its ground, decided afresh each frame; falling past a slope a hoof found it one frame and not the
+  next, so the legs flicked between the jump's shape and their stride (a front hoof 0.3 blocks forward and back in single
+  frames). The shape now eases in over 0.1 s and out over 0.04 s (`AirLegs.shape`; quick out, or hooves stepping down a
+  slope hung). Galloping down the mountains, leg hitches 252 and
+  229 to 93 and 128, the sharpest from about 100 blocks/s in a frame to 15 and 34.

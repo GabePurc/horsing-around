@@ -374,6 +374,9 @@ public final class RideState {
 	 */
 	public final float[] stepTurn = new float[4];
 	public final float[] stepTurnVelocity = new float[4];
+	/** How much of the jump's shape the legs take (0..1, see AirLegs.shape), eased each frame, and when it last was (game time). */
+	public float airShape;
+	public double airShapeAt = Double.NaN;
 	public final double[] stepBottom = {Double.NaN, Double.NaN, Double.NaN, Double.NaN};
 	/**
 	 * Per leg, the animation's stride against the body: where along the body its hoof was last frame (blocks; NaN, not yet),
