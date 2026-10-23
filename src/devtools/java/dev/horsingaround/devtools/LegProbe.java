@@ -375,7 +375,7 @@ public final class LegProbe {
 			top[leg][2] = tz;
 		}
 		// Snaps: where the sole is against the horse, from the last frame.
-		final double frameTime = horse.level().getGameTime() + mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+		final double frameTime = (double) horse.level().getGameTime() + mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
 		final double frameDt = Double.isNaN(soleLastTime) ? 0.0 : (frameTime - soleLastTime) / 20.0;
 		soleLastTime = frameTime;
 		final dev.horsingaround.ride.RideState riding = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
@@ -485,7 +485,7 @@ public final class LegProbe {
 	/** Slides, legs in blocks and jolts this frame (see {@link #slideMost}). */
 	private static void feel(final AbstractHorse horse, final LivingEntityRenderState s, final Minecraft mc, final Vec3 cam) {
 		final float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
-		final double time = horse.level().getGameTime() + partial;
+		final double time = (double) horse.level().getGameTime() + partial;
 		final String[] names = {"FL", "FR", "HL", "HR"};
 		boolean over = false;
 		for (int leg = 0; leg < 4; leg++) {
@@ -763,7 +763,7 @@ public final class LegProbe {
 		if (bellyVolume <= 0.0) {
 			return;
 		}
-		final double time = horse.level().getGameTime() + mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+		final double time = (double) horse.level().getGameTime() + mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
 		final double body = (belly[1] + belly[4] + belly[7] + belly[10]) * 0.25;
 		final double dt = (time - lastTime) / 20.0;
 		final String[] names = {"body", "FL", "FR", "HL", "HR"};

@@ -796,3 +796,8 @@ landings straddled the edge.
   cresting at speed it changed speed in a jump twenty times a second. It now follows a curve through the last three ticks
   (`RideState.curve`, half a tick behind): climbing a mountain at a gallop, tilt hitches 47 to 0. The body's height on
   the same curve left hooves hanging going down (half a tick behind), so it stays as it was (its judder is left).
+- The sinking (play-test, 2026-10-23, caught by the dev tools' recorder in the user's world): the legs read the time as
+  the world's game time plus the partial tick, which Java adds as a float. Past about 16.7 million ticks (the user's world
+  is at 158 million) a float steps in whole ticks or more, so the legs' springs almost never saw time pass: legs never
+  drew up onto higher ground and the body never settled onto them, so hooves sank (0.29 into a step at a walk). Fixed by
+  adding in double; the stride lanes now run with the world clock at 158 million. Fresh test worlds never showed it.

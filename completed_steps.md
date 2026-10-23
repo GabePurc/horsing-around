@@ -44,6 +44,7 @@ at most two lines, under the right area; details go in the PR, not here.
 - The body is a mass on its legs: front and hind ends each ease to the ground under their hooves, tilt is the line between them, forehand leads on steps, legs give on landing
 - Each hoof sits on its own ground (block grid, slabs, stairs, water as a floor), upright against slopes only, never in the ground; vanilla's one-piece legs, no knee joints
 - Hooves move to their height on a short spring and look ahead along their own path, so they lift onto higher ground smoothly instead of popping (2026-10-22)
+- Legs work in old worlds: the time they read was a float, stuck in a world past 16.7 million ticks (hooves sank)
 - Dev tools mod (`src/devtools`, dev games and tests only): leg probe and a play-test recorder (F7, `run/devtools/`), hitches logged
 - The drawn body's tilt follows a smooth curve between ticks (no judder at twenty a second)
 - Steps of a hoof's own (2026-10-23): a planted hoof at a step steps up onto it (up, over, down clear past the edge, held),

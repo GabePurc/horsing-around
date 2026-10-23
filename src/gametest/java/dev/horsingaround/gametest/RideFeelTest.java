@@ -3509,6 +3509,11 @@ public final class RideFeelTest implements FabricClientGameTest {
 	 * instead of numbers.
 	 */
 	private void strides(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		// (In a world played for a long time: its clock past what a float holds to the tick. The legs once read the time as
+		// a float, so there they never moved off the animation's pose, and the horse sank into the ground (play-test,
+		// 2026-10-23, a world at tick 158 million).)
+		world.getServer().runOnServer(s -> ((net.minecraft.world.level.storage.ServerLevelData) s.overworld().getLevelData()).setGameTime(158_000_000L));
+		ctx.waitTicks(30);
 		ctx.runOnClient(mc -> LegProbe.arm(true));
 		final int frameLimit = ctx.computeOnClient(mc -> mc.options.framerateLimit().get());
 		ctx.runOnClient(mc -> mc.options.framerateLimit().set(120));
