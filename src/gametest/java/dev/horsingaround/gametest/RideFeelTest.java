@@ -393,6 +393,25 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("the aim turns toward the crosshair's target while the view stays (deg between)", Math.abs(Mth.wrapDegrees(aim[1] - aim[0])), 3.0, 25.0);
 		check("the server hears the rotation toward the crosshair's target (deg off)", Math.abs(Mth.wrapDegrees(serverYaw - aim[1])), 0.0, 1.0);
 
+		// Looking round and down over the shoulder (the line from the eyes to the crosshair's target passes the horse's head):
+		// the game never targets the horse itself (it showed the attack indicator over nothing, play-test 2026-10-23).
+		hold(ctx, "iron_sword");
+		final int movedBefore = ctx.computeOnClient(mc -> dev.horsingaround.client.RideAim.horsePicks);
+		int onHorse = 0;
+		for (float yaw = 120.0F; yaw <= 240.0F; yaw += 15.0F) {
+			for (float down = -10.0F; down <= 60.0F; down += 10.0F) {
+				input.lookAt(yaw, down);
+				ctx.waitTicks(2);
+				if (ctx.computeOnClient(mc -> mc.crosshairPickEntity != null && mc.crosshairPickEntity == mc.player.getVehicle())) {
+					onHorse++;
+				}
+			}
+		}
+		log("  looking round and down: the game's own targeting landed on the horse %d times, moved past it",
+			ctx.computeOnClient(mc -> dev.horsingaround.client.RideAim.horsePicks) - movedBefore);
+		check("never targets its own horse, looking round and down (views)", onHorse, 0, 0);
+		hold(ctx, "air");
+
 		input.lookAt(180.0F, 10.0F);
 		hold(ctx, "spyglass");
 		final double out = cameraFromEyes(ctx);

@@ -33,7 +33,7 @@ public final class Recorder {
 	/** About 30 seconds at 260 frames a second. */
 	static final int FRAMES = 8000;
 	private static final String[] BODY = {"time", "fps", "x", "y", "z", "yaw", "speed", "gait", "keys", "body", "tilt", "fit", "near", "camx", "camy", "camz",
-		"camyaw", "campitch"};
+		"camyaw", "campitch", "target", "attack"};
 	private static final String[] LEG = {"x", "y", "z", "gap", "clip", "lift", "rise", "back", "turn", "step"};
 	private static final int COLUMNS = BODY.length + 4 * LEG.length;
 	private static final double[][] RING = new double[FRAMES][COLUMNS];
@@ -44,6 +44,7 @@ public final class Recorder {
 	private static long eventSecond;
 	private static int eventsThisSecond;
 	static boolean on;
+	private static int lastTarget;
 
 	private Recorder() {
 	}
@@ -51,6 +52,10 @@ public final class Recorder {
 	/** After LegProbe has measured a frame of the ridden horse. */
 	static void frame(final AbstractHorse horse, final LivingEntityRenderState s, final Minecraft mc, final Vec3 cam, final double time, final float partial) {
 		if (!on) {
+			return;
+		}
+		// (The horse is drawn more than once a frame: one row a frame.)
+		if (count > 0 && RING[(next + FRAMES - 1) % FRAMES][0] == time) {
 			return;
 		}
 		final RideState ride = ((RideStateHolder) horse).horsingaround$ride();
@@ -75,6 +80,17 @@ public final class Recorder {
 		row[c++] = cam.z;
 		row[c++] = mc.gameRenderer.mainCamera().yRot();
 		row[c++] = mc.gameRenderer.mainCamera().xRot();
+		// What the crosshair targets (0 nothing, 1 the horse ridden, 2 something living, 3 anything else), and how charged
+		// the attack is (the attack indicator shows the sword on something living at full charge).
+		final net.minecraft.world.entity.Entity target = mc.crosshairPickEntity;
+		final int targetCode = target == null ? 0 : target == horse ? 1 : target instanceof net.minecraft.world.entity.LivingEntity ? 2 : 3;
+		row[c++] = targetCode;
+		row[c++] = mc.player.getAttackStrengthScale(0.0F);
+		if (targetCode != lastTarget && targetCode != 0) {
+			event(mc, String.format(Locale.ROOT, "target %s (%s, %.1f blocks off, attack %.2f)", targetCode == 1 ? "the horse ridden" : "something",
+				BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()).getPath(), Math.sqrt(target.distanceToSqr(mc.player)), mc.player.getAttackStrengthScale(0.0F)));
+		}
+		lastTarget = targetCode;
 		for (int leg = 0; leg < 4; leg++) {
 			row[c++] = LegProbe.sole[leg][0];
 			row[c++] = LegProbe.sole[leg][1];
