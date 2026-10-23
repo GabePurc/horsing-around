@@ -51,10 +51,11 @@ public abstract class EquineGaitMixin {
 	//? if >=1.21.2 {
 	@Inject(method = "setupAnim(Lnet/minecraft/client/renderer/entity/state/EquineRenderState;)V", at = @At("TAIL"))
 	private void horsingaround$gait(final EquineRenderState state, final CallbackInfo ci) {
-		if (((RidePoseState) state).horsingaround$rideState() != null && !AnimationPacks.animates(this)) {
+		final RidePoseState pose = (RidePoseState) state;
+		if (pose.horsingaround$rideState() != null && !AnimationPacks.animates(this)) {
 			GaitCycle.pose(
 				this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, this.headParts, this.tail, state.walkAnimationPos,
-				state.walkAnimationSpeed, state.isInWater, state.standAnimation, state.eatAnimation
+				state.walkAnimationSpeed, state.isInWater, state.standAnimation, state.eatAnimation, pose.horsingaround$legTilt()
 			);
 		}
 	}
@@ -64,11 +65,12 @@ public abstract class EquineGaitMixin {
 		final AbstractHorse horse, final float limbSwing, final float limbSwingAmount, final float ageInTicks, final float headYaw, final float headPitch,
 		final CallbackInfo ci
 	) {
-		if (LegacyRenderState.of(horse) != null && !AnimationPacks.animates(this)) {
+		final Object state = LegacyRenderState.of(horse);
+		if (state != null && !AnimationPacks.animates(this)) {
 			final float partialTicks = ageInTicks - horse.tickCount;
 			GaitCycle.pose(
 				this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, this.headParts, this.tail, limbSwing, limbSwingAmount,
-				horse.isInWater(), horse.getStandAnim(partialTicks), horse.getEatAnim(partialTicks)
+				horse.isInWater(), horse.getStandAnim(partialTicks), horse.getEatAnim(partialTicks), ((RidePoseState) state).horsingaround$legTilt()
 			);
 		}
 	}

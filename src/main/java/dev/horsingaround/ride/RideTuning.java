@@ -782,29 +782,30 @@ public final class RideTuning {
 	 * past 0 and 1 where that keeps the next gait's a short way off, because the gaits blend.
 	 */
 	public static final float[][] GAIT_TOUCHDOWN = {
-		{-0.085F, 0.415F, 0.665F, 0.165F},
-		{0.04F, 0.54F, 0.54F, 0.04F},
+		{-0.105F, 0.395F, 0.645F, 0.145F},
+		{0.02F, 0.52F, 0.52F, 0.02F},
 		{-0.34F, 0.48F, 0.43F, 0.28F},
 		{-0.26F, 0.62F, 0.42F, 0.3F},
 	};
 	/** Share of the stride each hoof is on the ground. */
-	public static final float[] GAIT_STANCE = {0.62F, 0.42F, 0.4F, 0.3F};
+	public static final float[] GAIT_STANCE = {0.62F, 0.46F, 0.4F, 0.3F};
 	/**
 	 * How far forward a leg is as it touches down and how far back as it lifts off, radians: kept small, because a rigid
-	 * leg turned about its top lifts its hoof off the ground (at 0.34 by 0.6 of a pixel).
+	 * leg turned about its top lifts its hoof off the ground (at 0.27 by 0.4 of a pixel), and the body comes down onto
+	 * hooves that stand off it.
 	 */
-	public static final float[] GAIT_FORE_REACH = {0.26F, 0.3F, 0.32F, 0.34F};
-	public static final float[] GAIT_FORE_BACK = {0.24F, 0.28F, 0.28F, 0.3F};
-	public static final float[] GAIT_HIND_REACH = {0.18F, 0.24F, 0.3F, 0.32F};
-	public static final float[] GAIT_HIND_BACK = {0.28F, 0.32F, 0.32F, 0.34F};
+	public static final float[] GAIT_FORE_REACH = {0.26F, 0.27F, 0.27F, 0.27F};
+	public static final float[] GAIT_FORE_BACK = {0.24F, 0.25F, 0.25F, 0.25F};
+	public static final float[] GAIT_HIND_REACH = {0.18F, 0.22F, 0.25F, 0.26F};
+	public static final float[] GAIT_HIND_BACK = {0.27F, 0.27F, 0.27F, 0.27F};
 	/**
 	 * In the air the leg goes further: back after it pushes off (early in the swing) and forward reaching for the ground
 	 * (late), radians more than the hermite curve between lift-off and touch-down that keeps the leg's pace through both.
 	 */
-	public static final float[] GAIT_FORE_FLICK = {0.02F, 0.06F, 0.08F, 0.1F};
-	public static final float[] GAIT_FORE_STRETCH = {0.08F, 0.18F, 0.25F, 0.32F};
-	public static final float[] GAIT_HIND_FLICK = {0.04F, 0.1F, 0.14F, 0.2F};
-	public static final float[] GAIT_HIND_STRETCH = {0.06F, 0.12F, 0.18F, 0.22F};
+	public static final float[] GAIT_FORE_FLICK = {0.02F, 0.08F, 0.12F, 0.15F};
+	public static final float[] GAIT_FORE_STRETCH = {0.08F, 0.22F, 0.32F, 0.42F};
+	public static final float[] GAIT_HIND_FLICK = {0.05F, 0.14F, 0.2F, 0.28F};
+	public static final float[] GAIT_HIND_STRETCH = {0.06F, 0.14F, 0.24F, 0.3F};
 	/** Where in the swing the flick back and the stretch forward are furthest. */
 	public static final float GAIT_FLICK_PEAK = 0.25F;
 	public static final float GAIT_STRETCH_PEAK = 0.75F;

@@ -13,6 +13,11 @@ final class TestPacks {
 	private TestPacks() {
 	}
 
+	/** Whether an animation pack animates the horse: Entity Model Features loaded and Fresh Animations on (not -PvanillaModel). */
+	static boolean animated() {
+		return net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("entity_model_features") && !Boolean.getBoolean("horsingaround.vanillaModel");
+	}
+
 	/** Turns the packs on (once; later calls find them on) and waits for the reload. Returns whether Fresh Animations is on. */
 	static boolean enable(final ClientGameTestContext ctx) {
 		final CompletableFuture<Void> reload = ctx.computeOnClient(mc -> {

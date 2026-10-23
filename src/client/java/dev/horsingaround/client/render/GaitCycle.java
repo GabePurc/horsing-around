@@ -59,10 +59,12 @@ public final class GaitCycle {
 	 * @param water    in water (vanilla's legs go at a fifth of the pace)
 	 * @param standing how far the horse is reared, 0..1
 	 * @param eating   how far its head is down grazing, 0..1
+	 * @param tilt     the ground's tilt under the ridden horse, radians (0 for one the ride doesn't place)
 	 */
 	public static void pose(
 		final @Nullable ModelPart leftFront, final @Nullable ModelPart rightFront, final @Nullable ModelPart leftHind, final @Nullable ModelPart rightHind,
-		final ModelPart head, final ModelPart tail, final float position, final float speed, final boolean water, final float standing, final float eating
+		final ModelPart head, final ModelPart tail, final float position, final float speed, final boolean water, final float standing, final float eating,
+		final float tilt
 	) {
 		final float upright = 1.0F - standing;
 		final float stride = position * LEG_PHASE * (water ? WATER_PACE : 1.0F);
@@ -85,12 +87,15 @@ public final class GaitCycle {
 		final float foreBack = mix(GAIT_FORE_BACK);
 		final float foreFlick = mix(GAIT_FORE_FLICK);
 		final float foreStretch = mix(GAIT_FORE_STRETCH);
-		final float foreLift = mix(GAIT_FORE_LIFT);
+		// On steep ground the hooves lift less, as the stride is shorter there (see GroundLegs): the ride lifts each one
+		// onto the ground ahead of it.
+		final float steep = 1.0F - (1.0F - STRIDE_STEEP) * Mth.clamp(Math.abs(tilt) / STRIDE_STEEP_TILT, 0.0F, 1.0F);
+		final float foreLift = mix(GAIT_FORE_LIFT) * steep;
 		final float hindReach = mix(GAIT_HIND_REACH);
 		final float hindBack = mix(GAIT_HIND_BACK);
 		final float hindFlick = mix(GAIT_HIND_FLICK);
 		final float hindStretch = mix(GAIT_HIND_STRETCH);
-		final float hindLift = mix(GAIT_HIND_LIFT);
+		final float hindLift = mix(GAIT_HIND_LIFT) * steep;
 		leg(leftFront, t - touchdown(0), stance, foreReach, foreBack, foreFlick, foreStretch, foreLift, FORE_SKEW, size, vanilla * 0.8F);
 		leg(rightFront, t - touchdown(1), stance, foreReach, foreBack, foreFlick, foreStretch, foreLift, FORE_SKEW, size, -vanilla * 0.8F);
 		leg(leftHind, t - touchdown(2), stance, hindReach, hindBack, hindFlick, hindStretch, hindLift, HIND_SKEW, size, -vanilla * 0.5F);
