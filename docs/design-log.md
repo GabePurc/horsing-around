@@ -788,3 +788,11 @@ landings straddled the edge.
   below the hooves) the ground each end of the body follows is averaged exactly over about four ticks of travel, more of
   it ahead, and going down over the stretch just behind the hooves.
 - Step down is as before (a planted hoof slides off the edge and hangs a moment: a rigid leg can't reach down a block).
+- Play-test feedback (2026-10-23): legs hitched and snapped, and the rider hitched climbing at full speed onto the flat.
+  Measured as a hoof's, the body's or its tilt's speed changing in one frame (`LegProbe.hitches`, against the drawn body;
+  against the horse's own position every step-up looked like one). The steps of a hoof's own moved the leg in snaps
+  (limits, holds let go): the leg's turn is now on a short spring (`STEP_TURN_TIME`), and walk and trot steps have none.
+  The rider's hitch was older: the body's tilt, worked out each tick, was drawn in straight lines between ticks, so
+  cresting at speed it changed speed in a jump twenty times a second. It now follows a curve through the last three ticks
+  (`RideState.curve`, half a tick behind): climbing a mountain at a gallop, tilt hitches 47 to 0. The body's height on
+  the same curve left hooves hanging going down (half a tick behind), so it stays as it was (its judder is left).

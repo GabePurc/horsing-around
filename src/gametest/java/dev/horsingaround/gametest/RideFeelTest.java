@@ -1,6 +1,7 @@
 package dev.horsingaround.gametest;
 
 import dev.horsingaround.client.RideCamera;
+import dev.horsingaround.devtools.LegProbe;
 import dev.horsingaround.ride.Foliage;
 import dev.horsingaround.ride.HorseConfig;
 import dev.horsingaround.ride.RideState;
@@ -3666,13 +3667,16 @@ public final class RideFeelTest implements FabricClientGameTest {
 			final String feel = ctx.computeOnClient(mc -> LegProbe.feel());
 			log("  %s", (Object) feel);
 			log("  %s", (Object) ctx.computeOnClient(mc -> LegProbe.about()));
+			log("  %s %s", ctx.computeOnClient(mc -> LegProbe.hitches()), ctx.computeOnClient(mc -> LegProbe.kinkLog.substring(0, Math.min(LegProbe.kinkLog.length(), 1500))));
 			log("  soles sunk: %s", (Object) ctx.computeOnClient(mc -> LegProbe.sunkLog.substring(0, Math.min(LegProbe.sunkLog.length(), 1200))));
 			log("  slides: %s", (Object) ctx.computeOnClient(mc -> LegProbe.slideLog.toString()));
 			log("  legs in blocks: %s", (Object) ctx.computeOnClient(mc -> LegProbe.clipLog.toString()));
 			final double[] n = ctx.computeOnClient(mc -> new double[] {LegProbe.slideMost, LegProbe.slideMean(), LegProbe.clipMost, LegProbe.clipFrames, LegProbe.frames,
-				LegProbe.bodyJolt, LegProbe.tiltJolt, LegProbe.cameraJolt, LegProbe.cameraSurge});
-			this.strideTable.add(String.format(Locale.ROOT, "%-18s slid %.3f / %.3f  in blocks %.3f, %3d of %4d frames  jolts body %5.1f tilt %5.0f camera %5.1f %5.1f", name,
-				n[0], n[1], n[2], (int) n[3], (int) n[4], n[5], n[6], n[7], n[8]));
+				LegProbe.bodyJolt, LegProbe.tiltJolt, LegProbe.cameraJolt, LegProbe.cameraSurge, LegProbe.kinks, LegProbe.kinkMost, LegProbe.cameraKinks, LegProbe.cameraKinkMost,
+				LegProbe.bodyKinks, LegProbe.bodyKinkMost, LegProbe.tiltKinks, LegProbe.tiltKinkMost});
+			this.strideTable.add(String.format(Locale.ROOT,
+				"%-18s slid %.3f / %.3f  in blocks %.3f, %3d of %4d frames  jolts body %5.1f tilt %5.0f camera %5.1f %5.1f  hitches legs %3d (%4.1f) camera %3d (%4.2f) body %3d (%4.2f) tilt %3d (%4.0f)",
+				name, n[0], n[1], n[2], (int) n[3], (int) n[4], n[5], n[6], n[7], n[8], (int) n[9], n[10], (int) n[11], n[12], (int) n[13], n[14], (int) n[15], n[16]));
 			try {
 				Files.writeString(FabricLoader.getInstance().getGameDir().resolve("stride-" + name + ".csv"), csv);
 			} catch (final IOException ex) {

@@ -11,6 +11,30 @@ fabricApi {
 dependencies {
 	gametestCompileOnly "maven.modrinth:modmenu:${project.modmenu_version}"
 }
+// Dev tools (src/devtools, a mod of its own): the leg probe and the play-test recorder, in dev games (./gradlew runClient
+// on this version) and the client tests; never in the jar players install.
+sourceSets {
+	devtools {
+		compileClasspath += sourceSets.main.compileClasspath + sourceSets.client.compileClasspath + sourceSets.main.output + sourceSets.client.output
+		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.client.runtimeClasspath + sourceSets.main.output + sourceSets.client.output
+	}
+	gametest {
+		compileClasspath += sourceSets.devtools.output
+		runtimeClasspath += sourceSets.devtools.output
+	}
+}
+loom {
+	mods {
+		"horsingaround-devtools" {
+			sourceSet sourceSets.devtools
+		}
+	}
+	runs {
+		client {
+			source sourceSets.devtools
+		}
+	}
+}
 // Test games run in the repo's build/run/ (this node's own folder is versions/26.3/).
 loom.runs.matching { it.name in ["clientGameTest", "gameTest"] }.configureEach { run -> run.runDir "../../build/run/${run.name}" }
 tasks.named("installFreshAnimations") { mustRunAfter "deleteGameTestRunDir" }
@@ -313,6 +337,11 @@ def gametestJar = tasks.register("gametestJar", Jar) {
 	archiveClassifier = "gametest"
 	destinationDirectory = rootProject.layout.buildDirectory.dir("compat-libs")
 }
+def devtoolsJar = tasks.register("devtoolsJar", Jar) {
+	from sourceSets.devtools.output
+	archiveClassifier = "devtools"
+	destinationDirectory = rootProject.layout.buildDirectory.dir("compat-libs")
+}
 
 def freshAnimationsPack = project.ext.freshAnimationsZip
 // (A script plugin can't see Loom's classes by name; take the task type from Loom's own class loader.)
@@ -334,6 +363,7 @@ compatPacks.keySet().each { name ->
 		finalizedBy "compatFindings${name.capitalize()}"
 		mods.from(tasks.named("jar"))
 		mods.from(gametestJar)
+		mods.from(devtoolsJar)
 		mods.from(configurations.named("compatBase"))
 		mods.from(configurations.named("compat${name.capitalize()}"))
 		jvmArgs.add("-Dfabric.client.gametest")

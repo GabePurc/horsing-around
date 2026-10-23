@@ -623,6 +623,8 @@ public final class RideTuning {
 	 * that eases back onto the stride over STEP_RELEASE_TIME seconds (in the air, or as a slide).
 	 */
 	public static final float STEP_TURN_MAX = 0.7F;
+	/** The leg turns to put its hoof there on a critically damped spring of STEP_TURN_TIME seconds: nothing moves it in a snap. */
+	public static final float STEP_TURN_TIME = 0.025F;
 	public static final double STEP_HOLD_MAX = 0.6;
 	public static final float STEP_RELEASE_TIME = 0.08F;
 	/**

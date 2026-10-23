@@ -6,6 +6,7 @@ import com.mojang.renderpearl.api.commands.CommandEncoder;
 import com.mojang.renderpearl.api.commands.GpuFence;
 import com.mojang.datafixers.util.Pair;
 import dev.horsingaround.client.config.HorseSettingsScreen;
+import dev.horsingaround.devtools.LegProbe;
 import dev.horsingaround.gametest.mixin.DeltaTrackerTimerAccessor;
 import dev.horsingaround.gametest.mixin.RideCameraAccessor;
 import dev.horsingaround.client.cosmetic.Hats;

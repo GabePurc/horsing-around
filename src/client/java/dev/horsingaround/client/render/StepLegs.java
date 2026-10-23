@@ -42,6 +42,7 @@ public final class StepLegs {
 		ride.stepCarry[i] = Float.NaN;
 		ride.stepShift[i] = 0.0F;
 		ride.stepTurn[i] = 0.0F;
+		ride.stepTurnVelocity[i] = 0.0F;
 		ride.stepBottom[i] = Double.NaN;
 		ride.strideRel[i] = Float.NaN;
 		ride.strideRelRate[i] = 0.0F;

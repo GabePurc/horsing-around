@@ -67,6 +67,17 @@ fps broke some), a 2 GB heap, and Sodium, Lithium, FerriteCore and
 ImmediatelyFast loaded only into test games). `-PplainGame` drops the mods; `-PfullGraphics` keeps normal settings (the
 gallery always gets them). Leg and body easing runs on game time, so results don't depend on frame rate.
 
+## Dev tools (src/devtools)
+
+A mod of its own, `horsingaround-devtools`, loaded in dev games (`./gradlew runClient`, 26.3) and the client tests, never
+in the jar players install. It holds `LegProbe` (the legs measured exactly as drawn; the tests use it) and the play-test
+recorder: in a dev game it records every frame of the ridden horse (body, tilt, camera, keys, each leg as drawn and its
+step state) into a ring of about 30 seconds. **F7** saves it to `run/devtools/<time>/` (`frames.csv`, `ground.csv` with the
+ground along the way, `events.txt`). Every hitch (a hoof, the body, its tilt or the camera changing speed in one frame)
+and every sunk hoof also goes to `run/devtools/events.log` as it happens. After a play-test, read those instead of
+guessing. Stride lanes and terrain scenarios report the same hitches (`LegProbe.hitches`), measured against the drawn
+body.
+
 ## Other runs
 
 - `./gradlew runGameTest`: loads the mod on a bare dedicated server (no client code) and rides there.

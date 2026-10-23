@@ -198,7 +198,19 @@ public final class GroundLegs {
 			final double animZ = ride.drawnCameraZ + POINT.z;
 			final float rel = (float) ((animX - originX) * fx + (animZ - originZ) * fz);
 			StepLegs.step(ride, level, i, rel, animX, animY, animZ, leg.soleHalf / pixels, fx, fz, packLift, travel, dt, !grounded);
-			final float turn = Math.abs(StepLegs.shift) > 1.0E-3F ? turnBy(ride, part, leg, StepLegs.shift, fx, fz) : 0.0F;
+			final float aim = Math.abs(StepLegs.shift) > 1.0E-3F ? turnBy(ride, part, leg, StepLegs.shift, fx, fz) : 0.0F;
+			// (On a short spring: a step, a hold let go or a limit reached never moves the hoof in a snap.)
+			float turn = aim;
+			if (dt > 0.0F) {
+				turn = Mth.clamp(spring(ride.stepTurn[i], ride.stepTurnVelocity, i, aim, dt, STEP_TURN_TIME), -STEP_TURN_MAX, STEP_TURN_MAX);
+				if (aim == 0.0F && Math.abs(turn) < 1.0E-4F && Math.abs(ride.stepTurnVelocity[i]) < 1.0E-2F) {
+					turn = 0.0F;
+					ride.stepTurnVelocity[i] = 0.0F;
+				}
+				if (turn != aim) {
+					Legs.swing(part, leg, part.xRot - aim + turn);
+				}
+			}
 			ride.stepTurn[i] = turn;
 			final double now = ground(ride, part, leg, level, i, swing > 0.0F || moving > 0.0F);
 			// (A hoof the body has lifted off the ground, in front of a step, is in the air too: as free to lift as a

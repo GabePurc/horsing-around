@@ -1,5 +1,6 @@
 package dev.horsingaround.gametest;
 
+import dev.horsingaround.devtools.LegProbe;
 import dev.horsingaround.ride.RideController;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
@@ -180,9 +181,15 @@ public final class TerrainRideTest implements FabricClientGameTest {
 			input.pressKey(o -> o.keySprint);
 			ctx.waitTicks(3);
 		}
+		final StringBuilder csv = new StringBuilder("time,x,y,z,body,tilt,camx,camy,camz,fore,hind");
+		for (final String leg : new String[] {"fl", "fr", "hl", "hr"}) {
+			csv.append(String.format(Locale.ROOT, ",%1$s_x,%1$s_y,%1$s_z,%1$s_gap,%1$s_clip,%1$s_lift,%1$s_rise,%1$s_back,%1$s_step,%1$s_turn", leg));
+		}
+		csv.append('\n');
 		ctx.runOnClient(mc -> {
 			LegProbe.arm(true);
 			LegProbe.passLeaves = true;
+			LegProbe.record = csv;
 		});
 
 		final double distance = Math.hypot(target.getX() - start.getX(), target.getZ() - start.getZ());
@@ -416,13 +423,24 @@ public final class TerrainRideTest implements FabricClientGameTest {
 		if (gait == 3) {
 			check("keeps moving (pace / gallop)", travelled / Math.max(ticks, 1) / GALLOP_SPEED, scenario.minPace(), 1.2);
 		}
-		ctx.runOnClient(mc -> LegProbe.listen(false));
+		ctx.runOnClient(mc -> {
+			LegProbe.listen(false);
+			LegProbe.record = null;
+		});
+		try {
+			// (Frame by frame, for study: terrain-<scenario>.csv, the columns as the ride test's stride lanes.)
+			Files.writeString(FabricLoader.getInstance().getGameDir().resolve("terrain-" + scenario.name().replaceAll("[^a-z0-9]+", "_") + ".csv"), csv);
+		} catch (final IOException e) {
+			throw new RuntimeException(e);
+		}
 		final String about = ctx.computeOnClient(mc -> LegProbe.about());
 		final String feel = ctx.computeOnClient(mc -> LegProbe.feel());
 		final String clips = ctx.computeOnClient(mc -> LegProbe.clipLog.substring(0, Math.min(LegProbe.clipLog.length(), 600)));
 		final String sunk = ctx.computeOnClient(mc -> LegProbe.sunkLog.substring(0, Math.min(LegProbe.sunkLog.length(), 1500)));
+		final String hitches = ctx.computeOnClient(mc -> LegProbe.hitches() + " " + LegProbe.kinkLog.substring(0, Math.min(LegProbe.kinkLog.length(), 1500)));
 		ctx.runOnClient(mc -> LegProbe.passLeaves = false);
 		log("  soles sunk: %s", sunk);
+		log("  %s", hitches);
 		log("  legs: %s", about);
 		log("  feel: %s", feel);
 		log("  legs in blocks: %s", clips);

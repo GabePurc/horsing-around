@@ -214,6 +214,8 @@ public final class RideState {
 	float lastBodyYaw;
 	float pitch;
 	float pitchO;
+	/** The pitch a tick before {@link #pitchO}, for the curve through the last three (see {@link #pitch(float)}). */
+	float pitchOO;
 	/** The tilt of the line between the two ends on its legs, degrees (the drawn tilt follows it, no faster than PITCH_RATE_MAX). */
 	float groundTilt;
 	/** Tilt with the flight while airborne (nose up taking off, down landing), degrees, on top of the terrain pitch. */
@@ -364,8 +366,12 @@ public final class RideState {
 	public final double[] stepHoldZ = new double[4];
 	/** Per leg, how far StepLegs moves the hoof along the heading when it isn't stepping or holding it (blocks): a landing placed, or what is left of a hold let go. */
 	public final float[] stepShift = new float[4];
-	/** Per leg, last frame: how far its leg was turned to put its hoof there (radians), and how high its lower edge was (world). */
+	/**
+	 * Per leg, last frame: how far its leg was turned to put its hoof there (radians; on a spring, see STEP_TURN_TIME, its
+	 * speed in radians a second), and how high its lower edge was (world).
+	 */
 	public final float[] stepTurn = new float[4];
+	public final float[] stepTurnVelocity = new float[4];
 	public final double[] stepBottom = {Double.NaN, Double.NaN, Double.NaN, Double.NaN};
 	/**
 	 * Per leg, the animation's stride against the body: where along the body its hoof was last frame (blocks; NaN, not yet),
@@ -421,7 +427,18 @@ public final class RideState {
 
 	/** Body pitch, degrees; positive is nose up. */
 	public float pitch(final float partialTicks) {
-		return this.pitchO + (this.pitch - this.pitchO) * partialTicks;
+		return (float) curve(this.pitchOO, this.pitchO, this.pitch, partialTicks);
+	}
+
+	/**
+	 * Between ticks, a value worked out each tick ({@code a}, {@code b}, {@code c} the last three) drawn along a curve
+	 * from midpoint to midpoint (a quadratic B-spline): it never changes speed in a jump at a tick. Drawn as straight lines
+	 * between ticks, the tilt changing fast juddered at twenty a second, and the rider with it (play-test feedback,
+	 * 2026-10-23). Half a tick behind. (Not the body's height: half a tick behind going down a slope, the hooves hung.)
+	 */
+	static double curve(final double a, final double b, final double c, final float partialTicks) {
+		final double p = partialTicks;
+		return (1.0 - p) * (1.0 - p) * (a + b) * 0.5 + 2.0 * p * (1.0 - p) * b + p * p * (b + c) * 0.5;
 	}
 
 	/** Tilt with the flight while airborne, degrees; positive is nose up. */

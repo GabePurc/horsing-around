@@ -1,4 +1,4 @@
-package dev.horsingaround.gametest;
+package dev.horsingaround.devtools;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.horsingaround.client.render.PartData;
@@ -26,7 +26,7 @@ import org.joml.Vector3f;
  * it walks the drawn parts with the same pose the renderer used. Per leg: how far the hoof's sole is off the ground under it,
  * whether the top of the leg is still up inside the body (a gap there is a leg come off), and whether any of the leg is in a
  * block.
- * Test-only; nothing here runs in play.
+ * Dev-only (the client tests and dev games, see DevTools); never in the jar players install.
  */
 public final class LegProbe {
 	/** Front left, front right, hind left, hind right (vanilla's part names, which animation packs keep). */
@@ -60,12 +60,43 @@ public final class LegProbe {
 	public static double riseMost;
 	public static double riseSum;
 	private static double soleLastTime = Double.NaN;
+	/**
+	 * Hitches since {@link #reset}: frames where a sole's speed against the horse changed by more than KINK_SOLE blocks/s
+	 * in that one frame (a snap: the gait's own motion changes speed smoothly), or the camera's by more than KINK_CAMERA;
+	 * how many, the biggest, and the first few, what each was.
+	 */
+	public static int kinks;
+	public static double kinkMost;
+	public static int cameraKinks;
+	public static double cameraKinkMost;
+	/** The same for the drawn body: its height (blocks/s, KINK_BODY) and its tilt (degrees/s, KINK_TILT), where the rider sits. */
+	public static int bodyKinks;
+	public static double bodyKinkMost;
+	public static int tiltKinks;
+	public static double tiltKinkMost;
+	static final double KINK_BODY = 1.0;
+	static final double KINK_TILT = 40.0;
+	private static double lastBodyHeight = Double.NaN;
+	private static double lastBodyVelocity = Double.NaN;
+	private static double lastTilt = Double.NaN;
+	private static double lastTiltVelocity = Double.NaN;
+	private static double lastBodyTime = Double.NaN;
+	public static final StringBuilder kinkLog = new StringBuilder();
+	static final double KINK_SOLE = 4.0;
+	static final double KINK_CAMERA = 1.0;
+	private static final double[][] lastSoleVelocity = new double[4][3];
+	private static final boolean[] haveSoleVelocity = new boolean[4];
+	private static final double[] lastCamera = new double[3];
+	private static final double[] lastCameraVelocity = new double[3];
+	private static double lastCameraTime = Double.NaN;
+	private static boolean haveCameraVelocity;
+	private static double lastDrawnBody;
 	/** The first times a sole was more than SUNK_LOG in the ground since {@link #reset}: where, in what, and the ride then. */
 	public static final StringBuilder sunkLog = new StringBuilder();
 	static final double SUNK_LOG = 0.15;
 	private static final double[][] lastSole = new double[4][3];
 	/** Per leg, last frame: how far it was drawn up and swung back, the pack's own lift, and the ground under it (what a snap changed). */
-	private static final double[][] lastLeg = new double[4][4];
+	private static final double[][] lastLeg = new double[4][5];
 	private static boolean haveLast;
 	/** Per leg, the last frame drawn: the hoof's lowest point above the ground under its sole (blocks; negative is sunk in). */
 	public static final double[] gap = new double[4];
@@ -211,6 +242,25 @@ public final class LegProbe {
 		riseSum = 0.0;
 		soleLastTime = Double.NaN;
 		sunkLog.setLength(0);
+		kinks = 0;
+		kinkMost = 0.0;
+		cameraKinks = 0;
+		cameraKinkMost = 0.0;
+		bodyKinks = 0;
+		bodyKinkMost = 0.0;
+		tiltKinks = 0;
+		tiltKinkMost = 0.0;
+		lastBodyHeight = lastBodyVelocity = lastTilt = lastTiltVelocity = lastBodyTime = Double.NaN;
+		kinkLog.setLength(0);
+		Arrays.fill(haveSoleVelocity, false);
+		lastCameraTime = Double.NaN;
+		haveCameraVelocity = false;
+	}
+
+	/** The hitches (see {@link #kinks}), one line. */
+	public static String hitches() {
+		return String.format(Locale.ROOT, "hitches: soles %d (most %.1f blocks/s in a frame), camera %d (most %.2f), body %d (most %.2f), tilt %d (most %.0f deg/s)", kinks,
+			kinkMost, cameraKinks, cameraKinkMost, bodyKinks, bodyKinkMost, tiltKinks, tiltKinkMost);
 	}
 
 	/** The riding-about numbers (see {@link #soleTravel}), one line. */
@@ -335,12 +385,17 @@ public final class LegProbe {
 			if (!Double.isNaN(gap[leg]) && gap[leg] < 0.0) {
 				sunkMost = Math.max(sunkMost, -gap[leg]);
 				sunk |= -gap[leg] > CLIP_PIXEL;
-				if (-gap[leg] > SUNK_LOG && sunkLog.length() < 3000) {
+				if (-gap[leg] > SUNK_LOG && (sunkLog.length() < 3000 || Recorder.on)) {
 					pos.set(Mth.floor(sole[leg][0]), Mth.floor(lowest[leg]), Mth.floor(sole[leg][2]));
+					final int from = sunkLog.length();
 					sunkLog.append(String.format(Locale.ROOT, "[t%d %s %.2f in %s at %.1f %.1f %.1f, drawn up %.2f, tilt %.1f, fit %+.2f, speed %.2f] ", horse.tickCount,
 						new String[] {"FL", "FR", "HL", "HR"}[leg], -gap[leg], net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).getPath(),
 						sole[leg][0], lowest[leg], sole[leg][2], riding.legRise[leg], riding.pitch(1.0F), riding.drawnFit,
 						Math.hypot(horse.getX() - horse.xo, horse.getZ() - horse.zo)));
+					Recorder.event(mc, "sunk " + sunkLog.substring(from));
+					if (sunkLog.length() > 3000) {
+						sunkLog.setLength(from);
+					}
 				}
 			}
 			riseMost = Math.max(riseMost, riding.legRise[leg]);
@@ -354,6 +409,7 @@ public final class LegProbe {
 		if (haveLast && frameDt > 0.0 && frameDt < 0.2) {
 			soleTime += frameDt;
 		}
+		final double drawnBody = riding.heightOffset(mc.getDeltaTracker().getGameTimeDeltaPartialTick(true));
 		for (int leg = 0; leg < 4; leg++) {
 			final double rx = sole[leg][0] - s.x, ry = sole[leg][1] - s.y, rz = sole[leg][2] - s.z;
 			if (haveLast && !Double.isNaN(gap[leg])) {
@@ -365,6 +421,37 @@ public final class LegProbe {
 					if (frameDt > 0.004) {
 						soleSpeedMost = Math.max(soleSpeedMost, dSole / frameDt);
 					}
+				}
+				if (frameDt > 0.004 && frameDt < 0.2) {
+					// (Against the drawn body, not the horse's own position: that steps up a block in a tick, and the drawn body
+					// smooths it.)
+					final double by = ry - drawnBody, lastBy = lastSole[leg][1] - lastDrawnBody;
+					final double vx = (rx - lastSole[leg][0]) / frameDt, vy = (by - lastBy) / frameDt, vz = (rz - lastSole[leg][2]) / frameDt;
+					if (haveSoleVelocity[leg]) {
+						final double change = Math.sqrt(Mth.square(vx - lastSoleVelocity[leg][0]) + Mth.square(vy - lastSoleVelocity[leg][1])
+							+ Mth.square(vz - lastSoleVelocity[leg][2]));
+						kinkMost = Math.max(kinkMost, change);
+						if (change > KINK_SOLE) {
+							kinks++;
+							if (kinkLog.length() < 4000 || Recorder.on) {
+								final int from = kinkLog.length();
+								final dev.horsingaround.ride.RideState ride = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
+								kinkLog.append(String.format(Locale.ROOT, "[t%.2f %s %.1f b/s: step %s turn %+.2f (was %+.2f) rise %.2f back %.2f lift %.2f gap %+.2f near %.2f] ",
+									frameTime, new String[] {"FL", "FR", "HL", "HR"}[leg], change,
+									!Float.isNaN(ride.stepTime[leg]) ? "S" : !Double.isNaN(ride.stepHoldX[leg]) ? "H" : !Float.isNaN(ride.stepCarry[leg]) ? "C" : "-",
+									ride.stepTurn[leg], lastLeg[leg][4], ride.legRise[leg], ride.legBack[leg], dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[leg],
+									gap[leg], ride.stepNear));
+								Recorder.event(mc, "hitch " + kinkLog.substring(from));
+								if (kinkLog.length() > 4000) {
+									kinkLog.setLength(from);
+								}
+							}
+						}
+					}
+					lastSoleVelocity[leg][0] = vx;
+					lastSoleVelocity[leg][1] = vy;
+					lastSoleVelocity[leg][2] = vz;
+					haveSoleVelocity[leg] = true;
 				}
 				if (dSole > SOLE_SNAP) {
 					snaps++;
@@ -382,14 +469,17 @@ public final class LegProbe {
 			lastLeg[leg][1] = rideNow.legBack[leg];
 			lastLeg[leg][2] = dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[leg];
 			lastLeg[leg][3] = dev.horsingaround.client.render.GroundLegs.TARGETS[leg * 5 + 1] - s.y;
+			lastLeg[leg][4] = rideNow.stepTurn[leg];
 			lastSole[leg][0] = rx;
 			lastSole[leg][1] = ry;
 			lastSole[leg][2] = rz;
 		}
+		lastDrawnBody = drawnBody;
 		haveLast = true;
 		frames++;
 		spikes(horse, mc);
 		feel(horse, s, mc, cam);
+		Recorder.frame(horse, s, mc, cam, frameTime, mc.getDeltaTracker().getGameTimeDeltaPartialTick(true));
 	}
 
 	/** Slides, legs in blocks and jolts this frame (see {@link #slideMost}). */
@@ -448,6 +538,82 @@ public final class LegProbe {
 					!Float.isNaN(r.stepTime[leg]) ? 1 : !Double.isNaN(r.stepHoldX[leg]) ? 2 : 0, r.stepTurn[leg]));
 			}
 			record.append('\n');
+		}
+		// Body hitches: the drawn body's height or tilt changing speed in one frame.
+		final double bodyDt = (time - lastBodyTime) / 20.0;
+		if (bodyDt > 0.004 && bodyDt < 0.2) {
+			final dev.horsingaround.ride.RideState r = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
+			final double height = s.y + r.heightOffset(partial);
+			final double tilt = r.pitch(partial);
+			final double bodyVelocity = (height - lastBodyHeight) / bodyDt;
+			final double tiltVelocity = (tilt - lastTilt) / bodyDt;
+			if (!Double.isNaN(lastBodyVelocity)) {
+				final double change = Math.abs(bodyVelocity - lastBodyVelocity);
+				final double turn = Math.abs(tiltVelocity - lastTiltVelocity);
+				bodyKinkMost = Math.max(bodyKinkMost, change);
+				tiltKinkMost = Math.max(tiltKinkMost, turn);
+				if (change > KINK_BODY || turn > KINK_TILT) {
+					if (change > KINK_BODY) {
+						bodyKinks++;
+					}
+					if (turn > KINK_TILT) {
+						tiltKinks++;
+					}
+					if (kinkLog.length() < 4000 || Recorder.on) {
+						final int from = kinkLog.length();
+						kinkLog.append(String.format(Locale.ROOT, "[t%.2f body %+.2f -> %+.2f b/s, tilt %+.0f -> %+.0f deg/s: tilt %.1f fit %+.3f near %.2f speed %.2f] ",
+							time, lastBodyVelocity, bodyVelocity, lastTiltVelocity, tiltVelocity, tilt, r.drawnFit, r.stepNear,
+							Math.hypot(horse.getX() - horse.xo, horse.getZ() - horse.zo)));
+						Recorder.event(mc, "hitch " + kinkLog.substring(from));
+						if (kinkLog.length() > 4000) {
+							kinkLog.setLength(from);
+						}
+					}
+				}
+			}
+			lastBodyVelocity = Double.isNaN(lastBodyHeight) ? Double.NaN : bodyVelocity;
+			lastTiltVelocity = Double.isNaN(lastTilt) ? Double.NaN : tiltVelocity;
+			lastBodyHeight = height;
+			lastTilt = tilt;
+			lastBodyTime = time;
+		} else if (Double.isNaN(lastBodyTime)) {
+			final dev.horsingaround.ride.RideState r = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
+			lastBodyHeight = s.y + r.heightOffset(partial);
+			lastTilt = r.pitch(partial);
+			lastBodyTime = time;
+		}
+		// Camera hitches: its speed changing in one frame.
+		final double cameraDt = (time - lastCameraTime) / 20.0;
+		if (cameraDt > 0.004 && cameraDt < 0.2) {
+			final double vx = (cam.x - lastCamera[0]) / cameraDt, vy = (cam.y - lastCamera[1]) / cameraDt, vz = (cam.z - lastCamera[2]) / cameraDt;
+			if (haveCameraVelocity) {
+				final double change = Math.sqrt(Mth.square(vx - lastCameraVelocity[0]) + Mth.square(vy - lastCameraVelocity[1]) + Mth.square(vz - lastCameraVelocity[2]));
+				cameraKinkMost = Math.max(cameraKinkMost, change);
+				if (change > KINK_CAMERA) {
+					cameraKinks++;
+					if (kinkLog.length() < 4000 || Recorder.on) {
+						final int from = kinkLog.length();
+						final dev.horsingaround.ride.RideState r = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
+						kinkLog.append(String.format(Locale.ROOT, "[t%.2f camera %.2f b/s (up %+.2f -> %+.2f, along %.2f -> %.2f): tilt %.1f fit %+.3f offset %+.3f near %.2f] ",
+							time, change, lastCameraVelocity[1], vy, Math.hypot(lastCameraVelocity[0], lastCameraVelocity[2]), Math.hypot(vx, vz), r.pitch(partial),
+							r.drawnFit, r.heightOffset(partial), r.stepNear));
+						Recorder.event(mc, "hitch " + kinkLog.substring(from));
+						if (kinkLog.length() > 4000) {
+							kinkLog.setLength(from);
+						}
+					}
+				}
+			}
+			lastCameraVelocity[0] = vx;
+			lastCameraVelocity[1] = vy;
+			lastCameraVelocity[2] = vz;
+			haveCameraVelocity = true;
+		}
+		if (cameraDt > 0.004 || Double.isNaN(lastCameraTime)) {
+			lastCamera[0] = cam.x;
+			lastCamera[1] = cam.y;
+			lastCamera[2] = cam.z;
+			lastCameraTime = time;
 		}
 		// Jolts: second differences over JOLT_SPAN, against the frames before.
 		final dev.horsingaround.ride.RideState ride = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();

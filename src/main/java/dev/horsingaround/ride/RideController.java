@@ -748,6 +748,7 @@ public final class RideController {
 		s.inertia = Mth.clamp(s.inertia + s.inertiaVelocity, -INERTIA_MAX, INERTIA_MAX);
 		brush(horse, s, groundSpeed, bodyYaw);
 
+		s.pitchOO = s.pitchO;
 		s.pitchO = s.pitch;
 		s.jumpPitchO = s.jumpPitch;
 		s.heightOffsetO = s.heightOffset;
