@@ -42,6 +42,12 @@ loom {
 			runDir "../../build/run/smoke/${mc}"
 			vmArg "-Dhorsingaround.smoke=true"
 			vmArg "-Xmx2G"
+			if (project.hasProperty("smokeWild")) {
+				vmArg "-Dhorsingaround.smoke.wild=${project.property('smokeWild')}"
+				if (project.hasProperty("smokeWildAt")) {
+					vmArg "-Dhorsingaround.smoke.wildAt=${project.property('smokeWildAt')}"
+				}
+			}
 			if (project.hasProperty("smokeWithoutMod")) {
 				vmArg "-Dfabric.debug.disableModIds=horsingaround"
 				vmArg "-Dhorsingaround.smoke.withoutMod=true"

@@ -42,7 +42,8 @@ at most two lines, under the right area; details go in the PR, not here.
 ## Body, legs and steps
 
 - The body is a mass on its legs: front and hind ends each ease to the ground under their hooves, tilt is the line between them, forehand leads on steps, legs give on landing
-- Each hoof sits on its own ground exactly (block grid, slabs, stairs, water as a floor), upright against slopes only, never in the ground; vanilla's one-piece legs, no knee joints
+- Each hoof sits on its own ground (block grid, slabs, stairs, water as a floor), upright against slopes only, never in the ground; vanilla's one-piece legs, no knee joints
+- Hooves move to their height on a short spring and look ahead along their own path, so they lift onto higher ground smoothly instead of popping (2026-10-22)
 - Running up a step eases in without a pop; drawn tilt is capped per tick; no rearing against a face
 - Leg animation speed tracks the gait so Fresh Animations shows the right cycle; legs take the shape of steps and jumps (vanilla model and Fresh Animations, every layer)
 - Neck reaches with the tilt (Fresh Animations' "neck2"); armour and bridle follow the head
@@ -91,7 +92,8 @@ at most two lines, under the right area; details go in the PR, not here.
 
 - One `src/` and one jar per group of versions, 1.20.1 to 26.3, built with Stonecutter; version differences in `//?` comments and `stonecutter.gradle` (`docs/porting.md`)
 - `./gradlew auditMixins` runs every version's jar on its own minimum Fabric Loader and a production client and server; older loaders supported per version (MixinExtras bundled below loader 0.16)
-- In-game smoke test on every version (`./gradlew :<version>:runSmoke`; `-PsmokeNoPack`, `-PsmokePlain`, `-PsmokeWithoutMod`)
+- In-game smoke test on every version (`./gradlew :<version>:runSmoke`; `-PsmokeNoPack`, `-PsmokePlain`, `-PsmokeWithoutMod`), with a rough-ground course and an optional long ride over a real world (`-PsmokeWild`)
+- The server checks a ridden horse's moves with the same footing in the air the rider's client has (a gallop across a dip no longer rubber-bands for good on 1.21.1, Fabric and NeoForge with Connector)
 - Riding camera crash before 26.1 fixed (a mixin field initialiser dropped by Mixin); the audit now checks patched constructors set every field with a starting value
 
 ## Release, store and publishing

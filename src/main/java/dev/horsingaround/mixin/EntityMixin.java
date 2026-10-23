@@ -19,8 +19,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Footing: a ridden horse in the air (off a drop, or a jump a little short) moves as if it had a hoof down, so
  * vanilla's step-up puts it onto anything within a step of its hooves that it clips, instead of the collision stopping
  * it dead. The move itself works out the real ground contact again. Then {@link Footing} slips a shoulder caught on a
- * corner past it, and records how much of the move a collision took. Only on the side simulating the ride. Applied after
- * other mods' hooks here, like the horse mixin, so the move it records is the one that is made.
+ * corner past it, and records how much of the move a collision took, on the side simulating the ride. Applied after
+ * other mods' hooks here, like the horse mixin, so the move it records is the one that is made. The server, checking
+ * the rider's moves, gives the horse the same footing in the air, so it can make every move the client made.
  */
 @Mixin(value = Entity.class, priority = 1500)
 abstract class EntityMixin {
@@ -44,17 +45,29 @@ abstract class EntityMixin {
 				s.moveFromZ = horse.getZ();
 				s.moveDelta = delta;
 			}
+		} else if (type == MoverType.PLAYER && (Object) this instanceof RideStateHolder holder && !this.onGround) {
+			// The server checking a move the rider's client made: with the same hoof down in the air the client had.
+			// Otherwise a gallop across a dip that got a hoof onto its far side is a move the server can't make, and it
+			// pulls the horse back for good (before 1.21.2 its horse keeps no ground contact from the client).
+			final RideState s = holder.horsingaround$ride();
+			final Entity horse = (Entity) (Object) this;
+			if (s.narrow && !horse.level().isClientSide() && !horse.isInWater()) {
+				this.onGround = true;
+				s.airFooting = true;
+			}
 		}
 		return delta;
 	}
 
 	@Inject(method = "move", at = @At("RETURN"))
 	private void horsingaround$afterMove(final MoverType type, final Vec3 delta, final CallbackInfo ci) {
-		if ((Object) this instanceof RideStateHolder holder && holder.horsingaround$ride().moving) {
+		if ((Object) this instanceof RideStateHolder holder) {
 			final RideState s = holder.horsingaround$ride();
-			s.moving = false;
 			s.airFooting = false;
-			Footing.afterMove((AbstractHorse) (Object) this, s, s.moveDelta, s.moveFromX, s.moveFromZ);
+			if (s.moving) {
+				s.moving = false;
+				Footing.afterMove((AbstractHorse) (Object) this, s, s.moveDelta, s.moveFromX, s.moveFromZ);
+			}
 		}
 	}
 }

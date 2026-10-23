@@ -10,6 +10,9 @@
 			"dev.horsingaround.smoke.SmokeTest"
 		]
 	},
+	"mixins": [
+		"horsingaround-smoke.mixins.json"
+	],
 	"depends": {
 		"fabric-api": "*"
 	},

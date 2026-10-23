@@ -483,20 +483,32 @@ public final class RideTuning {
 	public static final float LEG_UPRIGHT = 1.0F;
 	/**
 	 * Legs are vanilla's one-piece legs (see {@code Legs}). Where the model is drawn, each hoof finds its own ground (see
-	 * {@code GroundLegs}) exactly, with no easing, and a hoof over higher ground draws its leg up into the body by up to
-	 * LEG_DRAW_MAX blocks to stand on it (a leg that would need more raises the body at once, which settles back onto its
-	 * legs on a spring of FIT_TIME seconds, by up to FIT_UP_MAX blocks). Ground more than LEG_RISE_MAX above a hoof is a step's face
-	 * it is up against: the hoof swings back off it onto the tread, looking up to LEG_FACE_SEARCH more half its depth back.
-	 * Where the model hasn't been drawn yet, a pair of hooves draws up onto higher ground by at most LEG_LIFT_RATE blocks a
-	 * tick.
+	 * {@code GroundLegs}), and a hoof over higher ground draws its leg up into the body by up to LEG_DRAW_MAX blocks to
+	 * stand on it (a leg that would need more raises the body at once, which settles back onto its legs on a spring of
+	 * FIT_TIME seconds, by up to FIT_UP_MAX blocks). Ground more than LEG_RISE_MAX above a hoof is a step's face it is up
+	 * against: the hoof swings back off it onto the tread, looking up to LEG_FACE_SEARCH more half its depth back. Where the
+	 * model hasn't been drawn yet, a pair of hooves draws up onto higher ground by at most LEG_LIFT_RATE blocks a tick.
 	 */
 	public static final float LEG_DRAW_MAX = 0.35F;
 	/**
-	 * A hoof lifts no faster than HOOF_LIFT_SPEED blocks a second (drawing its leg up), and a drawn-up leg straightens no
-	 * faster than LEG_STRAIGHTEN_SPEED; but a hoof is never left in the ground under it.
+	 * A hoof lifts to its height on a critically damped spring of HOOF_TIME seconds, and sets down (and swings off a
+	 * step's face) on a quicker one of HOOF_SET_TIME (set down as slowly, it hovered), so it moves at a hoof's own pace
+	 * instead of popping (user direction, 2026-10-22: "avoid clipping in a smooth and realistic way"). The spring also
+	 * smooths the ground's flicker under a sole at a step's edge, frame to frame (a hoof following its height as it moved
+	 * passed that straight through). To be up before it gets to higher ground, it looks ahead along its own path (its
+	 * sole's speed smoothed over HOOF_VELOCITY_TIME seconds) for the ground it will be over in HOOF_LOOK seconds in its
+	 * swing, HOOF_LOOK_PLANTED of that planted (the animation slides planted hooves forward, most on slopes where the
+	 * stride is shortened: looking as far, they hovered in front of every step), at most HOOF_LOOK_MAX blocks on.
+	 * Catching up with ground it couldn't see coming, it may be in the ground by up to HOOF_SINK blocks for a moment
+	 * (under a pixel: a hoof settling into the turf), never more.
 	 */
-	public static final float HOOF_LIFT_SPEED = 10.0F;
-	public static final float LEG_STRAIGHTEN_SPEED = 4.0F;
+	public static final float HOOF_TIME = 0.045F;
+	public static final float HOOF_SET_TIME = 0.025F;
+	public static final float HOOF_LOOK = 0.18F;
+	public static final float HOOF_LOOK_PLANTED = 0.35F;
+	public static final float HOOF_LOOK_MAX = 1.0F;
+	public static final float HOOF_VELOCITY_TIME = 0.05F;
+	public static final float HOOF_SINK = 0.04F;
 	public static final float LEG_RISE_MAX = 0.55F;
 	public static final int LEG_FACE_SEARCH = 5;
 	public static final float FIT_TIME = 0.12F;

@@ -46,6 +46,8 @@ public final class LegProbe {
 	public static final StringBuilder snapLog = new StringBuilder();
 	static final double SOLE_SNAP = 0.2;
 	private static final double[][] lastSole = new double[4][3];
+	/** Per leg, last frame: how far it was drawn up and swung back, the pack's own lift, and the ground under it (what a snap changed). */
+	private static final double[][] lastLeg = new double[4][4];
 	private static boolean haveLast;
 	/** Per leg, the last frame drawn: the hoof's lowest point above the ground under its sole (blocks; negative is sunk in). */
 	public static final double[] gap = new double[4];
@@ -219,13 +221,20 @@ public final class LegProbe {
 				soleSnapMost = Math.max(soleSnapMost, dSole);
 				if (dSole > SOLE_SNAP) {
 					snaps++;
-					if (snapLog.length() < 1500) {
+					if (snapLog.length() < 4000) {
 						final dev.horsingaround.ride.RideState ride = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
-						snapLog.append(String.format(Locale.ROOT, "[t%d %s sole %.2f drawn up %.2f back %.2f tilt %.1f air %.2f] ", horse.tickCount,
-							new String[] {"FL", "FR", "HL", "HR"}[leg], dSole, ride.legRise[leg], ride.legBack[leg], ride.pitch(1.0F), ride.airLegs(1.0F)));
+						snapLog.append(String.format(Locale.ROOT, "[t%d %s sole %.2f drawn up %.2f (was %.2f) back %.2f (was %.2f) pack lift %.2f (was %.2f) ground %+.2f (was %+.2f) tilt %.1f air %.2f] ",
+							horse.tickCount, new String[] {"FL", "FR", "HL", "HR"}[leg], dSole, ride.legRise[leg], lastLeg[leg][0], ride.legBack[leg], lastLeg[leg][1],
+							dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[leg], lastLeg[leg][2], dev.horsingaround.client.render.GroundLegs.TARGETS[leg * 5 + 1] - s.y,
+							lastLeg[leg][3], ride.pitch(1.0F), ride.airLegs(1.0F)));
 					}
 				}
 			}
+			final dev.horsingaround.ride.RideState rideNow = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
+			lastLeg[leg][0] = rideNow.legRise[leg];
+			lastLeg[leg][1] = rideNow.legBack[leg];
+			lastLeg[leg][2] = dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[leg];
+			lastLeg[leg][3] = dev.horsingaround.client.render.GroundLegs.TARGETS[leg * 5 + 1] - s.y;
 			lastSole[leg][0] = rx;
 			lastSole[leg][1] = ry;
 			lastSole[leg][2] = rz;

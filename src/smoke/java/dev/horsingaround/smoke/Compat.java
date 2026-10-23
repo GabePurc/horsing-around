@@ -48,6 +48,11 @@ final class Compat {
 
 	/** Starts a creative flat world with cheats and no structures; the game then loads it like a world picked from the list. */
 	static void createFlatWorld(final Minecraft minecraft, final String name, final long seed) {
+		createWorld(minecraft, name, seed, WorldPresets.FLAT);
+	}
+
+	/** A world of the given preset (flat, or normal terrain for the wild ride). */
+	static void createWorld(final Minecraft minecraft, final String name, final long seed, final net.minecraft.resources.ResourceKey<net.minecraft.world.level.levelgen.presets.WorldPreset> preset) {
 		final WorldOptions options = new WorldOptions(seed, false, false);
 		//? if >=26.1 {
 		final LevelSettings settings = new LevelSettings(
@@ -64,12 +69,12 @@ final class Compat {
 		*///?}
 		//? if >=1.20.3 {
 		minecraft.createWorldOpenFlows().createFreshLevel(
-			name, settings, options, registries -> registries.lookupOrThrow(Registries.WORLD_PRESET).getOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+			name, settings, options, registries -> registries.lookupOrThrow(Registries.WORLD_PRESET).getOrThrow(preset).value().createWorldDimensions(),
 			screen(minecraft)
 		);
 		//?} else {
 		/*minecraft.createWorldOpenFlows().createFreshLevel(
-			name, settings, options, registries -> registries.lookupOrThrow(Registries.WORLD_PRESET).getOrThrow(WorldPresets.FLAT).value().createWorldDimensions()
+			name, settings, options, registries -> registries.lookupOrThrow(Registries.WORLD_PRESET).getOrThrow(preset).value().createWorldDimensions()
 		);
 		*///?}
 	}

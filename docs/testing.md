@@ -87,7 +87,8 @@ gallery always gets them). Leg and body easing runs on game time, so results don
 ## Smoke test (every version)
 
 `./gradlew :<version>:runSmoke` (`src/smoke`, test only; plain `runSmoke` runs every version, one at a time): a flat
-world, a saddled horse ridden through a stand, walk, gallop, jump and stop with simulated keys, screenshots in
+world, a saddled horse ridden through a stand, walk, gallop, jump and stop, then over a rough course (steps, stairs,
+leaves, uneven ground, single steps at a gallop) with simulated keys, screenshots in
 `build/run/smoke/<version>/screenshots/` (side views of the rider, first and third person, leashed mobs and a lead), and a
 pass/fail in the log; it also fails if the server corrected any of the rider's moves (with `-PsmokeWithoutMod` those
 are vanilla's own and only warned about). Run it after touching version-specific code; see `docs/porting.md`.
@@ -95,6 +96,13 @@ are vanilla's own and only warned about). Run it after touching version-specific
 - `-PsmokeNoPack`: no Fresh Animations pack. `-PsmokePlain`: no Entity Model Features, Entity Texture Features or pack.
   These tell this mod's problems from the animation stack's.
 - `-PsmokeWithoutMod`: the same scene with this mod turned off.
+- `-PsmokeWild=<seed>` (and `-PsmokeWildAt=x,z` for a fixed start; spawn is spread at random): instead, a two-minute
+  gallop with turns and jumps over a normal world of that seed, failing on any server correction. Natural ground brings
+  out corrections the course doesn't (seed 2145202720632702597 at 7,41 crosses a dip that once rubber-banded for good).
+- NeoForge with Sinytra Connector (by hand, no task yet): the mod jar and a Loom-remapped jar of the `smoke` source set
+  run in a NeoForge game with Connector, Forgified Fabric API, Entity Model Features and Entity Texture Features, with
+  `-Dhorsingaround.smoke=true`. Connector caches remapped jars in `<game>/.cache/connector`: clear it after replacing a
+  jar of the same name, or the old one runs.
 - Look at the screenshots both with and without the pack: most players run the plain horse model, and a bug there
   (idle horses' legs adrift before 1.21.2) only showed without it.
 
