@@ -359,7 +359,8 @@ public final class RideState {
 	 */
 	public float strideMatch = Float.NaN;
 	/**
-	 * Per leg, its stride as drawn (client only, see Stride): whether the hoof is planted, and where (world x and z); how
+	 * Per leg, its stride as drawn (client only, see Stride): whether the hoof is planted, whether it is held there (put
+	 * down while collected), and where (world x and z); how
 	 * far it is moved along the body from where the animation has it (blocks, toward the head) now, and at lift-off; how
 	 * far through its swing it is (0 to 1); where it will land (world x and z; NaN: where the animation puts it); how far
 	 * along the body the animation had it last frame, at lift-off and at its last touch-down (blocks ahead of the model's
@@ -368,6 +369,7 @@ public final class RideState {
 	 * animation's: lifting early off a step's foot; 0, none), seconds; and the swing its leg was turned by, radians.
 	 */
 	public final boolean[] footDown = new boolean[4];
+	public final boolean[] footHeld = new boolean[4];
 	public final double[] footX = new double[4];
 	public final double[] footZ = new double[4];
 	public final float[] footShift = new float[4];

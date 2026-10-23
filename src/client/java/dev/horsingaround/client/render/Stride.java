@@ -94,9 +94,10 @@ final class Stride {
 		final double soleAlong = soleX * fx + soleZ * fz;
 		ride.footTime[i] += dt;
 		if (ride.footDown[i]) {
-			// Planted: the hoof stays where it was put down, as far as the horse is collected and while it is on the ground;
-			// otherwise it goes along with the animation (the plant moves with it).
-			final double drift = (1.0F - keep * smooth(near)) * (rel - previous + travel * dt);
+			// Planted: put down while collected, the hoof stays where it was put down for the whole of this stance (letting go
+			// mid-stance would slide it) while it is on the ground; otherwise it goes along with the animation (the plant moves
+			// with it).
+			final double drift = (1.0F - (ride.footHeld[i] ? smooth(near) : 0.0F)) * (rel - previous + travel * dt);
 			ride.footX[i] += fx * drift;
 			ride.footZ[i] += fz * drift;
 			float held = (float) (ride.footX[i] * fx + ride.footZ[i] * fz - soleAlong);
@@ -201,7 +202,7 @@ final class Stride {
 				ride.footPath[i] = Double.NaN;
 			}
 		}
-		if (keep <= 0.0F && ride.footOwnSwing[i] <= 0.0F) {
+		if (keep <= 0.0F && ride.footOwnSwing[i] <= 0.0F && !(ride.footDown[i] && ride.footHeld[i])) {
 			// Open ground: back to the animation's stride exactly (easing out of what was left of the collected one, so nothing
 			// jumps), and the next collected one starts from it.
 			final float fade = (float) Math.exp(-dt / STRIDE_OPEN_EASE);
@@ -220,6 +221,7 @@ final class Stride {
 	private static void touchDown(final RideState ride, final int i, final float rel, final double soleX, final double soleZ, final double fx, final double fz,
 		final float span, final boolean own) {
 		ride.footDown[i] = true;
+		ride.footHeld[i] = ride.collect > STRIDE_HOLD;
 		ride.footWaited[i] = 0.0F;
 		ride.footX[i] = soleX + fx * ride.footShift[i];
 		ride.footZ[i] = soleZ + fz * ride.footShift[i];

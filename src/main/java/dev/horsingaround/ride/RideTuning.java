@@ -562,14 +562,15 @@ public final class RideTuning {
 	public static final float STRIDE_STEEP = 0.5F;
 	public static final float STRIDE_STEEP_TILT = 0.52F;
 	/**
-	 * Collecting for a step (user direction, 2026-10-23: the stride adjusts to climb a block, no sliding hooves): with ground
-	 * at least COLLECT_STEP above or below the hooves from the hind hooves to COLLECT_AHEAD blocks (plus COLLECT_LEAD
-	 * seconds of travel) ahead of the front ones, the horse gathers itself, COLLECT_IN of the way a tick (COLLECT_OUT
-	 * letting go): its stride quickens until the animation draws a planted hoof back exactly as fast as the horse moves
-	 * (at most CADENCE_MAX times the gait's own), and a hoof on the ground stays where it was put down. On open ground
-	 * the stride is the gait's own (COLLECT_OPEN of that).
+	 * Collecting for a step (user direction, 2026-10-23: the stride adjusts to climb a block, no sliding hooves): with
+	 * ground at least COLLECT_STEP above or below the hooves from COLLECT_BEHIND blocks behind the hind hooves to
+	 * COLLECT_AHEAD blocks (plus COLLECT_LEAD seconds of travel) ahead of the front ones, the horse gathers itself,
+	 * COLLECT_IN of the way a tick (COLLECT_OUT letting go): its stride quickens until the animation draws a planted hoof
+	 * back exactly as fast as the horse moves (at most CADENCE_MAX times the gait's own), and a hoof on the ground stays
+	 * where it was put down. On open ground the stride is the gait's own (COLLECT_OPEN of that).
 	 */
 	public static final float COLLECT_STEP = 0.3F;
+	public static final float COLLECT_BEHIND = 1.0F;
 	public static final float COLLECT_AHEAD = 1.0F;
 	public static final float COLLECT_LEAD = 0.7F;
 	public static final float COLLECT_IN = 0.15F;
@@ -610,6 +611,8 @@ public final class RideTuning {
 	 * STRIDE_CLEAR blocks: a hoof the body has lifted off the ground goes along with the animation).
 	 */
 	public static final float STRIDE_CLEAR = 0.06F;
+	/** A hoof put down while the horse is collected more than STRIDE_HOLD is held there for that whole stance. */
+	public static final float STRIDE_HOLD = 0.5F;
 	/** The match is only measured on ground tilting less than STRIDE_MEASURE_TILT radians. */
 	public static final float STRIDE_MEASURE_TILT = 0.09F;
 	/**

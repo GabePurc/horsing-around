@@ -848,8 +848,8 @@ public final class RideController {
 	}
 
 	/**
-	 * Collecting for a step (see COLLECT_STEP): ground a step above or below the hooves, from behind the hind hooves to a
-	 * little ahead of the front ones (further the faster the horse goes), gathers the horse; its stride then quickens toward
+	 * Collecting for a step (see COLLECT_STEP): ground a step above or below the hooves, from a little behind the hind
+	 * hooves to a little ahead of the front ones (further the faster the horse goes), gathers the horse; its stride then quickens toward
 	 * the cadence that matches the ground (measured from the drawn legs, see Stride). Read along the heading, a few block
 	 * reads a tick, only for a horse a player rides.
 	 */
@@ -863,7 +863,7 @@ public final class RideController {
 			final double fx = -Mth.sin(bodyYaw * Mth.DEG_TO_RAD);
 			final double fz = Mth.cos(bodyYaw * Mth.DEG_TO_RAD);
 			final double y = horse.getY();
-			final double near = -HIND_HOOVES - 0.25;
+			final double near = -HIND_HOOVES - COLLECT_BEHIND;
 			final double reach = FORE_HOOVES + COLLECT_AHEAD + groundSpeed * 20.0F * COLLECT_LEAD;
 			// A step near the hooves gathers it; ground climbing or falling COLLECT_STEEP_RISE within COLLECT_STEEP_ALONG (a
 			// hillside of full blocks) there or just beyond doesn't: there a held hoof is soon left hanging, its rigid leg too
