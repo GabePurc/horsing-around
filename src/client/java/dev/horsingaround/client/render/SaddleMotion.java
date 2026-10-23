@@ -15,9 +15,6 @@ import net.minecraft.world.entity.LivingEntity;
 public final class SaddleMotion {
 	/** Frames drawn (counted as each frame's camera is placed): motion measured in an earlier frame than the last is stale. */
 	private static int frame;
-	/** Vanilla horse legs cycle once per 2pi of (limb swing x 0.6662). */
-	private static final float VANILLA_LEG_PHASE = 0.6662F;
-	private static final float VANILLA_WATER_LEG_PACE = 0.2F;
 
 	/** Saddle height change, blocks. */
 	public float lift;
@@ -51,8 +48,8 @@ public final class SaddleMotion {
 
 	public SaddleMotion compute(final LivingEntity horse, final RideState s, final float partialTicks) {
 		final float limbSpeed = horse.walkAnimation.speed(partialTicks);
-		final float run = Mth.clamp((limbSpeed - RUN_ANIMATION_SPEED + 0.05F) * 10.0F, 0.0F, 1.0F);
-		final float gallop = run * Mth.clamp((limbSpeed - GALLOP_ANIMATION_SPEED + 0.03F) * 20.0F, 0.0F, 1.0F);
+		final float run = GaitCycle.run(limbSpeed);
+		final float gallop = GaitCycle.gallop(limbSpeed);
 		this.limbSpeed = limbSpeed;
 		this.gallop = gallop;
 		this.run = run;
@@ -72,10 +69,10 @@ public final class SaddleMotion {
 
 		this.synthetic = true;
 		final float canter = run - gallop;
-		final float trot = Mth.clamp((limbSpeed - TROT_ANIMATION_SPEED + 0.02F) * 10.0F, 0.0F, 1.0F) * (1.0F - run);
+		final float trot = GaitCycle.trot(limbSpeed);
 		final float walk = (1.0F - trot - run) * this.moving;
-		// (In water vanilla's legs swing at a fifth of the pace; the body keeps time with them.)
-		final float phase = horse.walkAnimation.position(partialTicks) * VANILLA_LEG_PHASE * (horse.isInWater() ? VANILLA_WATER_LEG_PACE : 1.0F);
+		// (In water the legs swing at a fifth of the pace; the body keeps time with them.)
+		final float phase = horse.walkAnimation.position(partialTicks) * GaitCycle.LEG_PHASE * (horse.isInWater() ? GaitCycle.WATER_PACE : 1.0F);
 		final float twice = Mth.cos(phase * 2.0F);
 		final float once = Mth.cos(phase - Mth.PI / 3.0F);
 		final float stance = horse.onGround() ? 1.0F : 0.0F;

@@ -50,6 +50,7 @@ at most two lines, under the right area; details go in the PR, not here.
 - Ground probes go through leaves to the ground, so bushes aren't read as steps; the drawn horse never stands on leaves
 - Footing: in the air a hoof finds anything within a step, a shoulder caught on a corner slips past; snaps are measured in `slowstep` and `drawn` (legs as the renderer drew them, via `LegProbe`)
 - Idle horses' legs are reset before posing on versions before 1.21.2 (shared model)
+- The plain model (no animation pack) has gaits of its own: four-beat walk, diagonal trot, three-beat canter and four-beat gallop, head nod and tail bounce (2026-10-23)
 
 ## Rider
 

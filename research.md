@@ -68,9 +68,13 @@ whatever the speed; no stamina; no visual weight.
 
 ## Body, legs and steps
 
-- Stay vanilla (user, 2026-10-08): vanilla's one-piece legs, never a knee or extra joint (tried and removed); never
-  replace the model or its animation; only add transforms on top, so Fresh Animations (EMF + ETF) keeps working. Keep
+- Stay vanilla (user, 2026-10-08): vanilla's one-piece legs, never a knee or extra joint (tried and removed). With an
+  animation pack (Fresh Animations, EMF + ETF), never replace its animation; only add transforms on top, and keep
   vanilla animation inputs truthful.
+- The plain model gets gaits of our own (user direction, 2026-10-23, replacing vanilla's one sine swing there): a
+  four-beat walk, diagonal trot, three-beat canter and four-beat gallop on the left lead, in vanilla's cadence and in
+  time with the saddle motion; hooves lift and swing with no jolt at lift-off or touch-down, the head nods and the tail
+  bounces (`GaitCycle`, numbers in `RideTuning`). The ride's ground and jump legs go on top of it.
 - Physically right first (user): hooves planted on the ground actually under them (not in it, not floating), legs
   drawing up into the body over higher ground; the body is a mass carried on its legs, never falling faster than
   gravity; the tilt is the line between the ground under the front and the hind hooves.

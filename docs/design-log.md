@@ -763,3 +763,24 @@ very fast to avoid clipping. Direction: avoid clipping in a smooth and realistic
   (it hovered).
 - Known: standing on stairs, a hoof can still read up to 0.45 in the ground for a moment (0.5 before); the tests that
   render a frame a tick count a hoof that now lifts over two ticks as two jumps.
+
+## Gaits of our own for the plain model (user direction, 2026-10-23)
+
+The version without Fresh Animations should look better, with animations we write instead of vanilla's: one sine swing,
+the legs in diagonal pairs at every speed (a trot even at a walk), the hooves rising as much in front as behind, and a
+head bob on a beat of its own. This replaces, for the plain model only, "never replace the model or its animation";
+vanilla's one-piece legs stay, and a model an animation pack animates is never touched.
+
+- One cycle per gait, picked and blended by the leg-animation speed at the points the saddle motion already changes gait,
+  and timed off vanilla's own stride, so the cadence is vanilla's (never quicker legs) and the body's rise and fall
+  agrees with the footfalls: each gait's moment in the air is where the saddle is highest.
+- Footfalls: walk in four even beats (hind before fore on each side), trot on diagonal pairs, canter and gallop on the
+  left lead. A leg sweeps back evenly on the ground; in the air it lifts (drawn up into the body, as the mod's legs fold),
+  flicks back, swings forward and stretches out, and it leaves and meets the ground at its pace on the ground (a
+  galloping horse's hoof is drawn back to meet the ground), so there is no jolt at either end. Stance angles stay small:
+  a rigid leg turned about its top lifts its hoof off the ground.
+- The head nods twice a stride at a walk and trot, once at a canter and gallop (down as the front hooves take the
+  weight); the tail bounces after the body and swings with the walk's hips. Vanilla's own head bob comes out.
+- Only for the horses the mod manages (as everything else it draws), on every version; the ride's ground and jump legs
+  go on top. `-Ptests=store -Pscenario=study -PvanillaModel` films each gait side on.
+
