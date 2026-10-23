@@ -779,7 +779,8 @@ landings straddled the edge.
 - First try, rejected in play (user, 2026-10-23: "legs at light speed", "spazzing out"): quickening the stride near a step
   (about 2.4x at a walk) until planted hooves kept up with the ground, with each swing on a path of its own. The slide
   went, but the legs looked absurd. Never quicker legs than the gait's own: hooves slide as the animation has them.
-- Now (`StepLegs`): a planted hoof doesn't creep up a step; at the face (or when the rising forehand lifts it off the
+- Now (`StepLegs`), near a single step (on hillsides and staircases the hooves stayed up too long, so the legs climb
+  there as before): a planted hoof doesn't creep up a step; at the face (or when the rising forehand lifts it off the
   ground in front of a step, carried with the body meanwhile, not walking in the air) it steps up on its own: straight up
   off its spot, over the edge, down with its heel clear past it, held there until the stride comes up to it. A landing
   across an edge moves onto one side. A hoof moved forward never goes into a face it hasn't lifted over.

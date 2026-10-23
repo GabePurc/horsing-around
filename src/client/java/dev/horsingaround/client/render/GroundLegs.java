@@ -211,7 +211,7 @@ public final class GroundLegs {
 			track(ride, i, SOLES[i * 3], SOLES[i * 3 + 2], dt);
 			final double coming = now == Double.NEGATIVE_INFINITY || Double.isNaN(now) ? Double.NEGATIVE_INFINITY
 				: coming(ride, level, i, SOLES[i * 3], SOLES[i * 3 + 2], soleHeight, leg.soleHalf / pixels, HOOF_LOOK * (HOOF_LOOK_PLANTED + (1.0F - HOOF_LOOK_PLANTED) * swing),
-					STEP_MIN + (LEG_RISE_MAX - STEP_MIN) * swing);
+					ride.stepNear < STEP_NEAR_LEGS ? LEG_RISE_MAX : STEP_MIN + (LEG_RISE_MAX - STEP_MIN) * swing);
 			final double target = Math.max(Math.max(Math.max(swung, ahead > now ? now + (ahead - now) * free : now), aheadClose > now ? now + (aheadClose - now) * moving : now), coming);
 			// Off a step's face: the hoof swings back (or forward) onto the tread, its top's corner kept in the body; at a
 			// hoof's pace too.
@@ -532,7 +532,7 @@ public final class GroundLegs {
 			final boolean forward = ride.speed >= 0.0F;
 			MATRIX.transformPosition(leg.soleX / 16.0F, leg.soleY / 16.0F, (leg.z + shift + (forward ? -leg.soleHalf : leg.soleHalf)) / 16.0F, POINT);
 			final double sign = forward ? -1.0 : 1.0;
-			ramp(level, ride.drawnCameraX + POINT.x, ride.drawnCameraZ + POINT.z, ux * sign, uz * sign, y);
+			ramp(level, ride.drawnCameraX + POINT.x, ride.drawnCameraZ + POINT.z, ux * sign, uz * sign, y, ride.stepNear < STEP_NEAR_LEGS ? RAMP_HIGHEST : STEP_MIN);
 		}
 		return ground;
 	}
@@ -593,7 +593,7 @@ public final class GroundLegs {
 	 * SLIDE_RAMP_SLOPE into {@link #aheadClose}. The ground only changes where the half-block grid is crossed, so it is
 	 * read just past each crossing. Negative infinity if nothing ahead.
 	 */
-	private static void ramp(final Level level, final double x, final double z, final double dx, final double dz, final double sole) {
+	private static void ramp(final Level level, final double x, final double z, final double dx, final double dz, final double sole, final double closeCap) {
 		double best = Double.NEGATIVE_INFINITY;
 		double close = Double.NEGATIVE_INFINITY;
 		final double gx = x * 2.0;
@@ -610,8 +610,8 @@ public final class GroundLegs {
 			final double ground = surface(level, x + dx * (t + 1.0E-3), z + dz * (t + 1.0E-3), sole + RAMP_HIGHEST, sole - 1.0);
 			if (!Double.isNaN(ground) && ground != Double.NEGATIVE_INFINITY) {
 				best = Math.max(best, ground - RAMP_SLOPE * t);
-				if (ground - sole <= STEP_MIN) {
-					// (Not a step: a planted hoof steps up onto that, see StepLegs.)
+				if (ground - sole <= closeCap) {
+					// (Near a single step, not the step itself: a planted hoof steps up onto that, see StepLegs.)
 					close = Math.max(close, ground - SLIDE_RAMP_SLOPE * t);
 				}
 			}

@@ -3609,6 +3609,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 		lane(ctx, input, world, x + 0.5, y, "stride_" + x, build);
 		sideCamera(world, x + 4.5, y, from, 90.0F);
 		ctx.waitTicks(10);
+		// (Until the client has the lane as the server built it: a lane once rode through steps the client didn't have yet.)
+		final int ground = (int) Math.floor(y);
+		final String built = world.getServer().computeOnServer(sv -> laneBlocks(sv.overworld(), x, ground));
+		ctx.waitFor(mc -> laneBlocks(mc.level, x, ground).equals(built));
 		input.lookAt(yaw, 10.0F);
 		input.holdKey(o -> o.keyUp);
 		for (int sp = 0; sp < gait; sp++) {
@@ -3676,6 +3680,17 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 		}
 		stop(ctx, input);
+	}
+
+	/** The blocks down the middle of a stride lane (x), around its ground ({@code y}), as one string. */
+	private static String laneBlocks(final net.minecraft.world.level.Level level, final int x, final int y) {
+		final StringBuilder blocks = new StringBuilder();
+		for (int z = 4; z >= -50; z--) {
+			for (int dy = -1; dy <= 6; dy++) {
+				blocks.append(level.getBlockState(new net.minecraft.core.BlockPos(x, y + dy, z)).getBlock().getDescriptionId()).append(',');
+			}
+		}
+		return blocks.toString();
 	}
 
 	/**

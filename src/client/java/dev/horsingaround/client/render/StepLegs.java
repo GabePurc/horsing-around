@@ -82,6 +82,8 @@ public final class StepLegs {
 		}
 		final boolean planted = packLift < PACK_LIFT;
 		final boolean onward = !airborne && travel > STEP_STILL;
+		// (Only near a single step: on a hillside or a staircase the legs climb as the gait has them, see stepNear.)
+		final boolean near = ride.stepNear >= STEP_NEAR_LEGS;
 		final float release = dt > 0.0F ? 1.0F - (float) Math.exp(-dt / STEP_RELEASE_TIME) : 0.0F;
 
 		if (!Float.isNaN(ride.stepTime[i])) {
@@ -153,7 +155,7 @@ public final class StepLegs {
 
 		final double soleX = x + fx * ride.stepShift[i];
 		final double soleZ = z + fz * ride.stepShift[i];
-		if (planted && onward && liftBefore < PACK_LIFT) {
+		if (planted && onward && near && liftBefore < PACK_LIFT) {
 			// A planted hoof at a step's face steps up onto it; so does one the body has lifted off the ground in front of a step,
 			// carried along with the body until it can reach.
 			final double standing = y + ride.legRise[i];
@@ -172,7 +174,8 @@ public final class StepLegs {
 				ride.stepShift[i] = (float) Mth.clamp(ride.stepCarry[i] - rel, -STEP_HOLD_MAX, STEP_HOLD_MAX);
 			}
 			if (toFace <= (air ? STEP_AIR_REACH : STEP_FACE) && soon(ride, i, travel) > STEP_LIFT_SOON) {
-				final float length = STEP_TIME / (1.0F + travel / STEP_QUICKEN);
+				// (A lower step is quicker.)
+				final float length = STEP_TIME / (1.0F + travel / STEP_QUICKEN) * (float) (0.5 + 0.5 * Math.min(faceTop - ground, 1.0));
 				final double from = along + ride.stepShift[i];
 				// (Its toe already over the step: the edge is under the sole somewhere; from the toe.)
 				final double edge = from + half + Math.max(toFace, 0.0);
@@ -211,11 +214,14 @@ public final class StepLegs {
 			}
 		}
 
+		if (!near || !planted || !onward) {
+			ride.stepCarry[i] = Float.NaN;
+		}
 		// A landing placed clear of a step's edge, or what is left of a hold let go: kept while the hoof is down (it moves with
 		// the stride), eased back onto the stride once it is up in the air.
 		float target = 0.0F;
 		float ease = planted ? 0.0F : release;
-		if (!planted && packLift < PLACE_LIFT && packLift < liftBefore && !airborne) {
+		if (!planted && packLift < PLACE_LIFT && packLift < liftBefore && !airborne && near) {
 			final double move = place(level, soleX, y + ride.legRise[i], soleZ, fx, fz, half);
 			target = ride.stepShift[i] + (float) move;
 			ease = dt > 0.0F ? 1.0F - (float) Math.exp(-dt / PLACE_TIME) : 0.0F;

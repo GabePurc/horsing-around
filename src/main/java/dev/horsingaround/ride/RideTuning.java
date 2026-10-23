@@ -584,11 +584,17 @@ public final class RideTuning {
 	 * of such a step (up to STEP_MAX high, higher is a wall), moving on at STEP_STILL blocks/s or more, it steps up onto it:
 	 * straight up off its spot over the first STEP_RISE of the step, to STEP_CLEAR above the edge (waiting there up to
 	 * STEP_WAIT seconds for the leg to reach), along over the edge with an arc of STEP_ARC, and down from STEP_SET, its heel
-	 * STEP_ROOM past the edge (or where the stride would have it by then, at most STEP_CARRY along). A step takes STEP_TIME
-	 * seconds, less the faster the horse goes (half at STEP_QUICKEN blocks/s). A hoof the gait will lift within
+	 * STEP_ROOM past the edge (or where the stride would have it by then, at most STEP_CARRY along). A step a block high
+	 * takes STEP_TIME seconds, less the faster the horse goes (half at STEP_QUICKEN blocks/s), and a lower one less (three
+	 * quarters for half a block). A hoof the gait will lift within
 	 * STEP_LIFT_SOON of a step's time anyway is left to the gait.
 	 */
 	public static final double STEP_MIN = 0.3;
+	/**
+	 * All of this only near a single step (RideState.stepNear at least STEP_NEAR_LEGS): on a hillside or a staircase the
+	 * legs climb as the gait and the look-ahead have them (the known scramble), the hooves soon down again.
+	 */
+	public static final float STEP_NEAR_LEGS = 0.5F;
 	public static final double STEP_MAX = 1.25;
 	public static final double STEP_FACE = 0.1;
 	/**
@@ -603,7 +609,7 @@ public final class RideTuning {
 	public static final float STEP_STILL = 0.3F;
 	public static final float STEP_RISE = 0.45F;
 	public static final double STEP_CLEAR = 0.06;
-	public static final float STEP_WAIT = 0.25F;
+	public static final float STEP_WAIT = 0.15F;
 	public static final double STEP_ARC = 0.04;
 	public static final float STEP_SET = 0.8F;
 	public static final double STEP_ROOM = 0.08;
