@@ -750,6 +750,7 @@ public final class RideController {
 
 		s.pitchOO = s.pitchO;
 		s.pitchO = s.pitch;
+		s.jumpPitchOO = s.jumpPitchO;
 		s.jumpPitchO = s.jumpPitch;
 		s.heightOffsetO = s.heightOffset;
 		s.foreLegO = s.foreLeg;
@@ -767,6 +768,7 @@ public final class RideController {
 			s.hindRise = y;
 		}
 		final boolean wasFlying = s.flying;
+		boolean jumpTurned = false;
 		if (horse.isPassenger()) {
 			s.pitch += -s.pitch * PITCH_SMOOTHING;
 			s.heightOffset *= AIR_OFFSET_DECAY;
@@ -812,7 +814,9 @@ public final class RideController {
 			} else {
 				// In the air the body tilts with its flight: nose up taking off, level over the top, nose down to land.
 				final float flight = (float) Math.toDegrees(Math.atan2(dy, Math.sqrt(horizontalSq) + 1.0E-3)) * JUMP_PITCH_SCALE;
-				s.jumpPitch += (Mth.clamp(flight, -JUMP_PITCH_DOWN, JUMP_PITCH_UP) - s.jumpPitch) * JUMP_PITCH_SMOOTHING;
+				s.jumpPitch = turn(s.jumpPitch, s.jumpPitchO - s.jumpPitchOO, Mth.clamp(flight, -JUMP_PITCH_DOWN, JUMP_PITCH_UP), JUMP_PITCH_SMOOTHING,
+					JUMP_PITCH_RATE_MAX, JUMP_PITCH_TURN_MAX);
+				jumpTurned = true;
 				// The ground tilt (a slope, the crouch before a ledge) lets go gently while the flight's tilt takes over.
 				s.pitch -= Mth.clamp(s.pitch * PITCH_SMOOTHING, -AIR_PITCH_RELEASE, AIR_PITCH_RELEASE);
 				s.heightOffset -= Mth.clamp(s.heightOffset * (1.0F - AIR_OFFSET_DECAY), -AIR_OFFSET_MAX_STEP, AIR_OFFSET_MAX_STEP);
@@ -827,8 +831,9 @@ public final class RideController {
 			s.foreLeg *= 0.5F;
 			s.hindLeg *= 0.5F;
 		}
-		if (onGround || horse.isPassenger() || horse.isInWater() || s.bankTicks > 0) {
-			s.jumpPitch += -s.jumpPitch * JUMP_PITCH_SMOOTHING;
+		// (Once a tick: taking off or landing, the flight's turn above has already moved it.)
+		if (!jumpTurned && (onGround || horse.isPassenger() || horse.isInWater() || s.bankTicks > 0)) {
+			s.jumpPitch = turn(s.jumpPitch, s.jumpPitchO - s.jumpPitchOO, 0.0F, JUMP_PITCH_SMOOTHING, JUMP_PITCH_RATE_MAX, JUMP_PITCH_TURN_MAX);
 		}
 		// In a jump (or a bigger fall) the legs take its shape: folded up climbing, reaching for the ground coming down.
 		s.inAir = s.flying && !onGround && !horse.isPassenger() && !horse.isInWater() && s.bankTicks == 0;
@@ -846,6 +851,26 @@ public final class RideController {
 		stepNear(horse, s, groundSpeed, bodyYaw);
 		s.wasOnGround = onGround;
 		s.drawnRise = (float) (y + s.heightOffset - horse.yo - s.heightOffsetO);
+	}
+
+	/**
+	 * A tilt (degrees) one tick on toward {@code target}: turning at a speed that eases toward {@code follow} of the gap
+	 * (and no faster than it can stop in, so it never overshoots), at most {@code maxRate} a tick, and that speed changing
+	 * from last tick's ({@code rate}) by at most {@code maxTurn}. So the body starts and stops turning gently and never
+	 * reverses in a snap: following its target at a capped speed alone, it went from turning one way to the other in a
+	 * tick, cresting a hill or topping a 2-block climb (play-test, 2026-10-23: "rotates forward too quickly").
+	 */
+	static float turn(final float value, final float rate, final float target, final float follow, final float maxRate, final float maxTurn) {
+		return turn(value, rate, target, follow, maxRate, maxRate, maxTurn);
+	}
+
+	/** As above, at most {@code maxUp} a tick nose up and {@code maxDown} nose down. */
+	static float turn(final float value, final float rate, final float target, final float follow, final float maxUp, final float maxDown, final float maxTurn) {
+		final float gap = target - value;
+		// (The most speed it can still brake from in time, a tick at a time: v + (v - turn) + ... <= gap.)
+		final float stop = (float) ((-maxTurn + Math.sqrt(maxTurn * maxTurn + 8.0 * maxTurn * Math.abs(gap))) * 0.5);
+		final float want = Mth.clamp(Math.copySign(Math.min(Math.abs(gap) * follow, stop), gap), -maxDown, maxUp);
+		return value + rate + Mth.clamp(want - rate, -maxTurn, maxTurn);
 	}
 
 	/**
@@ -1050,10 +1075,12 @@ public final class RideController {
 		final float tilt = Mth.clamp((float) Math.toDegrees(Math.atan2(s.fore - s.hind, HOOF_SPAN)) * SLOPE_SHARE, -SLOPE_PITCH_MAX, SLOPE_PITCH_MAX);
 		final float line = tilt + s.ledgeCrouch * LEDGE_CROUCH_PITCH + s.cutSquat * CUT_SQUAT_PITCH;
 		s.groundTilt = line;
-		// Drawn, it turns no faster than PITCH_RATE_MAX a tick, with the jump's tilt as it eases out this tick (see
-		// tickVisual); the body's height still follows the line itself.
-		final float jumpChange = horse.onGround() || horse.isInWater() ? -s.jumpPitch * JUMP_PITCH_SMOOTHING : 0.0F;
-		s.pitch += Mth.clamp(line - s.pitch, Math.min(-PITCH_RATE_MAX - jumpChange, 0.0F), Math.max(PITCH_RATE_MAX - jumpChange, 0.0F));
+		// Drawn, it turns toward the line as a body does (see turn), no faster than PITCH_RATE_MAX a tick with the jump's tilt
+		// as it eases out this tick (see tickVisual); the body's height still follows the line itself.
+		final float jumpChange = horse.onGround() || horse.isInWater()
+			? turn(s.jumpPitch, s.jumpPitchO - s.jumpPitchOO, 0.0F, JUMP_PITCH_SMOOTHING, JUMP_PITCH_RATE_MAX, JUMP_PITCH_TURN_MAX) - s.jumpPitch : 0.0F;
+		s.pitch = turn(s.pitch, s.pitchO - s.pitchOO, line, PITCH_FOLLOW, Math.max(PITCH_RATE_MAX - Math.max(jumpChange, 0.0F), 0.0F),
+			Math.max(PITCH_RATE_MAX + Math.min(jumpChange, 0.0F), 0.0F), PITCH_TURN_MAX);
 
 		// The body sits on the lower end (the pair of legs at the other draws up to fit), but never so low that they would
 		// have to draw up more than LEG_SIT (past the steepest tilt, the lower pair reaches down instead): the joints are

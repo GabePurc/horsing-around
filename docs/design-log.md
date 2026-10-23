@@ -801,3 +801,10 @@ landings straddled the edge.
   is at 158 million) a float steps in whole ticks or more, so the legs' springs almost never saw time pass: legs never
   drew up onto higher ground and the body never settled onto them, so hooves sank (0.29 into a step at a walk). Fixed by
   adding in double; the stride lanes now run with the world clock at 158 million. Fresh test worlds never showed it.
+- The body's rotation (play-test, 2026-10-23, recorded with F7): cresting a hill and topping a 2-block climb, the body
+  turned too fast, "like a snap". The ground tilt followed its line at up to 9 degrees a tick with no limit on how fast that
+  speed changed, so it nodded 20 degrees and back in a quarter second; the jump's tilt followed the flight at half the gap a
+  tick, so at the top of a 2-block climb it went from 25 nose up to 5 nose down at about 230 degrees a second. Both now
+  turn like a body with weight (`RideController.turn`): a top speed (6 and 5 degrees a tick), easing in toward the gap, and
+  the speed changing by at most 1.5 and 1 degrees a tick each tick, never overshooting. The jump tilt also follows the curve
+  between ticks. Galloping up a mountain: turns faster than 150 degrees a second 10 to 1.

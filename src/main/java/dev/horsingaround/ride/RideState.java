@@ -221,6 +221,8 @@ public final class RideState {
 	/** Tilt with the flight while airborne (nose up taking off, down landing), degrees, on top of the terrain pitch. */
 	float jumpPitch;
 	float jumpPitchO;
+	/** The jump tilt a tick before {@link #jumpPitchO}, for its curve between ticks and how fast it is turning. */
+	float jumpPitchOO;
 	/** Rendered height minus physical height, so block step-ups become a smooth climb. */
 	float heightOffset;
 	float heightOffsetO;
@@ -443,7 +445,7 @@ public final class RideState {
 
 	/** Tilt with the flight while airborne, degrees; positive is nose up. */
 	public float jumpPitch(final float partialTicks) {
-		return this.jumpPitchO + (this.jumpPitch - this.jumpPitchO) * partialTicks;
+		return (float) curve(this.jumpPitchOO, this.jumpPitchO, this.jumpPitch, partialTicks);
 	}
 
 	/** Head-shake envelope 0..1 at the given time (client ticks), with its phase in radians in {@code phaseOut[0]}. */

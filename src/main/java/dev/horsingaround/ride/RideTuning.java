@@ -502,9 +502,14 @@ public final class RideTuning {
 	static final float SLOPE_PITCH_MAX = 40.0F;
 	/**
 	 * The body as drawn tilts no faster than PITCH_RATE_MAX degrees a tick on its legs, its jump tilt easing out included
-	 * (touching down on a slope, the forehand still falling, and the flight's tilt letting go, together snapped it).
+	 * (touching down on a slope, the forehand still falling, and the flight's tilt letting go, together snapped it). It
+	 * turns toward the line like a body with weight (see RideController.turn): at a speed easing toward PITCH_FOLLOW of the
+	 * gap, that speed changing by at most PITCH_TURN_MAX degrees a tick each tick (play-test, 2026-10-23: at 9 a tick with
+	 * no limit on how fast that changed, it nodded 20 degrees and back in a quarter second cresting a hill, a snap).
 	 */
-	static final float PITCH_RATE_MAX = 9.0F;
+	static final float PITCH_RATE_MAX = 6.0F;
+	static final float PITCH_FOLLOW = 0.5F;
+	static final float PITCH_TURN_MAX = 1.5F;
 	public static final float LEG_LENGTH = 0.625F;
 	public static final float LEG_UPRIGHT = 1.0F;
 	/**
@@ -657,6 +662,13 @@ public final class RideTuning {
 	static final float JUMP_PITCH_UP = 25.0F;
 	static final float JUMP_PITCH_DOWN = 15.0F;
 	static final float JUMP_PITCH_SMOOTHING = 0.5F;
+	/**
+	 * The jump's tilt turns the same way (see PITCH_TURN_MAX): at most JUMP_PITCH_RATE_MAX degrees a tick, that changing
+	 * by at most JUMP_PITCH_TURN_MAX a tick (topping a 2-block climb it went from nose up to nose down at 230 degrees a
+	 * second, the forehand snapping forward).
+	 */
+	static final float JUMP_PITCH_RATE_MAX = 5.0F;
+	static final float JUMP_PITCH_TURN_MAX = 1.0F;
 	/** Taking off, the tilt it had on the ground eases out by at most this much a tick (degrees). */
 	static final float AIR_PITCH_RELEASE = 2.5F;
 	/** World-space follow rate for the body height afloat: turns climbing out of the water into a smooth rise. */
