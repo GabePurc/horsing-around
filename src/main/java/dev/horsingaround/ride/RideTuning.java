@@ -447,11 +447,18 @@ public final class RideTuning {
 	static final float STEP_RAMP_PER_SPEED = 5.0F;
 	/**
 	 * Ridden, the ground each end of the body follows ahead of its hooves is averaged over STEP_SMOOTH_TICKS of the horse's
-	 * travel more (read at STEP_SMOOTH_READS points), so the climb picks up and eases off in a curve, never a corner (user
-	 * direction, 2026-10-23: a smooth ride, nothing moving near instantly).
+	 * travel more (read in at most STEP_SMOOTH_PIECES pieces; that length eased STEP_SMOOTH_EASE of the way a tick, so a change of
+	 * pace doesn't move it), and collected for a step, the ground under them over half that: the climb picks up and eases off in a curve,
+	 * never a corner (user direction, 2026-10-23: a smooth ride, nothing moving near instantly).
 	 */
-	static final float STEP_SMOOTH_TICKS = 0.0F;
-	static final int STEP_SMOOTH_READS = 5;
+	static final float STEP_SMOOTH_TICKS = 4.0F;
+	static final int STEP_SMOOTH_PIECES = 16;
+	static final float STEP_SMOOTH_EASE = 0.1F;
+	/**
+	 * Collected for a step, the share of that stretch behind where the ground is read (the rest ahead: the climb starts
+	 * sooner, not later); otherwise half (reading ahead on a hillside would carry the body above the hooves).
+	 */
+	static final double STEP_SMOOTH_BEHIND = 0.15;
 	static final double CHEST_AHEAD = 0.85;
 	static final double BELLY_HEIGHT = 0.62;
 	/**

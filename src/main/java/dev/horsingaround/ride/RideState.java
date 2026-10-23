@@ -260,6 +260,18 @@ public final class RideState {
 	/** The ground actually under the front and hind hooves (NaN on level ground or where there is none). */
 	double foreFoot = Double.NaN;
 	double hindFoot = Double.NaN;
+
+	/** For tests: the body's two ends (see the fields above), into {@code out}: fore, hind, their grounds, rises and feet. */
+	public void steps(final double[] out) {
+		out[0] = this.fore;
+		out[1] = this.hind;
+		out[2] = this.foreGround;
+		out[3] = this.hindGround;
+		out[4] = this.foreRise;
+		out[5] = this.hindRise;
+		out[6] = this.foreFoot;
+		out[7] = this.hindFoot;
+	}
 	/** In the air from a jump or a fall bigger than a step: the body follows its flight instead of the ground. */
 	boolean flying;
 	/**
@@ -337,6 +349,8 @@ public final class RideState {
 	 * so a hoof on the ground stays where it was put down, and places each hoof clear of the step's edge (see Stride).
 	 */
 	public float collect;
+	/** How far the ground each end of the body follows is rounded off (blocks; see RideController.steps), eased. */
+	public float stepSmooth;
 	/** How much faster the stride runs than the gait's own (1: as the animation has it). Client only. */
 	public float cadence = 1.0F;
 	/**

@@ -3604,7 +3604,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		}
 		boolean measuring = false;
 		int shot = 0;
-		final StringBuilder csv = new StringBuilder("time,x,y,z,body,tilt,camx,camy,camz,collect,cadence,match");
+		final StringBuilder csv = new StringBuilder("time,x,y,z,body,tilt,camx,camy,camz,collect,cadence,match,fore,hind,foreg,hindg,forer,hindr,foref,hindf");
 		for (final String leg : new String[] {"fl", "fr", "hl", "hr"}) {
 			csv.append(String.format(Locale.ROOT, ",%1$s_x,%1$s_y,%1$s_z,%1$s_gap,%1$s_clip,%1$s_lift,%1$s_rise,%1$s_back,%1$s_down,%1$s_shift,%1$s_landz,%1$s_path,%1$s_through,%1$s_ptop,%1$s_arc,%1$s_want", leg));
 		}
@@ -4112,6 +4112,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 		final int steps = 10;
 		final double end = -5.0 - steps - 4.0;
 		lane(ctx, input, world, x + 0.5, up ? -60 : -60 + steps, "slope_test_" + x, slopeBuild(x, up, stairs, false, steps));
+		// (The client has the steps before riding at them: now and then the first lane rode through where they weren't yet.)
+		final net.minecraft.core.BlockPos first = new net.minecraft.core.BlockPos(x, -60, -5);
+		ctx.waitFor(mc -> !mc.level.getBlockState(first).isAir());
 		sideCamera(world, x + 6.5, -57.5, -8.0, 90.0F);
 		input.holdKey(o -> o.keyUp);
 		if (trot) {

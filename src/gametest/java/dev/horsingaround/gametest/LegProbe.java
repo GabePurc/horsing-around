@@ -129,6 +129,7 @@ public final class LegProbe {
 	public static final StringBuilder slideLog = new StringBuilder();
 	/** While set, a CSV line a frame: the time, the horse, the drawn body and camera, and per leg its sole, gap, depth in a block and pose. */
 	public static StringBuilder record;
+	private static final double[] STEPS = new double[8];
 	public static final StringBuilder clipLog = new StringBuilder();
 	static final double CONTACT_GAP = 0.03;
 	static final double CLIP_PIXEL = 1.0 / 16.0;
@@ -370,6 +371,10 @@ public final class LegProbe {
 			final dev.horsingaround.ride.RideState r = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
 			record.append(String.format(Locale.ROOT, "%.4f,%.4f,%.4f,%.4f,%.4f,%.3f,%.4f,%.4f,%.4f,%.3f,%.3f,%.3f", time, s.x, s.y, s.z, s.y + r.heightOffset(partial),
 				r.pitch(partial), cam.x, cam.y, cam.z, r.collect, r.cadence, r.strideMatch));
+			r.steps(STEPS);
+			for (final double v : STEPS) {
+				record.append(String.format(Locale.ROOT, ",%.4f", v));
+			}
 			for (int leg = 0; leg < 4; leg++) {
 				record.append(String.format(Locale.ROOT, ",%.4f,%.4f,%.4f,%.4f,%.4f,%.3f,%.4f,%.4f,%d,%.3f", sole[leg][0], sole[leg][1], sole[leg][2], gap[leg], clipNow[leg],
 					dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[leg], r.legRise[leg], r.legBack[leg], r.footDown[leg] ? 1 : r.footOwnSwing[leg] > 0.0F ? 2 : 0, r.footShift[leg]));
@@ -715,18 +720,41 @@ public final class LegProbe {
 		final double lz = z - bz;
 		pos.set(bx, by, bz);
 		double most = 0.0;
-		for (final AABB box : level.getBlockState(pos).getCollisionShape(level, pos).toAabbs()) {
+		final java.util.List<AABB> boxes = level.getBlockState(pos).getCollisionShape(level, pos).toAabbs();
+		for (final AABB box : boxes) {
 			if (lx > box.minX && lx < box.maxX && ly > box.minY && ly < box.maxY && lz > box.minZ && lz < box.maxZ) {
-				// (Out of the top, or sideways only where the neighbour there isn't solid at that height.)
+				// (Out of the top, or sideways: into the open within the block (the low half of a stair), or out of it where the
+				// neighbour there isn't solid at that height.)
 				double out = box.maxY - ly;
-				out = Math.min(out, sideways(level, bx, by, bz, ly, lx - box.minX, -1, 0));
-				out = Math.min(out, sideways(level, bx, by, bz, ly, box.maxX - lx, 1, 0));
-				out = Math.min(out, sideways(level, bx, by, bz, ly, lz - box.minZ, 0, -1));
-				out = Math.min(out, sideways(level, bx, by, bz, ly, box.maxZ - lz, 0, 1));
+				out = Math.min(out, sideways(level, boxes, bx, by, bz, lx, ly, lz, lx - box.minX, -1, 0));
+				out = Math.min(out, sideways(level, boxes, bx, by, bz, lx, ly, lz, box.maxX - lx, 1, 0));
+				out = Math.min(out, sideways(level, boxes, bx, by, bz, lx, ly, lz, lz - box.minZ, 0, -1));
+				out = Math.min(out, sideways(level, boxes, bx, by, bz, lx, ly, lz, box.maxZ - lz, 0, 1));
 				most = Math.max(most, out);
 			}
 		}
 		return most;
+	}
+
+	/**
+	 * {@code distance} if moving that far that way (and a hair more) leaves a point at (lx, ly, lz) in a block in the open:
+	 * inside the block, clear of its other boxes; outside it, where the neighbour leaves room at that height.
+	 */
+	private static double sideways(
+		final Level level, final java.util.List<AABB> boxes, final int bx, final int by, final int bz, final double lx, final double ly, final double lz,
+		final double distance, final int dx, final int dz
+	) {
+		final double x = lx + dx * (distance + 1.0E-4);
+		final double z = lz + dz * (distance + 1.0E-4);
+		if (x > 0.0 && x < 1.0 && z > 0.0 && z < 1.0) {
+			for (final AABB other : boxes) {
+				if (x > other.minX && x < other.maxX && ly > other.minY && ly < other.maxY && z > other.minZ && z < other.maxZ) {
+					return Double.MAX_VALUE;
+				}
+			}
+			return distance;
+		}
+		return sideways(level, bx, by, bz, ly, distance, dx, dz);
 	}
 
 	/** {@code distance} if the neighbour that way leaves room at height {@code ly}, else the way out isn't that way. */
