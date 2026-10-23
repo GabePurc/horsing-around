@@ -76,6 +76,10 @@ public final class LegProbe {
 	public static double tiltKinkMost;
 	static final double KINK_BODY = 1.0;
 	static final double KINK_TILT = 40.0;
+	/** The body pitching faster than this (degrees/s) counts as a fast turn (a rough guide: a horse climbing heaves its forehand up at about 100). */
+	static final double TILT_FAST = 150.0;
+	public static int fastTurns;
+	public static double fastestTurn;
 	private static double lastBodyHeight = Double.NaN;
 	private static double lastBodyVelocity = Double.NaN;
 	private static double lastTilt = Double.NaN;
@@ -104,6 +108,9 @@ public final class LegProbe {
 	public static double bodyInside;
 	/** The same for the chest end of it alone (the rest is the hindquarters). */
 	public static double chestInside;
+	/** The body as drawn, the last frame: pitch (nose up positive) and roll (right side down positive), degrees. */
+	public static double bodyPitch;
+	public static double bodyRoll;
 	/** How far the rest of the leg, above the sole, is in a block at its deepest (blocks, the shortest way out). */
 	public static final double[] legInside = new double[4];
 	/** How far the middle of the top of the leg is up inside the body (blocks; negative, a gap shows). */
@@ -248,6 +255,8 @@ public final class LegProbe {
 		cameraKinkMost = 0.0;
 		bodyKinks = 0;
 		bodyKinkMost = 0.0;
+		fastTurns = 0;
+		fastestTurn = 0.0;
 		tiltKinks = 0;
 		tiltKinkMost = 0.0;
 		lastBodyHeight = lastBodyVelocity = lastTilt = lastTiltVelocity = lastBodyTime = Double.NaN;
@@ -259,8 +268,9 @@ public final class LegProbe {
 
 	/** The hitches (see {@link #kinks}), one line. */
 	public static String hitches() {
-		return String.format(Locale.ROOT, "hitches: soles %d (most %.1f blocks/s in a frame), camera %d (most %.2f), body %d (most %.2f), tilt %d (most %.0f deg/s)", kinks,
-			kinkMost, cameraKinks, cameraKinkMost, bodyKinks, bodyKinkMost, tiltKinks, tiltKinkMost);
+		return String.format(Locale.ROOT,
+			"hitches: soles %d (most %.1f blocks/s in a frame), camera %d (most %.2f), body %d (most %.2f), pitch %d (most %.0f deg/s); fast turns %d (fastest %.0f deg/s)",
+			kinks, kinkMost, cameraKinks, cameraKinkMost, bodyKinks, bodyKinkMost, tiltKinks, tiltKinkMost, fastTurns, fastestTurn);
 	}
 
 	/** The riding-about numbers (see {@link #soleTravel}), one line. */
@@ -322,6 +332,38 @@ public final class LegProbe {
 				if (belly[i * 3] * hx + belly[i * 3 + 2] * hz > middle) {
 					chestInside = Math.max(chestInside, in);
 				}
+			}
+			// The body as drawn: its pitch (chest end against the hindquarters, nose up positive) and roll (right side down
+			// positive), degrees, off its underside's corners.
+			double fy = 0.0, by = 0.0, fa = 0.0, ba = 0.0, ry = 0.0, ly = 0.0, rs = 0.0, ls = 0.0;
+			int front = 0, right = 0;
+			double side = 0.0;
+			for (int i = 0; i < 4; i++) {
+				side += (belly[i * 3] * hz - belly[i * 3 + 2] * hx) * 0.25;
+			}
+			for (int i = 0; i < 4; i++) {
+				final double a = belly[i * 3] * hx + belly[i * 3 + 2] * hz;
+				final double w = belly[i * 3] * hz - belly[i * 3 + 2] * hx;
+				if (a > middle) {
+					fy += belly[i * 3 + 1];
+					fa += a;
+					front++;
+				} else {
+					by += belly[i * 3 + 1];
+					ba += a;
+				}
+				if (w > side) {
+					ly += belly[i * 3 + 1];
+					ls += w;
+					right++;
+				} else {
+					ry += belly[i * 3 + 1];
+					rs += w;
+				}
+			}
+			if (front == 2 && right == 2) {
+				bodyPitch = Math.toDegrees(Math.atan2((fy - by) * 0.5, (fa - ba) * 0.5));
+				bodyRoll = Math.toDegrees(Math.atan2((ly - ry) * 0.5, (ls - rs) * 0.5));
 			}
 		}
 		// The belly's plane (its normal up).
@@ -530,8 +572,9 @@ public final class LegProbe {
 		}
 		if (record != null && record.length() < 4_000_000) {
 			final dev.horsingaround.ride.RideState r = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
-			record.append(String.format(Locale.ROOT, "%.4f,%.4f,%.4f,%.4f,%.4f,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f", time, s.x, s.y, s.z, s.y + r.heightOffset(partial),
-				r.pitch(partial), cam.x, cam.y, cam.z, r.debugFore(), r.debugHind()));
+			record.append(String.format(Locale.ROOT, "%.4f,%.4f,%.4f,%.4f,%.4f,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%.3f,%.3f,%.3f,%.3f,%d,%d", time, s.x, s.y, s.z,
+				s.y + r.heightOffset(partial), r.pitch(partial), cam.x, cam.y, cam.z, r.debugFore(), r.debugHind(), bodyPitch, r.jumpPitch(partial), r.airLegs(partial),
+				r.lean(partial), r.inAir ? 1 : 0, r.ledgeTicks));
 			for (int leg = 0; leg < 4; leg++) {
 				record.append(String.format(Locale.ROOT, ",%.4f,%.4f,%.4f,%.4f,%.4f,%.3f,%.4f,%.4f,%d,%.3f", sole[leg][0], sole[leg][1], sole[leg][2], gap[leg], clipNow[leg],
 					dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[leg], r.legRise[leg], r.legBack[leg],
@@ -544,7 +587,7 @@ public final class LegProbe {
 		if (bodyDt > 0.004 && bodyDt < 0.2) {
 			final dev.horsingaround.ride.RideState r = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
 			final double height = s.y + r.heightOffset(partial);
-			final double tilt = r.pitch(partial);
+			final double tilt = bodyPitch;
 			final double bodyVelocity = (height - lastBodyHeight) / bodyDt;
 			final double tiltVelocity = (tilt - lastTilt) / bodyDt;
 			if (!Double.isNaN(lastBodyVelocity)) {
@@ -552,6 +595,13 @@ public final class LegProbe {
 				final double turn = Math.abs(tiltVelocity - lastTiltVelocity);
 				bodyKinkMost = Math.max(bodyKinkMost, change);
 				tiltKinkMost = Math.max(tiltKinkMost, turn);
+				if (Math.abs(tiltVelocity) > TILT_FAST && Math.abs(lastTiltVelocity) <= TILT_FAST) {
+					fastTurns++;
+					Recorder.event(mc, String.format(Locale.ROOT, "fast turn [t%.2f the body pitching %+.0f deg/s: drawn pitch %.1f (slope %.1f jump %.1f) air %.2f%s%s ledge %d speed %.2f]",
+						time, tiltVelocity, tilt, r.pitch(partial), r.jumpPitch(partial), r.airLegs(partial), r.inAir ? " in air" : "", r.leapt() ? " leapt" : "",
+						r.ledgeTicks, Math.hypot(horse.getX() - horse.xo, horse.getZ() - horse.zo)));
+				}
+				fastestTurn = Math.max(fastestTurn, Math.abs(tiltVelocity));
 				if (change > KINK_BODY || turn > KINK_TILT) {
 					if (change > KINK_BODY) {
 						bodyKinks++;
@@ -561,9 +611,10 @@ public final class LegProbe {
 					}
 					if (kinkLog.length() < 4000 || Recorder.on) {
 						final int from = kinkLog.length();
-						kinkLog.append(String.format(Locale.ROOT, "[t%.2f body %+.2f -> %+.2f b/s, tilt %+.0f -> %+.0f deg/s: tilt %.1f fit %+.3f near %.2f speed %.2f] ",
-							time, lastBodyVelocity, bodyVelocity, lastTiltVelocity, tiltVelocity, tilt, r.drawnFit, r.stepNear,
-							Math.hypot(horse.getX() - horse.xo, horse.getZ() - horse.zo)));
+						kinkLog.append(String.format(Locale.ROOT,
+							"[t%.2f body %+.2f -> %+.2f b/s, pitch %+.0f -> %+.0f deg/s: drawn pitch %.1f (slope %.1f jump %.1f) air %.2f%s%s ledge %d fit %+.3f near %.2f speed %.2f] ",
+							time, lastBodyVelocity, bodyVelocity, lastTiltVelocity, tiltVelocity, tilt, r.pitch(partial), r.jumpPitch(partial), r.airLegs(partial),
+							r.inAir ? " in air" : "", r.leapt() ? " leapt" : "", r.ledgeTicks, r.drawnFit, r.stepNear, Math.hypot(horse.getX() - horse.xo, horse.getZ() - horse.zo)));
 						Recorder.event(mc, "hitch " + kinkLog.substring(from));
 						if (kinkLog.length() > 4000) {
 							kinkLog.setLength(from);
@@ -579,7 +630,7 @@ public final class LegProbe {
 		} else if (Double.isNaN(lastBodyTime)) {
 			final dev.horsingaround.ride.RideState r = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
 			lastBodyHeight = s.y + r.heightOffset(partial);
-			lastTilt = r.pitch(partial);
+			lastTilt = bodyPitch;
 			lastBodyTime = time;
 		}
 		// Camera hitches: its speed changing in one frame.

@@ -33,7 +33,8 @@ public final class Recorder {
 	/** About 30 seconds at 260 frames a second. */
 	static final int FRAMES = 8000;
 	private static final String[] BODY = {"time", "fps", "x", "y", "z", "yaw", "speed", "gait", "keys", "body", "tilt", "fit", "near", "camx", "camy", "camz",
-		"camyaw", "campitch", "target", "attack"};
+		"camyaw", "campitch", "target", "attack", "dpitch", "droll", "slope", "jump", "lean", "airlegs", "inair", "leapt", "ledge", "ledgeair", "bank",
+		"vy", "ground"};
 	private static final String[] LEG = {"x", "y", "z", "gap", "clip", "lift", "rise", "back", "turn", "step"};
 	private static final int COLUMNS = BODY.length + 4 * LEG.length;
 	private static final double[][] RING = new double[FRAMES][COLUMNS];
@@ -45,6 +46,9 @@ public final class Recorder {
 	private static int eventsThisSecond;
 	static boolean on;
 	private static int lastTarget;
+	private static boolean lastInAir;
+	private static boolean lastLedge;
+	private static boolean lastLeapt;
 
 	private Recorder() {
 	}
@@ -86,6 +90,37 @@ public final class Recorder {
 		final int targetCode = target == null ? 0 : target == horse ? 1 : target instanceof net.minecraft.world.entity.LivingEntity ? 2 : 3;
 		row[c++] = targetCode;
 		row[c++] = mc.player.getAttackStrengthScale(0.0F);
+		// The body as drawn (pitch and roll, off the model), and what turns it: the slope's tilt, a jump's, the lean into a turn,
+		// the legs' jump shape; and the horse's own state: in the air, leapt, a ledge climb (its ticks, in its air), a heave
+		// out of water, its rise or fall (blocks/tick), on the ground.
+		row[c++] = LegProbe.bodyPitch;
+		row[c++] = LegProbe.bodyRoll;
+		row[c++] = ride.pitch(partial);
+		row[c++] = ride.jumpPitch(partial);
+		row[c++] = ride.lean(partial);
+		row[c++] = ride.airLegs(partial);
+		row[c++] = ride.inAir ? 1 : 0;
+		row[c++] = ride.leapt() ? 1 : 0;
+		row[c++] = ride.ledgeTicks;
+		row[c++] = ride.ledgeAir ? 1 : 0;
+		row[c++] = ride.bankTicks;
+		row[c++] = horse.getDeltaMovement().y;
+		row[c++] = horse.onGround() ? 1 : 0;
+		// The moments that turn the body: off the ground, landing, a ledge climb starting or ending, a leap.
+		if (ride.inAir != lastInAir) {
+			event(mc, String.format(Locale.ROOT, "%s [t%.2f y %.2f speed %.2f drawn pitch %.1f]", ride.inAir ? "airborne" : "landed", time, horse.getY(),
+				Math.hypot(horse.getX() - horse.xo, horse.getZ() - horse.zo), LegProbe.bodyPitch));
+		}
+		if ((ride.ledgeTicks > 0) != lastLedge) {
+			event(mc, String.format(Locale.ROOT, "%s [t%.2f y %.2f drawn pitch %.1f]", ride.ledgeTicks > 0 ? "ledge climb" : "ledge climb done", time, horse.getY(),
+				LegProbe.bodyPitch));
+		}
+		if (ride.leapt() && !lastLeapt) {
+			event(mc, String.format(Locale.ROOT, "leap [t%.2f y %.2f speed %.2f]", time, horse.getY(), Math.hypot(horse.getX() - horse.xo, horse.getZ() - horse.zo)));
+		}
+		lastInAir = ride.inAir;
+		lastLedge = ride.ledgeTicks > 0;
+		lastLeapt = ride.leapt();
 		if (targetCode != lastTarget && targetCode != 0) {
 			event(mc, String.format(Locale.ROOT, "target %s (%s, %.1f blocks off, attack %.2f)", targetCode == 1 ? "the horse ridden" : "something",
 				BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()).getPath(), Math.sqrt(target.distanceToSqr(mc.player)), mc.player.getAttackStrengthScale(0.0F)));

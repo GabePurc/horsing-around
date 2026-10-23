@@ -3646,7 +3646,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		}
 		boolean measuring = false;
 		int shot = 0;
-		final StringBuilder csv = new StringBuilder("time,x,y,z,body,tilt,camx,camy,camz,fore,hind");
+		final StringBuilder csv = new StringBuilder("time,x,y,z,body,tilt,camx,camy,camz,fore,hind,dpitch,jump,airlegs,lean,inair,ledge");
 		for (final String leg : new String[] {"fl", "fr", "hl", "hr"}) {
 			csv.append(String.format(Locale.ROOT, ",%1$s_x,%1$s_y,%1$s_z,%1$s_gap,%1$s_clip,%1$s_lift,%1$s_rise,%1$s_back,%1$s_step,%1$s_turn", leg));
 		}

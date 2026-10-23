@@ -71,10 +71,13 @@ gallery always gets them). Leg and body easing runs on game time, so results don
 
 A mod of its own, `horsingaround-devtools`, loaded in dev games (`./gradlew runClient`, 26.3) and the client tests, never
 in the jar players install. It holds `LegProbe` (the legs measured exactly as drawn; the tests use it) and the play-test
-recorder: in a dev game it records every frame of the ridden horse (body, tilt, camera, keys, each leg as drawn and its
-step state) into a ring of about 30 seconds. **F7** saves it to `run/devtools/<time>/` (`frames.csv`, `ground.csv` with the
+recorder: in a dev game it records every frame of the ridden horse into a ring of about 30 seconds: the body as drawn
+(height, pitch and roll off the model) and what turns it (the slope's tilt, a jump's, the lean, the legs' jump shape), the
+horse's state (in the air, leapt, ledge climb, heave, vertical speed, on the ground), the camera, the keys, what the
+crosshair targets and the attack charge, and each leg as drawn with its step state. **F7** saves it to `run/devtools/<time>/` (`frames.csv`, `ground.csv` with the
 ground along the way, `events.txt`). Every hitch (a hoof, the body, its tilt or the camera changing speed in one frame)
-and every sunk hoof also goes to `run/devtools/events.log` as it happens. After a play-test, read those instead of
+and every sunk hoof also goes to `run/devtools/events.log` as it happens, with every turn of the body faster than 150
+degrees a second, takeoff, landing, ledge climb, leap and crosshair target. After a play-test, read those instead of
 guessing. Stride lanes and terrain scenarios report the same hitches (`LegProbe.hitches`), measured against the drawn
 body.
 
