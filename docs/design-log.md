@@ -777,8 +777,9 @@ vanilla's one-piece legs stay, and a model an animation pack animates is never t
 - Footfalls: walk in four even beats (hind before fore on each side), trot on diagonal pairs, canter and gallop on the
   left lead. A leg sweeps back evenly on the ground; in the air it lifts (drawn up into the body, as the mod's legs fold),
   flicks back, swings forward and stretches out, and it leaves and meets the ground at its pace on the ground (a
-  galloping horse's hoof is drawn back to meet the ground), so there is no jolt at either end. Stance angles stay small:
-  a rigid leg turned about its top lifts its hoof off the ground.
+  galloping horse's hoof is drawn back to meet the ground), so there is no jolt at either end. Stance angles stay small
+  (a rigid leg turned about its top lifts its hoof off the ground, and the body comes down onto hooves that stand off
+  it: larger ones sank the body stopping from a trot), and on steep ground the lift shrinks as the stride does.
 - The head nods twice a stride at a walk and trot, once at a canter and gallop (down as the front hooves take the
   weight); the tail bounces after the body and swings with the walk's hips. Vanilla's own head bob comes out.
 - Only for the horses the mod manages (as everything else it draws), on every version; the ride's ground and jump legs

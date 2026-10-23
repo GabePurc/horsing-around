@@ -316,6 +316,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 				high = Math.max(high, side);
 			}
 			check("rider follows the saddle's side-to-side sway at a walk (blocks peak to peak)", high - low, 0.003, 0.2);
+		} else {
+			// (The same time passes, so what follows is measured at the same moment.)
+			ctx.waitTicks(30);
 		}
 		sideScreenshot(ctx, "02b_walk_side");
 	}
@@ -873,6 +876,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 	private void saddleSync(final ClientGameTestContext ctx) {
 		if (!TestPacks.animated()) {
+			// (The same time passes, so what follows is measured at the same moment.)
+			ctx.waitTicks(20);
 			return;
 		}
 		float low = Float.MAX_VALUE;
