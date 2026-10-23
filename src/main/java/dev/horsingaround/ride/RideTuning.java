@@ -445,6 +445,13 @@ public final class RideTuning {
 	static final double STEP_LEAD_MAX = 4.5;
 	/** At a run a step up comes in over this many ticks per block/tick of speed (a smooth pick-up of the climb), read that much further ahead. */
 	static final float STEP_RAMP_PER_SPEED = 5.0F;
+	/**
+	 * Ridden, the ground each end of the body follows ahead of its hooves is averaged over STEP_SMOOTH_TICKS of the horse's
+	 * travel more (read at STEP_SMOOTH_READS points), so the climb picks up and eases off in a curve, never a corner (user
+	 * direction, 2026-10-23: a smooth ride, nothing moving near instantly).
+	 */
+	static final float STEP_SMOOTH_TICKS = 0.0F;
+	static final int STEP_SMOOTH_READS = 5;
 	static final double CHEST_AHEAD = 0.85;
 	static final double BELLY_HEIGHT = 0.62;
 	/**
@@ -546,6 +553,119 @@ public final class RideTuning {
 	/** On ground tilting STRIDE_STEEP_TILT radians or more, the legs swing only STRIDE_STEEP of the animation's stride (eased in up to there). */
 	public static final float STRIDE_STEEP = 0.5F;
 	public static final float STRIDE_STEEP_TILT = 0.52F;
+	/**
+	 * Collecting for a step (user direction, 2026-10-23: the stride adjusts to climb a block, no sliding hooves): with ground
+	 * at least COLLECT_STEP above or below the hooves from the hind hooves to COLLECT_AHEAD blocks (plus COLLECT_LEAD
+	 * seconds of travel) ahead of the front ones, the horse gathers itself, COLLECT_IN of the way a tick (COLLECT_OUT
+	 * letting go): its stride quickens until the animation draws a planted hoof back exactly as fast as the horse moves
+	 * (at most CADENCE_MAX times the gait's own), and a hoof on the ground stays where it was put down. On open ground
+	 * the stride is the gait's own (COLLECT_OPEN of that).
+	 */
+	public static final float COLLECT_STEP = 0.3F;
+	public static final float COLLECT_AHEAD = 1.0F;
+	public static final float COLLECT_LEAD = 0.7F;
+	public static final float COLLECT_IN = 0.15F;
+	public static final float COLLECT_OUT = 0.06F;
+	public static final float COLLECT_OPEN = 0.0F;
+	/**
+	 * Not on ground climbing or falling COLLECT_STEEP_RISE blocks within COLLECT_STEEP_ALONG (a hillside of full blocks):
+	 * held there, a hoof's rigid leg is soon too short for the climb, and the gait's own stride keeps the hooves under the
+	 * body (the known scramble).
+	 */
+	public static final double COLLECT_STEEP_RISE = 2.5;
+	public static final double COLLECT_STEEP_ALONG = 3.0;
+	public static final float CADENCE_MAX = 2.6F;
+	/** How quickly the cadence follows (share of the way a tick), and how quickly the measured match follows a stance (share of the way). */
+	public static final float CADENCE_EASE = 0.2F;
+	public static final float STRIDE_MATCH_EASE = 0.35F;
+	/**
+	 * A hoof's stride as drawn (see Stride): it lifts off when the animation lifts it STRIDE_LIFT_OFF blocks, or swings it
+	 * forward faster than STRIDE_SWING_SPEED blocks a second against the body without lifting it (a model that only swings
+	 * its legs), after at least STRIDE_PHASE_MIN seconds down. Planted, it is held no further than STRIDE_SHIFT_MAX blocks
+	 * from where the animation has it (as far as a leg reaches; past that it gives). It touches down STRIDE_LAND_THROUGH of
+	 * the way through the animation's swing or later, once the animation has it below STRIDE_TOUCH_DOWN. A swing of the animation's spans at
+	 * least STRIDE_SPAN_MIN blocks (else it is timed). Below STRIDE_STILL blocks a second the horse counts as standing; the
+	 * match is measured above STRIDE_MEASURE_SPEED. A hoof is moved by swinging its leg, at most STRIDE_TURN_MAX radians.
+	 */
+	public static final float STRIDE_LIFT_OFF = 0.07F;
+	public static final float STRIDE_TOUCH_DOWN = 0.04F;
+	public static final float STRIDE_SWING_SPEED = 0.6F;
+	public static final float STRIDE_PHASE_MIN = 0.05F;
+	public static final float STRIDE_SHIFT_MAX = 0.45F;
+	public static final float STRIDE_LAND_THROUGH = 0.5F;
+	public static final float STRIDE_SPAN_MIN = 0.15F;
+	public static final float STRIDE_STILL = 0.3F;
+	public static final float STRIDE_MEASURE_SPEED = 1.0F;
+	public static final float STRIDE_TURN_MAX = 1.0F;
+	/**
+	 * A hoof within STRIDE_CLEAR blocks of the ground is held where it is, more the closer (so it comes straight down onto
+	 * its spot and lifts straight off it, rolling over its toe, rather than skidding in and out).
+	 */
+	public static final float STRIDE_CLEAR = 0.06F;
+	/** The match is only measured on ground tilting less than STRIDE_MEASURE_TILT radians. */
+	public static final float STRIDE_MEASURE_TILT = 0.09F;
+	/**
+	 * Landing clear of an edge (collected): a hoof lands wholly on one level (STRIDE_EDGE_MARGIN to spare each side of its
+	 * sole; levels within STRIDE_LEVEL are one), with at least STRIDE_FACE_ROOM before the foot of a step (ground more
+	 * than STRIDE_RISE higher), moved as little as it can from where the animation would put it, at most
+	 * STRIDE_PLACE_REACH (tried every STRIDE_PLACE_STEP); picked until STRIDE_PLACE_UNTIL through its swing. The ground is
+	 * read from STRIDE_PROFILE_UP above the hoof to STRIDE_PROFILE_DOWN below.
+	 */
+	public static final double STRIDE_EDGE_MARGIN = 0.05;
+	public static final double STRIDE_LEVEL = 0.02;
+	public static final double STRIDE_FACE_ROOM = 0.2;
+	public static final double STRIDE_RISE = 0.25;
+	public static final double STRIDE_PLACE_REACH = 0.35;
+	public static final double STRIDE_PLACE_STEP = 1.0 / 32.0;
+	public static final float STRIDE_PLACE_UNTIL = 0.7F;
+	public static final double STRIDE_PROFILE_UP = 1.6;
+	public static final double STRIDE_PROFILE_DOWN = 1.6;
+	/**
+	 * Collected past STRIDE_KEEP_OWN, a planted hoof lifts early, in a swing of its own, onto the step ahead: once its leg
+	 * no longer reaches the ground under it by STRIDE_HANG (the forehand rising onto the step), or would meet the step's
+	 * edge within STRIDE_FACE_LOOK seconds. It lands wholly on the step, STRIDE_TREAD_IN in; the swing moves it STRIDE_OWN_SPEED
+	 * blocks a second (taking STRIDE_OWN_TIME_MIN to STRIDE_OWN_TIME_MAX seconds) in an arc STRIDE_OWN_LIFT high.
+	 */
+	public static final float STRIDE_KEEP_OWN = 0.5F;
+	public static final float STRIDE_HANG = 0.06F;
+	public static final double STRIDE_OWN_LOOK = 1.2;
+	public static final float STRIDE_FACE_LOOK = 0.08F;
+	public static final double STRIDE_TREAD_IN = 0.1;
+	public static final double STRIDE_REACH = 0.8;
+	public static final double STRIDE_OWN_SPEED = 3.0;
+	public static final float STRIDE_OWN_TIME_MIN = 0.12F;
+	public static final float STRIDE_OWN_TIME_MAX = 0.35F;
+	public static final float STRIDE_OWN_LIFT = 0.15F;
+	/** A collected swing's arc reaches its full height (STRIDE_OWN_LIFT) this many times quicker than a plain arch would. */
+	public static final float STRIDE_ARC_RISE = 2.5F;
+	/**
+	 * A collected swing follows a path of its own: it lifts straight off, goes along between STRIDE_PATH_START and
+	 * STRIDE_PATH_END of the way through, then comes straight down onto its spot (within STRIDE_ARRIVED of it); at most
+	 * STRIDE_PATH_SPEED blocks a second plus STRIDE_PATH_SPEED_PER_TRAVEL times the horse's own speed; kept
+	 * STRIDE_SWING_CLEAR above everything it passes over until STRIDE_CLEAR_UNTIL of the way along; never past the foot of a step until its
+	 * sole is STRIDE_EDGE_CLEAR above the top of it; never further ahead of the top of the leg than STRIDE_REACH.
+	 */
+	public static final float STRIDE_PATH_START = 0.1F;
+	public static final float STRIDE_PATH_END = 0.8F;
+	public static final double STRIDE_ARRIVED = 0.03;
+	public static final double STRIDE_PATH_SPEED = 4.0;
+	public static final double STRIDE_PATH_SPEED_PER_TRAVEL = 3.0;
+	public static final float STRIDE_SWING_CLEAR = 0.06F;
+	public static final float STRIDE_CLEAR_UNTIL = 0.85F;
+	/**
+	 * A collected swing moves on only once its sole is half of STRIDE_SWING_CLEAR above the ground under it and
+	 * STRIDE_LIFT_FIRST blocks ahead plus STRIDE_LIFT_LOOK seconds of the horse's travel (else it would drag), lifting on a
+	 * spring of STRIDE_LIFT_TIME seconds, divided by 1 + the horse's speed over STRIDE_LIFT_QUICKEN blocks a second.
+	 */
+	public static final double STRIDE_LIFT_FIRST = 0.25;
+	/** A swing that is over but still waiting to get up over a step lands where it is after STRIDE_WAIT_MAX seconds. */
+	public static final float STRIDE_WAIT_MAX = 0.2F;
+	/** Back on open ground, a hoof eases back onto the animation's stride over about STRIDE_OPEN_EASE seconds. */
+	public static final float STRIDE_OPEN_EASE = 0.1F;
+	public static final double STRIDE_LIFT_LOOK = 0.04;
+	public static final float STRIDE_LIFT_TIME = 0.025F;
+	public static final float STRIDE_LIFT_QUICKEN = 4.0F;
+	public static final double STRIDE_EDGE_CLEAR = 0.05;
 	/**
 	 * Taking the body's tilt off the legs swings their tops out of the body; each leg is drawn up LEG_HALF_DEPTH model
 	 * pixels x sin of that swing so no gap shows at the hip or shoulder (the body is lowered to match, so the hooves

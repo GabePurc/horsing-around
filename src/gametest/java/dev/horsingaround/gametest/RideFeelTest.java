@@ -151,6 +151,10 @@ public final class RideFeelTest implements FabricClientGameTest {
 				// Only on request: walking slowly over a single step up and down, every leg watched tick by tick for snaps.
 				slowSteps(ctx, input, world);
 			}
+			if (sections.contains("stride")) {
+				// Only on request: single steps, stairs and slopes at every gait, measured for sliding hooves, legs in blocks and jolts.
+				strides(ctx, input, world);
+			}
 			if (sections.contains("legs")) {
 				// Only on request: close side shots of the legs in a jump, for judging the pose.
 				jumpLegShots(ctx, input, world);
@@ -3483,6 +3487,230 @@ public final class RideFeelTest implements FabricClientGameTest {
 				mc.options.framerateLimit().set(frameLimit);
 			});
 		}
+	}
+
+	/** Gaits by sprint taps after setting off. */
+	private static final String[] GAITS = {"walk", "trot", "canter", "gallop"};
+	/** A stride lane lets go of W once past this z (NaN: never) and is measured until the horse has stood still a while. */
+	private double strideStandAt = Double.NaN;
+		/** Stride lanes are filmed from the side, at half speed, into stride-film/<lane>/ (frames), instead of measured. */
+	private boolean filmStride;
+	/** Per stride lane: its name and its numbers (see {@link LegProbe#feel}), for the table at the end. */
+	private final List<String> strideTable = new ArrayList<>();
+
+	/**
+	 * Single steps up and down, stairs of full blocks, a slope of a block a block and a step met at an angle, at every gait,
+	 * with a flat run at each gait first (the baseline): how far hooves on the ground slide, how deep any leg goes into a
+	 * block, and how sharply the body and the camera are jolted ({@link LegProbe#feel}); frame by frame at 120 frames a
+	 * second. {@code -Pscenario=<part of a lane name>} for some; with {@code shots} in it, side shots through each step
+	 * instead of numbers.
+	 */
+	private void strides(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		ctx.runOnClient(mc -> LegProbe.arm(true));
+		final int frameLimit = ctx.computeOnClient(mc -> mc.options.framerateLimit().get());
+		ctx.runOnClient(mc -> mc.options.framerateLimit().set(120));
+		final String only = System.getProperty("horsingaround.scenario", "");
+		final boolean shots = only.contains("shots");
+		this.filmStride = only.contains("film");
+		final String pick = only.replace("shots", "").replace("film", "").replace(",", "").trim();
+		this.strideTable.clear();
+		try {
+			int x = 9000;
+			for (int gait = 0; gait < 4; gait++) {
+				final double edge = gait < 2 ? -14.0 : -40.0;
+				final int e = (int) edge;
+				final String g = GAITS[gait];
+				if (pick.isEmpty() || ("flat_" + g).contains(pick)) {
+					stride(ctx, input, world, "flat_" + g, x, gait, -60, 180.0F, edge + 5.0, edge - 8.0, false, backdrop(x));
+				}
+				x += 20;
+				if (pick.isEmpty() || ("step_up_" + g).contains(pick)) {
+					stride(ctx, input, world, "step_up_" + g, x, gait, -60, 180.0F, edge + 5.0, edge - 8.0, shots,
+						String.format(Locale.ROOT, "fill %d -60 %d %d -60 %d minecraft:stone", x - 3, e - 40, x + 3, e - 1), backdrop(x));
+				}
+				x += 20;
+				if (pick.isEmpty() || ("step_down_" + g).contains(pick)) {
+					stride(ctx, input, world, "step_down_" + g, x, gait, -59, 180.0F, edge + 5.0, edge - 8.0, shots,
+						String.format(Locale.ROOT, "fill %d -60 %d %d -60 12 minecraft:stone", x - 3, e, x + 3), backdrop(x));
+				}
+				x += 20;
+				if (pick.isEmpty() || ("stairs_up_" + g).contains(pick)) {
+					// Full blocks, a block up every two along, four high.
+					stride(ctx, input, world, "stairs_up_" + g, x, gait, -60, 180.0F, edge + 5.0, edge - 12.0, shots,
+						String.format(Locale.ROOT, "fill %d -60 %d %d -60 %d minecraft:stone", x - 3, e - 40, x + 3, e - 1),
+						String.format(Locale.ROOT, "fill %d -59 %d %d -59 %d minecraft:stone", x - 3, e - 40, x + 3, e - 3),
+						String.format(Locale.ROOT, "fill %d -58 %d %d -58 %d minecraft:stone", x - 3, e - 40, x + 3, e - 5),
+						String.format(Locale.ROOT, "fill %d -57 %d %d -57 %d minecraft:stone", x - 3, e - 40, x + 3, e - 7), backdrop(x));
+				}
+				x += 20;
+				if (gait < 2 && (pick.isEmpty() || ("slope_up_" + g).contains(pick))) {
+					// A block up every block along, four high (a hillside of full blocks).
+					stride(ctx, input, world, "slope_up_" + g, x, gait, -60, 180.0F, edge + 5.0, edge - 8.0, shots,
+						String.format(Locale.ROOT, "fill %d -60 %d %d -60 %d minecraft:stone", x - 3, e - 40, x + 3, e - 1),
+						String.format(Locale.ROOT, "fill %d -59 %d %d -59 %d minecraft:stone", x - 3, e - 40, x + 3, e - 2),
+						String.format(Locale.ROOT, "fill %d -58 %d %d -58 %d minecraft:stone", x - 3, e - 40, x + 3, e - 3),
+						String.format(Locale.ROOT, "fill %d -57 %d %d -57 %d minecraft:stone", x - 3, e - 40, x + 3, e - 4), backdrop(x));
+				}
+				x += 20;
+				if (pick.isEmpty() || ("step_angle_" + g).contains(pick)) {
+					// A step met 30 degrees off square (heading north-west).
+					stride(ctx, input, world, "step_angle_" + g, x, gait, -60, 150.0F, edge + 5.0, edge - 8.0, shots,
+						String.format(Locale.ROOT, "fill %d -60 %d %d -60 %d minecraft:stone", x - 30, e - 30, x + 3, e - 1));
+				}
+				x += 40;
+			}
+			// The leg lanes' stairs of stair blocks (half steps, a block up every block along), walked up, and stopped half way up.
+			if (pick.isEmpty() || "stairblocks_up_walk".contains(pick)) {
+				stride(ctx, input, world, "stairblocks_up_walk", x, 0, -60, 180.0F, -2.0, -12.0, shots, slopeBuild(x, true, true, true));
+			}
+			x += 20;
+			if (pick.isEmpty() || "stand_stairs_walk".contains(pick)) {
+				this.strideStandAt = -7.6;
+				stride(ctx, input, world, "stand_stairs_walk", x, 0, -60, 180.0F, -2.0, -40.0, shots, slopeBuild(x, true, true, true));
+				this.strideStandAt = Double.NaN;
+			}
+			x += 20;
+			log("  stride lanes (slid most / mean blocks, legs in blocks most and frames over a pixel, jolts: body blocks/s^2, tilt deg/s^2, camera up/down and along blocks/s^2):");
+			for (final String row : this.strideTable) {
+				log("    %s", row);
+			}
+		} finally {
+			ctx.runOnClient(mc -> {
+				LegProbe.arm(false);
+				LegProbe.record = null;
+				mc.options.framerateLimit().set(frameLimit);
+			});
+		}
+	}
+
+	/**
+	 * Rides one stride lane north from z=0.5 at a gait (sprint taps after setting off), looking along {@code yaw}, measuring
+	 * from z {@code from} to z {@code to}; writes its frames to {@code stride-<name>.csv}. With {@code shots}, side shots
+	 * every few ticks through the measured stretch instead (no numbers: a shot takes ticks of its own).
+	 */
+	private void stride(
+		final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String name, final int x, final int gait, final double y,
+		final float yaw, final double from, final double to, final boolean shots, final String... build
+	) {
+		section("Stride: " + name.replace('_', ' '));
+		lane(ctx, input, world, x + 0.5, y, "stride_" + x, build);
+		sideCamera(world, x + 4.5, y, from, 90.0F);
+		ctx.waitTicks(10);
+		input.lookAt(yaw, 10.0F);
+		input.holdKey(o -> o.keyUp);
+		for (int sp = 0; sp < gait; sp++) {
+			ctx.waitTicks(2);
+			input.pressKey(o -> o.keySprint);
+		}
+		boolean measuring = false;
+		int shot = 0;
+		final StringBuilder csv = new StringBuilder("time,x,y,z,body,tilt,camx,camy,camz,collect,cadence,match");
+		for (final String leg : new String[] {"fl", "fr", "hl", "hr"}) {
+			csv.append(String.format(Locale.ROOT, ",%1$s_x,%1$s_y,%1$s_z,%1$s_gap,%1$s_clip,%1$s_lift,%1$s_rise,%1$s_back,%1$s_down,%1$s_shift,%1$s_landz,%1$s_path,%1$s_through,%1$s_ptop,%1$s_arc,%1$s_want", leg));
+		}
+		csv.append('\n');
+		if (this.filmStride) {
+			filmLane(ctx, name, from, to);
+			input.releaseKey(o -> o.keyUp);
+			stop(ctx, input);
+			return;
+		}
+		for (int i = 0; i < 700; i++) {
+			ctx.waitTick();
+			final double z = horseZ(ctx);
+			if (!measuring && z < from) {
+				measuring = true;
+				ctx.runOnClient(mc -> {
+					LegProbe.reset();
+					LegProbe.record = shots ? null : csv;
+				});
+			}
+			if (measuring && z < to) {
+				break;
+			}
+			if (!Double.isNaN(this.strideStandAt) && z < this.strideStandAt) {
+				input.releaseKey(o -> o.keyUp);
+				if (ticksStill(ctx) > 40) {
+					break;
+				}
+			}
+			if (measuring && shots && i % Math.max(1, 3 - gait) == 0 && shot < 16) {
+				final double hx = horseX(ctx);
+				final double hy = ctx.computeOnClient(mc -> mc.player.getVehicle().getY());
+				world.getServer().runCommand(String.format(Locale.ROOT, "tp @e[type=minecraft:armor_stand,tag=test_camera] %.2f %.2f %.2f 90 15", hx + 5.0,
+					hy + 1.8 - 1.7775, z));
+				ctx.waitTick();
+				legShot(ctx, String.format(Locale.ROOT, "40_stride_%s_%02d", name, shot++));
+			}
+		}
+		ctx.runOnClient(mc -> LegProbe.record = null);
+		input.releaseKey(o -> o.keyUp);
+		if (!shots) {
+			final String feel = ctx.computeOnClient(mc -> LegProbe.feel());
+			log("  %s", (Object) feel);
+			log("  slides: %s", (Object) ctx.computeOnClient(mc -> LegProbe.slideLog.toString()));
+			log("  legs in blocks: %s", (Object) ctx.computeOnClient(mc -> LegProbe.clipLog.toString()));
+			final double[] n = ctx.computeOnClient(mc -> new double[] {LegProbe.slideMost, LegProbe.slideMean(), LegProbe.clipMost, LegProbe.clipFrames, LegProbe.frames,
+				LegProbe.bodyJolt, LegProbe.tiltJolt, LegProbe.cameraJolt, LegProbe.cameraSurge});
+			this.strideTable.add(String.format(Locale.ROOT, "%-18s slid %.3f / %.3f  in blocks %.3f, %3d of %4d frames  jolts body %5.1f tilt %5.0f camera %5.1f %5.1f", name,
+				n[0], n[1], n[2], (int) n[3], (int) n[4], n[5], n[6], n[7], n[8]));
+			try {
+				Files.writeString(FabricLoader.getInstance().getGameDir().resolve("stride-" + name + ".csv"), csv);
+			} catch (final IOException ex) {
+				throw new RuntimeException(ex);
+			}
+		}
+		stop(ctx, input);
+	}
+
+	/**
+	 * Films the ridden horse from its left, low and close, from z {@code from} to z {@code to} at half speed, 30 frames a
+	 * second, into stride-film/{@code name}/.
+	 */
+	private void filmLane(final ClientGameTestContext ctx, final String name, final double from, final double to) {
+		for (int i = 0; i < 600 && horseZ(ctx) > from; i++) {
+			ctx.waitTick();
+		}
+		final Path dir = FabricLoader.getInstance().getGameDir().resolve("stride-film").resolve(name);
+		try {
+			Files.createDirectories(dir);
+		} catch (final IOException e) {
+			throw new RuntimeException(e);
+		}
+		ctx.getInput().resizeWindow(960, 540);
+		ctx.runOnClient(mc -> {
+			// A tripod beside the step (the edge is 5 blocks past where the filming starts), panning to follow.
+			final net.minecraft.world.entity.Entity horse = mc.player.getVehicle();
+			FilmCamera.shoot(horse, 1.0F);
+			FilmCamera.key(0.0F, FilmCamera.Setup.fixed(new net.minecraft.world.phys.Vec3(horse.getX() + 6.0, horse.getY() + 1.3, from - 5.0), 0.9F, 0.0F, 45.0F));
+			FilmCamera.clip(true);
+			mc.gui.hud.toggle();
+		});
+		final double step = 20.0 / 30.0 * 0.5;
+		double next = 0.0;
+		int frames = 0;
+		try {
+			for (int t = 0; t < 400 && horseZ(ctx) > to; t++) {
+				ctx.waitTick();
+				final int tick = t;
+				ctx.runOnClient(mc -> {
+					FilmCamera.clock(tick);
+					FilmCamera.tick();
+				});
+				for (; next < t + 1; next += step) {
+					final float partialTick = (float) (next - t);
+					final Path file = dir.resolve(String.format(Locale.ROOT, "%04d.png", frames++));
+					ctx.runOnClient(mc -> StoreMediaTest.drawFrame(mc, partialTick, (float) step, file));
+				}
+			}
+		} finally {
+			ctx.runOnClient(mc -> {
+				FilmCamera.clip(false);
+				FilmCamera.stop();
+				mc.gui.hud.toggle();
+			});
+		}
+		log("  filmed %d frames into %s", frames, dir);
 	}
 
 	/**

@@ -59,6 +59,8 @@ public final class LegProbe {
 	public static final double[] legInside = new double[4];
 	/** How far the middle of the top of the leg is up inside the body (blocks; negative, a gap shows). */
 	public static final double[] hip = new double[4];
+	/** How deep each leg's box is in a block this frame (blocks, the shortest way out). */
+	public static final double[] clipNow = new double[4];
 	/** The sole's centre (world). */
 	public static final double[][] sole = new double[4][3];
 	/** The top of the leg (world). */
@@ -100,7 +102,79 @@ public final class LegProbe {
 	private static final double[] lastSpeeds = new double[5];
 	private static double lastTime = Double.NaN;
 
+	/**
+	 * The feel since {@link #reset}. Hooves sliding: the most a hoof on the ground (its lowest corner within CONTACT_GAP of
+	 * it) moved, its sole's middle along the ground, from where it touched down, in one contact, and the mean over the
+	 * contacts that ended. Legs through blocks: the deepest any leg's box was in a block (the shortest way out, worked out
+	 * exactly with separating axes, so a step's edge through the side of a leg counts as much as a hoof in the ground), and
+	 * the frames any leg was more than a pixel in. Jolts: the most the drawn body (where the ride carries it, at the middle)
+	 * and the camera sped up or slowed down, up and down and along, over a tenth of a second (blocks/s^2; the horse falls at
+	 * 32), and the body's tilt (degrees/s^2).
+	 */
+	public static double slideMost;
+	public static double slideSum;
+	public static int contacts;
+	public static double clipMost;
+	public static int clipFrames;
+	public static final double[] clipLeg = new double[4];
+	public static double bodyJolt;
+	public static double tiltJolt;
+	public static double cameraJolt;
+	public static double cameraSurge;
+	/** Where (game time) each of those jolts was worst. */
+	public static double bodyJoltAt;
+	public static double tiltJoltAt;
+	public static double cameraJoltAt;
+	public static double cameraSurgeAt;
+	public static final StringBuilder slideLog = new StringBuilder();
+	/** While set, a CSV line a frame: the time, the horse, the drawn body and camera, and per leg its sole, gap, depth in a block and pose. */
+	public static StringBuilder record;
+	public static final StringBuilder clipLog = new StringBuilder();
+	static final double CONTACT_GAP = 0.03;
+	static final double CLIP_PIXEL = 1.0 / 16.0;
+	private static final double JOLT_SPAN = 0.1;
+	private static final boolean[] inContact = new boolean[4];
+	private static final double[][] contactFrom = new double[4][2];
+	private static final double[] contactSlide = new double[4];
+	private static final int[] contactFrames = new int[4];
+	private static final int HISTORY = 128;
+	private static final double[][] history = new double[HISTORY][6];
+	private static int historyCount;
+	private static int historyNext;
+	private static final double[] cornersScratch = new double[24];
+	private static final double[] axesScratch = new double[45];
+
+	/** The mean slide over the contacts that ended (blocks). */
+	public static double slideMean() {
+		return contacts == 0 ? 0.0 : slideSum / contacts;
+	}
+
+	/** The feel numbers, one line. */
+	public static String feel() {
+		return String.format(Locale.ROOT,
+			"hooves slid at most %.3f (mean %.3f over %d contacts); legs in blocks at most %.3f (FL %.3f FR %.3f HL %.3f HR %.3f), %d frames over a pixel; "
+				+ "jolts: body %.1f blocks/s^2 (t%.2f), tilt %.0f deg/s^2 (t%.2f), camera up/down %.1f (t%.2f), along %.1f (t%.2f)",
+			slideMost, slideMean(), contacts, clipMost, clipLeg[0], clipLeg[1], clipLeg[2], clipLeg[3], clipFrames, bodyJolt, bodyJoltAt, tiltJolt, tiltJoltAt,
+			cameraJolt, cameraJoltAt, cameraSurge, cameraSurgeAt);
+	}
+
 	public static void reset() {
+		slideMost = 0.0;
+		slideSum = 0.0;
+		contacts = 0;
+		clipMost = 0.0;
+		clipFrames = 0;
+		Arrays.fill(clipLeg, 0.0);
+		bodyJolt = 0.0;
+		tiltJolt = 0.0;
+		cameraJolt = 0.0;
+		cameraSurge = 0.0;
+		bodyJoltAt = tiltJoltAt = cameraJoltAt = cameraSurgeAt = Double.NaN;
+		slideLog.setLength(0);
+		clipLog.setLength(0);
+		Arrays.fill(inContact, false);
+		historyCount = 0;
+		historyNext = 0;
 		spikes.setLength(0);
 		spikeCount = 0;
 		lastTime = Double.NaN;
@@ -132,6 +206,7 @@ public final class LegProbe {
 		Arrays.fill(soleY, Double.MAX_VALUE);
 		Arrays.fill(topY, -Double.MAX_VALUE);
 		Arrays.fill(legInside, 0.0);
+		Arrays.fill(clipNow, 0.0);
 		level = horse.level();
 		bellyVolume = 0.0;
 		final boolean dumping = wantTree;
@@ -242,6 +317,209 @@ public final class LegProbe {
 		haveLast = true;
 		frames++;
 		spikes(horse, mc);
+		feel(horse, s, mc, cam);
+	}
+
+	/** Slides, legs in blocks and jolts this frame (see {@link #slideMost}). */
+	private static void feel(final AbstractHorse horse, final LivingEntityRenderState s, final Minecraft mc, final Vec3 cam) {
+		final float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+		final double time = horse.level().getGameTime() + partial;
+		final String[] names = {"FL", "FR", "HL", "HR"};
+		boolean over = false;
+		for (int leg = 0; leg < 4; leg++) {
+			if (clipNow[leg] > clipLeg[leg]) {
+				clipLeg[leg] = clipNow[leg];
+			}
+			if (clipNow[leg] > clipMost) {
+				clipMost = clipNow[leg];
+			}
+			if (clipNow[leg] > CLIP_PIXEL) {
+				over = true;
+				if (clipLog.length() < 3000) {
+					clipLog.append(String.format(Locale.ROOT, "[t%.2f %s %.3f in, sole gap %+.3f] ", time, names[leg], clipNow[leg], gap[leg]));
+				}
+			}
+			final boolean down = !Double.isNaN(gap[leg]) && gap[leg] < CONTACT_GAP;
+			if (down) {
+				if (!inContact[leg]) {
+					inContact[leg] = true;
+					contactFrom[leg][0] = sole[leg][0];
+					contactFrom[leg][1] = sole[leg][2];
+					contactSlide[leg] = 0.0;
+					contactFrames[leg] = 0;
+				}
+				contactFrames[leg]++;
+				final double slid = Math.sqrt(Mth.square(sole[leg][0] - contactFrom[leg][0]) + Mth.square(sole[leg][2] - contactFrom[leg][1]));
+				contactSlide[leg] = Math.max(contactSlide[leg], slid);
+				slideMost = Math.max(slideMost, contactSlide[leg]);
+			} else if (inContact[leg]) {
+				inContact[leg] = false;
+				if (contactFrames[leg] >= 4) {
+					contacts++;
+					slideSum += contactSlide[leg];
+					if (contactSlide[leg] > 0.08 && slideLog.length() < 3000) {
+						slideLog.append(String.format(Locale.ROOT, "[t%.2f %s slid %.3f over %d frames] ", time, names[leg], contactSlide[leg], contactFrames[leg]));
+					}
+				}
+			}
+		}
+		if (over) {
+			clipFrames++;
+		}
+		if (record != null && record.length() < 4_000_000) {
+			final dev.horsingaround.ride.RideState r = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
+			record.append(String.format(Locale.ROOT, "%.4f,%.4f,%.4f,%.4f,%.4f,%.3f,%.4f,%.4f,%.4f,%.3f,%.3f,%.3f", time, s.x, s.y, s.z, s.y + r.heightOffset(partial),
+				r.pitch(partial), cam.x, cam.y, cam.z, r.collect, r.cadence, r.strideMatch));
+			for (int leg = 0; leg < 4; leg++) {
+				record.append(String.format(Locale.ROOT, ",%.4f,%.4f,%.4f,%.4f,%.4f,%.3f,%.4f,%.4f,%d,%.3f", sole[leg][0], sole[leg][1], sole[leg][2], gap[leg], clipNow[leg],
+					dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[leg], r.legRise[leg], r.legBack[leg], r.footDown[leg] ? 1 : r.footOwnSwing[leg] > 0.0F ? 2 : 0, r.footShift[leg]));
+				record.append(String.format(Locale.ROOT, ",%.4f,%.4f,%.3f,%.4f,%.3f,%.3f", r.footLandZ[leg] * (Double.isNaN(r.footLandX[leg]) ? Double.NaN : 1.0), r.footPath[leg],
+					r.footSwing[leg], dev.horsingaround.client.render.GroundLegs.PATHS[leg * 3], dev.horsingaround.client.render.GroundLegs.PATHS[leg * 3 + 1],
+					dev.horsingaround.client.render.GroundLegs.PATHS[leg * 3 + 2]));
+			}
+			record.append('\n');
+		}
+		// Jolts: second differences over JOLT_SPAN, against the frames before.
+		final dev.horsingaround.ride.RideState ride = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
+		final double[] now = history[historyNext];
+		now[0] = time;
+		now[1] = s.y + ride.heightOffset(partial);
+		now[2] = ride.pitch(partial);
+		now[3] = cam.x;
+		now[4] = cam.y;
+		now[5] = cam.z;
+		if (historyCount > 0 && history[(historyNext + HISTORY - 1) % HISTORY][0] >= time) {
+			return;
+		}
+		historyNext = (historyNext + 1) % HISTORY;
+		historyCount = Math.min(historyCount + 1, HISTORY);
+		final double span = JOLT_SPAN * 20.0;
+		final double h2 = JOLT_SPAN * JOLT_SPAN;
+		final double body = (now[1] - 2.0 * at(time - span, 1) + at(time - 2.0 * span, 1)) / h2;
+		if (Double.isNaN(body)) {
+			return;
+		}
+		final double tilt = (now[2] - 2.0 * at(time - span, 2) + at(time - 2.0 * span, 2)) / h2;
+		final double camY = (now[4] - 2.0 * at(time - span, 4) + at(time - 2.0 * span, 4)) / h2;
+		final double camX = (now[3] - 2.0 * at(time - span, 3) + at(time - 2.0 * span, 3)) / h2;
+		final double camZ = (now[5] - 2.0 * at(time - span, 5) + at(time - 2.0 * span, 5)) / h2;
+		final double surge = Math.sqrt(camX * camX + camZ * camZ);
+		if (Math.abs(body) > bodyJolt) {
+			bodyJolt = Math.abs(body);
+			bodyJoltAt = time;
+		}
+		if (Math.abs(tilt) > tiltJolt) {
+			tiltJolt = Math.abs(tilt);
+			tiltJoltAt = time;
+		}
+		if (Math.abs(camY) > cameraJolt) {
+			cameraJolt = Math.abs(camY);
+			cameraJoltAt = time;
+		}
+		if (surge > cameraSurge) {
+			cameraSurge = surge;
+			cameraSurgeAt = time;
+		}
+	}
+
+	/** Column {@code k} of the history at game time {@code time}, between the frames either side; NaN if it doesn't go back that far. */
+	private static double at(final double time, final int k) {
+		double[] later = null;
+		for (int n = 1; n <= historyCount; n++) {
+			final double[] row = history[(historyNext - n + HISTORY) % HISTORY];
+			if (row[0] <= time) {
+				if (later == null) {
+					return row[k];
+				}
+				final double share = (time - row[0]) / (later[0] - row[0]);
+				return row[k] + (later[k] - row[k]) * share;
+			}
+			later = row;
+		}
+		return Double.NaN;
+	}
+
+	/**
+	 * How deep a box (its 8 corners, world, corner i at bit 0 along its x, bit 1 its y, bit 2 its z) is in any block's
+	 * collision boxes: the least overlap over the separating axes (the shortest way out), the deepest of the blocks.
+	 */
+	private static double clipDepth(final double[] c) {
+		double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE, minZ = Double.MAX_VALUE;
+		double maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE, maxZ = -Double.MAX_VALUE;
+		for (int i = 0; i < 8; i++) {
+			minX = Math.min(minX, c[i * 3]);
+			maxX = Math.max(maxX, c[i * 3]);
+			minY = Math.min(minY, c[i * 3 + 1]);
+			maxY = Math.max(maxY, c[i * 3 + 1]);
+			minZ = Math.min(minZ, c[i * 3 + 2]);
+			maxZ = Math.max(maxZ, c[i * 3 + 2]);
+		}
+		// The axes: the world's, the box's own, and each crossed with each.
+		final double[] a = axesScratch;
+		int count = 0;
+		final double[] own = new double[9];
+		for (int j = 0; j < 3; j++) {
+			final int corner = 1 << j;
+			double x = c[corner * 3] - c[0], y = c[corner * 3 + 1] - c[1], z = c[corner * 3 + 2] - c[2];
+			final double l = Math.sqrt(x * x + y * y + z * z);
+			if (l < 1.0E-6) {
+				return 0.0;
+			}
+			own[j * 3] = x / l;
+			own[j * 3 + 1] = y / l;
+			own[j * 3 + 2] = z / l;
+		}
+		for (int j = 0; j < 3; j++) {
+			a[count * 3] = j == 0 ? 1 : 0;
+			a[count * 3 + 1] = j == 1 ? 1 : 0;
+			a[count * 3 + 2] = j == 2 ? 1 : 0;
+			count++;
+			System.arraycopy(own, j * 3, a, count * 3, 3);
+			count++;
+		}
+		for (int i = 0; i < 3; i++) {
+			for (int j = 0; j < 3; j++) {
+				final double wx = i == 0 ? 1 : 0, wy = i == 1 ? 1 : 0, wz = i == 2 ? 1 : 0;
+				double x = wy * own[j * 3 + 2] - wz * own[j * 3 + 1];
+				double y = wz * own[j * 3] - wx * own[j * 3 + 2];
+				double z = wx * own[j * 3 + 1] - wy * own[j * 3];
+				final double l = Math.sqrt(x * x + y * y + z * z);
+				if (l < 1.0E-4) {
+					continue;
+				}
+				a[count * 3] = x / l;
+				a[count * 3 + 1] = y / l;
+				a[count * 3 + 2] = z / l;
+				count++;
+			}
+		}
+		double deepest = 0.0;
+		for (int bx = Mth.floor(minX); bx <= Mth.floor(maxX); bx++) {
+			for (int by = Mth.floor(minY); by <= Mth.floor(maxY); by++) {
+				for (int bz = Mth.floor(minZ); bz <= Mth.floor(maxZ); bz++) {
+					pos.set(bx, by, bz);
+					for (final AABB box : level.getBlockState(pos).getCollisionShape(level, pos).toAabbs()) {
+						final double cx = bx + (box.minX + box.maxX) * 0.5, cy = by + (box.minY + box.maxY) * 0.5, cz = bz + (box.minZ + box.maxZ) * 0.5;
+						final double hx = (box.maxX - box.minX) * 0.5, hy = (box.maxY - box.minY) * 0.5, hz = (box.maxZ - box.minZ) * 0.5;
+						double least = Double.MAX_VALUE;
+						for (int k = 0; k < count && least > 0.0; k++) {
+							final double ax = a[k * 3], ay = a[k * 3 + 1], az = a[k * 3 + 2];
+							double lo = Double.MAX_VALUE, hi = -Double.MAX_VALUE;
+							for (int i = 0; i < 8; i++) {
+								final double d = c[i * 3] * ax + c[i * 3 + 1] * ay + c[i * 3 + 2] * az;
+								lo = Math.min(lo, d);
+								hi = Math.max(hi, d);
+							}
+							final double centre = cx * ax + cy * ay + cz * az;
+							final double reach = hx * Math.abs(ax) + hy * Math.abs(ay) + hz * Math.abs(az);
+							least = Math.min(least, Math.min(hi, centre + reach) - Math.max(lo, centre - reach));
+						}
+						deepest = Math.max(deepest, least);
+					}
+				}
+			}
+		}
+		return deepest;
 	}
 
 	/** Compares this frame's heights (the body, and each sole against it) with the last two frames' (see {@link #spikes}). */
@@ -339,6 +617,16 @@ public final class LegProbe {
 	 * its sides are in a block (read a quarter, half and three quarters of the way down each corner edge).
 	 */
 	private static void leg(final ModelPart.Cube cube, final Matrix4f matrix, final int leg, final Vec3 cam) {
+		if (cube.maxX > cube.minX && cube.maxY > cube.minY && cube.maxZ > cube.minZ) {
+			for (int i = 0; i < 8; i++) {
+				matrix.transformPosition((i & 1) == 0 ? cube.minX / 16.0F : cube.maxX / 16.0F, (i & 2) == 0 ? cube.minY / 16.0F : cube.maxY / 16.0F,
+					(i & 4) == 0 ? cube.minZ / 16.0F : cube.maxZ / 16.0F, point);
+				cornersScratch[i * 3] = point.x + cam.x;
+				cornersScratch[i * 3 + 1] = point.y + cam.y;
+				cornersScratch[i * 3 + 2] = point.z + cam.z;
+			}
+			clipNow[leg] = Math.max(clipNow[leg], clipDepth(cornersScratch));
+		}
 		float minY = Float.MAX_VALUE;
 		float maxY = -Float.MAX_VALUE;
 		for (final ModelPart.Polygon polygon : cube.polygons) {

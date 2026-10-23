@@ -1041,7 +1041,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 	 * sometimes caught the next frame's drawing, so a clip showed one moment twice and then jumped.</li>
 	 * </ul>
 	 */
-	private static void drawFrame(final Minecraft mc, final float partialTick, final float step, final Path file) {
+	static void drawFrame(final Minecraft mc, final float partialTick, final float step, final Path file) {
 		final DeltaTracker timer = mc.getDeltaTracker();
 		final DeltaTrackerTimerAccessor clock = (DeltaTrackerTimerAccessor) timer;
 		final float deltaTicks = clock.horsingaroundtest$deltaTicks();

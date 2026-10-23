@@ -35,6 +35,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 public final class RideController {
 	/** Scratch position for ground probes; visuals only tick on the client thread. */
 	private static final BlockPos.MutableBlockPos PROBE = new BlockPos.MutableBlockPos();
+	/** The ground read along the heading for collecting (see {@link #collect}); main thread only. */
+	private static final double[] COLLECT_READS = new double[48];
 
 	/** Test hook: while set, how long each ride tick took is left in {@link #lastTickNanos}. */
 	public static boolean profile;
@@ -840,8 +842,56 @@ public final class RideController {
 			s.leapLegs = false;
 		}
 		tail(horse, s, groundSpeed);
+		collect(horse, s, groundSpeed, bodyYaw);
 		s.wasOnGround = onGround;
 		s.drawnRise = (float) (y + s.heightOffset - horse.yo - s.heightOffsetO);
+	}
+
+	/**
+	 * Collecting for a step (see COLLECT_STEP): ground a step above or below the hooves, from behind the hind hooves to a
+	 * little ahead of the front ones (further the faster the horse goes), gathers the horse; its stride then quickens toward
+	 * the cadence that matches the ground (measured from the drawn legs, see Stride). Read along the heading, a few block
+	 * reads a tick, only for a horse a player rides.
+	 */
+	private static void collect(final AbstractHorse horse, final RideState s, final float groundSpeed, final float bodyYaw) {
+		float target = COLLECT_OPEN;
+		if (!(horse.getControllingPassenger() instanceof Player) || horse.isInWater()) {
+			target = 0.0F;
+		} else if (s.flying) {
+			target = s.collect;
+		} else {
+			final double fx = -Mth.sin(bodyYaw * Mth.DEG_TO_RAD);
+			final double fz = Mth.cos(bodyYaw * Mth.DEG_TO_RAD);
+			final double y = horse.getY();
+			final double near = -HIND_HOOVES - 0.25;
+			final double reach = FORE_HOOVES + COLLECT_AHEAD + groundSpeed * 20.0F * COLLECT_LEAD;
+			// A step near the hooves gathers it; ground climbing or falling COLLECT_STEEP_RISE within COLLECT_STEEP_ALONG (a
+			// hillside of full blocks) there or just beyond doesn't: there a held hoof is soon left hanging, its rigid leg too
+			// short for the climb, and the gait's own stride (sliding a little) keeps the hooves under the body.
+			int count = 0;
+			for (double along = near - COLLECT_STEEP_ALONG; along <= reach + COLLECT_STEEP_ALONG && count < COLLECT_READS.length; along += 0.5) {
+				// (A wall, or a drop beyond a hillside's reach, reads as level: neither is a hillside.)
+				final double ground = surface(horse, horse.getX() + fx * along, horse.getZ() + fz * along, y + COLLECT_STEEP_RISE + COLLECT_STEEP_ALONG,
+					y - COLLECT_STEEP_RISE - COLLECT_STEEP_ALONG);
+				COLLECT_READS[count++] = Double.isNaN(ground) || ground == Double.NEGATIVE_INFINITY ? y : ground;
+				if (along >= near && along <= reach
+					&& (Double.isNaN(ground) ? along > 0.0 && along < FORE_HOOVES + COLLECT_AHEAD : Math.abs(ground - y) >= COLLECT_STEP)) {
+					target = 1.0F;
+				}
+			}
+			final int span = (int) Math.round(COLLECT_STEEP_ALONG / 0.5);
+			for (int k = 0; k + span < count && target > 0.0F; k++) {
+				if (Math.abs(COLLECT_READS[k + span] - COLLECT_READS[k]) >= COLLECT_STEEP_RISE) {
+					target = 0.0F;
+				}
+			}
+		}
+		s.collect += Mth.clamp(target - s.collect, -COLLECT_OUT, COLLECT_IN);
+		final float match = Float.isNaN(s.strideMatch) ? 1.0F : Mth.clamp(s.strideMatch, 1.0F, CADENCE_MAX);
+		s.cadence += (1.0F + (match - 1.0F) * s.collect - s.cadence) * CADENCE_EASE;
+		if (Math.abs(s.cadence - 1.0F) < 1.0E-3F && s.collect == 0.0F) {
+			s.cadence = 1.0F;
+		}
 	}
 
 	/**
@@ -950,9 +1000,13 @@ public final class RideController {
 			// step, and keeps up on a slope. Going down, each end stays up on the ground under its hooves until they step off
 			// (then it falls).
 			final double lead = Math.min(groundSpeed * (2.0 / w + 1.0 + ramp), STEP_LEAD_MAX);
-			s.foreGround = Math.max(Math.max(support(horse, fx, fz, FORE_HOOVES + lead, y), support(horse, fx, fz, FORE_HOOVES, y)),
-				support(horse, fx, fz, chestAhead + lead, y) - chestAbove);
-			s.hindGround = Math.max(support(horse, fx, fz, lead - HIND_HOOVES, y), support(horse, fx, fz, -HIND_HOOVES, y));
+			// (Ridden, the ground is rounded off over STEP_SMOOTH_TICKS of travel: a smooth ride for the rider.)
+			final double smooth = horse.getControllingPassenger() instanceof Player ? groundSpeed * STEP_SMOOTH_TICKS : 0.0;
+			// (Under the hooves, the stretch they have come over: going down, an end comes down from where its hooves step off,
+			// in a curve.)
+			s.foreGround = Math.max(Math.max(support(horse, fx, fz, FORE_HOOVES + lead, y, smooth), support(horse, fx, fz, FORE_HOOVES - smooth * 0.5, y, smooth)),
+				support(horse, fx, fz, chestAhead + lead, y, smooth) - chestAbove);
+			s.hindGround = Math.max(support(horse, fx, fz, lead - HIND_HOOVES, y, smooth), support(horse, fx, fz, -HIND_HOOVES - smooth * 0.5, y, smooth));
 		}
 		if (landing >= 0.0F) {
 			// Touchdown: the body is where the horse landed, still coming down as fast as it fell; the legs take it up.
@@ -1061,9 +1115,26 @@ public final class RideController {
 	 * a step for every block (a slope it will climb); over anything deeper than a step the hooves stay level with it.
 	 */
 	private static double support(final AbstractHorse horse, final double fx, final double fz, final double reach, final double y) {
+		return support(horse, fx, fz, reach, y, 0.0);
+	}
+
+	/**
+	 * As above, averaged over a stretch {@code smooth} blocks longer (read at STEP_SMOOTH_READS points), so the ground the
+	 * body follows has no corners: a step's rise starts and ends in a curve.
+	 */
+	private static double support(final AbstractHorse horse, final double fx, final double fz, final double reach, final double y, final double smooth) {
 		final double half = STEP_FOOTPRINT * 0.5;
 		final double climb = Math.max(reach - FORE_HOOVES, 0.0);
-		return (supportAt(horse, fx, fz, reach - half, y, climb) + supportAt(horse, fx, fz, reach + half, y, climb)) * 0.5;
+		if (smooth <= 0.0) {
+			return (supportAt(horse, fx, fz, reach - half, y, climb) + supportAt(horse, fx, fz, reach + half, y, climb)) * 0.5;
+		}
+		final double from = reach - half - smooth * 0.5;
+		final double step = (STEP_FOOTPRINT + smooth) / (STEP_SMOOTH_READS - 1);
+		double sum = 0.0;
+		for (int k = 0; k < STEP_SMOOTH_READS; k++) {
+			sum += supportAt(horse, fx, fz, from + step * k, y, climb);
+		}
+		return sum / STEP_SMOOTH_READS;
 	}
 
 	private static double supportAt(final AbstractHorse horse, final double fx, final double fz, final double reach, final double y, final double climb) {
