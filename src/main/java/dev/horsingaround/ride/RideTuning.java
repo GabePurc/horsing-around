@@ -666,6 +666,13 @@ public final class RideTuning {
 	static final float JUMP_PITCH_DOWN = 25.0F;
 	/** Falling without a jump (off a step or a drop), nose down at most this (degrees): the landing angles above are from jumps. */
 	static final float FALL_PITCH_DOWN = 15.0F;
+	/**
+	 * In the air the jump's tilt turns like a real horse's trunk (research, 2026-10-23): taking off, for the first
+	 * TAKEOFF_PUSH_TICKS ticks while rising, the legs push the nose up toward the flight's tilt; then it turns at one steady
+	 * rate to the tilt it will land at, the flight played forward up to FLIGHT_LOOK ticks (see RideController.landing).
+	 */
+	static final int TAKEOFF_PUSH_TICKS = 3;
+	static final int FLIGHT_LOOK = 40;
 	static final float JUMP_PITCH_SMOOTHING = 0.5F;
 	/**
 	 * The jump's tilt turns the same way (see PITCH_TURN_MAX): at most JUMP_PITCH_RATE_MAX degrees a tick, that changing

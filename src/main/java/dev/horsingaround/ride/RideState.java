@@ -223,6 +223,8 @@ public final class RideState {
 	float jumpPitchO;
 	/** The jump tilt a tick before {@link #jumpPitchO}, for its curve between ticks and how fast it is turning. */
 	float jumpPitchOO;
+	/** Ticks since the horse left the ground (client only). */
+	int flightTicks;
 	/** Rendered height minus physical height, so block step-ups become a smooth climb. */
 	float heightOffset;
 	float heightOffsetO;

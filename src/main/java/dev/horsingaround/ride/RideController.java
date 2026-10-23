@@ -812,12 +812,26 @@ public final class RideController {
 				}
 				steps(horse, s, bodyYaw, (float) Math.sqrt(horizontalSq), moved || !s.wasOnGround, wasFlying ? (float) Math.max(-dy, 0.0) : -1.0F);
 			} else {
-				// In the air the body tilts with its flight: nose up taking off, level over the top, nose down to land.
+				// In the air the body tilts with its flight: nose up taking off, nose down to land.
 				final float flight = (float) Math.toDegrees(Math.atan2(dy, Math.sqrt(horizontalSq) + 1.0E-3)) * JUMP_PITCH_SCALE;
 				// (Nose down as far as a real horse landing a jump only after a jump: off a step, a short fall, less.)
-				s.jumpPitch = turn(s.jumpPitch, s.jumpPitchO - s.jumpPitchOO, Mth.clamp(flight, s.leapt ? -JUMP_PITCH_DOWN : -FALL_PITCH_DOWN, JUMP_PITCH_UP),
-					JUMP_PITCH_SMOOTHING,
-					JUMP_PITCH_RATE_MAX, JUMP_PITCH_TURN_MAX);
+				final float down = s.leapt ? -JUMP_PITCH_DOWN : -FALL_PITCH_DOWN;
+				s.flightTicks = wasFlying ? s.flightTicks + 1 : 1;
+				final float rate = s.jumpPitchO - s.jumpPitchOO;
+				if (dy > 0.0 && s.flightTicks <= TAKEOFF_PUSH_TICKS || !(horse.getControllingPassenger() instanceof Player)) {
+					// Taking off, the legs push the nose up toward the flight's tilt, quickly. (A horse no player rides just
+					// follows its flight.)
+					s.jumpPitch = turn(s.jumpPitch, rate, Mth.clamp(flight, down, JUMP_PITCH_UP), JUMP_PITCH_SMOOTHING, JUMP_PITCH_RATE_MAX, JUMP_PITCH_TURN_MAX);
+				} else {
+					// Then, like a real horse's (research, 2026-10-23: nothing turns it in the air), it turns at one steady rate to
+					// the tilt it will land at, its flight played forward to the ground ahead (again each tick, so a flight that
+					// goes otherwise than foreseen still ends there). Following the flight's own tilt, it turned fastest at the top
+					// of the arc, where the flight turns fastest: topping a 2-block climb the nose snapped forward.
+					landing(horse, dx, dz);
+					final float landTilt = Mth.clamp(landingAngle * JUMP_PITCH_SCALE, down, JUMP_PITCH_UP);
+					final float want = Mth.clamp((landTilt - s.jumpPitch) / landingTicks, -JUMP_PITCH_RATE_MAX, JUMP_PITCH_RATE_MAX);
+					s.jumpPitch += rate + Mth.clamp(want - rate, -JUMP_PITCH_TURN_MAX, JUMP_PITCH_TURN_MAX);
+				}
 				jumpTurned = true;
 				// The ground tilt (a slope, the crouch before a ledge) lets go gently while the flight's tilt takes over.
 				s.pitch -= Mth.clamp(s.pitch * PITCH_SMOOTHING, -AIR_PITCH_RELEASE, AIR_PITCH_RELEASE);
@@ -853,6 +867,38 @@ public final class RideController {
 		stepNear(horse, s, groundSpeed, bodyYaw);
 		s.wasOnGround = onGround;
 		s.drawnRise = (float) (y + s.heightOffset - horse.yo - s.heightOffsetO);
+	}
+
+	/** What {@link #landing} found: ticks until the flight lands, and the flight's angle then (degrees, up positive). */
+	private static int landingTicks;
+	private static float landingAngle;
+
+	/**
+	 * Plays the ridden horse's flight forward a tick at a time from where it is (gravity and drag as vanilla's, its ground
+	 * speed held, as in the air) until it comes down onto ground ahead, or FLIGHT_LOOK ticks: into {@link #landingTicks}
+	 * and {@link #landingAngle}. A wall on the way doesn't end it (it climbs, or slides along). Client only, a few block
+	 * reads a tick while a player's horse is in the air.
+	 */
+	private static void landing(final AbstractHorse horse, final double dx, final double dz) {
+		double x = horse.getX();
+		double y = horse.getY();
+		double z = horse.getZ();
+		double vy = horse.getDeltaMovement().y;
+		final double gravity = Vanilla.gravity(horse);
+		final double speed = Math.sqrt(dx * dx + dz * dz) + 1.0E-3;
+		for (int tick = 1; tick <= FLIGHT_LOOK; tick++) {
+			final double from = y;
+			x += dx;
+			y += vy;
+			z += dz;
+			landingTicks = tick;
+			landingAngle = (float) Math.toDegrees(Math.atan2(vy, speed));
+			final double ground = surface(horse, x, z, from + 0.01, y);
+			if (!Double.isNaN(ground) && ground != Double.NEGATIVE_INFINITY) {
+				return;
+			}
+			vy = (vy - gravity) * 0.98;
+		}
 	}
 
 	/**

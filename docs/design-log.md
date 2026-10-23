@@ -819,5 +819,9 @@ landings straddled the edge.
   second; the trunk reaches +21 to +34 nose up taking off and -25 to -38 landing (Clayton et al. 2021; Fuss and Fuss 1998).
   The speed caps stay (6 and 5 a tick); how fast that speed changes rises to 3 and 2.5 a tick each tick (1,200 and 1,000
   degrees a second each second), and a jump's tilt may reach +35 / -25. Falling without a jump (off a step) keeps -15: the
-  landing angles are from jumps, and at -25 the hooves trotting down a slope hung. Noted, not built: a real horse's trunk
-  turns at a steady rate in the air, not toward its flight path (which swings fastest at the top of the arc).
+  landing angles are from jumps, and at -25 the hooves trotting down a slope hung.
+- Steady in-air rotation (user, 2026-10-23, from the research): a real horse's trunk turns at a steady rate in the air
+  (nothing turns it there), while ours turned toward its flight path, which swings fastest at the top of the arc. Now,
+  taking off, the legs push the nose up for the first few ticks; then it turns at one steady rate to the tilt it will land
+  at, the flight played forward to the ground ahead each tick (`RideController.landing`). Terrain at a gallop: turns
+  faster than 150 degrees a second 0 or 1 a scenario (the badlands spike of 400 gone).
