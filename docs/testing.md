@@ -18,16 +18,19 @@ rubber-banding) and log warnings.
 
 Picking what runs:
 
-- `-Ptests=ride,terrain,mounts,server`; `-Pscenario=<part of its name>` for one terrain scenario.
+- `-Ptests=ride,terrain,mounts,server`; `-Pscenario=<part of its name>` for one terrain scenario; `-Pgait=walk|trot|canter`
+  rides the terrain at that gait (gallop by default; the pace checks are for a gallop). Each terrain scenario logs the legs
+  (`LegProbe.about`, leaves counting as open): sole speed against the horse, soles and body in the ground and where.
 - `-Psections=core,cuts,stairs,picking,steps` for ride sections. Also:
   - `legs`: close shots of the legs in a jump.
   - `slopes`, `face`: just the slope-and-stairs lanes, and the jump-at-a-wall lanes.
   - `drawn`: the legs exactly as drawn on slopes, stairs and steps, shot up close.
   - `slowstep`: standing, stopping and single steps (walking, and running up one), frame by frame, for snaps.
   - `stride`: single steps up and down, stairs, a hillside and a step met at an angle at every gait (plus flat runs, the
-    baseline), frame by frame at 120 fps: how far a hoof on the ground slides per footfall, how deep any leg's box goes
-    into a block (exact overlap), and the jolts of the body, its tilt and the camera (`LegProbe.feel`); a table at the end
-    and `stride-<lane>.csv` per lane. `-Pscenario=<part of a lane name>` for some; with `shots` in it, side shots instead;
+    baseline, and riding then standing on flat ground), frame by frame at 120 fps: how far a hoof on the ground slides per
+    footfall, how deep any leg's box goes into a block (exact overlap), the jolts of the body, its tilt and the camera
+    (`LegProbe.feel`), and how far soles sink and legs draw up (`LegProbe.about`); a table at the end and
+    `stride-<lane>.csv` per lane (each leg's own step: 1 stepping, 2 held). `-Pscenario=<part of a lane name>` for some; with `shots` in it, side shots instead;
     with `film`, side clips at half speed into `stride-film/<lane>/` (frames: `ffmpeg -framerate 30 -i %04d.png`).
   - `exits`: out of water onto banks of a few heights, wading and swimming.
   - `strafe`: stopping after riding with A or D alone.

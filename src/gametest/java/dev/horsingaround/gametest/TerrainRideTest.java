@@ -174,10 +174,16 @@ public final class TerrainRideTest implements FabricClientGameTest {
 		input.lookAt(yaw, 10.0F);
 		input.holdKey(o -> o.keyUp);
 		ctx.waitTicks(2);
-		for (int i = 0; i < 3; i++) {
+		// (-Pgait: the gait to ride at, gallop unless asked; the pace checks are for a gallop.)
+		final int gait = Math.max(java.util.List.of("walk", "trot", "canter", "gallop").indexOf(System.getProperty("horsingaround.gait", "gallop")), 0);
+		for (int i = 0; i < gait; i++) {
 			input.pressKey(o -> o.keySprint);
 			ctx.waitTicks(3);
 		}
+		ctx.runOnClient(mc -> {
+			LegProbe.arm(true);
+			LegProbe.passLeaves = true;
+		});
 
 		final double distance = Math.hypot(target.getX() - start.getX(), target.getZ() - start.getZ());
 		double travelled = 0.0;
@@ -407,7 +413,19 @@ public final class TerrainRideTest implements FabricClientGameTest {
 			.filter(h -> h.type().equals("fall"))
 			.noneMatch(h -> h.healthBefore() / h.maxHealth() < 0.4F));
 		check("gets there (share of the way covered)", 1.0 - left / distance, 0.8, 1.0);
-		check("keeps moving (pace / gallop)", travelled / Math.max(ticks, 1) / GALLOP_SPEED, scenario.minPace(), 1.2);
+		if (gait == 3) {
+			check("keeps moving (pace / gallop)", travelled / Math.max(ticks, 1) / GALLOP_SPEED, scenario.minPace(), 1.2);
+		}
+		ctx.runOnClient(mc -> LegProbe.listen(false));
+		final String about = ctx.computeOnClient(mc -> LegProbe.about());
+		final String feel = ctx.computeOnClient(mc -> LegProbe.feel());
+		final String clips = ctx.computeOnClient(mc -> LegProbe.clipLog.substring(0, Math.min(LegProbe.clipLog.length(), 600)));
+		final String sunk = ctx.computeOnClient(mc -> LegProbe.sunkLog.substring(0, Math.min(LegProbe.sunkLog.length(), 1500)));
+		ctx.runOnClient(mc -> LegProbe.passLeaves = false);
+		log("  soles sunk: %s", sunk);
+		log("  legs: %s", about);
+		log("  feel: %s", feel);
+		log("  legs in blocks: %s", clips);
 		check("crashes into things at speed", crashes, 0, 2);
 		check("never carried by leaves (ticks standing on them)", onLeaves, 0, 0);
 		check("dead ends the rider had to turn away from", stuck, 0, scenario.maxStuck());

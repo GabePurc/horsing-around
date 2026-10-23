@@ -6,8 +6,7 @@
 		"AbstractHorseMixin",
 		"BlockBehaviourMixin",
 		"EntityMixin",
-		"LivingEntityMixin",
-		"WalkAnimationStateMixin"
+		"LivingEntityMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

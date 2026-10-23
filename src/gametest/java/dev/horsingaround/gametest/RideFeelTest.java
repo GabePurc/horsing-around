@@ -3493,6 +3493,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 	private static final String[] GAITS = {"walk", "trot", "canter", "gallop"};
 	/** A stride lane lets go of W once past this z (NaN: never) and is measured until the horse has stood still a while. */
 	private double strideStandAt = Double.NaN;
+	/** How long a stride lane that stops stands still before it ends (ticks). */
+	private int strideStandTicks = 40;
 		/** Stride lanes are filmed from the side, at half speed, into stride-film/<lane>/ (frames), instead of measured. */
 	private boolean filmStride;
 	/** Per stride lane: its name and its numbers (see {@link LegProbe#feel}), for the table at the end. */
@@ -3570,6 +3572,17 @@ public final class RideFeelTest implements FabricClientGameTest {
 				this.strideStandAt = Double.NaN;
 			}
 			x += 20;
+			// Riding on flat ground, stopping and standing a while (the hooves, the body, how far the legs are drawn up).
+			for (int gait = 0; gait < 2; gait++) {
+				if (pick.isEmpty() || ("stand_flat_" + GAITS[gait]).contains(pick)) {
+					this.strideStandAt = -10.0;
+					this.strideStandTicks = 100;
+					stride(ctx, input, world, "stand_flat_" + GAITS[gait], x, gait, -60, 180.0F, -2.0, -40.0, shots, backdrop(x));
+					this.strideStandAt = Double.NaN;
+					this.strideStandTicks = 40;
+				}
+				x += 20;
+			}
 			log("  stride lanes (slid most / mean blocks, legs in blocks most and frames over a pixel, jolts: body blocks/s^2, tilt deg/s^2, camera up/down and along blocks/s^2):");
 			for (final String row : this.strideTable) {
 				log("    %s", row);
@@ -3604,9 +3617,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 		}
 		boolean measuring = false;
 		int shot = 0;
-		final StringBuilder csv = new StringBuilder("time,x,y,z,body,tilt,camx,camy,camz,collect,cadence,match,fore,hind,foreg,hindg,forer,hindr,foref,hindf");
+		final StringBuilder csv = new StringBuilder("time,x,y,z,body,tilt,camx,camy,camz,fore,hind");
 		for (final String leg : new String[] {"fl", "fr", "hl", "hr"}) {
-			csv.append(String.format(Locale.ROOT, ",%1$s_x,%1$s_y,%1$s_z,%1$s_gap,%1$s_clip,%1$s_lift,%1$s_rise,%1$s_back,%1$s_down,%1$s_shift,%1$s_landz,%1$s_path,%1$s_through,%1$s_ptop,%1$s_arc,%1$s_want", leg));
+			csv.append(String.format(Locale.ROOT, ",%1$s_x,%1$s_y,%1$s_z,%1$s_gap,%1$s_clip,%1$s_lift,%1$s_rise,%1$s_back,%1$s_step,%1$s_turn", leg));
 		}
 		csv.append('\n');
 		if (this.filmStride) {
@@ -3630,7 +3643,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 			if (!Double.isNaN(this.strideStandAt) && z < this.strideStandAt) {
 				input.releaseKey(o -> o.keyUp);
-				if (ticksStill(ctx) > 40) {
+				if (ticksStill(ctx) > this.strideStandTicks) {
 					break;
 				}
 			}
@@ -3648,6 +3661,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		if (!shots) {
 			final String feel = ctx.computeOnClient(mc -> LegProbe.feel());
 			log("  %s", (Object) feel);
+			log("  %s", (Object) ctx.computeOnClient(mc -> LegProbe.about()));
+			log("  soles sunk: %s", (Object) ctx.computeOnClient(mc -> LegProbe.sunkLog.substring(0, Math.min(LegProbe.sunkLog.length(), 1200))));
 			log("  slides: %s", (Object) ctx.computeOnClient(mc -> LegProbe.slideLog.toString()));
 			log("  legs in blocks: %s", (Object) ctx.computeOnClient(mc -> LegProbe.clipLog.toString()));
 			final double[] n = ctx.computeOnClient(mc -> new double[] {LegProbe.slideMost, LegProbe.slideMean(), LegProbe.clipMost, LegProbe.clipFrames, LegProbe.frames,

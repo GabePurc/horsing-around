@@ -45,6 +45,24 @@ public final class LegProbe {
 	/** The first snaps since {@link #reset}, what each was. */
 	public static final StringBuilder snapLog = new StringBuilder();
 	static final double SOLE_SNAP = 0.2;
+	/**
+	 * Since {@link #reset}, for riding about: how far the soles moved against the horse in all (blocks, the four summed)
+	 * over how long (seconds), and the fastest one did (blocks/s): legs moving faster than the gait's own show here; the
+	 * deepest a sole was in the ground (blocks) and the frames it was more than a pixel in; the deepest the body's underside
+	 * was; and how far the legs were drawn up into the body, at most and on average (a horse drawn down onto its legs).
+	 */
+	public static double soleTravel;
+	public static double soleTime;
+	public static double soleSpeedMost;
+	public static double sunkMost;
+	public static int sunkFrames;
+	public static double bodyInMost;
+	public static double riseMost;
+	public static double riseSum;
+	private static double soleLastTime = Double.NaN;
+	/** The first times a sole was more than SUNK_LOG in the ground since {@link #reset}: where, in what, and the ride then. */
+	public static final StringBuilder sunkLog = new StringBuilder();
+	static final double SUNK_LOG = 0.15;
 	private static final double[][] lastSole = new double[4][3];
 	/** Per leg, last frame: how far it was drawn up and swung back, the pack's own lift, and the ground under it (what a snap changed). */
 	private static final double[][] lastLeg = new double[4][4];
@@ -129,7 +147,6 @@ public final class LegProbe {
 	public static final StringBuilder slideLog = new StringBuilder();
 	/** While set, a CSV line a frame: the time, the horse, the drawn body and camera, and per leg its sole, gap, depth in a block and pose. */
 	public static StringBuilder record;
-	private static final double[] STEPS = new double[8];
 	public static final StringBuilder clipLog = new StringBuilder();
 	static final double CONTACT_GAP = 0.03;
 	static final double CLIP_PIXEL = 1.0 / 16.0;
@@ -184,6 +201,24 @@ public final class LegProbe {
 		snaps = 0;
 		snapLog.setLength(0);
 		haveLast = false;
+		soleTravel = 0.0;
+		soleTime = 0.0;
+		soleSpeedMost = 0.0;
+		sunkMost = 0.0;
+		sunkFrames = 0;
+		bodyInMost = 0.0;
+		riseMost = 0.0;
+		riseSum = 0.0;
+		soleLastTime = Double.NaN;
+		sunkLog.setLength(0);
+	}
+
+	/** The riding-about numbers (see {@link #soleTravel}), one line. */
+	public static String about() {
+		return String.format(Locale.ROOT,
+			"soles against the horse %.2f blocks/s on average (four legs), fastest %.1f; a sole in the ground at most %.3f (%d frames over a pixel); "
+				+ "body in the ground at most %.3f; legs drawn up at most %.2f, on average %.3f",
+			soleTime > 0.0 ? soleTravel / soleTime : 0.0, soleSpeedMost, sunkMost, sunkFrames, bodyInMost, riseMost, frames > 0 ? riseSum / frames : 0.0);
 	}
 
 	public static void requestTree() {
@@ -290,11 +325,47 @@ public final class LegProbe {
 			top[leg][2] = tz;
 		}
 		// Snaps: where the sole is against the horse, from the last frame.
+		final double frameTime = horse.level().getGameTime() + mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+		final double frameDt = Double.isNaN(soleLastTime) ? 0.0 : (frameTime - soleLastTime) / 20.0;
+		soleLastTime = frameTime;
+		final dev.horsingaround.ride.RideState riding = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
+		boolean sunk = false;
+		double rise = 0.0;
+		for (int leg = 0; leg < 4; leg++) {
+			if (!Double.isNaN(gap[leg]) && gap[leg] < 0.0) {
+				sunkMost = Math.max(sunkMost, -gap[leg]);
+				sunk |= -gap[leg] > CLIP_PIXEL;
+				if (-gap[leg] > SUNK_LOG && sunkLog.length() < 3000) {
+					pos.set(Mth.floor(sole[leg][0]), Mth.floor(lowest[leg]), Mth.floor(sole[leg][2]));
+					sunkLog.append(String.format(Locale.ROOT, "[t%d %s %.2f in %s at %.1f %.1f %.1f, drawn up %.2f, tilt %.1f, fit %+.2f, speed %.2f] ", horse.tickCount,
+						new String[] {"FL", "FR", "HL", "HR"}[leg], -gap[leg], net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).getPath(),
+						sole[leg][0], lowest[leg], sole[leg][2], riding.legRise[leg], riding.pitch(1.0F), riding.drawnFit,
+						Math.hypot(horse.getX() - horse.xo, horse.getZ() - horse.zo)));
+				}
+			}
+			riseMost = Math.max(riseMost, riding.legRise[leg]);
+			rise += riding.legRise[leg] * 0.25;
+		}
+		if (sunk) {
+			sunkFrames++;
+		}
+		riseSum += rise;
+		bodyInMost = Math.max(bodyInMost, bodyInside);
+		if (haveLast && frameDt > 0.0 && frameDt < 0.2) {
+			soleTime += frameDt;
+		}
 		for (int leg = 0; leg < 4; leg++) {
 			final double rx = sole[leg][0] - s.x, ry = sole[leg][1] - s.y, rz = sole[leg][2] - s.z;
 			if (haveLast && !Double.isNaN(gap[leg])) {
 				final double dSole = Math.sqrt(Mth.square(rx - lastSole[leg][0]) + Mth.square(ry - lastSole[leg][1]) + Mth.square(rz - lastSole[leg][2]));
 				soleSnapMost = Math.max(soleSnapMost, dSole);
+				if (frameDt > 0.0 && frameDt < 0.2) {
+					soleTravel += dSole;
+					// (Over at least a few milliseconds: frames drawn at nearly the same moment divide by almost nothing.)
+					if (frameDt > 0.004) {
+						soleSpeedMost = Math.max(soleSpeedMost, dSole / frameDt);
+					}
+				}
 				if (dSole > SOLE_SNAP) {
 					snaps++;
 					if (snapLog.length() < 4000) {
@@ -369,18 +440,12 @@ public final class LegProbe {
 		}
 		if (record != null && record.length() < 4_000_000) {
 			final dev.horsingaround.ride.RideState r = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
-			record.append(String.format(Locale.ROOT, "%.4f,%.4f,%.4f,%.4f,%.4f,%.3f,%.4f,%.4f,%.4f,%.3f,%.3f,%.3f", time, s.x, s.y, s.z, s.y + r.heightOffset(partial),
-				r.pitch(partial), cam.x, cam.y, cam.z, r.collect, r.cadence, r.strideMatch));
-			r.steps(STEPS);
-			for (final double v : STEPS) {
-				record.append(String.format(Locale.ROOT, ",%.4f", v));
-			}
+			record.append(String.format(Locale.ROOT, "%.4f,%.4f,%.4f,%.4f,%.4f,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f", time, s.x, s.y, s.z, s.y + r.heightOffset(partial),
+				r.pitch(partial), cam.x, cam.y, cam.z, r.debugFore(), r.debugHind()));
 			for (int leg = 0; leg < 4; leg++) {
 				record.append(String.format(Locale.ROOT, ",%.4f,%.4f,%.4f,%.4f,%.4f,%.3f,%.4f,%.4f,%d,%.3f", sole[leg][0], sole[leg][1], sole[leg][2], gap[leg], clipNow[leg],
-					dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[leg], r.legRise[leg], r.legBack[leg], r.footDown[leg] ? 1 : r.footOwnSwing[leg] > 0.0F ? 2 : 0, r.footShift[leg]));
-				record.append(String.format(Locale.ROOT, ",%.4f,%.4f,%.3f,%.4f,%.3f,%.3f", r.footLandZ[leg] * (Double.isNaN(r.footLandX[leg]) ? Double.NaN : 1.0), r.footPath[leg],
-					r.footSwing[leg], dev.horsingaround.client.render.GroundLegs.PATHS[leg * 3], dev.horsingaround.client.render.GroundLegs.PATHS[leg * 3 + 1],
-					dev.horsingaround.client.render.GroundLegs.PATHS[leg * 3 + 2]));
+					dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[leg], r.legRise[leg], r.legBack[leg],
+					!Float.isNaN(r.stepTime[leg]) ? 1 : !Double.isNaN(r.stepHoldX[leg]) ? 2 : 0, r.stepTurn[leg]));
 			}
 			record.append('\n');
 		}
@@ -503,7 +568,7 @@ public final class LegProbe {
 			for (int by = Mth.floor(minY); by <= Mth.floor(maxY); by++) {
 				for (int bz = Mth.floor(minZ); bz <= Mth.floor(maxZ); bz++) {
 					pos.set(bx, by, bz);
-					for (final AABB box : level.getBlockState(pos).getCollisionShape(level, pos).toAabbs()) {
+					for (final AABB box : boxes(level)) {
 						final double cx = bx + (box.minX + box.maxX) * 0.5, cy = by + (box.minY + box.maxY) * 0.5, cz = bz + (box.minZ + box.maxZ) * 0.5;
 						final double hx = (box.maxX - box.minX) * 0.5, hy = (box.maxY - box.minY) * 0.5, hz = (box.maxZ - box.minZ) * 0.5;
 						double least = Double.MAX_VALUE;
@@ -720,7 +785,7 @@ public final class LegProbe {
 		final double lz = z - bz;
 		pos.set(bx, by, bz);
 		double most = 0.0;
-		final java.util.List<AABB> boxes = level.getBlockState(pos).getCollisionShape(level, pos).toAabbs();
+		final java.util.List<AABB> boxes = boxes(level);
 		for (final AABB box : boxes) {
 			if (lx > box.minX && lx < box.maxX && ly > box.minY && ly < box.maxY && lz > box.minZ && lz < box.maxZ) {
 				// (Out of the top, or sideways: into the open within the block (the low half of a stair), or out of it where the
@@ -760,12 +825,24 @@ public final class LegProbe {
 	/** {@code distance} if the neighbour that way leaves room at height {@code ly}, else the way out isn't that way. */
 	private static double sideways(final Level level, final int bx, final int by, final int bz, final double ly, final double distance, final int dx, final int dz) {
 		pos.set(bx + dx, by, bz + dz);
-		for (final AABB box : level.getBlockState(pos).getCollisionShape(level, pos).toAabbs()) {
+		for (final AABB box : boxes(level)) {
 			if (ly > box.minY && ly < box.maxY) {
 				return Double.MAX_VALUE;
 			}
 		}
 		return distance;
+	}
+
+	/**
+	 * While set, leaves count as open (a ridden horse goes through them: a hoof or the body in a bush is meant), for
+	 * riding about; else every block's collision boxes count.
+	 */
+	public static boolean passLeaves;
+
+	/** The collision boxes of the block at {@link #pos} (none for leaves while {@link #passLeaves}). */
+	private static java.util.List<AABB> boxes(final Level level) {
+		final net.minecraft.world.level.block.state.BlockState state = level.getBlockState(pos);
+		return passLeaves && state.is(net.minecraft.tags.BlockTags.LEAVES) ? java.util.List.of() : state.getCollisionShape(level, pos).toAabbs();
 	}
 
 	/** The top of the highest thing to stand on at (x, z) no more than 0.6 above {@code y}. */
@@ -778,7 +855,7 @@ public final class LegProbe {
 		double best = Double.NEGATIVE_INFINITY;
 		for (int by = high; by >= high - 3; by--) {
 			pos.set(bx, by, bz);
-			for (final AABB box : level.getBlockState(pos).getCollisionShape(level, pos).toAabbs()) {
+			for (final AABB box : boxes(level)) {
 				if (lx >= box.minX - 1.0E-4 && lx <= box.maxX + 1.0E-4 && lz >= box.minZ - 1.0E-4 && lz <= box.maxZ + 1.0E-4) {
 					final double t = by + box.maxY;
 					if (t <= y + 0.6 && t > best) {

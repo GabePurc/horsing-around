@@ -4,7 +4,6 @@ package dev.horsingaround.mixin;
 /*import com.llamalad7.mixinextras.injector.ModifyExpressionValue;*/
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Local;
-import dev.horsingaround.ride.Cadenced;
 import dev.horsingaround.ride.Mounts;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
@@ -52,14 +51,9 @@ abstract class LivingEntityMixin {
 	)
 	private float horsingaround$gaitStride(final float targetSpeed, @Local(argsOnly = true) final float distance) {
 		if (!((Object) this instanceof RideStateHolder holder) || !holder.horsingaround$playerRidden()) {
-			if ((Object) this instanceof RideStateHolder) {
-				((Cadenced) ((LivingEntity) (Object) this).walkAnimation).horsingaround$setCadence(1.0F);
-			}
 			return targetSpeed;
 		}
 		final LivingEntity horse = (LivingEntity) (Object) this;
-		// (Collecting for a step, the stride quickens; see WalkAnimationStateMixin.)
-		((Cadenced) horse.walkAnimation).horsingaround$setCadence(holder.horsingaround$ride().cadence);
 		if (holder.horsingaround$ride().inAir && !horse.onGround()) {
 			return 0.0F;
 		}

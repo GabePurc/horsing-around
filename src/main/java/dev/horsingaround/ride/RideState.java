@@ -260,18 +260,6 @@ public final class RideState {
 	/** The ground actually under the front and hind hooves (NaN on level ground or where there is none). */
 	double foreFoot = Double.NaN;
 	double hindFoot = Double.NaN;
-
-	/** For tests: the body's two ends (see the fields above), into {@code out}: fore, hind, their grounds, rises and feet. */
-	public void steps(final double[] out) {
-		out[0] = this.fore;
-		out[1] = this.hind;
-		out[2] = this.foreGround;
-		out[3] = this.hindGround;
-		out[4] = this.foreRise;
-		out[5] = this.hindRise;
-		out[6] = this.foreFoot;
-		out[7] = this.hindFoot;
-	}
 	/** In the air from a jump or a fall bigger than a step: the body follows its flight instead of the ground. */
 	boolean flying;
 	/**
@@ -345,56 +333,49 @@ public final class RideState {
 	public final float[] legSoleVelocityX = new float[4];
 	public final float[] legSoleVelocityZ = new float[4];
 	/**
-	 * Collecting for a step (0 to 1, client only): near a step up or down the horse quickens its stride ({@link #cadence})
-	 * so a hoof on the ground stays where it was put down, and places each hoof clear of the step's edge (see Stride).
+	 * Per leg, a step of its own up onto a step (see StepLegs), client only: seconds into it (NaN, none) and how long it
+	 * takes; where the hoof lifts from and lands (world x and z); the ground it lifts from, the step's top and the ground it
+	 * lands on (world heights).
 	 */
-	public float collect;
+	public final float[] stepTime = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
+	public final float[] stepLength = new float[4];
+	/** How near a step the horse is (0 to 1, client only; see RideController.stepNear), eased. */
+	public float stepNear;
 	/** How far the ground each end of the body follows is rounded off (blocks; see RideController.steps), eased. */
 	public float stepSmooth;
-	/** How much faster the stride runs than the gait's own (1: as the animation has it). Client only. */
-	public float cadence = 1.0F;
+	/** Per leg, how long a step of its own has waited, lifted, for its leg to reach over the edge (seconds). */
+	public final float[] stepWaited = new float[4];
+	/** Per leg, whether a step of its own began with the hoof already off the ground (the body lifted it): it lifts on with the body. */
+	public final boolean[] stepAir = new boolean[4];
+	/** Per leg, where along the body a hoof the body has lifted off the ground before a step is carried (blocks; NaN, not carried). */
+	public final float[] stepCarry = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
+	public final double[] stepFromX = new double[4];
+	public final double[] stepFromZ = new double[4];
+	public final double[] stepToX = new double[4];
+	public final double[] stepToZ = new double[4];
+	/** Per leg, where the edge of the step a step of its own goes over is (world x and z, on the hoof's line). */
+	public final double[] stepEdgeX = new double[4];
+	public final double[] stepEdgeZ = new double[4];
+	public final double[] stepFromY = new double[4];
+	public final double[] stepTop = new double[4];
+	public final double[] stepLand = new double[4];
+	/** Per leg, where a hoof put down by StepLegs is held (world x and z; NaN, not held) until the animation's stride comes up to it. */
+	public final double[] stepHoldX = {Double.NaN, Double.NaN, Double.NaN, Double.NaN};
+	public final double[] stepHoldZ = new double[4];
+	/** Per leg, how far StepLegs moves the hoof along the heading when it isn't stepping or holding it (blocks): a landing placed, or what is left of a hold let go. */
+	public final float[] stepShift = new float[4];
+	/** Per leg, last frame: how far its leg was turned to put its hoof there (radians), and how high its lower edge was (world). */
+	public final float[] stepTurn = new float[4];
+	public final double[] stepBottom = {Double.NaN, Double.NaN, Double.NaN, Double.NaN};
 	/**
-	 * Measured from the drawn legs (client only): the cadence at which the animation draws a planted hoof back exactly as
-	 * fast as the horse moves over the ground (NaN until a stride has been seen).
+	 * Per leg, the animation's stride against the body: where along the body its hoof was last frame (blocks; NaN, not yet),
+	 * how fast that moves (blocks a second, smoothed), where the animation lifts it on average (NaN, not seen yet) and its lift
+	 * last frame.
 	 */
-	public float strideMatch = Float.NaN;
-	/**
-	 * Per leg, its stride as drawn (client only, see Stride): whether the hoof is planted, whether it is held there (put
-	 * down while collected), and where (world x and z); how
-	 * far it is moved along the body from where the animation has it (blocks, toward the head) now, and at lift-off; how
-	 * far through its swing it is (0 to 1); where it will land (world x and z; NaN: where the animation puts it); how far
-	 * along the body the animation had it last frame, at lift-off and at its last touch-down (blocks ahead of the model's
-	 * origin); how long it has been in this phase and how long its last swing took (seconds); and, while planted, how far
-	 * the animation drew it back meanwhile (for {@link #strideMatch}); how long a swing of its own takes (not the
-	 * animation's: lifting early off a step's foot; 0, none), seconds; and the swing its leg was turned by, radians.
-	 */
-	public final boolean[] footDown = new boolean[4];
-	public final boolean[] footHeld = new boolean[4];
-	public final double[] footX = new double[4];
-	public final double[] footZ = new double[4];
-	public final float[] footShift = new float[4];
-	public final float[] footShiftLift = new float[4];
-	public final float[] footSwing = new float[4];
-	public final double[] footLandX = {Double.NaN, Double.NaN, Double.NaN, Double.NaN};
-	public final double[] footLandZ = new double[4];
-	public final float[] footRel = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
-	public final float[] footRelLift = new float[4];
-	public final float[] footRelLand = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
-	public final float[] footTime = new float[4];
-	public final float[] footSwingTime = {0.3F, 0.3F, 0.3F, 0.3F};
-	public final float[] footDrawnBack = new float[4];
-	public final float[] footOwnSwing = new float[4];
-	public final float[] footTurn = new float[4];
-	/** Per leg, how far its sole's lower edge was above the ground under it last frame (blocks; NaN, none found). */
-	public final float[] footGap = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
-	/**
-	 * Per leg (see Stride): where its hoof is along its own path in a collected swing (world, along the heading; NaN:
-	 * none), and the height of its sole's lower edge as drawn last frame (world; NaN: not yet).
-	 */
-	public final double[] footPath = {Double.NaN, Double.NaN, Double.NaN, Double.NaN};
-	public final double[] footBottom = {Double.NaN, Double.NaN, Double.NaN, Double.NaN};
-	/** Per leg, how long its swing has been over without it touching down (waiting to get up over a step), seconds. */
-	public final float[] footWaited = new float[4];
+	public final float[] strideRel = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
+	public final float[] strideRelRate = new float[4];
+	public final float[] strideLiftRel = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
+	public final float[] stridePackLift = new float[4];
 	/** Whether any leg was drawn up or moved off a face last frame, whether the legs were left as the model's own, and whether some hoof found its ground. */
 	public boolean legsActive;
 	public boolean legsQuiet;
