@@ -8,6 +8,7 @@
 		"GameRendererMixin",
 		"GuiMixin",
 		"ModelFeatureRendererMixin",
+		"MouseHandlerMixin",
 		"OptionsMixin",
 		"RideCameraAccessor",
 		"ScreenMixin"

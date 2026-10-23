@@ -15,12 +15,13 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Hooves on the ground, on top of whatever posed the legs (vanilla model or an animation pack, so the stride stays).
- * Every leg stands upright against the body's tilt, turned about its top (see {@link Legs}), and each hoof goes exactly
- * where its ground is, with no easing: the legs take up the ground and the body carries the smoothness (see
- * {@code RideController#steps}). A hoof over higher ground draws its leg up into the body to stand on it; a hoof on the
- * move lifts to clear ground rising ahead of it, the way a swinging hoof arcs over a step's edge (a planted hoof stays
- * put); a hoof that would stand in a step's face swings back off it onto the tread. A leg that would have to draw up
- * further than it can raises the body at once (a hard stop), which then settles back onto its legs.
+ * Every leg stands upright against the body's tilt, turned about its top (see {@link Legs}), and each hoof goes where its
+ * ground is: a hoof over higher ground draws its leg up into the body to stand on it; a hoof on the move lifts to clear
+ * ground rising ahead of it, the way a swinging hoof arcs over a step's edge (a planted hoof stays put); a hoof that
+ * would stand in a step's face swings back off it onto the tread. A hoof follows its height at a hoof's own pace, on a
+ * short spring where it jumps, never in a pop, and looks ahead along its own path so it is already up when it gets to
+ * higher ground. A leg that would have to draw up further than it can raises the body at once (a hard stop), which then
+ * settles back onto its legs.
  */
 public final class GroundLegs {
 	// Scratch; render thread only.
@@ -105,6 +106,9 @@ public final class GroundLegs {
 					ride.legRise[i] = 0.0F;
 					ride.legShift[i] = 0.0F;
 					ride.legBack[i] = 0.0F;
+					ride.legRiseVelocity[i] = 0.0F;
+					ride.legBackVelocity[i] = 0.0F;
+					ride.legSoleX[i] = Double.NaN;
 				}
 			}
 			return false;
@@ -171,27 +175,47 @@ public final class GroundLegs {
 			// swinging one, fully once HOOF_FREE up.)
 			final float free = now == Double.NEGATIVE_INFINITY || Double.isNaN(now) ? 0.0F : Mth.clamp((float) (soleHeight - now) / HOOF_FREE, 0.0F, 1.0F) * moving;
 			final double swung = ahead > now ? now + (ahead - now) * swing : now;
-			final double target = Math.max(Math.max(swung, ahead > now ? now + (ahead - now) * free : now), aheadClose > now ? now + (aheadClose - now) * moving : now);
-			float back = 0.0F;
-			if (shift != 0.0F) {
-				// Off a step's face: the hoof swings back (or forward) onto the tread, its top's corner kept in the body.
-				back = (float) Math.atan2(shift, leg.length);
+			// Where the sole is headed, as the animation and the horse carry it, and the highest ground it will be over before
+			// it could lift onto it (planted, a shorter look: the animation slides planted hooves along): it is up on that by
+			// then.
+			track(ride, i, SOLES[i * 3], SOLES[i * 3 + 2], dt);
+			final double coming = now == Double.NEGATIVE_INFINITY || Double.isNaN(now) ? Double.NEGATIVE_INFINITY
+				: coming(ride, level, i, SOLES[i * 3], SOLES[i * 3 + 2], soleHeight, leg.soleHalf / pixels, HOOF_LOOK * (HOOF_LOOK_PLANTED + (1.0F - HOOF_LOOK_PLANTED) * swing));
+			final double target = Math.max(Math.max(Math.max(swung, ahead > now ? now + (ahead - now) * free : now), aheadClose > now ? now + (aheadClose - now) * moving : now), coming);
+			// Off a step's face: the hoof swings back (or forward) onto the tread, its top's corner kept in the body; at a
+			// hoof's pace too.
+			final float backTarget = shift == 0.0F ? 0.0F : (float) Math.atan2(shift, leg.length);
+			float back = backTarget;
+			if (dt > 0.0F) {
+				back = spring(ride.legBack[i], ride.legBackVelocity, i, backTarget, dt, HOOF_SET_TIME);
+				if (backTarget == 0.0F && Math.abs(back) < 1.0E-4F && Math.abs(ride.legBackVelocity[i]) < 1.0E-2F) {
+					back = 0.0F;
+					ride.legBackVelocity[i] = 0.0F;
+				}
+			}
+			if (back != 0.0F) {
 				Legs.swing(part, leg, part.xRot + back);
 				Legs.draw(part, LEG_HALF_DEPTH * Math.max(Math.abs(Mth.sin(upright + back)) - Math.abs(Mth.sin(upright)), 0.0F));
 				active = true;
 			}
 			final double sole = sole(ride, part, leg);
 			final double want = Double.isNaN(target) ? LEG_DRAW_MAX : target == Double.NEGATIVE_INFINITY ? 0.0 : target - sole;
-			// (Past LEG_DRAW_MAX only for the frame before the body comes up for it, so the hoof isn't in the ground meanwhile.)
-			float draw = (float) Mth.clamp(want, 0.0, grounded ? LEG_RISE_MAX : LEG_DRAW_MAX);
-			if (dt > 0.0F && !Double.isNaN(target)) {
-				// A hoof lifts, and a leg straightens, only so fast; but never leaving the hoof in the ground under it now.
-				final float last = ride.legRise[i];
+			// (Past LEG_DRAW_MAX only for the moment before the body comes up for it, so the hoof isn't in the ground meanwhile.)
+			final float most = grounded ? LEG_RISE_MAX : LEG_DRAW_MAX;
+			float draw = (float) Mth.clamp(want, 0.0, most);
+			if (dt > 0.0F) {
+				// To its height at a hoof's own pace (never in a pop), and never more than HOOF_SINK into the ground under it,
+				// catching up with ground it couldn't see coming.
 				// (Against the lower edge of the sole: rocking in its stride, a hoof's toe or heel dips below its middle.)
 				final double lowest = Math.min(sole, Math.min(edge(ride, part, leg, -leg.soleHalf), edge(ride, part, leg, leg.soleHalf)));
-				final float under = now == Double.NEGATIVE_INFINITY || heave && i < 2 ? 0.0F
-					: (float) Mth.clamp(now - lowest, 0.0, grounded ? LEG_RISE_MAX : LEG_DRAW_MAX);
-				draw = Math.max(Mth.clamp(draw, last - LEG_STRAIGHTEN_SPEED * dt, last + HOOF_LIFT_SPEED * dt), under);
+				final float under = Double.isNaN(target) || now == Double.NEGATIVE_INFINITY || heave && i < 2 ? 0.0F : (float) Mth.clamp(now - lowest, 0.0, most);
+				final float goal = Math.max(draw, under);
+				draw = spring(ride.legRise[i], ride.legRiseVelocity, i, goal, dt, goal < ride.legRise[i] ? HOOF_SET_TIME : HOOF_TIME);
+				final float least = Math.max(under - HOOF_SINK, 0.0F);
+				if (draw < least || draw > most) {
+					draw = Mth.clamp(draw, least, most);
+					ride.legRiseVelocity[i] = 0.0F;
+				}
 			}
 			if (swung > now && !heave) {
 				// (Only from the gait's swing: a hoof the body lifted mustn't lift the body further, nor one reaching for a bank
@@ -531,6 +555,86 @@ public final class GroundLegs {
 		}
 		ahead = best;
 		aheadClose = close;
+	}
+
+	/** Follows the sole's own speed over the ground (world x and z, smoothed), from where it was last frame. */
+	private static void track(final RideState ride, final int i, final double x, final double z, final float dt) {
+		final double dx = x - ride.legSoleX[i];
+		final double dz = z - ride.legSoleZ[i];
+		// (Not from a sole that jumped further than a hoof moves, a teleport: it starts again from rest.)
+		if (dt > 0.0F && dx * dx + dz * dz < 1.0) {
+			final float k = 1.0F - (float) Math.exp(-dt / HOOF_VELOCITY_TIME);
+			ride.legSoleVelocityX[i] += ((float) dx / dt - ride.legSoleVelocityX[i]) * k;
+			ride.legSoleVelocityZ[i] += ((float) dz / dt - ride.legSoleVelocityZ[i]) * k;
+		} else if (dt > 0.0F || Double.isNaN(ride.legSoleX[i])) {
+			ride.legSoleVelocityX[i] = 0.0F;
+			ride.legSoleVelocityZ[i] = 0.0F;
+		}
+		ride.legSoleX[i] = x;
+		ride.legSoleZ[i] = z;
+	}
+
+	/**
+	 * The highest ground a sole at (x, z), {@code half} blocks from its middle to its edge, at height {@code y}, will be
+	 * over in the next {@code look} seconds at its own speed (at most HOOF_LOOK_MAX blocks on): ground it could stand on,
+	 * not a step's face, read from its leading edge and just past each crossing of the half-block grid. Negative infinity
+	 * if it isn't going anywhere or there is nothing.
+	 */
+	private static double coming(
+		final RideState ride, final Level level, final int i, final double x, final double z, final double y, final double half, final float look
+	) {
+		final double vx = ride.legSoleVelocityX[i];
+		final double vz = ride.legSoleVelocityZ[i];
+		final double speed = Math.sqrt(vx * vx + vz * vz);
+		if (speed < 1.0E-2) {
+			return Double.NEGATIVE_INFINITY;
+		}
+		final double dx = vx / speed;
+		final double dz = vz / speed;
+		final double reach = Math.min(speed * look, HOOF_LOOK_MAX);
+		final double sx = x + dx * half;
+		final double sz = z + dz * half;
+		double best = Double.NEGATIVE_INFINITY;
+		double ground = surface(level, sx, sz, y + LEG_RISE_MAX, y - 1.0);
+		if (!Double.isNaN(ground)) {
+			best = ground;
+		}
+		final double gx = sx * 2.0;
+		final double gz = sz * 2.0;
+		double tx = dx > 1.0E-6 ? (Math.floor(gx) + 1.0 - gx) / (2.0 * dx) : dx < -1.0E-6 ? (Math.ceil(gx) - 1.0 - gx) / (2.0 * dx) : Double.POSITIVE_INFINITY;
+		double tz = dz > 1.0E-6 ? (Math.floor(gz) + 1.0 - gz) / (2.0 * dz) : dz < -1.0E-6 ? (Math.ceil(gz) - 1.0 - gz) / (2.0 * dz) : Double.POSITIVE_INFINITY;
+		final double stepX = Math.abs(dx) > 1.0E-6 ? 0.5 / Math.abs(dx) : Double.POSITIVE_INFINITY;
+		final double stepZ = Math.abs(dz) > 1.0E-6 ? 0.5 / Math.abs(dz) : Double.POSITIVE_INFINITY;
+		for (int k = 0; k < 6; k++) {
+			final double t = Math.min(tx, tz);
+			if (t > reach) {
+				break;
+			}
+			ground = surface(level, sx + dx * (t + 1.0E-3), sz + dz * (t + 1.0E-3), y + LEG_RISE_MAX, y - 1.0);
+			if (!Double.isNaN(ground)) {
+				best = Math.max(best, ground);
+			}
+			if (tx <= tz) {
+				tx += stepX;
+			} else {
+				tz += stepZ;
+			}
+		}
+		return best;
+	}
+
+	/**
+	 * {@code dt} seconds of a critically damped spring of {@code time} seconds from {@code from} toward {@code goal},
+	 * solved exactly (the same motion at any frame rate: stepped, it lagged at low ones); keeps its speed in
+	 * {@code velocity[i]}.
+	 */
+	private static float spring(final float from, final float[] velocity, final int i, final float goal, final float dt, final float time) {
+		final float w = 1.0F / time;
+		final float off = from - goal;
+		final float c = velocity[i] + w * off;
+		final float decay = (float) Math.exp(-w * dt);
+		velocity[i] = (velocity[i] - w * c * dt) * decay;
+		return goal + (off + c * dt) * decay;
 	}
 
 	/**

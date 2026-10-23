@@ -15,6 +15,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.server.MinecraftServer;
@@ -45,6 +46,12 @@ public final class SmokeTest implements ClientModInitializer {
 	private static final int MAX_TICKS = 9000;
 	/** -PsmokeWithoutMod: the same scene with this mod turned off, to see what the game and the animation stack do alone. */
 	private static final boolean WITHOUT_MOD = Boolean.getBoolean("horsingaround.smoke.withoutMod");
+	/**
+	 * -Dhorsingaround.smoke.wild=seed: instead of the run on the flat, a long ride over a normal world of that seed (a
+	 * gallop with turns and jumps, wherever it leads), for the server corrections only natural ground brings out.
+	 */
+	private static final String WILD = System.getProperty("horsingaround.smoke.wild");
+	private static final int WILD_TICKS = 2400;
 
 	private static final int FOV = 70;
 	/**
@@ -59,13 +66,13 @@ public final class SmokeTest implements ClientModInitializer {
 	private static final int TAP_TICKS = 3;
 
 	private enum Phase {
-		TITLE, LOADING, BUILD, SETTLE, STAND, WALK, GALLOP, JUMP, STOP, RIDER, DISMOUNT, FENCE, LEAD, FINISH
+		TITLE, LOADING, BUILD, SETTLE, STAND, WALK, GALLOP, JUMP, STOP, RIDER, ROUGH, WILD, DISMOUNT, FENCE, LEAD, FINISH
 	}
 
 	private static final String[] SHOTS = {
 		"01-stand.png", "02-walk.png", "03-gallop.png", "04-jump.png", "05-stopped.png", "06-first-person.png",
 		"07-third-person-back.png", "08-fence-front.png", "09-fence-side.png", "10-lead-cow.png", "11-lead-llama.png", "12-lead-horse.png",
-		"13-player-lead.png"
+		"13-player-lead.png", "14-rough-slab.png", "15-rough-stairs.png", "16-rough-uneven.png", "17-rough-gallop.png"
 	};
 
 	private final Meter meter = new Meter();
@@ -92,6 +99,7 @@ public final class SmokeTest implements ClientModInitializer {
 	private double jumpHeight;
 	private int airTicks;
 	private int stillTicks;
+	private int roughStage;
 	// A job running on the server thread.
 	private volatile boolean jobDone;
 	private volatile Throwable jobError;
@@ -161,7 +169,11 @@ public final class SmokeTest implements ClientModInitializer {
 				if (Compat.screen(minecraft) instanceof TitleScreen && !Compat.overlayShown(minecraft)) {
 					if (t >= 20) {
 						deleteWorld(minecraft.gameDirectory.toPath().resolve("saves").resolve(WORLD));
-						Compat.createFlatWorld(minecraft, WORLD, SEED);
+						if (WILD == null) {
+							Compat.createFlatWorld(minecraft, WORLD, SEED);
+						} else {
+							Compat.createWorld(minecraft, WORLD, Long.parseLong(WILD), WorldPresets.NORMAL);
+						}
 						this.next(Phase.LOADING);
 					}
 				} else {
@@ -181,7 +193,7 @@ public final class SmokeTest implements ClientModInitializer {
 			}
 			case BUILD -> {
 				if (t == 0) {
-					this.job(Scene::build);
+					this.job(WILD == null ? Scene::build : Scene::wild);
 				} else if (this.jobFinished()) {
 					this.next(Phase.SETTLE);
 				}
@@ -195,7 +207,7 @@ public final class SmokeTest implements ClientModInitializer {
 					}
 					this.horse = vehicle;
 					LOGGER.info("smoke: riding {} at {} {} {}, ground y {}", vehicle.getType(), fmt(vehicle.getX()), fmt(vehicle.getY()), fmt(vehicle.getZ()), Scene.groundY);
-					this.next(Phase.STAND);
+					this.next(WILD == null ? Phase.STAND : Phase.WILD);
 				}
 			}
 			case STAND -> {
@@ -254,6 +266,8 @@ public final class SmokeTest implements ClientModInitializer {
 			}
 			case JUMP -> this.jump(minecraft, t);
 			case STOP -> this.stop(minecraft, t);
+			case ROUGH -> this.rough(minecraft, t);
+			case WILD -> this.wild(minecraft, t);
 			case RIDER -> {
 				// The rider's own views, with the HUD.
 				if (t == 0) {
@@ -265,13 +279,16 @@ public final class SmokeTest implements ClientModInitializer {
 				} else if (t == 50) {
 					this.shoot(minecraft, SHOTS[6]);
 				} else if (t >= 54) {
-					this.next(Phase.DISMOUNT);
+					this.next(Phase.ROUGH);
 				}
 			}
 			case DISMOUNT -> {
 				if (t == 0) {
+					this.job(Scene::leadSpot);
+				} else if (t == 30) {
+					this.jobFinished();
 					this.job(Scene::leadCow);
-				} else if (this.jobFinished() && minecraft.player.getVehicle() == null && t >= 40) {
+				} else if (t > 30 && this.jobFinished() && minecraft.player.getVehicle() == null && t >= 60) {
 					LOGGER.info("smoke: dismounted at {} {} {}", fmt(minecraft.player.getX()), fmt(minecraft.player.getY()), fmt(minecraft.player.getZ()));
 					this.next(Phase.FENCE);
 				}
@@ -288,6 +305,11 @@ public final class SmokeTest implements ClientModInitializer {
 				}
 			}
 			case FINISH -> {
+				if (WILD != null) {
+					LOGGER.info("Horsing Around smoke test passed: a wild ride of {} ticks", WILD_TICKS);
+					this.exitIn = 10;
+					return;
+				}
 				// Every screenshot is on disk (they are written in the background).
 				int missing = 0;
 				for (final String shot : SHOTS) {
@@ -335,6 +357,94 @@ public final class SmokeTest implements ClientModInitializer {
 		}
 		if (this.airTicks > 80) {
 			throw new IllegalStateException("The horse never came down");
+		}
+	}
+
+	/**
+	 * Over the rough course (see {@link Scene#rough}): walking up and down steps and stairs, cantering through leaves and
+	 * over uneven ground, galloping over single steps, with side shots of the legs on the way; then a stop. It must get
+	 * across (not stuck on a step), and the run fails on any move the server corrected (see gradle/smoke-test.gradle).
+	 */
+	private void rough(final Minecraft minecraft, final int t) {
+		final double z = this.horse.getZ();
+		this.meter.sample(this.horse);
+		if (t == 0) {
+			this.meter.reset();
+			this.job(Scene::rough);
+			this.camera(minecraft, minecraft.player, CameraType.THIRD_PERSON_BACK, SIDE_FOV_WALK, false);
+			this.sideView = true;
+			this.roughStage = 0;
+			return;
+		}
+		if (this.roughStage == 0) {
+			if (this.jobFinished()) {
+				minecraft.options.keyUp.setDown(true);
+				this.roughStage = 1;
+			}
+			return;
+		}
+		if (this.roughStage == 1 && z > Scene.ROUGH_START + 0.2) {
+			this.shoot(minecraft, SHOTS[13]);
+			this.roughStage = 2;
+		} else if (this.roughStage == 2 && z > 117.6) {
+			this.shoot(minecraft, SHOTS[14]);
+			this.job(Scene::roughFar);
+			this.roughStage = 3;
+		} else if (this.roughStage == 3 && z > 126.0 && this.jobFinished()) {
+			// Cantering from here.
+			this.tap(minecraft.options.keySprint, 1);
+			this.roughStage = 4;
+		} else if (this.roughStage == 4 && t % 4 == 0 && this.tapped == null) {
+			this.tap(minecraft.options.keySprint, 1);
+			this.roughStage = 5;
+		} else if (this.roughStage == 5 && z > 146.0) {
+			this.shoot(minecraft, SHOTS[15]);
+			minecraft.options.fov().set(SIDE_FOV_GALLOP);
+			this.roughStage = 6;
+		} else if (this.roughStage == 6 && z > 160.0 && this.tapped == null) {
+			this.tap(minecraft.options.keySprint, 1);
+			this.roughStage = 7;
+		} else if (this.roughStage == 7 && z > 174.3) {
+			this.shoot(minecraft, SHOTS[16]);
+			this.roughStage = 8;
+		} else if (this.roughStage == 8 && z > Scene.ROUGH_END) {
+			this.report("rough", t);
+			minecraft.options.keyUp.setDown(false);
+			this.roughStage = 9;
+		} else if (this.roughStage == 9 && this.meter.latest() < 0.01) {
+			this.next(Phase.DISMOUNT);
+		}
+		if (t >= 2400) {
+			throw new IllegalStateException("The horse got stuck on the rough course at z " + fmt(z) + " (stage " + this.roughStage + ")");
+		}
+	}
+
+	/** The wild ride: a gallop, turning a little every few seconds and jumping now and then, wherever that leads. */
+	private void wild(final Minecraft minecraft, final int t) {
+		final LocalPlayer player = minecraft.player;
+		if (t == 0) {
+			this.camera(minecraft, player, CameraType.THIRD_PERSON_BACK, FOV, false);
+			minecraft.options.keyUp.setDown(true);
+			this.meter.reset();
+		}
+		if ((t == 4 || t == 8 || t == 12) && this.tapped == null) {
+			this.tap(minecraft.options.keySprint, 1);
+		} else if (t > 20 && t % 110 == 55 && this.tapped == null) {
+			this.tap(minecraft.options.keyJump, 1);
+		}
+		if (t > 0 && t % 160 == 0) {
+			final float yaw = player.getYRot() + (t % 480 == 0 ? -100.0F : 65.0F);
+			this.setView(player, yaw, yaw, yaw, yaw, player.getXRot(), player.getXRot());
+		}
+		this.meter.sample(this.horse);
+		if (t % 100 == 0) {
+			LOGGER.info("smoke wild: t{} at {} {} {}, speed {}, onGround {}", t, fmt(this.horse.getX()), fmt(this.horse.getY()), fmt(this.horse.getZ()),
+				fmt(this.meter.latest()), this.horse.onGround());
+		}
+		if (t >= WILD_TICKS) {
+			minecraft.options.keyUp.setDown(false);
+			this.report("wild", t);
+			this.next(Phase.FINISH);
 		}
 	}
 

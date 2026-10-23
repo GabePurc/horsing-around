@@ -321,6 +321,17 @@ public final class RideState {
 	public final float[] legShift = new float[4];
 	/** Per leg, the last frame: how far it was swung back off a step's face (radians). */
 	public final float[] legBack = new float[4];
+	/**
+	 * Per leg, how fast {@link #legRise} (blocks a second) and {@link #legBack} (radians a second) are changing on their
+	 * springs.
+	 */
+	public final float[] legRiseVelocity = new float[4];
+	public final float[] legBackVelocity = new float[4];
+	/** Per leg, where its sole was last frame as the animation put it (world x and z; NaN, not yet) and how fast it moves, smoothed (blocks a second). */
+	public final double[] legSoleX = {Double.NaN, Double.NaN, Double.NaN, Double.NaN};
+	public final double[] legSoleZ = new double[4];
+	public final float[] legSoleVelocityX = new float[4];
+	public final float[] legSoleVelocityZ = new float[4];
 	/** Whether any leg was drawn up or moved off a face last frame, whether the legs were left as the model's own, and whether some hoof found its ground. */
 	public boolean legsActive;
 	public boolean legsQuiet;

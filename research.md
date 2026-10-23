@@ -71,9 +71,13 @@ whatever the speed; no stamina; no visual weight.
 - Stay vanilla (user, 2026-10-08): vanilla's one-piece legs, never a knee or extra joint (tried and removed); never
   replace the model or its animation; only add transforms on top, so Fresh Animations (EMF + ETF) keeps working. Keep
   vanilla animation inputs truthful.
-- Physically right first, smooth only if needed (user): hooves planted on the ground actually under them (not in it,
-  not floating), legs drawing up into the body over higher ground; the body is a mass carried on its legs, never
-  falling faster than gravity; the tilt is the line between the ground under the front and the hind hooves.
+- Physically right first (user): hooves planted on the ground actually under them (not in it, not floating), legs
+  drawing up into the body over higher ground; the body is a mass carried on its legs, never falling faster than
+  gravity; the tilt is the line between the ground under the front and the hind hooves.
+- Hooves move smoothly (user direction, 2026-10-22: legs "jump up really quickly to avoid clipping"; avoid clipping in a
+  smooth and realistic way): a hoof moves to its height on a short spring (quicker setting down than lifting) and looks
+  ahead along its own path so it is already up when it reaches higher ground; it may settle under a pixel into the
+  ground for a moment, never more.
 - Steps in two beats (user): front legs up first, then the hind; one leg at a time at a walk, nearly together at
   speed; at a run a step comes in through the stride without a pop.
 - No clipping between horse and rider (user): the horse reaches its neck forward, then the rider folds less.

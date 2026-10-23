@@ -737,3 +737,29 @@ swappable to the left or off (centred). On foot, third person stays vanilla.
   add-on; centred it still is.
 - O swaps shoulders while riding (the add-on's key). The add-on's API (`RideCameraApi`) is gone, and the mod declares the
   add-on incompatible, so an old copy left installed gets a clear message instead of a crash.
+
+## Smooth hooves, and no rubber-banding across dips (play-test feedback and a NeoForge report, 2026-10-22)
+
+A player on 1.21.1 NeoForge (with Sinytra Connector) found the legs "all over the place"; the user, playing it, found the
+horse getting stuck on blocks, floating, no clear sense of the hooves on the ground, and (all versions) legs jumping up
+very fast to avoid clipping. Direction: avoid clipping in a smooth and realistic way.
+
+- Stuck: not NeoForge's doing. On 1.21.1 (Fabric too), galloping across a short 1-deep dip, the client got a hoof onto
+  the far side in the air (the mod's in-air footing) while the server, checking the move, had no such footing; it kept
+  its horse a few hundredths inside the ground and rejected every move after (91 corrections in a row, the horse held in
+  place until the rider turned). 26.3's server takes the client's ground contact, which hid it. Now the server checks a
+  ridden horse's move with the same footing in the air. Found by a new smoke ride over a real world (`-PsmokeWild`), run
+  on Fabric and on NeoForge with Connector; Connector itself loads the mod and the Fresh Animations hook as on Fabric.
+- Snaps: a hoof lifted at up to 10 blocks a second and was pulled out of the ground at once; the lift toward ground
+  ahead switched on within the first 0.06 of the gait's own lift; moving off a step's face was instant. Measured, a sole
+  jumped up to 0.23 blocks in one frame. Now a hoof lifts to its height on a critically damped spring of 0.045 s and sets
+  down (and swings off a face) on one of 0.025 s, solved exactly so it moves the same at any frame rate, and looks
+  ahead along its own path (its sole's speed, smoothed) for the ground it will be over in 0.18 s in its swing, a third
+  of that planted, so it is already up when it gets there; it may be under a pixel in the ground for a moment while
+  catching up with ground it couldn't see coming. Walking, cantering and galloping up and down a step at 120 frames a
+  second: 5 frames with a jump, from 38. Tried and dropped: making the hoof follow a moving height as it moved (it
+  passed the ground's flicker at a step's edge straight through), looking as far ahead when planted (the animation
+  slides planted hooves forward on slopes, and they hovered in front of every step), setting down as slowly as it lifts
+  (it hovered).
+- Known: standing on stairs, a hoof can still read up to 0.45 in the ground for a moment (0.5 before); the tests that
+  render a frame a tick count a hoof that now lifts over two ticks as two jumps.
