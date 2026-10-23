@@ -447,9 +447,10 @@ public final class RideTuning {
 	static final float STEP_RAMP_PER_SPEED = 5.0F;
 	/**
 	 * Ridden, the ground each end of the body follows ahead of its hooves is averaged over STEP_SMOOTH_TICKS of the horse's
-	 * travel more (read in at most STEP_SMOOTH_PIECES pieces; that length eased STEP_SMOOTH_EASE of the way a tick, so a change of
-	 * pace doesn't move it), and collected for a step, the ground under them over half that: the climb picks up and eases off in a curve,
-	 * never a corner (user direction, 2026-10-23: a smooth ride, nothing moving near instantly).
+	 * travel more (read in at most STEP_SMOOTH_PIECES pieces; that length eased STEP_SMOOTH_EASE of the way a tick, so a
+	 * change of pace doesn't move it), and collected for a step, the ground under them over as much, just behind: the
+	 * climb picks up and eases off in a curve, never a corner (user direction, 2026-10-23: a smooth ride, nothing moving
+	 * near instantly).
 	 */
 	static final float STEP_SMOOTH_TICKS = 4.0F;
 	static final int STEP_SMOOTH_PIECES = 16;
@@ -605,8 +606,8 @@ public final class RideTuning {
 	public static final float STRIDE_MEASURE_SPEED = 1.0F;
 	public static final float STRIDE_TURN_MAX = 1.0F;
 	/**
-	 * A hoof within STRIDE_CLEAR blocks of the ground is held where it is, more the closer (so it comes straight down onto
-	 * its spot and lifts straight off it, rolling over its toe, rather than skidding in and out).
+	 * A planted hoof is held where it is while it is on the ground, less as it comes more than a little off it (fully off at
+	 * STRIDE_CLEAR blocks: a hoof the body has lifted off the ground goes along with the animation).
 	 */
 	public static final float STRIDE_CLEAR = 0.06F;
 	/** The match is only measured on ground tilting less than STRIDE_MEASURE_TILT radians. */
@@ -628,13 +629,12 @@ public final class RideTuning {
 	public static final double STRIDE_PROFILE_UP = 1.6;
 	public static final double STRIDE_PROFILE_DOWN = 1.6;
 	/**
-	 * Collected past STRIDE_KEEP_OWN, a planted hoof lifts early, in a swing of its own, onto the step ahead: once its leg
-	 * no longer reaches the ground under it by STRIDE_HANG (the forehand rising onto the step), or would meet the step's
-	 * edge within STRIDE_FACE_LOOK seconds. It lands wholly on the step, STRIDE_TREAD_IN in; the swing moves it STRIDE_OWN_SPEED
-	 * blocks a second (taking STRIDE_OWN_TIME_MIN to STRIDE_OWN_TIME_MAX seconds) in an arc STRIDE_OWN_LIFT high.
+	 * Collected past STRIDE_KEEP_OWN and moving, a planted hoof lifts early, in a swing of its own, onto the step ahead
+	 * (within STRIDE_OWN_LOOK blocks) once its leg would meet the step's edge within STRIDE_FACE_LOOK seconds. It lands
+	 * wholly on the step, STRIDE_TREAD_IN in; the swing takes as long as moving STRIDE_OWN_SPEED blocks a second would
+	 * (STRIDE_OWN_TIME_MIN to STRIDE_OWN_TIME_MAX seconds). Any collected swing goes in an arc STRIDE_OWN_LIFT high.
 	 */
 	public static final float STRIDE_KEEP_OWN = 0.5F;
-	public static final float STRIDE_HANG = 0.06F;
 	public static final double STRIDE_OWN_LOOK = 1.2;
 	public static final float STRIDE_FACE_LOOK = 0.08F;
 	public static final double STRIDE_TREAD_IN = 0.1;
@@ -649,8 +649,9 @@ public final class RideTuning {
 	 * A collected swing follows a path of its own: it lifts straight off, goes along between STRIDE_PATH_START and
 	 * STRIDE_PATH_END of the way through, then comes straight down onto its spot (within STRIDE_ARRIVED of it); at most
 	 * STRIDE_PATH_SPEED blocks a second plus STRIDE_PATH_SPEED_PER_TRAVEL times the horse's own speed; kept
-	 * STRIDE_SWING_CLEAR above everything it passes over until STRIDE_CLEAR_UNTIL of the way along; never past the foot of a step until its
-	 * sole is STRIDE_EDGE_CLEAR above the top of it; never further ahead of the top of the leg than STRIDE_REACH.
+	 * STRIDE_SWING_CLEAR above everything it passes over until STRIDE_CLEAR_UNTIL of the way along; never past the foot of a
+	 * step until its sole is STRIDE_EDGE_CLEAR above the top of it; never further ahead of the top of the leg than
+	 * STRIDE_REACH.
 	 */
 	public static final float STRIDE_PATH_START = 0.1F;
 	public static final float STRIDE_PATH_END = 0.8F;
@@ -659,20 +660,20 @@ public final class RideTuning {
 	public static final double STRIDE_PATH_SPEED_PER_TRAVEL = 3.0;
 	public static final float STRIDE_SWING_CLEAR = 0.06F;
 	public static final float STRIDE_CLEAR_UNTIL = 0.85F;
+	public static final double STRIDE_EDGE_CLEAR = 0.05;
 	/**
 	 * A collected swing moves on only once its sole is half of STRIDE_SWING_CLEAR above the ground under it and
 	 * STRIDE_LIFT_FIRST blocks ahead plus STRIDE_LIFT_LOOK seconds of the horse's travel (else it would drag), lifting on a
 	 * spring of STRIDE_LIFT_TIME seconds, divided by 1 + the horse's speed over STRIDE_LIFT_QUICKEN blocks a second.
 	 */
 	public static final double STRIDE_LIFT_FIRST = 0.25;
+	public static final double STRIDE_LIFT_LOOK = 0.04;
+	public static final float STRIDE_LIFT_TIME = 0.025F;
+	public static final float STRIDE_LIFT_QUICKEN = 4.0F;
 	/** A swing that is over but still waiting to get up over a step lands where it is after STRIDE_WAIT_MAX seconds. */
 	public static final float STRIDE_WAIT_MAX = 0.2F;
 	/** Back on open ground, a hoof eases back onto the animation's stride over about STRIDE_OPEN_EASE seconds. */
 	public static final float STRIDE_OPEN_EASE = 0.1F;
-	public static final double STRIDE_LIFT_LOOK = 0.04;
-	public static final float STRIDE_LIFT_TIME = 0.025F;
-	public static final float STRIDE_LIFT_QUICKEN = 4.0F;
-	public static final double STRIDE_EDGE_CLEAR = 0.05;
 	/**
 	 * Taking the body's tilt off the legs swings their tops out of the body; each leg is drawn up LEG_HALF_DEPTH model
 	 * pixels x sin of that swing so no gap shows at the hip or shoulder (the body is lowered to match, so the hooves

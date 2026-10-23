@@ -24,6 +24,11 @@ Picking what runs:
   - `slopes`, `face`: just the slope-and-stairs lanes, and the jump-at-a-wall lanes.
   - `drawn`: the legs exactly as drawn on slopes, stairs and steps, shot up close.
   - `slowstep`: standing, stopping and single steps (walking, and running up one), frame by frame, for snaps.
+  - `stride`: single steps up and down, stairs, a hillside and a step met at an angle at every gait (plus flat runs, the
+    baseline), frame by frame at 120 fps: how far a hoof on the ground slides per footfall, how deep any leg's box goes
+    into a block (exact overlap), and the jolts of the body, its tilt and the camera (`LegProbe.feel`); a table at the end
+    and `stride-<lane>.csv` per lane. `-Pscenario=<part of a lane name>` for some; with `shots` in it, side shots instead;
+    with `film`, side clips at half speed into `stride-film/<lane>/` (frames: `ffmpeg -framerate 30 -i %04d.png`).
   - `exits`: out of water onto banks of a few heights, wading and swimming.
   - `strafe`: stopping after riding with A or D alone.
   - `hands`: the rider's arms with items, swings and a bow, with close shots.

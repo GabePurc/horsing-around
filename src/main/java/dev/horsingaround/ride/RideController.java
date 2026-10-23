@@ -1007,11 +1007,13 @@ public final class RideController {
 			// (Collected for a step, more of the stretch ahead: the climb starts sooner rather than ends later. Not on a hillside,
 			// where reading ahead would carry the body above the hooves.)
 			final double behind = 0.5 - (0.5 - STEP_SMOOTH_BEHIND) * s.collect;
-			// (Under the hooves over half that, collected: going down a step, an end comes down as its hooves step off, in a curve.)
-			s.foreGround = Math.max(Math.max(support(horse, fx, fz, FORE_HOOVES + lead, y, smooth, behind), support(horse, fx, fz, FORE_HOOVES, y, smooth * 0.5 * s.collect, 0.5)),
+			// (Under the hooves, collected, over as much again, the stretch they have just come over: going down a step, an end comes
+			// down from where its hooves step off, in a curve. Not on a hillside, where it would leave the hooves hanging.)
+			final double under = smooth * s.collect;
+			s.foreGround = Math.max(Math.max(support(horse, fx, fz, FORE_HOOVES + lead, y, smooth, behind), support(horse, fx, fz, FORE_HOOVES - under * 0.5, y, under, 0.5)),
 				support(horse, fx, fz, chestAhead + lead, y, smooth, behind) - chestAbove);
 			s.hindGround = Math.max(support(horse, fx, fz, lead - HIND_HOOVES, y, smooth, behind),
-				support(horse, fx, fz, -HIND_HOOVES, y, smooth * 0.5 * s.collect, 0.5));
+				support(horse, fx, fz, -HIND_HOOVES - under * 0.5, y, under, 0.5));
 		}
 		if (landing >= 0.0F) {
 			// Touchdown: the body is where the horse landed, still coming down as fast as it fell; the legs take it up.

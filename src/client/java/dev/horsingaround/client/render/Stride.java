@@ -12,10 +12,11 @@ import net.minecraft.world.level.Level;
  * A hoof's stride as drawn, on top of the animation's, keeping its timing and the shape of its swing. As far as the horse
  * is collected for a step ({@link RideState#collect}; on open ground the animation's stride is left as it is):
  * <ul>
- * <li>where a hoof is put down it stays put, and it comes straight down onto its spot and lifts straight off it;</li>
- * <li>each swing lands it clear of an edge: wholly on one level, and not right up against the foot of a step;</li>
- * <li>a planted hoof the leg would no longer reach (the forehand rising onto a step) or whose leg would meet the step's
- * edge lifts early, in a swing of its own, up over the edge and onto the step.</li>
+ * <li>where a hoof is put down it stays put while it is on the ground;</li>
+ * <li>each swing follows a path of its own to where it lands, clear of an edge (wholly on one level, and not right up
+ * against the foot of a step): straight up off the ground, along in an arc clear of what it passes over, never past the
+ * foot of a step until it is up over the edge (it waits in front of it, lifted), and straight down onto its spot;</li>
+ * <li>a planted hoof whose leg would meet a step's edge lifts early, in a swing of its own, onto the step.</li>
  * </ul>
  * Also measures how fast the animation draws a planted hoof back against how fast the horse moves over the ground
  * ({@link RideState#strideMatch}), which sets the cadence when collected. Render thread only.
@@ -25,8 +26,7 @@ final class Stride {
 	static float shift;
 	/** How high to lift the hoof above its path (blocks): its arc in a collected swing. */
 	static float lift;
-	/** Whether the hoof is off the ground in a swing, and whether the swing is its own. */
-	static boolean swinging;
+	/** Whether the hoof is off the ground in a swing of its own (not the animation's). */
 	static boolean ownSwing;
 	/**
 	 * Collected, in its swing: the highest ground it will pass over before it lands (world height; NaN: none worked out),
@@ -81,7 +81,6 @@ final class Stride {
 				ride.footLandX[i] = Double.NaN;
 			}
 			shift = ride.footShift[i];
-			swinging = !ride.footDown[i];
 			ownSwing = ride.footOwnSwing[i] > 0.0F;
 			return;
 		}
@@ -102,8 +101,8 @@ final class Stride {
 			ride.footZ[i] += fz * drift;
 			float held = (float) (ride.footX[i] * fx + ride.footZ[i] * fz - soleAlong);
 			ride.footDrawnBack[i] -= (rel - previous) * way;
-			if (keep > STRIDE_KEEP_OWN && travel > STRIDE_STILL && ownSwingNeeded(ride, level, i, soleX + fx * held, soleY, soleZ + fz * held, topX, topY, topZ, half, fx, fz, gap,
-				travel)) {
+			if (keep > STRIDE_KEEP_OWN && travel > STRIDE_STILL
+				&& ownSwingNeeded(ride, level, i, soleX + fx * held, soleY, soleZ + fz * held, topX, topY, topZ, half, fx, fz, travel)) {
 				ownLiftOff(ride, i, rel, held, soleAlong + held, fx, fz);
 			} else if (packLift > STRIDE_LIFT_OFF || relVelocity > STRIDE_SWING_SPEED && ride.footTime[i] > STRIDE_PHASE_MIN) {
 				// Lifted by the animation, or swinging forward without lifting (a model that only swings its legs).
@@ -214,7 +213,6 @@ final class Stride {
 			}
 		}
 		shift = ride.footShift[i];
-		swinging = !ride.footDown[i];
 		ownSwing = ride.footOwnSwing[i] > 0.0F;
 	}
 
@@ -223,7 +221,6 @@ final class Stride {
 		final float span, final boolean own) {
 		ride.footDown[i] = true;
 		ride.footWaited[i] = 0.0F;
-		ride.footLanding[i] = false;
 		ride.footX[i] = soleX + fx * ride.footShift[i];
 		ride.footZ[i] = soleZ + fz * ride.footShift[i];
 		if (!own && (span > STRIDE_SPAN_MIN || Float.isNaN(span))) {
@@ -248,10 +245,8 @@ final class Stride {
 		ride.footDown[i] = false;
 		ride.footShiftLift[i] = held;
 		ride.footRelLift[i] = rel;
-		ride.footStanceTime[i] = stance;
 		ride.footTime[i] = 0.0F;
 		ride.footSwing[i] = 0.0F;
-		ride.footLanding[i] = false;
 		ride.footLandX[i] = Double.NaN;
 		ride.footPath[i] = Double.NaN;
 	}
@@ -264,20 +259,19 @@ final class Stride {
 		ride.footRelLift[i] = rel;
 		ride.footTime[i] = 0.0F;
 		ride.footSwing[i] = 0.0F;
-		ride.footLanding[i] = false;
 		ride.footPath[i] = Double.NaN;
 		ride.footOwnSwing[i] = (float) Mth.clamp(Math.abs(to - along) / STRIDE_OWN_SPEED, STRIDE_OWN_TIME_MIN, STRIDE_OWN_TIME_MAX);
 	}
 
 	/**
-	 * Whether a planted hoof (its sole at x, y, z) should lift early onto the step ahead: the leg no longer reaches the
-	 * ground under it (the forehand or hindquarters rising for the step), or its leg would meet the step's edge within
-	 * STRIDE_FACE_LOOK seconds (a step within STRIDE_OWN_LOOK ahead). If so, where it should land is in footLandX/Z:
-	 * wholly on the step and STRIDE_TREAD_IN in.
+	 * Whether a planted hoof (its sole at x, y, z) should lift early onto the step ahead (within STRIDE_OWN_LOOK): its leg,
+	 * leaning with its top ahead of the hoof, would meet the step's edge within STRIDE_FACE_LOOK seconds. (Not for a leg
+	 * the rising body has lifted off its ground: on a hillside that is every leg, every stride; it waits for its own swing.)
+	 * If so, where it should land is in footLandX/Z: wholly on the step and STRIDE_TREAD_IN in.
 	 */
 	private static boolean ownSwingNeeded(
 		final RideState ride, final Level level, final int i, final double x, final double y, final double z, final double topX, final double topY, final double topZ,
-		final double half, final double fx, final double fz, final float gap, final float travel
+		final double half, final double fx, final double fz, final float travel
 	) {
 		profile(level, x, z, fx, fz, -half, STRIDE_OWN_LOOK, y);
 		final double ground = topAt(0.0);
@@ -298,15 +292,11 @@ final class Stride {
 		if (Double.isNaN(face)) {
 			return false;
 		}
-		boolean needed = false;
-		if (!needed) {
-			// The leg's front, leaning with its top ahead of the hoof, against the step's edge (or its whole height, below the edge).
-			final double lean = (topX - x) * fx + (topZ - z) * fz;
-			final double up = topY - y;
-			final double front = half + (up > 1.0E-3 && lean > 0.0 ? lean * Math.min((faceTop - y) / up, 1.0) : 0.0);
-			needed = front + Math.max(travel, 0.0F) * STRIDE_FACE_LOOK >= face;
-		}
-		if (!needed) {
+		// The leg's front, leaning with its top ahead of the hoof, against the step's edge (or its whole height, below the edge).
+		final double lean = (topX - x) * fx + (topZ - z) * fz;
+		final double up = topY - y;
+		final double front = half + (up > 1.0E-3 && lean > 0.0 ? lean * Math.min((faceTop - y) / up, 1.0) : 0.0);
+		if (front + Math.max(travel, 0.0F) * STRIDE_FACE_LOOK < face) {
 			return false;
 		}
 		// Where to land: wholly on the step, STRIDE_TREAD_IN in (the path waits in front of the step until it can get over it).
@@ -324,7 +314,7 @@ final class Stride {
 	/**
 	 * Where a swinging hoof lands (footLandX/Z): where the animation will put it down, moved as little as it can so it
 	 * lands clear of an edge: wholly on one level, and not right up against the foot of a step (with STRIDE_FACE_ROOM
-	 * before it). Picked once and kept while it is still within STRIDE_PLACE_REACH of that; worked out until
+	 * before it). Picked once and kept (unless the stride changes so much it is twice STRIDE_PLACE_REACH from that) until
 	 * STRIDE_PLACE_UNTIL through the swing, then held where it was.
 	 */
 	private static void landing(
