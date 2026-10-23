@@ -814,7 +814,9 @@ public final class RideController {
 			} else {
 				// In the air the body tilts with its flight: nose up taking off, level over the top, nose down to land.
 				final float flight = (float) Math.toDegrees(Math.atan2(dy, Math.sqrt(horizontalSq) + 1.0E-3)) * JUMP_PITCH_SCALE;
-				s.jumpPitch = turn(s.jumpPitch, s.jumpPitchO - s.jumpPitchOO, Mth.clamp(flight, -JUMP_PITCH_DOWN, JUMP_PITCH_UP), JUMP_PITCH_SMOOTHING,
+				// (Nose down as far as a real horse landing a jump only after a jump: off a step, a short fall, less.)
+				s.jumpPitch = turn(s.jumpPitch, s.jumpPitchO - s.jumpPitchOO, Mth.clamp(flight, s.leapt ? -JUMP_PITCH_DOWN : -FALL_PITCH_DOWN, JUMP_PITCH_UP),
+					JUMP_PITCH_SMOOTHING,
 					JUMP_PITCH_RATE_MAX, JUMP_PITCH_TURN_MAX);
 				jumpTurned = true;
 				// The ground tilt (a slope, the crouch before a ledge) lets go gently while the flight's tilt takes over.

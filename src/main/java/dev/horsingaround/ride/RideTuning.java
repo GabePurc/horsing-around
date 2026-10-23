@@ -505,11 +505,14 @@ public final class RideTuning {
 	 * (touching down on a slope, the forehand still falling, and the flight's tilt letting go, together snapped it). It
 	 * turns toward the line like a body with weight (see RideController.turn): at a speed easing toward PITCH_FOLLOW of the
 	 * gap, that speed changing by at most PITCH_TURN_MAX degrees a tick each tick (play-test, 2026-10-23: at 9 a tick with
-	 * no limit on how fast that changed, it nodded 20 degrees and back in a quarter second cresting a hill, a snap).
+	 * no limit on how fast that changed, it nodded 20 degrees and back in a quarter second cresting a hill, a snap). Set from
+	 * real horses (research, 2026-10-23): their trunks pitch at about 95-110 degrees a second over a fence, up to about 180
+	 * at take-off and settling after landing, and change that speed at 1,150-3,150 degrees a second each second (Clayton et
+	 * al. 2021; Fuss and Fuss 1998); 3 a tick each tick is 1,200.
 	 */
 	static final float PITCH_RATE_MAX = 6.0F;
 	static final float PITCH_FOLLOW = 0.5F;
-	static final float PITCH_TURN_MAX = 1.5F;
+	static final float PITCH_TURN_MAX = 3.0F;
 	public static final float LEG_LENGTH = 0.625F;
 	public static final float LEG_UPRIGHT = 1.0F;
 	/**
@@ -659,16 +662,19 @@ public final class RideTuning {
 	 * feet first (pivoting on the front hooves). Degrees per degree of flight path, limits up and down, and response.
 	 */
 	static final float JUMP_PITCH_SCALE = 0.55F;
-	static final float JUMP_PITCH_UP = 25.0F;
-	static final float JUMP_PITCH_DOWN = 15.0F;
+	static final float JUMP_PITCH_UP = 35.0F;
+	static final float JUMP_PITCH_DOWN = 25.0F;
+	/** Falling without a jump (off a step or a drop), nose down at most this (degrees): the landing angles above are from jumps. */
+	static final float FALL_PITCH_DOWN = 15.0F;
 	static final float JUMP_PITCH_SMOOTHING = 0.5F;
 	/**
 	 * The jump's tilt turns the same way (see PITCH_TURN_MAX): at most JUMP_PITCH_RATE_MAX degrees a tick, that changing
 	 * by at most JUMP_PITCH_TURN_MAX a tick (topping a 2-block climb it went from nose up to nose down at 230 degrees a
-	 * second, the forehand snapping forward).
+	 * second, the forehand snapping forward). Real horses' trunks reach +21 to +34 degrees nose up taking off and -25 to
+	 * -38 landing (research, 2026-10-23), hence JUMP_PITCH_UP and JUMP_PITCH_DOWN.
 	 */
 	static final float JUMP_PITCH_RATE_MAX = 5.0F;
-	static final float JUMP_PITCH_TURN_MAX = 1.0F;
+	static final float JUMP_PITCH_TURN_MAX = 2.5F;
 	/**
 	 * The legs take the jump's shape over AIR_SHAPE_IN_TIME seconds, and let it go as a hoof finds its ground over
 	 * AIR_SHAPE_OUT_TIME (see AirLegs.shape): slower in, so a step down (a short fall onto ground the hooves soon find)

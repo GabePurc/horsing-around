@@ -814,3 +814,10 @@ landings straddled the edge.
   frames). The shape now eases in over 0.1 s and out over 0.04 s (`AirLegs.shape`; quick out, or hooves stepping down a
   slope hung). Galloping down the mountains, leg hitches 252 and
   229 to 93 and 128, the sharpest from about 100 blocks/s in a frame to 15 and 34.
+- Tilt limits from real horses (research, 2026-10-23, report in the session): trunk pitch over a fence runs about 95-110
+  degrees a second, up to 180 at take-off and settling after landing, changing speed at 1,150-3,150 degrees a second each
+  second; the trunk reaches +21 to +34 nose up taking off and -25 to -38 landing (Clayton et al. 2021; Fuss and Fuss 1998).
+  The speed caps stay (6 and 5 a tick); how fast that speed changes rises to 3 and 2.5 a tick each tick (1,200 and 1,000
+  degrees a second each second), and a jump's tilt may reach +35 / -25. Falling without a jump (off a step) keeps -15: the
+  landing angles are from jumps, and at -25 the hooves trotting down a slope hung. Noted, not built: a real horse's trunk
+  turns at a steady rate in the air, not toward its flight path (which swings fastest at the top of the arc).
