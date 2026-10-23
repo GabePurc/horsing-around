@@ -8,7 +8,8 @@ feels; tuning happens in `RideTuning.java`.
 ## Polish (from the old phase 2)
 
 - Sync gait and stamina to the server (custom payload) so stamina persists and other clients can see the gait.
-- Gait-specific hoof cadence.
+- Gait-specific hoof cadence. (Collected near steps since 2026-10-23; open ground still the animation's own cadence, which
+  slides the hooves: collecting everywhere is `COLLECT_OPEN = 1`, quicker legs at every gait, waiting on the user.)
 - Expose gait to Fresh Animations (an EMF custom variable) if its speed-based legs don't read gaits clearly enough.
 - (Dropped, user direction 2026-10-08: a config file for feel numbers. Settings stay comfort and preference only.)
 

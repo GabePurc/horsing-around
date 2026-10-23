@@ -44,6 +44,8 @@ at most two lines, under the right area; details go in the PR, not here.
 - The body is a mass on its legs: front and hind ends each ease to the ground under their hooves, tilt is the line between them, forehand leads on steps, legs give on landing
 - Each hoof sits on its own ground (block grid, slabs, stairs, water as a floor), upright against slopes only, never in the ground; vanilla's one-piece legs, no knee joints
 - Hooves move to their height on a short spring and look ahead along their own path, so they lift onto higher ground smoothly instead of popping (2026-10-22)
+- Collecting for a step (2026-10-23): near a step the stride quickens to match the ground, planted hooves stay put, each
+  swing lands clear of an edge and waits, lifted, to get over a step; the ridden body follows rounded-off ground (`stride` tests)
 - Running up a step eases in without a pop; drawn tilt is capped per tick; no rearing against a face
 - Leg animation speed tracks the gait so Fresh Animations shows the right cycle; legs take the shape of steps and jumps (vanilla model and Fresh Animations, every layer)
 - Neck reaches with the tilt (Fresh Animations' "neck2"); armour and bridle follow the head
@@ -128,6 +130,8 @@ at most two lines, under the right area; details go in the PR, not here.
 
 ## Open / known limits
 
+- Galloping up a step, the hooves skim its edge (under a pixel in, sliding about 0.2); hillsides of full blocks keep the gait's own (sliding) stride
+- Open ground keeps the gait's own stride (hooves slide about 1.5 blocks a footfall at a walk): collecting everywhere is one constant (`COLLECT_OPEN`), the user's call
 - Trotting down a slope of full blocks keeps hooves off the ground at times: a known limit (user decision, see `research.md`), tests set to what it does
 - Not yet played by the user on any version but 26.3
 - Skid stop is still open (MVP)

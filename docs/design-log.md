@@ -763,3 +763,32 @@ very fast to avoid clipping. Direction: avoid clipping in a smooth and realistic
   (it hovered).
 - Known: standing on stairs, a hoof can still read up to 0.45 in the ground for a moment (0.5 before); the tests that
   render a frame a tick count a hoof that now lifts over two ticks as two jumps.
+
+## Collecting for a step, and a smooth ride (user direction, 2026-10-23)
+
+The user: the stride doesn't change to anticipate a block, so the feet slide and it looks messy; hooves go into the ground
+and clip block edges, which makes the mod feel cheap; and the ride must be smooth for the rider: sudden movement is fine
+when it is realistic, but nothing moves instantly. Take time and get it right.
+
+Measured first (new `stride` section: hoof slide per footfall, exact leg-box overlap with blocks, body/tilt/camera jolts):
+Fresh Animations' leg cycle covers about 4.4 blocks of ground per stride at every speed while its planted hooves sweep
+only about one, so a planted hoof slid 1.5 blocks a footfall at a walk, 1.1 at a trot (on open ground and at steps).
+
+- Collecting (`RideController.collect`, `Stride`, cadence through `WalkAnimationStateMixin`): with a step near the hooves
+  the horse quickens its stride, without changing gait, until the animation draws a planted hoof back exactly as fast as
+  the horse moves (measured from the drawn legs: about 2.4x at a walk, 2x at a trot, 1.4x at a canter). A hoof put down
+  then stays put for its stance; each swing follows a path of its own to a landing wholly on one level, clear of the
+  foot of a step: straight up, along in an arc, never past the foot of a step until it is over the edge (it waits in
+  front of it, lifted), straight down. A hoof whose leg would meet the step lifts early. Near a step, slide per footfall
+  went from 0.6-1.0 blocks to 0.01-0.06 (0.2 at a gallop up a step, where the hooves skim the edge); legs stay under a
+  pixel in blocks.
+- Not on open ground (the gait's own stride, unchanged: the faster legs would change the feel everywhere, so it is the
+  user's call; `COLLECT_OPEN`), nor on hillsides of full blocks: held there, a rigid leg is soon too short for the climb
+  (the hooves hung half the time), so the old stride (and its known scramble) stays.
+- Smooth ride (`RideController.steps`, `STEP_SMOOTH_*`): ridden, the ground each end of the body follows is averaged
+  exactly over about four ticks of travel (more of it ahead when collected, so the climb starts sooner rather than ends
+  later), and going down a step over the stretch just behind the hooves. Tilt jolts: walk up a step 770 to 550 deg/s^2,
+  canter 630 to 490, gallop 485 to 330; down a step at a trot 1110 to 730, canter 1500 to 720, gallop 1300 to 640.
+- Tried and dropped: holding hooves in place on open ground with the gait's own cadence (a leg can't reach 1.5 blocks);
+  launching an early step whenever a planted hoof hung (on stairs every hoof hangs every stride); averaging the ground at
+  points (it rose in steps the stiff legs kicked at); averaging ahead on hillsides (the body rode above the hooves).
