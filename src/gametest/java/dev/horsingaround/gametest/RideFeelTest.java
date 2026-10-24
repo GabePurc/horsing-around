@@ -3603,7 +3603,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 					final double rise = (s.visualY - previousDrawn) / elapsed;
 					if (!Double.isNaN(previousRise) && t > 2) {
 						// (From rest or rising: a fall stopping is the landing, not a pop. Landing with a step up right ahead,
-						// the body comes down 0.16 a tick and goes up 0.15 for the step the next, which read as 0.3.)
+						// the body comes down 0.16 a tick and goes up 0.15 for the step the next, which read as 0.3; from rest it reads 0.02, 0.15 with the step.)
 						sharpest = Math.max(sharpest, rise - Math.max(previousRise, 0.0));
 					}
 					previousRise = rise;
@@ -3614,7 +3614,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			final boolean jumped = ride(ctx, r -> r.ledgeClimbs) > climbs;
 			if (jumped) {
 				log("  flight: %s", flight);
-				check("no pop in the air or onto the top (sharpest pick-up of the drawn rise, blocks/tick a tick)", sharpest, 0.0, 0.3);
+				check("no pop in the air or onto the top (sharpest pick-up of the drawn rise, blocks/tick a tick)", sharpest, 0.0, 0.2);
 			}
 			log("  %s; closest to the face %s; last look: %s", jumped ? "jumped" : "did not jump",
 				closest == Double.MAX_VALUE ? "n/a" : String.format(Locale.ROOT, "%.2f", closest),
