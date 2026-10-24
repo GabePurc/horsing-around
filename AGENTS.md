@@ -59,8 +59,9 @@ Stonecutter; `src/` reads as 26.3 code (Java 25), older versions' code sits in `
 must still build (`./gradlew build`) and pass `./gradlew auditMixins` (every version's jar in a production client and
 server). Jars land in `versions/<version>/build/libs/`. Gradle picks JDK 25 through `gradle/gradle-daemon-jvm.properties`.
 
-Play-test: `./gradlew runClient` (26.3; `./gradlew :<version>:runClient` for another). Dev runs load Mod Menu, Entity
-Model Features, Entity Texture Features and the Fresh Animations pack (the user's target setup).
+Play-test: `./gradlew :26.3:runClient` (`./gradlew :<version>:runClient` for another). Dev runs load Mod Menu, Entity
+Model Features, Entity Texture Features and the Fresh Animations pack (the user's target setup), and on 26.3 the dev tools
+(`src/devtools`): F7 saves the last 30 s of riding and hitches are logged to `run/devtools/` (see `docs/testing.md`).
 
 ## Testing
 

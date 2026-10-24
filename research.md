@@ -80,6 +80,13 @@ whatever the speed; no stamina; no visual weight.
   ground for a moment, never more.
 - Steps in two beats (user): front legs up first, then the hind; one leg at a time at a walk, nearly together at
   speed; at a run a step comes in through the stride without a pop.
+- Steps of a hoof's own (user direction, 2026-10-23: the stride adjusts to climb a block, never hooves sliding up it,
+  in the ground or through a step's edge, and a smooth ride where nothing moves near instantly; never quicker legs, which
+  looked absurd): the gait keeps its own pace (its planted hooves slide a little everywhere); near a single step (not on
+  hillsides or staircases, which climb as before) a planted hoof doesn't creep up the step but steps up onto it, straight up, over the edge and down clear past it, then stays put until the stride
+  comes up to it; a hoof the rising forehand lifts before a step is carried with the body until it can reach; landings
+  avoid straddling an edge. Near a single step the ground the body follows is rounded off, so a climb or a step down
+  starts and ends in a curve.
 - No clipping between horse and rider (user): the horse reaches its neck forward, then the rider folds less.
 - Judge legs by `LegProbe` measurements and close shots, not formulas.
 - Known limits: on a slope of full blocks a leg can't reach a 1-block riser, so the horse scrambles; trotting down one,

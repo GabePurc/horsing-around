@@ -214,11 +214,17 @@ public final class RideState {
 	float lastBodyYaw;
 	float pitch;
 	float pitchO;
+	/** The pitch a tick before {@link #pitchO}, for the curve through the last three (see {@link #pitch(float)}). */
+	float pitchOO;
 	/** The tilt of the line between the two ends on its legs, degrees (the drawn tilt follows it, no faster than PITCH_RATE_MAX). */
 	float groundTilt;
 	/** Tilt with the flight while airborne (nose up taking off, down landing), degrees, on top of the terrain pitch. */
 	float jumpPitch;
 	float jumpPitchO;
+	/** The jump tilt a tick before {@link #jumpPitchO}, for its curve between ticks and how fast it is turning. */
+	float jumpPitchOO;
+	/** Ticks since the horse left the ground (client only). */
+	int flightTicks;
 	/** Rendered height minus physical height, so block step-ups become a smooth climb. */
 	float heightOffset;
 	float heightOffsetO;
@@ -239,6 +245,9 @@ public final class RideState {
 	float inertiaVelocity;
 	float lastGroundSpeed;
 	float lastGroundSpeedO;
+	/** The pace the rider sits to, 0..1 on the legs' animation speed scale (see RideController.tickVisual). */
+	float pace;
+	float paceO;
 	/**
 	 * The body carried on its legs: world height of the front and the back of the body (at hoof level) and how fast each
 	 * is moving (blocks/tick; see RideController.steps), and the ground each is carried toward (reused while the horse
@@ -332,6 +341,57 @@ public final class RideState {
 	public final double[] legSoleZ = new double[4];
 	public final float[] legSoleVelocityX = new float[4];
 	public final float[] legSoleVelocityZ = new float[4];
+	/**
+	 * Per leg, a step of its own up onto a step (see StepLegs), client only: seconds into it (NaN, none) and how long it
+	 * takes; where the hoof lifts from and lands (world x and z); the ground it lifts from, the step's top and the ground it
+	 * lands on (world heights).
+	 */
+	public final float[] stepTime = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
+	public final float[] stepLength = new float[4];
+	/** How near a step the horse is (0 to 1, client only; see RideController.stepNear), eased. */
+	public float stepNear;
+	/** How far the ground each end of the body follows is rounded off (blocks; see RideController.steps), eased. */
+	public float stepSmooth;
+	/** Per leg, how long a step of its own has waited, lifted, for its leg to reach over the edge (seconds). */
+	public final float[] stepWaited = new float[4];
+	/** Per leg, whether a step of its own began with the hoof already off the ground (the body lifted it): it lifts on with the body. */
+	public final boolean[] stepAir = new boolean[4];
+	/** Per leg, where along the body a hoof the body has lifted off the ground before a step is carried (blocks; NaN, not carried). */
+	public final float[] stepCarry = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
+	public final double[] stepFromX = new double[4];
+	public final double[] stepFromZ = new double[4];
+	public final double[] stepToX = new double[4];
+	public final double[] stepToZ = new double[4];
+	/** Per leg, where the edge of the step a step of its own goes over is (world x and z, on the hoof's line). */
+	public final double[] stepEdgeX = new double[4];
+	public final double[] stepEdgeZ = new double[4];
+	public final double[] stepFromY = new double[4];
+	public final double[] stepTop = new double[4];
+	public final double[] stepLand = new double[4];
+	/** Per leg, where a hoof put down by StepLegs is held (world x and z; NaN, not held) until the animation's stride comes up to it. */
+	public final double[] stepHoldX = {Double.NaN, Double.NaN, Double.NaN, Double.NaN};
+	public final double[] stepHoldZ = new double[4];
+	/** Per leg, how far StepLegs moves the hoof along the heading when it isn't stepping or holding it (blocks): a landing placed, or what is left of a hold let go. */
+	public final float[] stepShift = new float[4];
+	/**
+	 * Per leg, last frame: how far its leg was turned to put its hoof there (radians; on a spring, see STEP_TURN_TIME, its
+	 * speed in radians a second), and how high its lower edge was (world).
+	 */
+	public final float[] stepTurn = new float[4];
+	public final float[] stepTurnVelocity = new float[4];
+	/** How much of the jump's shape the legs take (0..1, see AirLegs.shape), eased each frame, and when it last was (game time). */
+	public float airShape;
+	public double airShapeAt = Double.NaN;
+	public final double[] stepBottom = {Double.NaN, Double.NaN, Double.NaN, Double.NaN};
+	/**
+	 * Per leg, the animation's stride against the body: where along the body its hoof was last frame (blocks; NaN, not yet),
+	 * how fast that moves (blocks a second, smoothed), where the animation lifts it on average (NaN, not seen yet) and its lift
+	 * last frame.
+	 */
+	public final float[] strideRel = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
+	public final float[] strideRelRate = new float[4];
+	public final float[] strideLiftRel = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
+	public final float[] stridePackLift = new float[4];
 	/** Whether any leg was drawn up or moved off a face last frame, whether the legs were left as the model's own, and whether some hoof found its ground. */
 	public boolean legsActive;
 	public boolean legsQuiet;
@@ -377,12 +437,23 @@ public final class RideState {
 
 	/** Body pitch, degrees; positive is nose up. */
 	public float pitch(final float partialTicks) {
-		return this.pitchO + (this.pitch - this.pitchO) * partialTicks;
+		return (float) curve(this.pitchOO, this.pitchO, this.pitch, partialTicks);
+	}
+
+	/**
+	 * Between ticks, a value worked out each tick ({@code a}, {@code b}, {@code c} the last three) drawn along a curve
+	 * from midpoint to midpoint (a quadratic B-spline): it never changes speed in a jump at a tick. Drawn as straight lines
+	 * between ticks, the tilt changing fast juddered at twenty a second, and the rider with it (play-test feedback,
+	 * 2026-10-23). Half a tick behind. (Not the body's height: half a tick behind going down a slope, the hooves hung.)
+	 */
+	static double curve(final double a, final double b, final double c, final float partialTicks) {
+		final double p = partialTicks;
+		return (1.0 - p) * (1.0 - p) * (a + b) * 0.5 + 2.0 * p * (1.0 - p) * b + p * p * (b + c) * 0.5;
 	}
 
 	/** Tilt with the flight while airborne, degrees; positive is nose up. */
 	public float jumpPitch(final float partialTicks) {
-		return this.jumpPitchO + (this.jumpPitch - this.jumpPitchO) * partialTicks;
+		return (float) curve(this.jumpPitchOO, this.jumpPitchO, this.jumpPitch, partialTicks);
 	}
 
 	/** Head-shake envelope 0..1 at the given time (client ticks), with its phase in radians in {@code phaseOut[0]}. */
@@ -407,6 +478,11 @@ public final class RideState {
 	}
 
 	/** Rider lean from the horse speeding up (back, positive) or slowing (forward), degrees. */
+	/** The pace the rider sits to and the saddle rocks with, 0..1 as the legs' animation speed. */
+	public float pace(final float partialTicks) {
+		return this.paceO + (this.pace - this.paceO) * partialTicks;
+	}
+
 	public float inertia(final float partialTicks) {
 		return this.inertiaO + (this.inertia - this.inertiaO) * partialTicks;
 	}

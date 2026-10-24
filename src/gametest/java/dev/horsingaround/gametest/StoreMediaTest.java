@@ -6,6 +6,7 @@ import com.mojang.renderpearl.api.commands.CommandEncoder;
 import com.mojang.renderpearl.api.commands.GpuFence;
 import com.mojang.datafixers.util.Pair;
 import dev.horsingaround.client.config.HorseSettingsScreen;
+import dev.horsingaround.devtools.LegProbe;
 import dev.horsingaround.gametest.mixin.DeltaTrackerTimerAccessor;
 import dev.horsingaround.gametest.mixin.RideCameraAccessor;
 import dev.horsingaround.client.cosmetic.Hats;
@@ -1041,7 +1042,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 	 * sometimes caught the next frame's drawing, so a clip showed one moment twice and then jumped.</li>
 	 * </ul>
 	 */
-	private static void drawFrame(final Minecraft mc, final float partialTick, final float step, final Path file) {
+	static void drawFrame(final Minecraft mc, final float partialTick, final float step, final Path file) {
 		final DeltaTracker timer = mc.getDeltaTracker();
 		final DeltaTrackerTimerAccessor clock = (DeltaTrackerTimerAccessor) timer;
 		final float deltaTicks = clock.horsingaroundtest$deltaTicks();
