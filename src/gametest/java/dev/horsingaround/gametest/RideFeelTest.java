@@ -3864,6 +3864,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			if (!measuring && z < from) {
 				measuring = true;
 				ctx.runOnClient(mc -> {
+					dev.horsingaround.client.render.Strides.TRACE.setLength(0);
 					LegProbe.reset();
 					LegProbe.record = shots ? null : csv;
 				});
@@ -3903,6 +3904,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 				"%-18s slid %.3f / %.3f  in blocks %.3f, %3d of %4d frames  jolts body %5.1f tilt %5.0f camera %5.1f %5.1f  hitches legs %3d (%4.1f) camera %3d (%4.2f) body %3d (%4.2f) tilt %3d (%4.0f)",
 				name, n[0], n[1], n[2], (int) n[3], (int) n[4], n[5], n[6], n[7], n[8], (int) n[9], n[10], (int) n[11], n[12], (int) n[13], n[14], (int) n[15], n[16]));
 			try {
+				Files.writeString(FabricLoader.getInstance().getGameDir().resolve("trace-" + name + ".csv"), dev.horsingaround.client.render.Strides.TRACE);
 				Files.writeString(FabricLoader.getInstance().getGameDir().resolve("stride-" + name + ".csv"), csv);
 			} catch (final IOException ex) {
 				throw new RuntimeException(ex);

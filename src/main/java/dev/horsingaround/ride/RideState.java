@@ -359,11 +359,14 @@ public final class RideState {
 	public final float[] gaitShare = new float[4];
 	public float gaitStride;
 	public float gaitGround;
+	/** Every hoof on the ground and under its leg (the horse stood square): with the horse still, the stride stops. */
+	public boolean gaitSettled;
 	/**
 	 * Per leg: whether its hoof is on the ground (else in its swing), where it stands (world); its swing: where it set off
-	 * from (world), and when it set off and lands (strides along, see gaitPhase); how far through its stride it was last
-	 * frame, and its pose this frame, for every layer of the model (turned forward and sideways, radians, and folded up,
-	 * pixels); when the legs were last posed (game ticks).
+	 * from (world), how far through it it is (0 lifting off, 1 touching down) and whether it set off backing up; how far it
+	 * has stood (a share of its stance); how far through its stride it was last frame, and its pose this frame, for every
+	 * layer of the model (turned forward and sideways, radians, and folded up, pixels); when the legs were last posed
+	 * (game ticks).
 	 */
 	public final boolean[] hoofDown = new boolean[4];
 	public final double[] hoofX = new double[4];
@@ -372,8 +375,9 @@ public final class RideState {
 	public final double[] hoofFromX = new double[4];
 	public final double[] hoofFromY = new double[4];
 	public final double[] hoofFromZ = new double[4];
-	public final double[] swingFrom = new double[4];
-	public final double[] swingTo = new double[4];
+	public final float[] swingThrough = new float[4];
+	public final boolean[] swingBack = new boolean[4];
+	public final float[] stood = new float[4];
 	public final float[] legPhase = new float[4];
 	public final float[] gaitLegTurn = new float[4];
 	public final float[] gaitLegSide = new float[4];

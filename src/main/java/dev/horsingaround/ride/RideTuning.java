@@ -999,8 +999,14 @@ public final class RideTuning {
 	public static final float GAIT_SWING_SET_DOWN = 0.85F;
 	/** The most a leg turns from upright, radians. */
 	public static final float GAIT_LEG_MOST = 1.45F;
-	/** Ground speed (blocks a second) from which the legs stride fully; below, they ease back to standing straight. */
+	/** Ground speed (blocks a second) from which the neck and tail move fully with the stride. */
 	public static final float GAIT_FULL_SPEED = 1.0F;
+	/**
+	 * Slower than this (blocks a second), the horse is standing: once every hoof is on the ground within
+	 * GAIT_SQUARE blocks of under its leg, the stride stops; until then each leg in turn steps under it, squaring up.
+	 */
+	public static final float GAIT_STILL_SPEED = 0.15F;
+	public static final float GAIT_SQUARE = 0.06F;
 	/** How quickly the legs follow a change in the horse's speed (seconds). */
 	public static final float GAIT_SPEED_TIME = 0.25F;
 	/**
