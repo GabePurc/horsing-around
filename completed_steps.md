@@ -44,6 +44,13 @@ at most two lines, under the right area; details go in the PR, not here.
 - The body is a mass on its legs: front and hind ends each ease to the ground under their hooves, tilt is the line between them, forehand leads on steps, legs give on landing
 - Each hoof sits on its own ground (block grid, slabs, stairs, water as a floor), upright against slopes only, never in the ground; vanilla's one-piece legs, no knee joints
 - Hooves move to their height on a short spring and look ahead along their own path, so they lift onto higher ground smoothly instead of popping (2026-10-22)
+- Legs work in old worlds: the time they read was a float, stuck in a world past 16.7 million ticks (hooves sank)
+- Dev tools mod (`src/devtools`, dev games and tests only): leg probe and a play-test recorder (F7, `run/devtools/`), hitches logged
+- The drawn body's tilt follows a smooth curve between ticks (no judder at twenty a second)
+- The body turns as one weight (2026-10-23): slope and jump tilt never add up, so landing down a hillside doesn't tip it
+  nose down twice over with the hind hooves in the air (`landing` lane)
+- Steps of a hoof's own (2026-10-23): a planted hoof at a step steps up onto it (up, over, down clear past the edge, held),
+  landings avoid edges, no hoof walks in the air or creeps up a face; the body's path is rounded off near steps (`stride` tests)
 - Running up a step eases in without a pop; drawn tilt is capped per tick; no rearing against a face
 - Leg animation speed tracks the gait so Fresh Animations shows the right cycle; legs take the shape of steps and jumps (vanilla model and Fresh Animations, every layer)
 - Neck reaches with the tilt (Fresh Animations' "neck2"); armour and bridle follow the head
@@ -129,6 +136,8 @@ at most two lines, under the right area; details go in the PR, not here.
 
 ## Open / known limits
 
+- Hooves slide as the animation's stride has them (about 1.5 blocks a footfall at a walk); quicker legs to stop it were rejected (user, 2026-10-23)
+- Stepping down a block, a planted hoof slides off the edge and hangs a moment before the body comes down
 - Trotting down a slope of full blocks keeps hooves off the ground at times: a known limit (user decision, see `research.md`), tests set to what it does
 - Not yet played by the user on any version but 26.3
 - Skid stop is still open (MVP)

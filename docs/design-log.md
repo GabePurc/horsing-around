@@ -764,6 +764,77 @@ very fast to avoid clipping. Direction: avoid clipping in a smooth and realistic
 - Known: standing on stairs, a hoof can still read up to 0.45 in the ground for a moment (0.5 before); the tests that
   render a frame a tick count a hoof that now lifts over two ticks as two jumps.
 
+## Steps of a hoof's own, and a smooth ride (user direction, 2026-10-23)
+
+The user: the stride doesn't change to anticipate a block, so the feet slide and it looks messy; hooves go into the ground
+and clip block edges, which makes the mod feel cheap; and the ride must be smooth for the rider: sudden movement is fine
+when it is realistic, but nothing moves instantly. Take time and get it right.
+
+Measured first (`stride` section: hoof slide per footfall, exact leg-box overlap with blocks, body/tilt/camera jolts):
+Fresh Animations' leg cycle covers about 4.4 blocks of ground per stride while its planted hooves sweep about one, so a
+planted hoof slides about 1.5 blocks a footfall at a walk, everywhere. At a step, planted hooves glided forward and up the
+step's face (the forehand rises early to keep the chest clear, lifting them, and the look-ahead lifted them more), and
+landings straddled the edge.
+
+- First try, rejected in play (user, 2026-10-23: "legs at light speed", "spazzing out"): quickening the stride near a step
+  (about 2.4x at a walk) until planted hooves kept up with the ground, with each swing on a path of its own. The slide
+  went, but the legs looked absurd. Never quicker legs than the gait's own: hooves slide as the animation has them.
+- Now (`StepLegs`), near a single step (on hillsides and staircases the hooves stayed up too long, so the legs climb
+  there as before): a planted hoof doesn't creep up a step; at the face (or when the rising forehand lifts it off the
+  ground in front of a step, carried with the body meanwhile, not walking in the air) it steps up on its own: straight up
+  off its spot, over the edge, down with its heel clear past it, held there until the stride comes up to it. A landing
+  across an edge moves onto one side. A hoof moved forward never goes into a face it hasn't lifted over.
+- Smooth ride (`RideController.steps`, `STEP_SMOOTH_*`): near a single step (not a hillside, where the rounded ground sat
+  below the hooves) the ground each end of the body follows is averaged exactly over about four ticks of travel, more of
+  it ahead, and going down over the stretch just behind the hooves.
+- Step down is as before (a planted hoof slides off the edge and hangs a moment: a rigid leg can't reach down a block).
+- Play-test feedback (2026-10-23): legs hitched and snapped, and the rider hitched climbing at full speed onto the flat.
+  Measured as a hoof's, the body's or its tilt's speed changing in one frame (`LegProbe.hitches`, against the drawn body;
+  against the horse's own position every step-up looked like one). The steps of a hoof's own moved the leg in snaps
+  (limits, holds let go): the leg's turn is now on a short spring (`STEP_TURN_TIME`), and walk and trot steps have none.
+  The rider's hitch was older: the body's tilt, worked out each tick, was drawn in straight lines between ticks, so
+  cresting at speed it changed speed in a jump twenty times a second. It now follows a curve through the last three ticks
+  (`RideState.curve`, half a tick behind): climbing a mountain at a gallop, tilt hitches 47 to 0. The body's height on
+  the same curve left hooves hanging going down (half a tick behind), so it stays as it was (its judder is left).
+- The sinking (play-test, 2026-10-23, caught by the dev tools' recorder in the user's world): the legs read the time as
+  the world's game time plus the partial tick, which Java adds as a float. Past about 16.7 million ticks (the user's world
+  is at 158 million) a float steps in whole ticks or more, so the legs' springs almost never saw time pass: legs never
+  drew up onto higher ground and the body never settled onto them, so hooves sank (0.29 into a step at a walk). Fixed by
+  adding in double; the stride lanes now run with the world clock at 158 million. Fresh test worlds never showed it.
+- The body's rotation (play-test, 2026-10-23, recorded with F7): cresting a hill and topping a 2-block climb, the body
+  turned too fast, "like a snap". The ground tilt followed its line at up to 9 degrees a tick with no limit on how fast that
+  speed changed, so it nodded 20 degrees and back in a quarter second; the jump's tilt followed the flight at half the gap a
+  tick, so at the top of a 2-block climb it went from 25 nose up to 5 nose down at about 230 degrees a second. Both now
+  turn like a body with weight (`RideController.turn`): a top speed (6 and 5 degrees a tick), easing in toward the gap, and
+  the speed changing by at most 1.5 and 1 degrees a tick each tick, never overshooting. The jump tilt also follows the curve
+  between ticks. Galloping up a mountain: turns faster than 150 degrees a second 10 to 1.
+- Legs fluttering off a drop at speed (play-test, 2026-10-23, recorded): in the air, the legs took the jump's shape only
+  while no hoof found its ground, decided afresh each frame; falling past a slope a hoof found it one frame and not the
+  next, so the legs flicked between the jump's shape and their stride (a front hoof 0.3 blocks forward and back in single
+  frames). The shape now eases in over 0.1 s and out over 0.04 s (`AirLegs.shape`; quick out, or hooves stepping down a
+  slope hung). Galloping down the mountains, leg hitches 252 and
+  229 to 93 and 128, the sharpest from about 100 blocks/s in a frame to 15 and 34.
+- Tilt limits from real horses (research, 2026-10-23, report in the session): trunk pitch over a fence runs about 95-110
+  degrees a second, up to 180 at take-off and settling after landing, changing speed at 1,150-3,150 degrees a second each
+  second; the trunk reaches +21 to +34 nose up taking off and -25 to -38 landing (Clayton et al. 2021; Fuss and Fuss 1998).
+  The speed caps stay (6 and 5 a tick); how fast that speed changes rises to 3 and 2.5 a tick each tick (1,200 and 1,000
+  degrees a second each second), and a jump's tilt may reach +35 / -25. Falling without a jump (off a step) keeps -15: the
+  landing angles are from jumps, and at -25 the hooves trotting down a slope hung.
+- Steady in-air rotation (user, 2026-10-23, from the research): a real horse's trunk turns at a steady rate in the air
+  (nothing turns it there), while ours turned toward its flight path, which swings fastest at the top of the arc. Now,
+  taking off, the legs push the nose up for the first few ticks; then it turns at one steady rate to the tilt it will land
+  at, the flight played forward to the ground ahead each tick (`RideController.landing`). Terrain at a gallop: turns
+  faster than 150 degrees a second 0 or 1 a scenario (the badlands spike of 400 gone).
+- Hind legs "come up like crazy" in some jumps (play-test, 2026-10-23, recorded): after landing down a hillside the body
+  tilted about 38 degrees nose down and the hind hooves hung up to 1.2 blocks off the ground. The slope's tilt and the
+  jump's were turned apart and added up (the jump's aimed at the flight's whole tilt on top of the slope's), and off the
+  ground down a step the jump's held. Now the whole tilt turns as one: in the air toward the flight's, on the ground
+  toward the slope's line, the jump's share (pivoting on the hooves) easing out inside it. Flat landings unchanged (hind
+  hooves down by the 8th tick).
+- The rider snapped back going off a ledge fast (play-test, 2026-10-23): their seat (18 degrees forward at a gallop) was read
+  off the legs' animation speed, which stops in the air, so they sat up in a tick or two. The seat now goes by the pace the
+  horse is going at (`RideState.pace`, eased as the legs' speed is on the ground), which carries on through the air.
+
 ## A rider who rides like one (user direction, 2026-10-23)
 
 The user: the player isn't moving physically accurately; they should look like a real person on the horse and react
