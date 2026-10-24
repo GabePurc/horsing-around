@@ -1,8 +1,9 @@
 package dev.horsingaround.client.mixin;
 
 import dev.horsingaround.client.compat.AnimationPacks;
-import dev.horsingaround.client.render.GaitCycle;
+import dev.horsingaround.client.render.Strides;
 import dev.horsingaround.client.render.RidePoseState;
+import dev.horsingaround.ride.RideState;
 //? if >=1.21.2 {
 import net.minecraft.client.model.Model;
 import net.minecraft.client.model.animal.equine.AbstractEquineModel;
@@ -22,8 +23,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * The horse family's own gaits on the plain model, for the horses this mod manages, in place of vanilla's leg swing
- * (see {@link GaitCycle}); a model an animation pack animates is left to the pack. A lower priority than the equine model
+ * The horse family's own legs on the plain model, for the horses this mod manages, in place of vanilla's leg swing
+ * (see {@link Strides}); a model an animation pack animates is left to the pack. A lower priority than the equine model
  * mixin's, so this runs first and the ride's legs (hooves on the ground, the shape of a jump) go on top of it.
  */
 //? if >=1.21.2 {
@@ -53,12 +54,12 @@ public abstract class EquineGaitMixin {
 	//? if >=1.21.2 {
 	@Inject(method = "setupAnim(Lnet/minecraft/client/renderer/entity/state/EquineRenderState;)V", at = @At("TAIL"))
 	private void horsingaround$gait(final EquineRenderState state, final CallbackInfo ci) {
-		final RidePoseState pose = (RidePoseState) state;
-		if (pose.horsingaround$rideState() != null && !AnimationPacks.animates(this)) {
-			GaitCycle.pose(
-				this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, this.headParts, this.tail, state.walkAnimationPos,
-				state.walkAnimationSpeed, state.isInWater, state.standAnimation, state.eatAnimation, pose.horsingaround$legTilt(), pose.horsingaround$gaitLift(),
-				16.0F / ((Model<?>) (Object) this).root().yScale, pose.horsingaround$airLegs()
+		Strides.clear();
+		final RideState ride = ((RidePoseState) state).horsingaround$rideState();
+		if (ride != null && !AnimationPacks.animates(this)) {
+			Strides.pose(
+				this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, this.headParts, this.tail, ride, ((Model<?>) (Object) this).root(),
+				state.walkAnimationPos, state.walkAnimationSpeed, state.isInWater, state.standAnimation, state.eatAnimation
 			);
 		}
 	}
@@ -68,14 +69,15 @@ public abstract class EquineGaitMixin {
 		final AbstractHorse horse, final float limbSwing, final float limbSwingAmount, final float ageInTicks, final float headYaw, final float headPitch,
 		final CallbackInfo ci
 	) {
+		Strides.clear();
 		final Object state = LegacyRenderState.of(horse);
-		if (state != null && !AnimationPacks.animates(this)) {
-			final RidePoseState pose = (RidePoseState) state;
+		final RideState ride = state == null ? null : ((RidePoseState) state).horsingaround$rideState();
+		if (ride != null && !AnimationPacks.animates(this)) {
 			final float partialTicks = ageInTicks - horse.tickCount;
-			GaitCycle.pose(
-				this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, this.headParts, this.tail, limbSwing, limbSwingAmount,
-				horse.isInWater(), horse.getStandAnim(partialTicks), horse.getEatAnim(partialTicks), pose.horsingaround$legTilt(), pose.horsingaround$gaitLift(),
-				16.0F / LegacyRenderState.horseRoot(((EntityModel<?>) (Object) this).young).yScale, pose.horsingaround$airLegs()
+			Strides.pose(
+				this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, this.headParts, this.tail, ride,
+				LegacyRenderState.horseRoot(((EntityModel<?>) (Object) this).young), limbSwing, limbSwingAmount, horse.isInWater(), horse.getStandAnim(partialTicks),
+				horse.getEatAnim(partialTicks)
 			);
 		}
 	}

@@ -3,6 +3,7 @@ package dev.horsingaround.client.mixin;
 import dev.horsingaround.client.render.AirLegs;
 import dev.horsingaround.client.render.GroundLegs;
 import dev.horsingaround.client.render.RidePoseState;
+import dev.horsingaround.client.render.Strides;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideTuning;
 //? if >=1.21.2
@@ -135,7 +136,8 @@ public abstract class AbstractEquineModelMixin {
 			//?} else
 			/*final ModelPart root = LegacyRenderState.horseRoot(((EntityModel<?>) (Object) this).young);*/
 			final float pixels = 16.0F / root.yScale;
-			final boolean footing = GroundLegs.pose(
+			// (The plain model's own legs reach their ground themselves, see Strides.)
+			final boolean footing = !Strides.posed(ride) && GroundLegs.pose(
 				this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, pose.horsingaround$legTilt(), pose.horsingaround$foreLeg(),
 				pose.horsingaround$hindLeg(), pixels, ride, root, air < RideTuning.AIR_GROUNDED || ride != null && !ride.leapt()
 			);

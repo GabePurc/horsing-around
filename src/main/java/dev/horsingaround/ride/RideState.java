@@ -339,6 +339,48 @@ public final class RideState {
 	public double drawnCameraY;
 	public double drawnCameraZ;
 	public boolean drawnPoseSet;
+	/**
+	 * The plain model's own legs (see Strides), client only. The stride: how far through it (strides; it runs backwards
+	 * when the horse backs up), when last moved on (game ticks, NaN until the horse is drawn), strides a second, the share
+	 * of it each front and hind hoof stands, the length of ground a hoof stands for (blocks); the horse's ground velocity
+	 * (blocks a second, smoothed), where it was, its share of each gait (walk, trot, canter, gallop), how much its legs
+	 * stride (0 standing to 1), and how much it stands on the ground (0 in a jump or swimming).
+	 */
+	public double gaitPhase;
+	public double gaitAt = Double.NaN;
+	public float gaitRate;
+	public float gaitForeStance;
+	public float gaitHindStance;
+	public float gaitStance;
+	public double gaitVelocityX;
+	public double gaitVelocityZ;
+	public double gaitX;
+	public double gaitZ;
+	public final float[] gaitShare = new float[4];
+	public float gaitStride;
+	public float gaitGround;
+	/**
+	 * Per leg: whether its hoof is on the ground (else in its swing), where it stands (world); its swing: where it set off
+	 * from (world), and when it set off and lands (strides along, see gaitPhase); how far through its stride it was last
+	 * frame, and its pose this frame, for every layer of the model (turned forward and sideways, radians, and folded up,
+	 * pixels); when the legs were last posed (game ticks).
+	 */
+	public final boolean[] hoofDown = new boolean[4];
+	public final double[] hoofX = new double[4];
+	public final double[] hoofY = new double[4];
+	public final double[] hoofZ = new double[4];
+	public final double[] hoofFromX = new double[4];
+	public final double[] hoofFromY = new double[4];
+	public final double[] hoofFromZ = new double[4];
+	public final double[] swingFrom = new double[4];
+	public final double[] swingTo = new double[4];
+	public final float[] legPhase = new float[4];
+	public final float[] gaitLegTurn = new float[4];
+	public final float[] gaitLegSide = new float[4];
+	public final float[] gaitLegFold = new float[4];
+	public double gaitPosedAt = Double.NaN;
+	/** How far the body must come down for a hoof standing on lower ground than its leg reaches (blocks), eased. */
+	public float gaitReach;
 	/** Per leg (front left, front right, hind left, hind right), the last frame: how far it was drawn up onto its ground, blocks. */
 	public final float[] legRise = new float[4];
 	/** Per leg, the last frame: how far its hoof was moved back off a step's face it would stand in (blocks, toward the tail). */

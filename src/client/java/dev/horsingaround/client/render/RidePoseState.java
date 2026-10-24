@@ -112,9 +112,4 @@ public interface RidePoseState {
 	float horsingaround$airLegs();
 
 	float horsingaround$airRise();
-
-	/** The plain model's rise and fall with its gait, blocks (see GaitCycle): its legs fold under it to keep their hooves down. */
-	void horsingaround$setGaitLift(float lift);
-
-	float horsingaround$gaitLift();
 }

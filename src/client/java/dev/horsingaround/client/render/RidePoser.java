@@ -56,11 +56,14 @@ public final class RidePoser {
 			pose.horsingaround$setRide(null);
 			pose.horsingaround$setAirLegs(0.0F, 0.0F);
 			pose.horsingaround$setTail(0.0F);
-			pose.horsingaround$setGaitLift(0.0F);
 			return;
 		}
 		final LivingEntity horse = (LivingEntity) holder;
 		final RideState s = holder.horsingaround$ride();
+		// (The plain model's own stride, moved on once a frame; an animation pack's horse has its own.)
+		if (SaddleMotion.frame() - s.animatedFrame > 1) {
+			Strides.advance(horse, s, partialTicks);
+		}
 		final SaddleMotion saddle = SADDLE.compute(horse, s, partialTicks);
 		final float horseYaw = Mth.rotLerp(partialTicks, horse.yBodyRotO, horse.yBodyRot);
 		final float yaw = horseYaw * Mth.DEG_TO_RAD;
@@ -119,7 +122,6 @@ public final class RidePoser {
 			}
 			pose.horsingaround$setAirLegs(packAnimated ? 0.0F : s.airLegs(partialTicks), s.airRise(partialTicks));
 			pose.horsingaround$setTail(packAnimated ? 0.0F : s.tailLift(partialTicks));
-			pose.horsingaround$setGaitLift(saddle.synthetic ? saddle.lift - saddle.crouch : 0.0F);
 			if (bank == 0.0F && bodyPitch == 0.0F && bodyLift == 0.0F) {
 				pose.horsingaround$clearPose();
 			} else {

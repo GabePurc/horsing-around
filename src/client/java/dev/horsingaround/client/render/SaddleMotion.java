@@ -27,8 +27,8 @@ public final class SaddleMotion {
 	/** Saddle roll, degrees, right positive. */
 	public float roll;
 	/**
-	 * Generated (the plain model, see GaitCycle): how much lower the body sits on its legs while moving, blocks. Not in
-	 * the lift, which the camera's bounce follows.
+	 * Generated (the plain model, see Strides): how much lower the body sits on its legs while moving, blocks. Not in the
+	 * lift, which the camera's bounce follows.
 	 */
 	public float crouch;
 	/** Generated here, so the horse model must be moved by it too. */
@@ -56,8 +56,8 @@ public final class SaddleMotion {
 		// The gait shares go by the pace the horse goes at (the legs' animation speed on the ground), not the legs: in the
 		// air their stride stops, and the rider sat up out of a gallop's forward seat in a tick.
 		final float pace = s.pace(partialTicks);
-		final float run = GaitCycle.run(pace);
-		final float gallop = GaitCycle.gallop(pace);
+		final float run = Strides.run(pace);
+		final float gallop = Strides.gallop(pace);
 		this.limbSpeed = limbSpeed;
 		this.gallop = gallop;
 		this.run = run;
@@ -78,18 +78,15 @@ public final class SaddleMotion {
 
 		this.synthetic = true;
 		final float canter = run - gallop;
-		final float trot = GaitCycle.trot(pace);
+		final float trot = Strides.trot(pace);
 		final float walk = (1.0F - trot - run) * this.moving;
-		// (In water the legs swing at a fifth of the pace; the body keeps time with them.)
-		final float phase = horse.walkAnimation.position(partialTicks) * GaitCycle.LEG_PHASE * (horse.isInWater() ? GaitCycle.WATER_PACE : 1.0F);
-		final float t = phase * (1.0F / Mth.TWO_PI);
+		// (In time with the plain model's own stride, see Strides.)
+		final float t = Strides.phase(s);
 		final float stance = horse.onGround() ? 1.0F : 0.0F;
-		this.lift = stance * GaitCycle.bodyLift(t, walk, trot, canter, gallop);
-		this.pitch = stance * GaitCycle.bodyPitch(t, walk, trot, canter, gallop);
-		// (On sloping ground, stairs and the like, the legs swing less (see GroundLegs) and need all their reach for the
-		// ground below: the body comes up off its crouch.)
-		this.crouch = GaitCycle.crouch(walk, trot, canter, gallop)
-			* (1.0F - smoothstep(Math.abs(s.pitch(partialTicks)) * Mth.DEG_TO_RAD / GAIT_CROUCH_FLAT_TILT));
+		this.lift = stance * Strides.bodyLift(t, walk, trot, canter, gallop);
+		this.pitch = stance * Strides.bodyPitch(t, walk, trot, canter, gallop);
+		// Lower on its legs while moving, and further for a hoof standing on lower ground than its leg reaches.
+		this.crouch = Strides.crouch(walk, trot, canter, gallop) + s.gaitReach;
 		this.forward = 0.0F;
 		this.side = 0.0F;
 		this.roll = 0.0F;

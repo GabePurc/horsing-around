@@ -7,7 +7,7 @@ import traben.entity_model_features.EMFAnimationApi;
 
 /**
  * Whether an animation pack (Fresh Animations, through Entity Model Features) animates a model: then the pack poses it,
- * and the plain model's own gait (see {@code GaitCycle}) stands aside.
+ * and the plain model's own gait (see {@code Strides}) stands aside.
  */
 public final class AnimationPacks {
 	/** Entity Model Features is installed. */
