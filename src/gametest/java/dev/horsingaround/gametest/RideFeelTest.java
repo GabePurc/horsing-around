@@ -156,6 +156,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 				// Only on request: single steps, stairs and slopes at every gait, measured for sliding hooves, legs in blocks and jolts.
 				strides(ctx, input, world);
 			}
+			if (sections.isEmpty() || sections.contains("stairs") || sections.contains("landing")) {
+				jumpDownHillside(ctx, input, world);
+			}
 			if (sections.contains("legs")) {
 				// Only on request: close side shots of the legs in a jump, for judging the pose.
 				jumpLegShots(ctx, input, world);
@@ -1143,6 +1146,91 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("going down steps: slowest tick vs cruising", slowest / cruise, 0.9, 1.1);
 		check("going down steps: fastest tick vs cruising", fastest / cruise, 0.9, 1.12);
 		ticksUntilStopped(ctx, 60);
+	}
+
+	/**
+	 * A gallop jump off a plateau onto a hillside of 1-block steps going down, galloping on down it. The body lands nose
+	 * down and the hillside tilts it down too: together they tipped it down twice over, the hind hooves a block in the air
+	 * (play-test, 2026-10-23), and down the steps the jump's nose-down held.
+	 */
+	private void jumpDownHillside(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("A gallop jump down onto a hillside of steps");
+		final int x = 6000;
+		final List<String> build = new ArrayList<>();
+		// A plateau 10 blocks up to z=-30, then 1-block steps 2 deep down to the ground.
+		build.add(String.format(Locale.ROOT, "fill %d -60 -30 %d -51 8 minecraft:stone", x - 4, x + 4));
+		for (int k = 1; k <= 9; k++) {
+			build.add(String.format(Locale.ROOT, "fill %d -60 %d %d %d %d minecraft:stone", x - 4, -32 - 2 * (k - 1), x + 4, -51 - k, -31 - 2 * (k - 1)));
+		}
+		lane(ctx, input, world, x + 0.5, -50, "jump_hillside_test", build.toArray(String[]::new));
+		gallopNorth(ctx, input);
+		boolean jumped = false;
+		int airborne = 0;
+		int landedAt = -1;
+		float flightDown = 0.0F;
+		float drawnDown = 0.0F;
+		float previous = Float.NaN;
+		float previousChange = Float.NaN;
+		float bob = 0.0F;
+		final List<Double> hind = new ArrayList<>();
+		final List<Double> fore = new ArrayList<>();
+		final StringBuilder trace = new StringBuilder();
+		ctx.runOnClient(mc -> LegProbe.arm(true));
+		for (int i = 0; i < 120; i++) {
+			ctx.waitTick();
+			final Sample s = sample(ctx);
+			final double z = horseZ(ctx);
+			if (!jumped && z < -26.0) {
+				input.pressKey(o -> o.keyJump);
+				jumped = true;
+			}
+			if (!jumped) {
+				continue;
+			}
+			final float jump = ride(ctx, r -> r.jumpPitch(1.0F));
+			final float drawn = jump + ride(ctx, r -> r.pitch(1.0F));
+			final boolean flight = ride(ctx, r -> r.inAir);
+			trace.append(String.format(Locale.ROOT, "%.0f/%.0f%s ", drawn, jump, flight ? "^" : s.onGround ? "" : "~"));
+			if (!s.onGround) {
+				airborne++;
+				if (landedAt < 0) {
+					flightDown = Math.min(flightDown, drawn);
+				}
+			} else if (airborne > 5 && landedAt < 0) {
+				landedAt = i;
+			}
+			if (landedAt >= 0) {
+				drawnDown = Math.min(drawnDown, drawn);
+				// How sharply the tilt's turning changes a tick: a bob galloping on down.
+				if (!Float.isNaN(previousChange)) {
+					bob = Math.max(bob, Math.abs(drawn - previous - previousChange));
+				}
+				if (!Float.isNaN(previous)) {
+					previousChange = drawn - previous;
+				}
+				if (s.onGround) {
+					final double[] gaps = ctx.computeOnClient(mc -> LegProbe.gap.clone());
+					hind.add(Math.min(gaps[2], gaps[3]));
+					fore.add(Math.min(gaps[0], gaps[1]));
+				}
+			}
+			previous = drawn;
+			if (z < -50.0) {
+				break;
+			}
+		}
+		ctx.runOnClient(mc -> LegProbe.arm(false));
+		hind.sort(null);
+		fore.sort(null);
+		log("  drawn/jump tilt a tick (^ = a flight, ~ = off the ground down a step): %s", trace);
+		// (Not a check: over a step's edge the ground under a hoof is the step below.)
+		log("  after landing, on the ground: the lower hoof of a pair over the ground under it (blocks), median / most: front %.2f / %.2f, hind %.2f / %.2f (%d ticks)",
+			percentile(fore, 0.5), percentile(fore, 1.0), percentile(hind, 0.5), percentile(hind, 1.0), hind.size());
+		check("jumps off the plateau", landedAt > 0);
+		check("lands nose down, no more than a jump does (JUMP_PITCH_DOWN 25, deg)", -flightDown, 0.0, 26.0);
+		check("galloping on down the hillside, never tilted down more than it landed (deg past it)", flightDown - drawnDown, 0.0, 3.0);
+		check("...turning smoothly (most the tilt's turn changes in a tick, deg)", bob, 0.0, 3.0);
+		stop(ctx, input);
 	}
 
 	private void trample(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {

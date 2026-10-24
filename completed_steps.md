@@ -47,6 +47,8 @@ at most two lines, under the right area; details go in the PR, not here.
 - Legs work in old worlds: the time they read was a float, stuck in a world past 16.7 million ticks (hooves sank)
 - Dev tools mod (`src/devtools`, dev games and tests only): leg probe and a play-test recorder (F7, `run/devtools/`), hitches logged
 - The drawn body's tilt follows a smooth curve between ticks (no judder at twenty a second)
+- The body turns as one weight (2026-10-23): slope and jump tilt never add up, so landing down a hillside doesn't tip it
+  nose down twice over with the hind hooves in the air (`landing` lane)
 - Steps of a hoof's own (2026-10-23): a planted hoof at a step steps up onto it (up, over, down clear past the edge, held),
   landings avoid edges, no hoof walks in the air or creeps up a face; the body's path is rounded off near steps (`stride` tests)
 - Running up a step eases in without a pop; drawn tilt is capped per tick; no rearing against a face

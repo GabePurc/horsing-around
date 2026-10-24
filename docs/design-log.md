@@ -825,3 +825,9 @@ landings straddled the edge.
   taking off, the legs push the nose up for the first few ticks; then it turns at one steady rate to the tilt it will land
   at, the flight played forward to the ground ahead each tick (`RideController.landing`). Terrain at a gallop: turns
   faster than 150 degrees a second 0 or 1 a scenario (the badlands spike of 400 gone).
+- Hind legs "come up like crazy" in some jumps (play-test, 2026-10-23, recorded): after landing down a hillside the body
+  tilted about 38 degrees nose down and the hind hooves hung up to 1.2 blocks off the ground. The slope's tilt and the
+  jump's were turned apart and added up (the jump's aimed at the flight's whole tilt on top of the slope's), and off the
+  ground down a step the jump's held. Now the whole tilt turns as one: in the air toward the flight's, on the ground
+  toward the slope's line, the jump's share (pivoting on the hooves) easing out inside it. Flat landings unchanged (hind
+  hooves down by the 8th tick).
