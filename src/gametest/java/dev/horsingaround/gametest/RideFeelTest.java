@@ -148,6 +148,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 				// 2-block climbs swept by angle, speed, start and what is round them.
 				climbs(ctx, input, world);
 			}
+
 			if (sections.contains("slowstep")) {
 				// Only on request: walking slowly over a single step up and down, every leg watched tick by tick for snaps.
 				slowSteps(ctx, input, world);
@@ -2214,11 +2215,13 @@ public final class RideFeelTest implements FabricClientGameTest {
 		int stalled = 0;
 		int stallLongest = 0;
 		int pressedAt = -1;
+		float drawnOver = 0.0F;
 		final StringBuilder trace = new StringBuilder();
 		final int limit = 200;
 		for (int t = 0; t < limit; t++) {
 			ctx.waitTick();
 			final Sample s = sample(ctx);
+			drawnOver = Math.max(drawnOver, ride(ctx, r -> r.heightOffset(1.0F)));
 			if (onTop < 0) {
 				peak = Math.max(peak, s.y);
 			}
@@ -2261,6 +2264,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 			check("no stall on the way (longest standing still, ticks)", stallLongest, 0, 20);
 		}
 		check("never higher than a heave over the lip (most over the top, blocks)", over, -3.5, RideTuning.LEDGE_CLEARANCE + 0.3);
+		// (Set down on top while the drawn body was still rising to catch up, it flew on up 3 blocks: play-test, 2026-10-23.)
+		check("the drawn body never flies up off the horse (most above it, blocks)", drawnOver, 0.0, 0.8);
 		if ((onTop >= 0) != lane.up() || over > RideTuning.LEDGE_CLEARANCE + 0.3 || lane.up() && stallLongest > 20) {
 			log("  path: %s", trace);
 		}
@@ -2305,9 +2310,11 @@ public final class RideFeelTest implements FabricClientGameTest {
 		int stallLongest = 0;
 		final StringBuilder trace = new StringBuilder();
 		final int limit = 600;
+		float drawnOver = 0.0F;
 		for (int t = 0; t < limit; t++) {
 			ctx.waitTick();
 			final Sample s = sample(ctx);
+			drawnOver = Math.max(drawnOver, ride(ctx, r -> r.heightOffset(1.0F)));
 			if (s.onGround) {
 				ground = Math.max(ground, s.y);
 			}
@@ -2347,6 +2354,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("reaches the top (ticks)", onTop < 0 ? limit : onTop, 0, limit - 1);
 		check("no long stall (longest standing still, ticks)", stallLongest, 0, 40);
 		check("never higher than a heave over a step (blocks)", highestOver, -3.0, RideTuning.LEDGE_CLEARANCE + 0.3);
+		check("the drawn body never flies up off the horse (most above it, blocks)", drawnOver, 0.0, 0.8);
 		if (onTop < 0 || stallLongest > 40) {
 			log("  path: %s", trace);
 		}

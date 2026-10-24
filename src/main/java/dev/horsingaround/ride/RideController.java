@@ -1091,8 +1091,10 @@ public final class RideController {
 				support(horse, fx, fz, -HIND_HOOVES - smooth * 0.5, y, smooth, 0.5));
 		}
 		if (landing >= 0.0F) {
-			// Touchdown: the body is where the horse landed, still coming down as fast as it fell; the legs take it up.
-			carry(s, y, s.foreVelocity);
+			// Touchdown: the body is where the horse landed, still coming down as fast as it fell; the legs take it up. (Only
+			// a fall: a 2-block climb sets the horse down on top while the drawn body is still catching up with it, rising a
+			// block a tick, and carried on, nothing but gravity stopped it, the body flying 3 blocks up; play-test 2026-10-23.)
+			carry(s, y, Math.min(s.foreVelocity, 0.0F));
 		}
 		// Each end on its legs, a critically damped spring, solved implicitly (steady at any stiffness, no overshoot): the
 		// legs push it up as hard as they need to, but nothing pulls it down faster than it falls (where the ground drops
