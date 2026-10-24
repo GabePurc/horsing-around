@@ -1007,6 +1007,19 @@ public final class RideTuning {
 	 */
 	public static final float GAIT_STILL_SPEED = 0.15F;
 	public static final float GAIT_SQUARE = 0.06F;
+	/**
+	 * On uneven ground each hoof lands on the tread under its landing spot, up to LEG_RISE_MAX above where its leg reaches
+	 * straight down (the leg draws up onto it, the body coming up as GroundLegs has it); higher is a step's face, and the
+	 * hoof lands back from it, looking up to GAIT_FACE_STEPS steps of GAIT_FACE_STEP blocks back. A planted hoof the body
+	 * has moved more than GAIT_STEP_REACH blocks out of its leg's reach (climbing a step, or leaving it behind) steps on at
+	 * once, once it has stood GAIT_STEP_STOOD of its stance. The body comes down onto hooves that all stand below their legs'
+	 * reach, past GAIT_HANG_SLACK blocks (less is the stride's own rise and fall).
+	 */
+	public static final float GAIT_FACE_STEP = 0.125F;
+	public static final int GAIT_FACE_STEPS = 6;
+	public static final float GAIT_STEP_REACH = 0.08F;
+	public static final float GAIT_STEP_STOOD = 0.2F;
+	public static final float GAIT_HANG_SLACK = 0.03F;
 	/** How quickly the legs follow a change in the horse's speed (seconds). */
 	public static final float GAIT_SPEED_TIME = 0.25F;
 	/**

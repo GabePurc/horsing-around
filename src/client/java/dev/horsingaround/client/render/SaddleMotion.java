@@ -86,7 +86,7 @@ public final class SaddleMotion {
 		this.lift = stance * Strides.bodyLift(t, walk, trot, canter, gallop);
 		this.pitch = stance * Strides.bodyPitch(t, walk, trot, canter, gallop);
 		// Lower on its legs while moving, and further for a hoof standing on lower ground than its leg reaches.
-		this.crouch = Strides.crouch(walk, trot, canter, gallop) + s.gaitReach;
+		this.crouch = Strides.crouch(walk, trot, canter, gallop);
 		this.forward = 0.0F;
 		this.side = 0.0F;
 		this.roll = 0.0F;

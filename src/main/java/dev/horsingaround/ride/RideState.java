@@ -382,9 +382,10 @@ public final class RideState {
 	public final float[] gaitLegTurn = new float[4];
 	public final float[] gaitLegSide = new float[4];
 	public final float[] gaitLegFold = new float[4];
+	/** Per leg, the last frame: how far from the top of its leg its hoof is (blocks), and was as it was set down (or -1). */
+	public final float[] hoofReach = new float[4];
+	public final float[] plantReach = new float[4];
 	public double gaitPosedAt = Double.NaN;
-	/** How far the body must come down for a hoof standing on lower ground than its leg reaches (blocks), eased. */
-	public float gaitReach;
 	/** Per leg (front left, front right, hind left, hind right), the last frame: how far it was drawn up onto its ground, blocks. */
 	public final float[] legRise = new float[4];
 	/** Per leg, the last frame: how far its hoof was moved back off a step's face it would stand in (blocks, toward the tail). */
