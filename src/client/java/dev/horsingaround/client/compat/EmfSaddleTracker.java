@@ -7,6 +7,7 @@ import dev.horsingaround.ride.RideStateHolder;
 import dev.horsingaround.client.render.AirLegs;
 import dev.horsingaround.client.render.GroundLegs;
 import dev.horsingaround.client.render.PartData;
+import dev.horsingaround.client.render.RiderSeat;
 import dev.horsingaround.client.render.SaddleMotion;
 import dev.horsingaround.ride.RideTuning;
 import java.util.Map;
@@ -145,25 +146,26 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		);
 		// (A step down is a short fall, not a jump: with the hooves finding their ground, no jump shape. Landing a jump,
 		// the jump's shape eases out, and any hoof it leaves in the ground comes up onto it.)
-		if (air <= 0.0F || footing && !ride.leapLegs()) {
+		final float shaped = air * AirLegs.shape(ride, footing && !ride.leapLegs());
+		if (shaped <= 0.0F) {
 			return;
 		}
-		AirLegs.pose(leftFront, rightFront, leftHind, rightHind, air, ride.airRise(partialTicks));
+		AirLegs.pose(leftFront, rightFront, leftHind, rightHind, shaped, ride.airRise(partialTicks));
 		GroundLegs.floor(leftFront, rightFront, leftHind, rightHind, 16.0F / root.yScale, ride, root);
 	}
 
 	/**
-	 * Swing the pack's stirrups forward to meet the seated leg and hold them there against the body's pitch, so the
-	 * feet (which the rider pose holds still against the horse) stay in them.
+	 * Swing the pack's stirrups forward to meet the rider's leg (back as they stand, forward as they brace) and hold them
+	 * there against the body's pitch, so the feet (which the rider pose holds still against the horse) stay in them.
 	 */
-	private static void holdStirrups(final Parts parts) {
+	private static void holdStirrups(final Parts parts, final RideState ride, final float partialTicks) {
 		final ModelPart left = parts.get(Parts.LEFT_STIRRUP);
 		final ModelPart right = parts.get(Parts.RIGHT_STIRRUP);
 		if (left == null && right == null) {
 			return;
 		}
 		final ModelPart body = parts.get(Parts.BODY);
-		final float swing = -RideTuning.STIRRUP_SWING - (body == null ? 0.0F : body.xRot - body.getInitialPose().xRot());
+		final float swing = -RiderSeat.stirrupSwing(ride, partialTicks) - (body == null ? 0.0F : body.xRot - body.getInitialPose().xRot());
 		stirrupFrames++;
 		if (left != null) {
 			left.xRot = swing;
@@ -234,7 +236,7 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		if (!root.isMainModel) {
 			// (Stirrups meet a seated rider's feet; a saddled horse no one rides keeps the pack's own.)
 			if (((Entity) holder).isVehicle()) {
-				holdStirrups(parts);
+				holdStirrups(parts, ride, partialTicks);
 			}
 			return;
 		}

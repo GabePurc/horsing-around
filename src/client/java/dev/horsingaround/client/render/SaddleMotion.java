@@ -48,12 +48,15 @@ public final class SaddleMotion {
 
 	public SaddleMotion compute(final LivingEntity horse, final RideState s, final float partialTicks) {
 		final float limbSpeed = horse.walkAnimation.speed(partialTicks);
-		final float run = GaitCycle.run(limbSpeed);
-		final float gallop = GaitCycle.gallop(limbSpeed);
+		// The gait shares go by the pace the horse goes at (the legs' animation speed on the ground), not the legs: in the
+		// air their stride stops, and the rider sat up out of a gallop's forward seat in a tick.
+		final float pace = s.pace(partialTicks);
+		final float run = GaitCycle.run(pace);
+		final float gallop = GaitCycle.gallop(pace);
 		this.limbSpeed = limbSpeed;
 		this.gallop = gallop;
 		this.run = run;
-		this.moving = Math.min(limbSpeed * 5.0F, 1.0F);
+		this.moving = Math.min(pace * 5.0F, 1.0F);
 
 		// (Measured this frame or the last: by frames, not time, so a hitch or a low frame rate doesn't make a horse a pack
 		// animates look unanimated, and get the vanilla model's motion on top of the pack's.)
@@ -69,7 +72,7 @@ public final class SaddleMotion {
 
 		this.synthetic = true;
 		final float canter = run - gallop;
-		final float trot = GaitCycle.trot(limbSpeed);
+		final float trot = GaitCycle.trot(pace);
 		final float walk = (1.0F - trot - run) * this.moving;
 		// (In water the legs swing at a fifth of the pace; the body keeps time with them.)
 		final float phase = horse.walkAnimation.position(partialTicks) * GaitCycle.LEG_PHASE * (horse.isInWater() ? GaitCycle.WATER_PACE : 1.0F);

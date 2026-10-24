@@ -141,8 +141,9 @@ public abstract class AbstractEquineModelMixin {
 			);
 			// (A step down is a short fall, not a jump: with the hooves finding their ground, no jump shape. Landing a jump,
 			// the jump's shape eases out, and any hoof it leaves in the ground comes up onto it.)
-			if (air > 0.0F && !(footing && ride != null && !ride.leapLegs())) {
-				AirLegs.pose(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, air, pose.horsingaround$airRise());
+			final float shaped = air * AirLegs.shape(ride, footing && ride != null && !ride.leapLegs());
+			if (shaped > 0.0F) {
+				AirLegs.pose(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, shaped, pose.horsingaround$airRise());
 				GroundLegs.floor(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, pixels, ride, root);
 			}
 		}

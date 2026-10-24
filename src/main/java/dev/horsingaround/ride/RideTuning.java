@@ -445,6 +445,32 @@ public final class RideTuning {
 	static final double STEP_LEAD_MAX = 4.5;
 	/** At a run a step up comes in over this many ticks per block/tick of speed (a smooth pick-up of the climb), read that much further ahead. */
 	static final float STEP_RAMP_PER_SPEED = 5.0F;
+	/**
+	 * Ridden near a step (see STEP_NEAR_RISE), the ground each end of the body follows ahead of its hooves is averaged over
+	 * STEP_SMOOTH_TICKS of the horse's travel more (read in at most STEP_SMOOTH_PIECES pieces; that length eased
+	 * STEP_SMOOTH_EASE of the way a tick, so a change of pace doesn't move it), and the ground under them over as much, just
+	 * behind: the climb picks up and eases off in a curve, never a corner (user direction, 2026-10-23: a smooth ride,
+	 * nothing moving near instantly).
+	 */
+	static final float STEP_SMOOTH_TICKS = 4.0F;
+	static final int STEP_SMOOTH_PIECES = 16;
+	static final float STEP_SMOOTH_EASE = 0.1F;
+	/** The share of that stretch behind where the ground is read (the rest ahead: the climb starts sooner, not later). */
+	static final double STEP_SMOOTH_BEHIND = 0.15;
+	/**
+	 * A step is near (for the rounding off above) with ground at least STEP_NEAR_RISE above or below the hooves from
+	 * STEP_NEAR_BEHIND blocks behind the hind hooves to STEP_NEAR_AHEAD blocks (plus STEP_NEAR_LEAD seconds of travel) ahead
+	 * of the front ones, eased in STEP_NEAR_IN of the way a tick (STEP_NEAR_OUT out); not ground climbing or falling
+	 * STEP_NEAR_STEEP_RISE blocks within STEP_NEAR_STEEP_ALONG (a hillside of full blocks).
+	 */
+	static final float STEP_NEAR_RISE = 0.3F;
+	static final float STEP_NEAR_BEHIND = 1.0F;
+	static final float STEP_NEAR_AHEAD = 1.0F;
+	static final float STEP_NEAR_LEAD = 0.7F;
+	static final float STEP_NEAR_IN = 0.15F;
+	static final float STEP_NEAR_OUT = 0.06F;
+	static final double STEP_NEAR_STEEP_RISE = 2.5;
+	static final double STEP_NEAR_STEEP_ALONG = 3.0;
 	static final double CHEST_AHEAD = 0.85;
 	static final double BELLY_HEIGHT = 0.62;
 	/**
@@ -476,9 +502,17 @@ public final class RideTuning {
 	static final float SLOPE_PITCH_MAX = 40.0F;
 	/**
 	 * The body as drawn tilts no faster than PITCH_RATE_MAX degrees a tick on its legs, its jump tilt easing out included
-	 * (touching down on a slope, the forehand still falling, and the flight's tilt letting go, together snapped it).
+	 * (touching down on a slope, the forehand still falling, and the flight's tilt letting go, together snapped it). It
+	 * turns toward the line like a body with weight (see RideController.turn): at a speed easing toward PITCH_FOLLOW of the
+	 * gap, that speed changing by at most PITCH_TURN_MAX degrees a tick each tick (play-test, 2026-10-23: at 9 a tick with
+	 * no limit on how fast that changed, it nodded 20 degrees and back in a quarter second cresting a hill, a snap). Set from
+	 * real horses (research, 2026-10-23): their trunks pitch at about 95-110 degrees a second over a fence, up to about 180
+	 * at take-off and settling after landing, and change that speed at 1,150-3,150 degrees a second each second (Clayton et
+	 * al. 2021; Fuss and Fuss 1998); 3 a tick each tick is 1,200.
 	 */
-	static final float PITCH_RATE_MAX = 9.0F;
+	static final float PITCH_RATE_MAX = 6.0F;
+	static final float PITCH_FOLLOW = 0.5F;
+	static final float PITCH_TURN_MAX = 3.0F;
 	public static final float LEG_LENGTH = 0.625F;
 	public static final float LEG_UPRIGHT = 1.0F;
 	/**
@@ -553,6 +587,63 @@ public final class RideTuning {
 	 */
 	public static final float LEG_HALF_DEPTH = 2.0F;
 	/**
+	 * Steps of its own (see StepLegs), at the animation's own pace (user direction, 2026-10-23: never quicker legs). A hoof
+	 * the gait has planted doesn't creep up ground more than STEP_MIN higher ahead of it; once its toe is within STEP_FACE
+	 * of such a step (up to STEP_MAX high, higher is a wall), moving on at STEP_STILL blocks/s or more, it steps up onto it:
+	 * straight up off its spot over the first STEP_RISE of the step, to STEP_CLEAR above the edge (waiting there up to
+	 * STEP_WAIT seconds for the leg to reach), along over the edge with an arc of STEP_ARC, and down from STEP_SET, its heel
+	 * STEP_ROOM past the edge (or where the stride would have it by then, at most STEP_CARRY along). A step a block high
+	 * takes STEP_TIME seconds, less the faster the horse goes (half at STEP_QUICKEN blocks/s), and a lower one less (three
+	 * quarters for half a block). A hoof the gait will lift within
+	 * STEP_LIFT_SOON of a step's time anyway is left to the gait.
+	 */
+	public static final double STEP_MIN = 0.3;
+	/**
+	 * All of this only near a single step (RideState.stepNear at least STEP_NEAR_LEGS): on a hillside or a staircase the
+	 * legs climb as the gait and the look-ahead have them (the known scramble), the hooves soon down again.
+	 */
+	public static final float STEP_NEAR_LEGS = 0.5F;
+	public static final double STEP_MAX = 1.25;
+	public static final double STEP_FACE = 0.1;
+	/**
+	 * A planted hoof the body has lifted STEP_AIR or more off its ground (the forehand coming up for a step, its chest clear
+	 * of the edge) with a step within STEP_CARRY_LOOK ahead of its toe is carried along with the body (the animation would
+	 * walk it in the air), at most STEP_HOLD_MAX from the stride; once the step is within STEP_AIR_REACH it steps up onto it
+	 * the same way, lifting with the body instead of from its spot.
+	 */
+	public static final double STEP_AIR = 0.1;
+	public static final double STEP_AIR_REACH = 0.7;
+	public static final double STEP_CARRY_LOOK = 2.0;
+	public static final float STEP_STILL = 0.3F;
+	public static final float STEP_RISE = 0.45F;
+	public static final double STEP_CLEAR = 0.06;
+	public static final float STEP_WAIT = 0.15F;
+	public static final double STEP_ARC = 0.04;
+	public static final float STEP_SET = 0.8F;
+	public static final double STEP_ROOM = 0.08;
+	public static final double STEP_CARRY = 0.7;
+	public static final float STEP_TIME = 0.45F;
+	public static final float STEP_QUICKEN = 6.0F;
+	public static final float STEP_LIFT_SOON = 0.8F;
+	/**
+	 * A hoof put down by a step of its own is held where it is (its leg turning, at most STEP_TURN_MAX radians) until the
+	 * gait's stride comes up to it, or the gait lifts it, or it would be STEP_HOLD_MAX blocks ahead; a hoof let go short of
+	 * that eases back onto the stride over STEP_RELEASE_TIME seconds (in the air, or as a slide).
+	 */
+	public static final float STEP_TURN_MAX = 0.7F;
+	/** The leg turns to put its hoof there on a critically damped spring of STEP_TURN_TIME seconds: nothing moves it in a snap. */
+	public static final float STEP_TURN_TIME = 0.025F;
+	public static final double STEP_HOLD_MAX = 0.6;
+	public static final float STEP_RELEASE_TIME = 0.08F;
+	/**
+	 * A hoof the gait is about to put down (its lift falling below PLACE_LIFT) across a step's edge (ground differing by
+	 * STEP_MIN or more under its sole) moves to land wholly on one side of it, STEP_ROOM clear (in front of a step's face,
+	 * STEP_FACE), at most PLACE_REACH, eased over PLACE_TIME seconds; onto the step if it can reach.
+	 */
+	public static final float PLACE_LIFT = 0.1F;
+	public static final double PLACE_REACH = 0.3;
+	public static final float PLACE_TIME = 0.05F;
+	/**
 	 * Climbing (or taking off), the neck reaches forward and down by NECK_COUNTER_UP of the body's nose-up tilt, so the
 	 * head stays low and forward as a climbing horse carries it (and out of the rider's way) instead of rearing up;
 	 * going down, it comes up by NECK_COUNTER_DOWN of the nose-down tilt.
@@ -571,9 +662,33 @@ public final class RideTuning {
 	 * feet first (pivoting on the front hooves). Degrees per degree of flight path, limits up and down, and response.
 	 */
 	static final float JUMP_PITCH_SCALE = 0.55F;
-	static final float JUMP_PITCH_UP = 25.0F;
-	static final float JUMP_PITCH_DOWN = 15.0F;
+	static final float JUMP_PITCH_UP = 35.0F;
+	static final float JUMP_PITCH_DOWN = 25.0F;
+	/** Falling without a jump (off a step or a drop), nose down at most this (degrees): the landing angles above are from jumps. */
+	static final float FALL_PITCH_DOWN = 15.0F;
+	/**
+	 * In the air the jump's tilt turns like a real horse's trunk (research, 2026-10-23): taking off, for the first
+	 * TAKEOFF_PUSH_TICKS ticks while rising, the legs push the nose up toward the flight's tilt; then it turns at one steady
+	 * rate to the tilt it will land at, the flight played forward up to FLIGHT_LOOK ticks (see RideController.landing).
+	 */
+	static final int TAKEOFF_PUSH_TICKS = 3;
+	static final int FLIGHT_LOOK = 40;
 	static final float JUMP_PITCH_SMOOTHING = 0.5F;
+	/**
+	 * The jump's tilt turns the same way (see PITCH_TURN_MAX): at most JUMP_PITCH_RATE_MAX degrees a tick, that changing
+	 * by at most JUMP_PITCH_TURN_MAX a tick (topping a 2-block climb it went from nose up to nose down at 230 degrees a
+	 * second, the forehand snapping forward). Real horses' trunks reach +21 to +34 degrees nose up taking off and -25 to
+	 * -38 landing (research, 2026-10-23), hence JUMP_PITCH_UP and JUMP_PITCH_DOWN.
+	 */
+	static final float JUMP_PITCH_RATE_MAX = 5.0F;
+	static final float JUMP_PITCH_TURN_MAX = 2.5F;
+	/**
+	 * The legs take the jump's shape over AIR_SHAPE_IN_TIME seconds, and let it go as a hoof finds its ground over
+	 * AIR_SHAPE_OUT_TIME (see AirLegs.shape): slower in, so a step down (a short fall onto ground the hooves soon find)
+	 * barely shows it; quicker out, a hoof that has found its ground standing on it.
+	 */
+	public static final float AIR_SHAPE_IN_TIME = 0.1F;
+	public static final float AIR_SHAPE_OUT_TIME = 0.04F;
 	/** Taking off, the tilt it had on the ground eases out by at most this much a tick (degrees). */
 	static final float AIR_PITCH_RELEASE = 2.5F;
 	/** World-space follow rate for the body height afloat: turns climbing out of the water into a smooth rise. */
@@ -633,6 +748,8 @@ public final class RideTuning {
 	 * 0.4 and its gallop at 0.8, so walk ~0.35, trot ~0.6, canter ~0.85 and gallop 1.0 each get the matching gait.
 	 */
 	public static final float ANIMATION_SPEED_FACTOR = 1.0F;
+	/** How fast the pace the rider sits to follows the horse's speed: as the legs' animation speed does (vanilla's 0.4). */
+	static final float PACE_EASE = 0.4F;
 
 	/** Hoof sounds switch to the gallop clip at this fraction of vanilla top speed. */
 	public static final float GALLOP_SOUND_SPEED = 0.72F;
@@ -680,10 +797,9 @@ public final class RideTuning {
 	public static final int ROOM_STEPS = 7;
 	public static final float ROOM_IN_SECONDS = 0.05F;
 	public static final float ROOM_OUT_SECONDS = 0.35F;
-	/** Forward fold over the neck, degrees: a little at any gait, crouched at a gallop (RDR2 riders: ~5-10 / 20-30). */
+	/** Forward lean of the upper body sitting, degrees: a little standing still, a little more moving (STAND_LEAN standing). */
 	public static final float FORWARD_LEAN_STILL = 4.0F;
 	public static final float FORWARD_LEAN_MOVING = 6.0F;
-	public static final float FORWARD_LEAN_GALLOP = 18.0F;
 	/** The torso turns toward where the rider looks by this share of the head's turn, up to the max (degrees). */
 	public static final float TORSO_TWIST = 0.4F;
 	public static final float TORSO_TWIST_MAX = 40.0F;
@@ -736,11 +852,10 @@ public final class RideTuning {
 	/**
 	 * At a canter the rider's seat follows the horse's back: the pelvis rocks a little forward and back with the stride
 	 * while the shoulders stay quiet (torso swing from the shoulders, radians per block of saddle lift; ~3cm of hip travel
-	 * at a canter). At a gallop riders rise into a half seat and the legs take the motion, so the hips move less still
-	 * (PELVIS_GALLOP_SHARE of it). (Play-test: 1.7 with no gallop easing read as humping the horse.)
+	 * at a canter), less the more they stand in the stirrups (none standing: the legs take the motion). (Play-test: 1.7
+	 * read as humping the horse.)
 	 */
 	public static final float PELVIS_SLIDE = 0.6F;
-	public static final float PELVIS_GALLOP_SHARE = 0.5F;
 	/**
 	 * The rider's body answers the horse's surges: leaning back as it speeds up and forward as it slows, on a spring
 	 * so it settles naturally. Degrees per block/tick^2 of acceleration, spring stiffness and damping per tick, limit.
@@ -749,6 +864,62 @@ public final class RideTuning {
 	public static final float INERTIA_STIFFNESS = 0.25F;
 	public static final float INERTIA_DAMPING = 0.45F;
 	public static final float INERTIA_MAX = 12.0F;
+	/**
+	 * Standing in the stirrups, as a medieval rider did in a long-stirruped war saddle: STAND_CANTER of the way up at a
+	 * canter (a light seat), all the way at a gallop, STAND_UPHILL climbing a slope as steep as STAND_UPHILL_FULL degrees
+	 * and STAND_LEDGE heaving up a ledge; on a critically damped spring at STAND_RATE (radians a tick, ~0.7 s to settle).
+	 * Bracing sits them down (STAND_BRACE_SIT of the stand per unit of brace).
+	 */
+	public static final float STAND_CANTER = 0.25F;
+	public static final float STAND_UPHILL = 0.5F;
+	public static final float STAND_UPHILL_FULL = 25.0F;
+	public static final float STAND_LEDGE = 0.7F;
+	public static final float STAND_RATE = 0.25F;
+	public static final float STAND_BRACE_SIT = 1.5F;
+	/**
+	 * Standing all the way: the hips STAND_RISE blocks up off the saddle, the stirrups swung STAND_STIRRUP_BACK radians
+	 * back toward straight down (the hips come forward over them as far as the straight legs make them), the upper body
+	 * STAND_LEAN degrees forward (upright, not a jockey's crouch), and the legs taking STAND_ABSORB of the saddle's bounce
+	 * and the torso STAND_QUIET less of its rocking. The legs reach no straighter than STAND_REACH_MAX of their length
+	 * straight down. A foot is RIDER_LEG_REACH blocks from the hip (the model's leg), in a stirrup on a STIRRUP_LEATHER
+	 * leather.
+	 */
+	public static final float STAND_RISE = 0.11F;
+	public static final float STAND_STIRRUP_BACK = 0.2F;
+	public static final float STAND_LEAN = 8.0F;
+	public static final float STAND_ABSORB = 0.6F;
+	public static final float STAND_QUIET = 0.7F;
+	public static final float STAND_REACH_MAX = 0.97F;
+	public static final float RIDER_LEG_REACH = 0.7F;
+	public static final float STIRRUP_LEATHER = 0.5F;
+	/**
+	 * Bracing the legs forward into the stirrups: by BRACE_PER_SLOWING per block/tick the horse slows in a tick, by
+	 * BRACE_DOWNHILL going down a slope as steep as BRACE_DOWNHILL_FULL degrees, and by BRACE_DROP coming down out of a
+	 * jump or off a drop (from the top of the flight, all of it by BRACE_DROP_SPEED blocks/tick down); on a critically
+	 * damped spring at BRACE_RATE.
+	 */
+	public static final float BRACE_PER_SLOWING = 25.0F;
+	public static final float BRACE_DOWNHILL = 0.5F;
+	public static final float BRACE_DOWNHILL_FULL = 25.0F;
+	public static final float BRACE_DROP = 1.0F;
+	public static final float BRACE_DROP_SPEED = 0.25F;
+	public static final float BRACE_RATE = 0.35F;
+	/** Braced all the way: the stirrups (and the legs) BRACE_STIRRUP_FORWARD radians forward, the upper body BRACE_LEAN_BACK degrees back. */
+	public static final float BRACE_STIRRUP_FORWARD = 0.2F;
+	public static final float BRACE_LEAN_BACK = 7.0F;
+	/**
+	 * Giving at the hips on landing: a kick of SETTLE_KICK per block/tick^2 the body is caught from below (at most
+	 * SETTLE_KICK_MAX a tick), on a spring of SETTLE_STIFFNESS and SETTLE_DAMPING per tick (a little underdamped: it comes
+	 * back up just past where it was).
+	 */
+	public static final float SETTLE_KICK = 4.0F;
+	public static final float SETTLE_KICK_MAX = 0.5F;
+	public static final float SETTLE_STIFFNESS = 0.2F;
+	public static final float SETTLE_DAMPING = 0.6F;
+	/** Given all the way: the upper body SETTLE_FOLD degrees forward, a standing rider's hips SETTLE_SINK blocks down, loose hands SETTLE_HANDS radians down. */
+	public static final float SETTLE_FOLD = 12.0F;
+	public static final float SETTLE_SINK = 0.06F;
+	public static final float SETTLE_HANDS = 0.25F;
 	/**
 	 * Fresh Animations' stirrups are swung forward to meet the seated leg (its leathers hang from the saddle's front
 	 * bar), and held there against the body's motion so the feet stay in them. Radians.
