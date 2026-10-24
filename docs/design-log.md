@@ -895,9 +895,11 @@ horse runs." Reworked from published kinematics (Miró 2006, Rhodin 2022, Dunbar
 - Now: real footfall timing and stance shares per gait; stance angles about 1.5 times the published whole-limb ones
   (walk front +26°/-18°, gallop up to +32°/-34°), turning as over a planted hoof; in the air a fold up to 0.45 of the
   leg, a flick back and a reach forward (swinging +42°/-44° at a gallop), all with no change of pace at either end.
-- A rigid leg turned that far lifts its hoof, so while moving the body sits lower on its legs (0.07 blocks at a walk to
-  0.12 at a gallop, eased with the speed) and the legs fold under it in mid-stance by exactly what keeps each hoof down,
-  as fetlocks give. The rider sits with the body; the camera's bounce is unchanged.
+- A rigid leg turned that far lifts its hoof, so while moving on level ground the body sits lower on its legs (0.07
+  blocks at a walk to 0.12 at a gallop, eased with the speed) and the legs fold under it in mid-stance by exactly what
+  keeps each hoof down, as fetlocks give. On slopes and stairs (from 10°) the crouch is gone: there the legs swing less
+  and need all their reach for the ground below (with it, hooves hung over lower steps). The rider sits with the body;
+  the camera's bounce is unchanged.
 - The body's rise and pitch keep their size (the rider's feel) but are timed to the footfalls: highest at a walk's
   front mid-stance, at a trot's push-off, in the canter's and gallop's moment in the air.
 - The neck is carried lower the faster the gait (stretched out at a gallop) and nods up to ±7°, lowest at each front

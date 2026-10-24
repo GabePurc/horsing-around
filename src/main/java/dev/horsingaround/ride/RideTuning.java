@@ -959,8 +959,8 @@ public final class RideTuning {
 		{0.14F, 0.895F, 0.805F, 0.63F},
 	};
 	/** Share of the stride a front and a hind hoof is on the ground. */
-	public static final float[] GAIT_FORE_STANCE = {0.63F, 0.46F, 0.42F, 0.33F};
-	public static final float[] GAIT_HIND_STANCE = {0.58F, 0.42F, 0.46F, 0.34F};
+	public static final float[] GAIT_FORE_STANCE = {0.63F, 0.48F, 0.42F, 0.33F};
+	public static final float[] GAIT_HIND_STANCE = {0.59F, 0.46F, 0.46F, 0.34F};
 	/**
 	 * How far forward a leg is as it touches down and how far back as it lifts off, radians from upright. The legs swing
 	 * from the bottom of the body, not from the withers as a real horse's do, so they turn about one and a half times as

@@ -118,8 +118,8 @@ public final class GaitCycle {
 		SHARE[3] = gallop;
 		final float size = smoothstep(speed / GAIT_FULL_SWING) * upright;
 		final float t = stride * (1.0F / Mth.TWO_PI);
-		// On steep ground the legs fold less in their swing, as the stride is shorter there (see GroundLegs): the ride
-		// lifts each hoof onto the ground ahead of it.
+		// On steep ground a horse picks its way, with short steps: the legs swing and fold less (on top of the shorter
+		// stride the ride gives every animation there, see GroundLegs), and the ride lifts each hoof onto the ground ahead.
 		final float steep = 1.0F - (1.0F - STRIDE_STEEP) * Mth.clamp(Math.abs(tilt) / STRIDE_STEEP_TILT, 0.0F, 1.0F);
 		// How far below its ground the gait's lowering of the body puts a hoof under an upright leg (model pixels); not in a jump.
 		final float under = Math.max(-lift * pixels, 0.0F) * (1.0F - smoothstep(air));
@@ -135,10 +135,11 @@ public final class GaitCycle {
 		final float hindFlick = mix(GAIT_HIND_FLICK);
 		final float hindStretch = mix(GAIT_HIND_STRETCH);
 		final float hindFold = mix(GAIT_HIND_FOLD) * steep;
-		leg(leftFront, t - touchdown(0), foreStance, foreReach, foreBack, foreFlick, foreStretch, foreFold, FORE_FOLD, size, under, vanilla * 0.8F);
-		leg(rightFront, t - touchdown(1), foreStance, foreReach, foreBack, foreFlick, foreStretch, foreFold, FORE_FOLD, size, under, -vanilla * 0.8F);
-		leg(leftHind, t - touchdown(2), hindStance, hindReach, hindBack, hindFlick, hindStretch, hindFold, HIND_FOLD, size, under, -vanilla * 0.5F);
-		leg(rightHind, t - touchdown(3), hindStance, hindReach, hindBack, hindFlick, hindStretch, hindFold, HIND_FOLD, size, under, vanilla * 0.5F);
+		final float swing = size * steep;
+		leg(leftFront, t - touchdown(0), foreStance, foreReach, foreBack, foreFlick, foreStretch, foreFold, FORE_FOLD, swing, under, vanilla * 0.8F);
+		leg(rightFront, t - touchdown(1), foreStance, foreReach, foreBack, foreFlick, foreStretch, foreFold, FORE_FOLD, swing, under, -vanilla * 0.8F);
+		leg(leftHind, t - touchdown(2), hindStance, hindReach, hindBack, hindFlick, hindStretch, hindFold, HIND_FOLD, swing, under, -vanilla * 0.5F);
+		leg(rightHind, t - touchdown(3), hindStance, hindReach, hindBack, hindFlick, hindStretch, hindFold, HIND_FOLD, swing, under, vanilla * 0.5F);
 		// The neck: carried lower at faster gaits, nodding twice a stride at a walk and trot (lowest at each front leg's
 		// mid-stance) and once at a canter and gallop (lowest as the leading front hoof lands), a beat behind the body.
 		// The tail bounces after the body, and swings with the walk's hips.
