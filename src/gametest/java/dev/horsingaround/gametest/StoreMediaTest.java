@@ -99,6 +99,8 @@ public final class StoreMediaTest implements FabricClientGameTest {
 	private static final int DARK = 6 | 3 << 8;
 	/** Late afternoon: the sun low in the west (13 degrees up), the light still full. */
 	private static final int GOLDEN_HOUR = 11200;
+	/** Midday: the sun high, every leg lit. */
+	private static final int NOON = 6000;
 
 	private enum Ground {
 		OPEN, RIVER
@@ -114,7 +116,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 
 	private static final List<Want> WANTS = List.of(
 		// Heading roughly south, so filming from the horse's left looks west into the evening sun.
-		new Want("savanna", Ground.OPEN, 90, any(Biomes.SAVANNA, Biomes.SAVANNA_PLATEAU), -35.0F, 35.0F, "gaits", "jump", "rider", "hat",
+		new Want("savanna", Ground.OPEN, 90, any(Biomes.SAVANNA, Biomes.SAVANNA_PLATEAU), -35.0F, 35.0F, "gaits", "study", "jump", "rider", "hat",
 			// The camera shot last: it leaves a target standing on the route.
 			"seat", "stamina", "settings", "camera"),
 		new Want("plains", Ground.OPEN, 110, any(Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS, Biomes.MEADOW), 0.0F, 360.0F, "turn"),
@@ -188,12 +190,14 @@ public final class StoreMediaTest implements FabricClientGameTest {
 					continue;
 				}
 				for (final String shot : want.shots) {
-					if (!this.wanted(shot)) {
+					// (The gait study is for judging the plain model's gaits, not the store: only when asked for.)
+					if (!this.wanted(shot) || shot.equals("study") && !this.only.contains("study")) {
 						continue;
 					}
 					LOGGER.info("[store] filming {}", shot);
 					switch (shot) {
 						case "gaits" -> this.gaits(ctx, world, spot);
+						case "study" -> this.study(ctx, world, spot);
 						case "jump" -> this.jump(ctx, world, spot);
 						case "rider" -> this.rider(ctx, world, spot);
 						case "hat" -> this.hat(ctx, world, spot);
@@ -274,6 +278,39 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		});
 		this.still(ctx, "gallery_gaits");
 		this.stop(ctx);
+	}
+
+	/**
+	 * Not for the store: each gait side on at a steady pace, slowed to half speed, a clip each ({@code study_walk} and
+	 * so on), to judge the gaits by (with {@code -PvanillaModel}, the plain model's own; {@code -Pscenario=study}).
+	 */
+	private void study(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
+		final String[] gaits = {"walk", "trot", "canter", "gallop"};
+		// About two and a half strides of each (the stride is quicker the faster the gait).
+		final int[] ticks = {70, 42, 30, 26};
+		for (int g = 0; g < gaits.length; g++) {
+			final AbstractHorse horse = this.mount(ctx, world, spot, BAY, NOON);
+			// A flat stage of bare grass along the route, so no step or plant gets in the way of the legs.
+			final BlockPos p = spot.start;
+			final int y = ctx.computeOnClient(mc -> mc.player.getVehicle().getBlockY());
+			final float fx = -Mth.sin(spot.yaw * Mth.DEG_TO_RAD);
+			final float fz = Mth.cos(spot.yaw * Mth.DEG_TO_RAD);
+			final int x0 = Math.min(p.getX(), p.getX() + Math.round(fx * 70.0F)) - 6;
+			final int x1 = Math.max(p.getX(), p.getX() + Math.round(fx * 70.0F)) + 6;
+			final int z0 = Math.min(p.getZ(), p.getZ() + Math.round(fz * 70.0F)) - 6;
+			final int z1 = Math.max(p.getZ(), p.getZ() + Math.round(fz * 70.0F)) + 6;
+			final TestServerContext server = world.getServer();
+			server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d dirt", x0, y - 3, z0, x1, y - 2, z1));
+			server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d grass_block", x0, y - 1, z0, x1, y - 1, z1));
+			server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air", x0, y, z0, x1, y + 5, z1));
+			waitForWorld(ctx);
+			this.gait(ctx, g);
+			this.steer(ctx, spot.yaw, 70);
+			ctx.runOnClient(mc -> FilmCamera.film(horse, sunBehind(spot), 5.5F, 0.75F, 2.0F, 0.0F, 0.1F));
+			final TestInput input = ctx.getInput();
+			this.record(ctx, "study_" + gaits[g], ticks[g], CLIP_HEIGHT, t -> 0.5, t -> input.lookAt(spot.yaw, 12.0F));
+			this.stop(ctx);
+		}
 	}
 
 	/** A jump at a gallop: low and side on with the sun behind, slowing right down through the jump, then swinging behind as it gallops on. */

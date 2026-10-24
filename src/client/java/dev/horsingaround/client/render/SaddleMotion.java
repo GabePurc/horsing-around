@@ -15,9 +15,6 @@ import net.minecraft.world.entity.LivingEntity;
 public final class SaddleMotion {
 	/** Frames drawn (counted as each frame's camera is placed): motion measured in an earlier frame than the last is stale. */
 	private static int frame;
-	/** Vanilla horse legs cycle once per 2pi of (limb swing x 0.6662). */
-	private static final float VANILLA_LEG_PHASE = 0.6662F;
-	private static final float VANILLA_WATER_LEG_PACE = 0.2F;
 
 	/** Saddle height change, blocks. */
 	public float lift;
@@ -29,6 +26,11 @@ public final class SaddleMotion {
 	public float pitch;
 	/** Saddle roll, degrees, right positive. */
 	public float roll;
+	/**
+	 * Generated (the plain model, see GaitCycle): how much lower the body sits on its legs while moving, blocks. Not in
+	 * the lift, which the camera's bounce follows.
+	 */
+	public float crouch;
 	/** Generated here, so the horse model must be moved by it too. */
 	public boolean synthetic;
 	/** Leg-animation speed, 0..1. */
@@ -54,8 +56,8 @@ public final class SaddleMotion {
 		// The gait shares go by the pace the horse goes at (the legs' animation speed on the ground), not the legs: in the
 		// air their stride stops, and the rider sat up out of a gallop's forward seat in a tick.
 		final float pace = s.pace(partialTicks);
-		final float run = Mth.clamp((pace - RUN_ANIMATION_SPEED + 0.05F) * 10.0F, 0.0F, 1.0F);
-		final float gallop = run * Mth.clamp((pace - GALLOP_ANIMATION_SPEED + 0.03F) * 20.0F, 0.0F, 1.0F);
+		final float run = GaitCycle.run(pace);
+		final float gallop = GaitCycle.gallop(pace);
 		this.limbSpeed = limbSpeed;
 		this.gallop = gallop;
 		this.run = run;
@@ -70,22 +72,24 @@ public final class SaddleMotion {
 			this.side = s.animatedSide - s.animatedSideBase;
 			this.pitch = s.animatedPitch - s.animatedPitchBase;
 			this.roll = s.animatedRoll - s.animatedRollBase;
+			this.crouch = 0.0F;
 			return this;
 		}
 
 		this.synthetic = true;
 		final float canter = run - gallop;
-		final float trot = Mth.clamp((pace - TROT_ANIMATION_SPEED + 0.02F) * 10.0F, 0.0F, 1.0F) * (1.0F - run);
+		final float trot = GaitCycle.trot(pace);
 		final float walk = (1.0F - trot - run) * this.moving;
-		// (In water vanilla's legs swing at a fifth of the pace; the body keeps time with them.)
-		final float phase = horse.walkAnimation.position(partialTicks) * VANILLA_LEG_PHASE * (horse.isInWater() ? VANILLA_WATER_LEG_PACE : 1.0F);
-		final float twice = Mth.cos(phase * 2.0F);
-		final float once = Mth.cos(phase - Mth.PI / 3.0F);
+		// (In water the legs swing at a fifth of the pace; the body keeps time with them.)
+		final float phase = horse.walkAnimation.position(partialTicks) * GaitCycle.LEG_PHASE * (horse.isInWater() ? GaitCycle.WATER_PACE : 1.0F);
+		final float t = phase * (1.0F / Mth.TWO_PI);
 		final float stance = horse.onGround() ? 1.0F : 0.0F;
-		this.lift = stance * ((SADDLE_LIFT_WALK * walk + SADDLE_LIFT_TROT * trot) * twice
-			+ (SADDLE_LIFT_CANTER * canter + SADDLE_LIFT_GALLOP * gallop) * once);
-		this.pitch = stance * ((SADDLE_PITCH_WALK * walk + SADDLE_PITCH_TROT * trot) * Mth.sin(phase * 2.0F)
-			+ (SADDLE_PITCH_CANTER * canter + SADDLE_PITCH_GALLOP * gallop) * Mth.sin(phase));
+		this.lift = stance * GaitCycle.bodyLift(t, walk, trot, canter, gallop);
+		this.pitch = stance * GaitCycle.bodyPitch(t, walk, trot, canter, gallop);
+		// (On sloping ground, stairs and the like, the legs swing less (see GroundLegs) and need all their reach for the
+		// ground below: the body comes up off its crouch.)
+		this.crouch = GaitCycle.crouch(walk, trot, canter, gallop)
+			* (1.0F - smoothstep(Math.abs(s.pitch(partialTicks)) * Mth.DEG_TO_RAD / GAIT_CROUCH_FLAT_TILT));
 		this.forward = 0.0F;
 		this.side = 0.0F;
 		this.roll = 0.0F;

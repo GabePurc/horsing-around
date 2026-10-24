@@ -140,8 +140,9 @@ public final class GalleryTest implements FabricClientGameTest {
 					packs.removePack(id);
 				}
 			}
+			// (-PvanillaModel: the plain horse model, no animation pack.)
 			for (final String id : packs.getAvailableIds()) {
-				if (id.contains("FreshAnimations")) {
+				if (id.contains("FreshAnimations") && !Boolean.getBoolean("horsingaround.vanillaModel")) {
 					packs.addPack(id);
 				}
 			}

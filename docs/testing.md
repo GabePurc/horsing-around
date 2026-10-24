@@ -96,7 +96,8 @@ body.
   mod's share) and see which of its methods they go through. Last measured (2026-10-20):
   about 3% of the client thread's Java samples (~70 us a frame) and 0.1-0.3% of the server's.
 - `-Ptests=store`: films the README's clips and stills in a generated world (`StoreMediaTest`; `-Pscenario=gaits,river`
-  for some), with ATMOSPHERICS loaded for the sky. Clips are widescreen at 30 frames a second, slowed down where a shot
+  for some; `-Pscenario=study`, never in a full store run: each gait side on at half speed, with `-PvanillaModel` the
+  plain model's own gaits), with ATMOSPHERICS loaded for the sky. Clips are widescreen at 30 frames a second, slowed down where a shot
   asks; the ones shown as you play (the stamina bar, the riding camera, the settings) are 16:9 with the HUD, and while a
   clip records a menu doesn't pause the game and draws a pointer. Each frame is drawn at its own moment on the game's own timer (the mod's legs and Fresh Animations read the
   partial tick from it), and while a clip records only its frames draw the world, so frame-to-frame animation moves with

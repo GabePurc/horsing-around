@@ -316,7 +316,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("gait is walk", sample(ctx).gait == RideTuning.WALK);
 		check("at a walk the rider sits in the saddle (standing, 0..1)", ride(ctx, r -> r.stand(1.0F)), 0.0, 0.02);
 		check("walk leg-animation speed (Fresh Animations walk < 0.4)", sample(ctx).limbSpeed, 0.25, 0.39);
-		if (FabricLoader.getInstance().isModLoaded("entity_model_features")) {
+		if (TestPacks.animated()) {
 			float low = Float.MAX_VALUE;
 			float high = -Float.MAX_VALUE;
 			for (int i = 0; i < 30; i++) {
@@ -329,6 +329,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 				high = Math.max(high, side);
 			}
 			check("rider follows the saddle's side-to-side sway at a walk (blocks peak to peak)", high - low, 0.003, 0.2);
+		} else {
+			// (The same time passes, so what follows is measured at the same moment.)
+			ctx.waitTicks(30);
 		}
 		sideScreenshot(ctx, "02b_walk_side");
 	}
@@ -774,7 +777,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		frontScreenshot(ctx, "07a_head_shake");
 		ctx.waitTicks(3);
 		frontScreenshot(ctx, "07b_head_shake");
-		if (FabricLoader.getInstance().isModLoaded("entity_model_features")) {
+		if (TestPacks.animated()) {
 			check("head shake drawn on the Fresh Animations model (frames)",
 				ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().animatedShakeFrames), 5, 100000);
 		}
@@ -925,7 +928,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 	}
 
 	private void saddleSync(final ClientGameTestContext ctx) {
-		if (!FabricLoader.getInstance().isModLoaded("entity_model_features")) {
+		if (!TestPacks.animated()) {
+			// (The same time passes, so what follows is measured at the same moment.)
+			ctx.waitTicks(20);
 			return;
 		}
 		float low = Float.MAX_VALUE;

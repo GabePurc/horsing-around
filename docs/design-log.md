@@ -864,3 +864,43 @@ their trunk only ~5 degrees a stride; knees and ankles take landings.
   (stirrups and legs forward, sitting back 7 degrees, sitting down out of a stand); when the horse's body is caught from
   below (a landing, a step at speed) the rider gives at the hips and knees and comes back up. Each is a spring on game
   ticks (`RiderMotion`), read by the pose (`RiderSeat`, `RidePoser`).
+
+## Gaits of our own for the plain model (user direction, 2026-10-23)
+
+The version without Fresh Animations should look better, with animations we write instead of vanilla's: one sine swing,
+the legs in diagonal pairs at every speed (a trot even at a walk), the hooves rising as much in front as behind, and a
+head bob on a beat of its own. This replaces, for the plain model only, "never replace the model or its animation";
+vanilla's one-piece legs stay, and a model an animation pack animates is never touched.
+
+- One cycle per gait, picked and blended by the leg-animation speed at the points the saddle motion already changes gait,
+  and timed off vanilla's own stride, so the cadence is vanilla's (never quicker legs) and the body's rise and fall
+  agrees with the footfalls: each gait's moment in the air is where the saddle is highest.
+- Footfalls: walk in four even beats (hind before fore on each side), trot on diagonal pairs, canter and gallop on the
+  left lead. A leg sweeps back evenly on the ground; in the air it lifts (drawn up into the body, as the mod's legs fold),
+  flicks back, swings forward and stretches out, and it leaves and meets the ground at its pace on the ground (a
+  galloping horse's hoof is drawn back to meet the ground), so there is no jolt at either end. Stance angles stay small
+  (a rigid leg turned about its top lifts its hoof off the ground, and the body comes down onto hooves that stand off
+  it: larger ones sank the body stopping from a trot), and on steep ground the lift shrinks as the stride does.
+- The head nods twice a stride at a walk and trot, once at a canter and gallop (down as the front hooves take the
+  weight); the tail bounces after the body and swings with the walk's hips. Vanilla's own head bob comes out.
+- Only for the horses the mod manages (as everything else it draws), on every version; the ride's ground and jump legs
+  go on top. `-Ptests=store -Pscenario=study -PvanillaModel` films each gait side on.
+
+Play-test (2026-10-24): "Honestly it looks really bad. The animations are way too stiff... should be based on how a real
+horse runs." Reworked from published kinematics (Miró 2006, Rhodin 2022, Dunbar 2008, Hildebrand 1977, Clayton, Witte
+2006; details in the PR):
+
+- Stiff, measured: legs swung ±15°, a third of what reads as a stride on legs that pivot at the body's bottom (a real
+  limb pivots at the withers, so the same hoof travel takes about 1.5 times the angle); folds and nods were small.
+- Now: real footfall timing and stance shares per gait; stance angles about 1.5 times the published whole-limb ones
+  (walk front +26°/-18°, gallop up to +32°/-34°), turning as over a planted hoof; in the air a fold up to 0.45 of the
+  leg, a flick back and a reach forward (swinging +42°/-44° at a gallop), all with no change of pace at either end.
+- A rigid leg turned that far lifts its hoof, so while moving on level ground the body sits lower on its legs (0.07
+  blocks at a walk to 0.12 at a gallop, eased with the speed) and the legs fold under it in mid-stance by exactly what
+  keeps each hoof down, as fetlocks give. On slopes and stairs (from 10°) the crouch is gone: there the legs swing less
+  and need all their reach for the ground below (with it, hooves hung over lower steps). The rider sits with the body;
+  the camera's bounce is unchanged.
+- The body's rise and pitch keep their size (the rider's feel) but are timed to the footfalls: highest at a walk's
+  front mid-stance, at a trot's push-off, in the canter's and gallop's moment in the air.
+- The neck is carried lower the faster the gait (stretched out at a gallop) and nods up to ±7°, lowest at each front
+  mid-stance (walk, trot) or as the leading front hoof lands (canter, gallop); the tail bounces after the body.
