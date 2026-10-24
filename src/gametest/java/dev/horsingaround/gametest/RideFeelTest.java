@@ -3597,7 +3597,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 				if (!Double.isNaN(previousDrawn)) {
 					final double rise = (s.visualY - previousDrawn) / elapsed;
 					if (!Double.isNaN(previousRise) && t > 2) {
-						sharpest = Math.max(sharpest, rise - previousRise);
+						// (From rest or rising: a fall stopping is the landing, not a pop. Landing with a step up right ahead,
+						// the body comes down 0.16 a tick and goes up 0.15 for the step the next, which read as 0.3.)
+						sharpest = Math.max(sharpest, rise - Math.max(previousRise, 0.0));
 					}
 					previousRise = rise;
 				}
