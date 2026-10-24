@@ -20,7 +20,7 @@ Picking what runs:
 
 - `-Ptests=ride,terrain,mounts,server`; `-Pscenario=<part of its name>` for one terrain scenario; `-Pgait=walk|trot|canter`
   rides the terrain at that gait (gallop by default; the pace checks are for a gallop). Each terrain scenario logs the legs
-  (`LegProbe.about`, leaves counting as open): sole speed against the horse, soles and body in the ground and where.
+  (`LegProbe.about`, leaves counting as open): sole speed against the horse, soles, body and head in the ground and where.
 - `-Psections=core,cuts,stairs,picking,steps` for ride sections. Also:
   - `legs`: close shots of the legs in a jump.
   - `slopes`, `face`: just the slope-and-stairs lanes, and the jump-at-a-wall lanes.
@@ -35,6 +35,8 @@ Picking what runs:
   - `exits`: out of water onto banks of a few heights, wading and swimming.
   - `landing`: a gallop jump down onto a hillside of steps, ridden on down it (also in `stairs`): the body never tilts
     down past its landing and turns smoothly, and the rider keeps a gallop's seat through the air.
+  - `hill`: a gallop up a steep, ragged hillside of 1-block steps, ridden across it (also in `stairs`): the head never goes
+    into the hillside and the drawn body never falls far behind the horse.
   - `strafe`: stopping after riding with A or D alone.
   - `hands`: the rider's arms with items, swings and a bow, with close shots.
   - `climbs`: 2-block climbs by angle, speed, start and what is round them, plus noisy mountain staircases and diagonal
@@ -75,7 +77,7 @@ A mod of its own, `horsingaround-devtools`, loaded in dev games (`./gradlew runC
 in the jar players install. It holds `LegProbe` (the legs measured exactly as drawn; the tests use it) and the play-test
 recorder: in a dev game it records every frame of the ridden horse into a ring of about 30 seconds: the body as drawn
 (height, pitch and roll off the model) and what turns it (the slope's tilt, a jump's, the lean, the legs' jump shape), the
-horse's state (in the air, leapt, ledge climb, heave, vertical speed, on the ground), the camera, the keys, what the
+horse's state (in the air, leapt, ledge climb, heave, vertical speed, on the ground), how far its head is in the ground, the camera, the keys, what the
 crosshair targets and the attack charge, and each leg as drawn with its step state. **F7** saves it to `run/devtools/<time>/` (`frames.csv`, `ground.csv` with the
 ground along the way, `events.txt`). Every hitch (a hoof, the body, its tilt or the camera changing speed in one frame)
 and every sunk hoof also goes to `run/devtools/events.log` as it happens, with every turn of the body faster than 150

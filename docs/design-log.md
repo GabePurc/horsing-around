@@ -834,6 +834,13 @@ landings straddled the edge.
 - The rider snapped back going off a ledge fast (play-test, 2026-10-23): their seat (18 degrees forward at a gallop) was read
   off the legs' animation speed, which stops in the air, so they sat up in a tick or two. The seat now goes by the pace the
   horse is going at (`RideState.pace`, eased as the legs' speed is on the ground), which carries on through the air.
+- The horse "flew in the sky for a second" (play-test, 2026-10-23, recorded; on main too): a 2-block climb up a mountainside
+  of 1-block steps had one block left to heave and set the horse down on top while the drawn body, catching up, still rose
+  a block a tick; the touchdown carried that on, so it rose 3 blocks before snapping back. A touchdown now carries only a fall.
+- "The horse's whole head was in the ground while going up a hill" (play-test, 2026-10-24, recorded; on main too): galloping
+  up a ragged hillside, where two steps meet in a 2-block face under the middle of the horse but a step under its side, the
+  ground ahead read as a wall (level), so the body stopped rising and tilting for the hill, fell up to 2 blocks behind the
+  horse and its head went into the steps ahead. A face now counts only if it is one under the horse's sides too.
 
 ## A rider who rides like one (user direction, 2026-10-23)
 
