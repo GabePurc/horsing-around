@@ -1265,10 +1265,22 @@ public final class RideController {
 		// Higher than a step: a slope only if it steps down a block at a time back to the hooves (ground a block nearer no
 		// more than a step below, and so on); otherwise it is the top of a face (a ledge, a wall) and reads as level, so the
 		// forehand doesn't rear up against it.
+		// (Under either side of the horse too: on a ragged hillside two steps meet in a 2-block face here and there, a face
+		// under the middle of the horse but a step under its side, and as its width carries it up there, it climbs. Read as
+		// a face, the hillside ahead went level, the body stopped rising for it and the head went into the steps; play-test
+		// 2026-10-24.)
+		final double side = horse.getBbWidth() * 0.5;
 		double top = ground;
 		for (double near = reach - 1.0; top > y + RIDDEN_STEP_HEIGHT + 0.01; near -= 1.0) {
-			top = near < -1.0 ? Double.NaN
-				: surface(horse, horse.getX() + fx * near, horse.getZ() + fz * near, top + 0.01, top - RIDDEN_STEP_HEIGHT - 0.01);
+			if (near < -1.0) {
+				return y;
+			}
+			final double from = top;
+			top = Double.NaN;
+			for (int k = 0; k < 3 && (Double.isNaN(top) || top == Double.NEGATIVE_INFINITY); k++) {
+				final double across = k == 0 ? 0.0 : k == 1 ? side : -side;
+				top = surface(horse, horse.getX() + fx * near - fz * across, horse.getZ() + fz * near + fx * across, from + 0.01, from - RIDDEN_STEP_HEIGHT - 0.01);
+			}
 			if (Double.isNaN(top) || top == Double.NEGATIVE_INFINITY) {
 				return y;
 			}

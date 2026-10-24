@@ -160,6 +160,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 			if (sections.isEmpty() || sections.contains("stairs") || sections.contains("landing")) {
 				jumpDownHillside(ctx, input, world);
 			}
+			if (sections.isEmpty() || sections.contains("stairs") || sections.contains("hill")) {
+				gallopUpHill(ctx, input, world);
+			}
 			if (sections.contains("legs")) {
 				// Only on request: close side shots of the legs in a jump, for judging the pose.
 				jumpLegShots(ctx, input, world);
@@ -1240,6 +1243,70 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("...turning smoothly (most the tilt's turn changes in a tick, deg)", bob, 0.0, 3.0);
 		log("  the legs' stride at its lowest in the air: %.2f (the rider's pace at the jump %.2f)", lowStride, cruisePace);
 		check("the rider keeps the gallop's seat in the air and down the hillside (lowest pace / at the jump)", lowPace / cruisePace, 0.9, 1.1);
+		stop(ctx, input);
+	}
+
+	/**
+	 * Galloping up a steep hillside of 1-block steps, 1 or 2 deep, ragged, ridden across it at an angle (a generated
+	 * mountainside). The drawn body fell up to two blocks behind the horse climbing it, its head in the hillside
+	 * (play-test, 2026-10-24).
+	 */
+	private void gallopUpHill(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Galloping up a steep hillside of steps");
+		final int x = 9600;
+		final java.util.Random random = new java.util.Random(4421L);
+		final List<String> build = new ArrayList<>();
+		int z = -14;
+		final int steps = 14;
+		for (int k = 1; k <= steps; k++) {
+			for (int dx = -18; dx <= 4; dx++) {
+				final int jitter = random.nextInt(3) - 1;
+				build.add(String.format(Locale.ROOT, "fill %d -60 -60 %d %d %d minecraft:stone", x + dx, x + dx, -61 + k, z + jitter));
+			}
+			z -= 1 + random.nextInt(2);
+		}
+		final double topY = -60 + steps;
+		lane(ctx, input, world, x + 0.5, -60, "hill_up_test", build.toArray(String[]::new));
+		gallopNorth(ctx, input);
+		input.lookAt(155.0F, 10.0F);
+		float headIn = 0.0F;
+		float headHeaving = 0.0F;
+		float bodyIn = 0.0F;
+		float under = 0.0F;
+		int onTop = -1;
+		final StringBuilder trace = new StringBuilder();
+		ctx.runOnClient(mc -> LegProbe.arm(true));
+		for (int i = 0; i < 140; i++) {
+			ctx.waitTick();
+			final Sample s = sample(ctx);
+			final double head = ctx.computeOnClient(mc -> LegProbe.headInside);
+			final double body = ctx.computeOnClient(mc -> LegProbe.bodyInside);
+			final float offset = ride(ctx, r -> r.heightOffset(1.0F));
+			if (horseZ(ctx) < -14.0 && onTop < 0) {
+				// (Heaving up a 2-block face where the ragged steps make one, the head is up against the face.)
+				if (ride(ctx, r -> r.ledgeTicks) > 0) {
+					headHeaving = (float) Math.max(headHeaving, head);
+				} else {
+					headIn = (float) Math.max(headIn, head);
+				}
+				bodyIn = (float) Math.max(bodyIn, body);
+				under = Math.min(under, offset);
+				trace.append(String.format(Locale.ROOT, "%.1f/%.2f/%.0f ", offset, head, s.pitch));
+			}
+			if (onTop < 0 && s.onGround && s.y > topY - 0.1) {
+				onTop = i;
+			}
+			if (onTop >= 0 && i > onTop + 10) {
+				break;
+			}
+		}
+		ctx.runOnClient(mc -> LegProbe.arm(false));
+		log("  climbing, a tick: drawn body over the horse (blocks) / head in the ground (blocks) / pitch (deg): %s", trace);
+		log("  the drawn body at most %.2f blocks under the horse, its underside at most %.2f in the ground; heaving, the head at most %.2f in", -under,
+			bodyIn, headHeaving);
+		check("gallops up the hillside", onTop >= 0);
+		check("the head never goes into the hillside (most, blocks)", headIn, 0.0, 0.1);
+		check("...nor does the body fall far behind the horse climbing it (most under it, blocks)", -under, 0.0, 1.2);
 		stop(ctx, input);
 	}
 

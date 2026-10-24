@@ -34,7 +34,7 @@ public final class Recorder {
 	static final int FRAMES = 8000;
 	private static final String[] BODY = {"time", "fps", "x", "y", "z", "yaw", "speed", "gait", "keys", "body", "tilt", "fit", "near", "camx", "camy", "camz",
 		"camyaw", "campitch", "target", "attack", "dpitch", "droll", "slope", "jump", "lean", "airlegs", "inair", "leapt", "ledge", "ledgeair", "bank",
-		"vy", "ground"};
+		"vy", "ground", "headin"};
 	private static final String[] LEG = {"x", "y", "z", "gap", "clip", "lift", "rise", "back", "turn", "step"};
 	private static final int COLUMNS = BODY.length + 4 * LEG.length;
 	private static final double[][] RING = new double[FRAMES][COLUMNS];
@@ -106,6 +106,7 @@ public final class Recorder {
 		row[c++] = ride.bankTicks;
 		row[c++] = horse.getDeltaMovement().y;
 		row[c++] = horse.onGround() ? 1 : 0;
+		row[c++] = LegProbe.headInside;
 		// The moments that turn the body: off the ground, landing, a ledge climb starting or ending, a leap.
 		if (ride.inAir != lastInAir) {
 			event(mc, String.format(Locale.ROOT, "%s [t%.2f y %.2f speed %.2f drawn pitch %.1f]", ride.inAir ? "airborne" : "landed", time, horse.getY(),
