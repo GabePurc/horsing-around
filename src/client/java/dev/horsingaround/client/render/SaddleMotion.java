@@ -26,6 +26,11 @@ public final class SaddleMotion {
 	public float pitch;
 	/** Saddle roll, degrees, right positive. */
 	public float roll;
+	/**
+	 * Generated (the plain model, see GaitCycle): how much lower the body sits on its legs while moving, blocks. Not in
+	 * the lift, which the camera's bounce follows.
+	 */
+	public float crouch;
 	/** Generated here, so the horse model must be moved by it too. */
 	public boolean synthetic;
 	/** Leg-animation speed, 0..1. */
@@ -67,6 +72,7 @@ public final class SaddleMotion {
 			this.side = s.animatedSide - s.animatedSideBase;
 			this.pitch = s.animatedPitch - s.animatedPitchBase;
 			this.roll = s.animatedRoll - s.animatedRollBase;
+			this.crouch = 0.0F;
 			return this;
 		}
 
@@ -76,13 +82,14 @@ public final class SaddleMotion {
 		final float walk = (1.0F - trot - run) * this.moving;
 		// (In water the legs swing at a fifth of the pace; the body keeps time with them.)
 		final float phase = horse.walkAnimation.position(partialTicks) * GaitCycle.LEG_PHASE * (horse.isInWater() ? GaitCycle.WATER_PACE : 1.0F);
-		final float twice = Mth.cos(phase * 2.0F);
-		final float once = Mth.cos(phase - Mth.PI / 3.0F);
+		final float t = phase * (1.0F / Mth.TWO_PI);
 		final float stance = horse.onGround() ? 1.0F : 0.0F;
-		this.lift = stance * ((SADDLE_LIFT_WALK * walk + SADDLE_LIFT_TROT * trot) * twice
-			+ (SADDLE_LIFT_CANTER * canter + SADDLE_LIFT_GALLOP * gallop) * once);
-		this.pitch = stance * ((SADDLE_PITCH_WALK * walk + SADDLE_PITCH_TROT * trot) * Mth.sin(phase * 2.0F)
-			+ (SADDLE_PITCH_CANTER * canter + SADDLE_PITCH_GALLOP * gallop) * Mth.sin(phase));
+		this.lift = stance * GaitCycle.bodyLift(t, walk, trot, canter, gallop);
+		this.pitch = stance * GaitCycle.bodyPitch(t, walk, trot, canter, gallop);
+		// (On sloping ground, stairs and the like, the legs swing less (see GroundLegs) and need all their reach for the
+		// ground below: the body comes up off its crouch.)
+		this.crouch = GaitCycle.crouch(walk, trot, canter, gallop)
+			* (1.0F - smoothstep(Math.abs(s.pitch(partialTicks)) * Mth.DEG_TO_RAD / GAIT_CROUCH_FLAT_TILT));
 		this.forward = 0.0F;
 		this.side = 0.0F;
 		this.roll = 0.0F;

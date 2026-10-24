@@ -945,56 +945,79 @@ public final class RideTuning {
 	public static final float GALLOP_ANIMATION_SPEED = 0.95F;
 
 	/**
-	 * The plain model's own gaits (when no animation pack poses it; see GaitCycle), walk, trot, canter, gallop, at the
-	 * speeds above and in time with the saddle motion. Each leg's touch-down as a share of the stride (left front, right
-	 * front, left hind, right hind): the walk in four even beats, each hind hoof landing a quarter-stride before the front
-	 * one on its side; the trot on diagonal pairs; the canter and gallop on the left lead (right hind, then the left hind
-	 * and right front, then the left front leading); each gait's moment in the air where the saddle is highest. Written
-	 * past 0 and 1 where that keeps the next gait's a short way off, because the gaits blend.
+	 * The plain model's own gaits (when no animation pack poses it; see GaitCycle): walk, trot, canter, gallop, at the
+	 * speeds above, from published kinematics of real horses (sources in the PR that brought them). Each leg's touch-down
+	 * as a share of the stride (left front, right front, left hind, right hind): the walk in four beats, each hind hoof a
+	 * quarter-stride before the front one on its side; the trot on diagonal pairs, the hind hoof a little first; the
+	 * canter and the gallop on the left lead (right hind, left hind, right front, left front). Written past 0 and 1 where
+	 * that keeps the next gait's a short way off, because the gaits blend.
 	 */
 	public static final float[][] GAIT_TOUCHDOWN = {
-		{-0.105F, 0.395F, 0.645F, 0.145F},
-		{0.02F, 0.52F, 0.52F, 0.02F},
-		{-0.34F, 0.48F, 0.43F, 0.28F},
-		{-0.26F, 0.62F, 0.42F, 0.3F},
+		{0.23F, 0.73F, 1.0F, 0.5F},
+		{0.38F, 0.88F, 0.85F, 0.35F},
+		{0.12F, 0.89F, 0.85F, 0.62F},
+		{0.14F, 0.895F, 0.805F, 0.63F},
 	};
-	/** Share of the stride each hoof is on the ground. */
-	public static final float[] GAIT_STANCE = {0.62F, 0.46F, 0.4F, 0.3F};
+	/** Share of the stride a front and a hind hoof is on the ground. */
+	public static final float[] GAIT_FORE_STANCE = {0.63F, 0.46F, 0.42F, 0.33F};
+	public static final float[] GAIT_HIND_STANCE = {0.58F, 0.42F, 0.46F, 0.34F};
 	/**
-	 * How far forward a leg is as it touches down and how far back as it lifts off, radians: kept small, because a rigid
-	 * leg turned about its top lifts its hoof off the ground (at 0.27 by 0.4 of a pixel), and the body comes down onto
-	 * hooves that stand off it (in the trot only two stand, both turned at once: smaller still).
+	 * How far forward a leg is as it touches down and how far back as it lifts off, radians from upright. The legs swing
+	 * from the bottom of the body, not from the withers as a real horse's do, so they turn about one and a half times as
+	 * far as a real limb to carry the hoof as far.
 	 */
-	public static final float[] GAIT_FORE_REACH = {0.26F, 0.24F, 0.27F, 0.27F};
-	public static final float[] GAIT_FORE_BACK = {0.24F, 0.22F, 0.25F, 0.25F};
-	public static final float[] GAIT_HIND_REACH = {0.18F, 0.2F, 0.25F, 0.26F};
-	public static final float[] GAIT_HIND_BACK = {0.27F, 0.23F, 0.27F, 0.27F};
+	public static final float[] GAIT_FORE_REACH = {0.454F, 0.419F, 0.524F, 0.559F};
+	public static final float[] GAIT_FORE_BACK = {0.314F, 0.244F, 0.419F, 0.489F};
+	public static final float[] GAIT_HIND_REACH = {0.384F, 0.314F, 0.454F, 0.524F};
+	public static final float[] GAIT_HIND_BACK = {0.454F, 0.489F, 0.524F, 0.593F};
 	/**
-	 * In the air the leg goes further: back after it pushes off (early in the swing) and forward reaching for the ground
-	 * (late), radians more than the hermite curve between lift-off and touch-down that keeps the leg's pace through both.
+	 * In the air a leg goes further: on back a little after it pushes off (early in the swing), and forward reaching
+	 * past its touch-down (late in the swing, so it draws back to meet the ground), radians.
 	 */
-	public static final float[] GAIT_FORE_FLICK = {0.02F, 0.1F, 0.12F, 0.15F};
-	public static final float[] GAIT_FORE_STRETCH = {0.08F, 0.25F, 0.32F, 0.42F};
-	public static final float[] GAIT_HIND_FLICK = {0.05F, 0.17F, 0.2F, 0.28F};
-	public static final float[] GAIT_HIND_STRETCH = {0.06F, 0.16F, 0.24F, 0.3F};
+	public static final float[] GAIT_FORE_FLICK = {0.03F, 0.1F, 0.1F, 0.12F};
+	public static final float[] GAIT_FORE_STRETCH = {0.08F, 0.2F, 0.2F, 0.2F};
+	public static final float[] GAIT_HIND_FLICK = {0.02F, 0.1F, 0.15F, 0.15F};
+	public static final float[] GAIT_HIND_STRETCH = {0.06F, 0.12F, 0.12F, 0.12F};
 	/** Where in the swing the flick back and the stretch forward are furthest. */
-	public static final float GAIT_FLICK_PEAK = 0.25F;
-	public static final float GAIT_STRETCH_PEAK = 0.75F;
-	/** How high a hoof lifts in its swing, a share of the leg's length (drawn up into the body, as the leg folds). */
-	public static final float[] GAIT_FORE_LIFT = {0.14F, 0.24F, 0.28F, 0.32F};
-	public static final float[] GAIT_HIND_LIFT = {0.12F, 0.2F, 0.24F, 0.26F};
-	/** Where in its swing a hoof is highest: a front one early (it folds up, then reaches out), a hind one midway. */
-	public static final float GAIT_FORE_LIFT_PEAK = 0.4F;
-	public static final float GAIT_HIND_LIFT_PEAK = 0.5F;
+	public static final float GAIT_FLICK_PEAK = 0.3F;
+	public static final float GAIT_STRETCH_PEAK = 0.65F;
+	/**
+	 * How far a leg folds in its swing, a share of its length (drawn up into the body: a one-piece leg's knee and hock),
+	 * and where in the swing it is folded most: a front leg early (it folds up under the forearm, then reaches out).
+	 */
+	public static final float[] GAIT_FORE_FOLD = {0.32F, 0.38F, 0.42F, 0.45F};
+	public static final float[] GAIT_HIND_FOLD = {0.28F, 0.3F, 0.34F, 0.36F};
+	public static final float GAIT_FORE_FOLD_PEAK = 0.42F;
+	public static final float GAIT_HIND_FOLD_PEAK = 0.5F;
+	/**
+	 * Moving, the body sits this much lower on its legs (blocks, at each gait): a rigid leg turned out to touch down or
+	 * lift off reaches less far down than one under the body, so the legs fold under it in mid-stance instead, the way a
+	 * horse's fetlocks give. Just enough for the furthest a leg is turned on the ground.
+	 */
+	public static final float[] GAIT_CROUCH = {0.07F, 0.081F, 0.092F, 0.118F};
+	/** The crouch is gone on ground tilted this far (radians): there the legs need all their reach for the ground below. */
+	public static final float GAIT_CROUCH_FLAT_TILT = 0.17F;
 	/** Leg-animation speed at which the legs swing fully; below, they swing less, and stand straight at a standstill. */
 	public static final float GAIT_FULL_SWING = 0.2F;
-	/** The head's nod (radians, down positive) and where in the stride it is lowest; twice a stride at a walk and trot. */
-	public static final float[] GAIT_NOD = {0.07F, 0.015F, 0.08F, 0.08F};
-	public static final float[] GAIT_NOD_LOW = {0.0F, 0.25F, 0.75F, 0.8F};
-	/** The tail's bounce (radians, up positive) and where in the stride it is highest, and its swing at a walk. */
-	public static final float[] GAIT_TAIL = {0.0F, 0.05F, 0.1F, 0.1F};
-	public static final float[] GAIT_TAIL_HIGH = {0.0F, 0.3F, 0.75F, 0.8F};
-	public static final float GAIT_TAIL_SWAY = 0.06F;
+	/**
+	 * When in the stride the body is highest (the saddle motion's lift, with its pitch a quarter-beat later): the walk at
+	 * each front leg's mid-stance, the trot as a diagonal pair pushes off, the canter and the gallop in their moment in
+	 * the air. And when the canter and gallop pitch nose-up most (the hind legs under it).
+	 */
+	public static final float[] GAIT_BODY_HIGH = {0.045F, 0.335F, 0.58F, 0.55F};
+	public static final float[] GAIT_BODY_NOSE_UP = {0.0F, 0.0F, 0.8F, 0.8F};
+	/**
+	 * The neck: carried lower the faster the gait (radians forward and down; stretched out at a gallop), nodding about it
+	 * (radians), lowest at these points of the stride (the walk and trot at each front leg's mid-stance, twice a stride;
+	 * the canter and gallop as the leading front hoof lands, once), so it follows the body a beat behind.
+	 */
+	public static final float[] GAIT_NECK = {0.05F, 0.06F, 0.12F, 0.26F};
+	public static final float[] GAIT_NOD = {0.12F, 0.045F, 0.1F, 0.12F};
+	public static final float[] GAIT_NOD_LOW = {0.03F, 0.08F, 0.12F, 0.14F};
+	/** The tail bounces after the body (radians, up positive; highest at these points) and swings with the walk's hips. */
+	public static final float[] GAIT_TAIL = {0.03F, 0.07F, 0.15F, 0.12F};
+	public static final float[] GAIT_TAIL_HIGH = {0.17F, 0.46F, 0.83F, 0.8F};
+	public static final float GAIT_TAIL_SWAY = 0.12F;
 
 	// ---- Camera (client) ----
 

@@ -885,3 +885,20 @@ vanilla's one-piece legs stay, and a model an animation pack animates is never t
   weight); the tail bounces after the body and swings with the walk's hips. Vanilla's own head bob comes out.
 - Only for the horses the mod manages (as everything else it draws), on every version; the ride's ground and jump legs
   go on top. `-Ptests=store -Pscenario=study -PvanillaModel` films each gait side on.
+
+Play-test (2026-10-24): "Honestly it looks really bad. The animations are way too stiff... should be based on how a real
+horse runs." Reworked from published kinematics (Miró 2006, Rhodin 2022, Dunbar 2008, Hildebrand 1977, Clayton, Witte
+2006; details in the PR):
+
+- Stiff, measured: legs swung ±15°, a third of what reads as a stride on legs that pivot at the body's bottom (a real
+  limb pivots at the withers, so the same hoof travel takes about 1.5 times the angle); folds and nods were small.
+- Now: real footfall timing and stance shares per gait; stance angles about 1.5 times the published whole-limb ones
+  (walk front +26°/-18°, gallop up to +32°/-34°), turning as over a planted hoof; in the air a fold up to 0.45 of the
+  leg, a flick back and a reach forward (swinging +42°/-44° at a gallop), all with no change of pace at either end.
+- A rigid leg turned that far lifts its hoof, so while moving the body sits lower on its legs (0.07 blocks at a walk to
+  0.12 at a gallop, eased with the speed) and the legs fold under it in mid-stance by exactly what keeps each hoof down,
+  as fetlocks give. The rider sits with the body; the camera's bounce is unchanged.
+- The body's rise and pitch keep their size (the rider's feel) but are timed to the footfalls: highest at a walk's
+  front mid-stance, at a trot's push-off, in the canter's and gallop's moment in the air.
+- The neck is carried lower the faster the gait (stretched out at a gallop) and nods up to ±7°, lowest at each front
+  mid-stance (walk, trot) or as the leading front hoof lands (canter, gallop); the tail bounces after the body.

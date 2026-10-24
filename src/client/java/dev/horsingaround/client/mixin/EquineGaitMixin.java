@@ -4,10 +4,12 @@ import dev.horsingaround.client.compat.AnimationPacks;
 import dev.horsingaround.client.render.GaitCycle;
 import dev.horsingaround.client.render.RidePoseState;
 //? if >=1.21.2 {
+import net.minecraft.client.model.Model;
 import net.minecraft.client.model.animal.equine.AbstractEquineModel;
 import net.minecraft.client.renderer.entity.state.EquineRenderState;
 //?} else {
 /*import dev.horsingaround.client.render.LegacyRenderState;
+import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.HorseModel;
 import net.minecraft.world.entity.animal.horse.AbstractHorse;
 *///?}
@@ -55,7 +57,8 @@ public abstract class EquineGaitMixin {
 		if (pose.horsingaround$rideState() != null && !AnimationPacks.animates(this)) {
 			GaitCycle.pose(
 				this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, this.headParts, this.tail, state.walkAnimationPos,
-				state.walkAnimationSpeed, state.isInWater, state.standAnimation, state.eatAnimation, pose.horsingaround$legTilt()
+				state.walkAnimationSpeed, state.isInWater, state.standAnimation, state.eatAnimation, pose.horsingaround$legTilt(), pose.horsingaround$gaitLift(),
+				16.0F / ((Model<?>) (Object) this).root().yScale, pose.horsingaround$airLegs()
 			);
 		}
 	}
@@ -67,10 +70,12 @@ public abstract class EquineGaitMixin {
 	) {
 		final Object state = LegacyRenderState.of(horse);
 		if (state != null && !AnimationPacks.animates(this)) {
+			final RidePoseState pose = (RidePoseState) state;
 			final float partialTicks = ageInTicks - horse.tickCount;
 			GaitCycle.pose(
 				this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, this.headParts, this.tail, limbSwing, limbSwingAmount,
-				horse.isInWater(), horse.getStandAnim(partialTicks), horse.getEatAnim(partialTicks), ((RidePoseState) state).horsingaround$legTilt()
+				horse.isInWater(), horse.getStandAnim(partialTicks), horse.getEatAnim(partialTicks), pose.horsingaround$legTilt(), pose.horsingaround$gaitLift(),
+				16.0F / LegacyRenderState.horseRoot(((EntityModel<?>) (Object) this).young).yScale, pose.horsingaround$airLegs()
 			);
 		}
 	}

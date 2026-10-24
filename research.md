@@ -71,10 +71,12 @@ whatever the speed; no stamina; no visual weight.
 - Stay vanilla (user, 2026-10-08): vanilla's one-piece legs, never a knee or extra joint (tried and removed). With an
   animation pack (Fresh Animations, EMF + ETF), never replace its animation; only add transforms on top, and keep
   vanilla animation inputs truthful.
-- The plain model gets gaits of our own (user direction, 2026-10-23, replacing vanilla's one sine swing there): a
-  four-beat walk, diagonal trot, three-beat canter and four-beat gallop on the left lead, in vanilla's cadence and in
-  time with the saddle motion; hooves lift and swing with no jolt at lift-off or touch-down, the head nods and the tail
-  bounces (`GaitCycle`, numbers in `RideTuning`). The ride's ground and jump legs go on top of it.
+- The plain model gets gaits of our own (user direction, 2026-10-23, replacing vanilla's one sine swing there), based
+  on how real horses move (user, 2026-10-24: the first try was "way too stiff"): footfalls, stance shares and limb
+  angles from published gait kinematics, the legs swinging about 1.5 times a real limb's angle (they pivot at the body's
+  bottom, not the withers) and folding in the air; the body sits a little lower while moving so planted hooves stay
+  down; the neck lowers with speed and nods a beat behind the body; the tail follows. Vanilla's cadence, in time with
+  the saddle motion, no jolt anywhere (`GaitCycle`, numbers and sources in `RideTuning` and the PR).
 - Physically right first (user): hooves planted on the ground actually under them (not in it, not floating), legs
   drawing up into the body over higher ground; the body is a mass carried on its legs, never falling faster than
   gravity; the tilt is the line between the ground under the front and the hind hooves.

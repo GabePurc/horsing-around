@@ -56,6 +56,7 @@ public final class RidePoser {
 			pose.horsingaround$setRide(null);
 			pose.horsingaround$setAirLegs(0.0F, 0.0F);
 			pose.horsingaround$setTail(0.0F);
+			pose.horsingaround$setGaitLift(0.0F);
 			return;
 		}
 		final LivingEntity horse = (LivingEntity) holder;
@@ -85,7 +86,7 @@ public final class RidePoser {
 		final float moveForward = jointForward * cosJump - jointUp * sinJump + pivot;
 		final float moveUp = jointForward * sinJump + jointUp * cosJump;
 		final float bankSin = Mth.sin(bank);
-		final float bodyLift = s.heightOffset(partialTicks) + (saddle.synthetic ? saddle.lift : 0.0F) + moveUp * Mth.cos(bank);
+		final float bodyLift = s.heightOffset(partialTicks) + (saddle.synthetic ? saddle.lift - saddle.crouch : 0.0F) + moveUp * Mth.cos(bank);
 		final float shiftX = fx * moveForward + rx * moveUp * bankSin;
 		final float shiftZ = fz * moveForward + rz * moveUp * bankSin;
 		HORSE_ROTATION.rotationAxis(bank, fx, 0.0F, fz).rotateAxis(bodyPitch, rx, 0.0F, rz);
@@ -118,6 +119,7 @@ public final class RidePoser {
 			}
 			pose.horsingaround$setAirLegs(packAnimated ? 0.0F : s.airLegs(partialTicks), s.airRise(partialTicks));
 			pose.horsingaround$setTail(packAnimated ? 0.0F : s.tailLift(partialTicks));
+			pose.horsingaround$setGaitLift(saddle.synthetic ? saddle.lift - saddle.crouch : 0.0F);
 			if (bank == 0.0F && bodyPitch == 0.0F && bodyLift == 0.0F) {
 				pose.horsingaround$clearPose();
 			} else {
