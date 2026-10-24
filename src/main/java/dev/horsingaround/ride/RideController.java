@@ -842,6 +842,7 @@ public final class RideController {
 		tail(horse, s, groundSpeed);
 		s.wasOnGround = onGround;
 		s.drawnRise = (float) (y + s.heightOffset - horse.yo - s.heightOffsetO);
+		RiderMotion.tick(horse, s);
 	}
 
 	/**

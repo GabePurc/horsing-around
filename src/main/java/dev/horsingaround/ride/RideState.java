@@ -193,6 +193,21 @@ public final class RideState {
 	public float sitBack;
 	public float roomAt = Float.NaN;
 	public float headGap = Float.MAX_VALUE;
+	/**
+	 * How the rider carries their weight (see RiderMotion), each on a spring: standing in the stirrups (0 sitting, 1 up out
+	 * of the saddle), bracing the legs forward (0..1), and giving at the hips after a landing (0..1, a little below 0 as it
+	 * comes back up); and how fast the drawn body rose the tick before (blocks/tick).
+	 */
+	float stand;
+	float standO;
+	float standVelocity;
+	float brace;
+	float braceO;
+	float braceVelocity;
+	float settle;
+	float settleO;
+	float settleVelocity;
+	float riderLastRise;
 
 	/** The move in progress is the horse's in the air, with a hoof put down for it (see the entity mixin): steps up only AIR_STEP. */
 	public boolean airFooting;
@@ -409,6 +424,21 @@ public final class RideState {
 	/** Rider lean from the horse speeding up (back, positive) or slowing (forward), degrees. */
 	public float inertia(final float partialTicks) {
 		return this.inertiaO + (this.inertia - this.inertiaO) * partialTicks;
+	}
+
+	/** How far the rider stands in the stirrups, 0 (sitting) to 1 (up out of the saddle). */
+	public float stand(final float partialTicks) {
+		return this.standO + (this.stand - this.standO) * partialTicks;
+	}
+
+	/** How far the rider braces their legs forward in the stirrups, 0..1. */
+	public float brace(final float partialTicks) {
+		return this.braceO + (this.brace - this.braceO) * partialTicks;
+	}
+
+	/** How far the rider gives at the hips after a landing, 0..1 (a little below 0 as they come back up). */
+	public float settle(final float partialTicks) {
+		return this.settleO + (this.settle - this.settleO) * partialTicks;
 	}
 
 	/** The drawn body is below where the horse stands (landing, crouching): the legs take it up. */

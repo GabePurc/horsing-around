@@ -763,3 +763,26 @@ very fast to avoid clipping. Direction: avoid clipping in a smooth and realistic
   (it hovered).
 - Known: standing on stairs, a hoof can still read up to 0.45 in the ground for a moment (0.5 before); the tests that
   render a frame a tick count a hoof that now lifts over two ticks as two jumps.
+
+## A rider who rides like one (user direction, 2026-10-23)
+
+The user: the player isn't moving physically accurately; they should look like a real person on the horse and react
+like one, maybe standing up when going fast; look at medieval riding rather than modern racing.
+
+What medieval riders did (sources in the PR): long stirrups and straight legs, deep in a high-cantled war saddle, or
+standing in the stirrups with the legs straight under them (Duarte I of Portugal, c. 1438, calls standing the older
+way; war and joust saddles had the rider "almost standing", braced on the cantle); about 10-13 cm of clearance standing
+(an 1850 cavalry rule); the upper body kept straight whatever the horse does; no rising trot before the 18th century and
+no jockey crouch before the late 1800s. Xenophon: lean back going down and pulling up short, forward as the horse
+springs, hold the mane going up; before Caprilli riders landed jumps leaning back, legs forward. Measured riders move
+their trunk only ~5 degrees a stride; knees and ankles take landings.
+
+- Standing: the stand eases in with the gait (a quarter at a canter, all the way at a gallop), and on a steep climb or a
+  ledge heave. A Minecraft leg has no knee, so the rider stands as a straight-legged rider does: the leg turns about the
+  foot in the stirrup, the hips come up 0.11 and forward over it, and the stirrup swings back toward straight down (the
+  Fresh Animations stirrups swing with it, so the feet stay in them). The legs take most of the saddle's bounce and the
+  torso little of its rocking; it leans 8 degrees forward, upright.
+- Weight: the inertia lean against surges stays; pulling up, going downhill and coming down in the air, the rider braces
+  (stirrups and legs forward, sitting back 7 degrees, sitting down out of a stand); when the horse's body is caught from
+  below (a landing, a step at speed) the rider gives at the hips and knees and comes back up. Each is a spring on game
+  ticks (`RiderMotion`), read by the pose (`RiderSeat`, `RidePoser`).
