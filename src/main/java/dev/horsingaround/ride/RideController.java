@@ -878,6 +878,7 @@ public final class RideController {
 		stepNear(horse, s, groundSpeed, bodyYaw);
 		s.wasOnGround = onGround;
 		s.drawnRise = (float) (y + s.heightOffset - horse.yo - s.heightOffsetO);
+		RiderMotion.tick(horse, s);
 	}
 
 	/** What {@link #landing} found: ticks until the flight lands, and the flight's angle then (degrees, up positive). */

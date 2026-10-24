@@ -95,7 +95,13 @@ whatever the speed; no stamina; no visual weight.
 ## Rider
 
 - Never looks detached (user): hips ride the animated body, feet in stirrups, hands on reins; resists the horse's
-  lean and stays upright; bounces with the gait; a small pelvis rock at a canter, a half seat at a gallop (not a hump).
+  lean and stays upright; bounces with the gait.
+- Rides like a real person, medieval rather than modern racing (user, 2026-10-23): long stirrups and straight legs (a
+  Minecraft leg has no knee anyway: it turns about the foot in the stirrup); sits the walk and trot, a light seat at a
+  canter (a small pelvis rock, not a hump), standing in the stirrups at a gallop, upright and a little forward (not a
+  jockey's crouch), the legs taking the bounce. Weight shows: leans back from a surge; braces the legs forward and sits
+  back pulling up, going downhill and coming down out of a jump or off a drop; gives at the hips and knees landing;
+  rises into a steep climb or a ledge heave. All on springs: nothing snaps.
 - Tools and weapons are held low and ready in the main hand, the other on the reins; swings start and end there.
 - The bow is drawn like an archer's (side-on, bow arm to the target, string hand to the cheek); crossbow square to
   the aim; first person and on-foot left to vanilla.

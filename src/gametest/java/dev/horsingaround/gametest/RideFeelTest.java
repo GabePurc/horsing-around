@@ -314,6 +314,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		ctx.waitTicks(40);
 		check("walk speed (blocks/tick)", averageSpeed(ctx, 10), WALK_SPEED * 0.85, WALK_SPEED * 1.15);
 		check("gait is walk", sample(ctx).gait == RideTuning.WALK);
+		check("at a walk the rider sits in the saddle (standing, 0..1)", ride(ctx, r -> r.stand(1.0F)), 0.0, 0.02);
 		check("walk leg-animation speed (Fresh Animations walk < 0.4)", sample(ctx).limbSpeed, 0.25, 0.39);
 		if (FabricLoader.getInstance().isModLoaded("entity_model_features")) {
 			float low = Float.MAX_VALUE;
@@ -341,16 +342,24 @@ public final class RideFeelTest implements FabricClientGameTest {
 			ticks += 8;
 		}
 		float surgeLean = 0.0F;
+		float rising = 0.0F;
+		float stood = ride(ctx, r -> r.stand(1.0F));
 		while (sample(ctx).speed < GALLOP_SPEED * 0.95 && ticks < 200) {
 			ctx.waitTick();
 			ticks++;
 			surgeLean = Math.max(surgeLean, riderInertia(ctx));
+			final float stand = ride(ctx, r -> r.stand(1.0F));
+			rising = Math.max(rising, Math.abs(stand - stood));
+			stood = stand;
 		}
 		check("rider sways back as the horse surges (deg)", surgeLean, 1.0, 12.0);
+		// (A tick in the test can be more than one game tick.)
+		check("the rider rises into the stirrups smoothly (most in a test tick, 0..1)", rising, 0.0, 0.2);
 		check("ticks from walk to 95% gallop", ticks, 25, 70);
 		ctx.waitTicks(10);
 		check("gallop speed (blocks/tick)", averageSpeed(ctx, 10), GALLOP_SPEED * 0.9, GALLOP_SPEED * 1.1);
 		check("gait is gallop", sample(ctx).gait == RideTuning.GALLOP);
+		check("at a gallop the rider stands in the stirrups (0..1)", ride(ctx, r -> r.stand(1.0F)), 0.9, 1.0);
 		check("gallop leg-animation speed (Fresh Animations gallop >= 0.8)", sample(ctx).limbSpeed, 0.95, 1.0);
 		screenshot(ctx, "03_gallop");
 		frontScreenshot(ctx, "03b_gallop_front");
@@ -609,6 +618,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		double slowest = Double.MAX_VALUE;
 		int airborne = 0;
 		float noseUp = 0.0F;
+		float bracedInAir = 0.0F;
 		float noseDown = 0.0F;
 		float airLegs = 0.0F;
 		float slowestStride = Float.MAX_VALUE;
@@ -659,6 +669,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 				}
 			}
 			final float tilt = ride(ctx, r -> r.jumpPitch(1.0F));
+			if (rise < -0.4F) {
+				bracedInAir = Math.max(bracedInAir, ride(ctx, r -> r.brace(1.0F)));
+			}
 			noseUp = Math.max(noseUp, tilt);
 			noseDown = Math.min(noseDown, tilt);
 			if (!s.onGround) {
@@ -678,6 +691,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		// (A real horse lands a jump 25 to 38 degrees nose down, research 2026-10-23: JUMP_PITCH_DOWN.)
 		check("lands front first: nose down (deg)", -noseDown, 6.0, 26.0);
 		check("rider's head clear of the horse's in the jump (closest, centre to centre, blocks)", headGap, 0.45, 10.0);
+		check("coming down, the rider braces their legs forward for the landing (0..1)", bracedInAir, 0.2, 1.0);
 		check("speed kept in the air (fraction)", slowest / before, 0.85, 1.3);
 		check("in the air the legs take the jump's shape (0..1)", airLegs, 0.95, 1.0);
 		check("the gallop stride stops in the air (leg-animation speed)", slowestStride, 0.0, 0.3);
@@ -689,6 +703,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		// Landing: the legs take the fall (the body sinks a little and comes back up), every hoof on the ground, not in it.
 		ctx.runOnClient(mc -> LegProbe.arm(true));
 		double landing = 0.0;
+		float settled = 0.0F;
 		double sunk = 0.0;
 		double dip = 0.0;
 		double drawn = 0.0;
@@ -707,6 +722,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 				sunk = Math.min(sunk, now[0]);
 			}
 			dip = Math.min(dip, now[1]);
+			settled = Math.max(settled, ride(ctx, r -> r.settle(1.0F)));
 			final String line = ctx.computeOnClient(mc -> LegProbe.line());
 			touchdown.append(String.format(Locale.ROOT, "off%+.3f %s| ", now[1], line));
 		}
@@ -718,6 +734,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		}));
 		check("no surge after landing (fastest tick / before)", landing / before, 0.9, 1.12);
 		check("landing, the legs take the fall: the body sinks a little (blocks)", -dip, 0.03, 0.3);
+		check("landing, the rider gives at the hips and knees (0..1)", settled, 0.15, 1.0);
 		// (A rocking hoof's edge dips about a pixel into the ground, as the animation draws it.)
 		check("landing, the hooves were measured (frames drawn)", drawn, 1.0, 1.0E6);
 		check("landing, no hoof sinks into the ground (most, blocks)", sunk, -0.08, 0.0);
@@ -786,14 +803,18 @@ public final class RideFeelTest implements FabricClientGameTest {
 		input.releaseKey(o -> o.keyUp);
 		input.holdKey(o -> o.keyDown);
 		float brakeLean = 0.0F;
+		float braced = 0.0F;
 		int brakeTicks = 0;
 		while (sample(ctx).speed > 0.01 && brakeTicks < 60) {
 			ctx.waitTick();
 			brakeTicks++;
 			brakeLean = Math.min(brakeLean, riderInertia(ctx));
+			braced = Math.max(braced, ride(ctx, r -> r.brace(1.0F)));
 		}
 		check("brake ticks from " + String.format(Locale.ROOT, "%.2f", cruising) + " b/t", brakeTicks, 5, 20);
 		check("rider tips forward under braking (deg)", brakeLean, -12.0, -1.5);
+		check("...and braces their legs forward in the stirrups (0..1)", braced, 0.3, 1.0);
+		check("...sitting down to do it (standing, 0..1)", ride(ctx, r -> r.stand(1.0F)), 0.0, 0.4);
 		ctx.waitTicks(20);
 		check("backs up while S held", sample(ctx).gait == RideTuning.STOP && signedSpeed(ctx) < -0.01);
 		input.releaseKey(o -> o.keyDown);
