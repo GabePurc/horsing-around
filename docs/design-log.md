@@ -831,3 +831,6 @@ landings straddled the edge.
   ground down a step the jump's held. Now the whole tilt turns as one: in the air toward the flight's, on the ground
   toward the slope's line, the jump's share (pivoting on the hooves) easing out inside it. Flat landings unchanged (hind
   hooves down by the 8th tick).
+- The rider snapped back going off a ledge fast (play-test, 2026-10-23): their seat (18 degrees forward at a gallop) was read
+  off the legs' animation speed, which stops in the air, so they sat up in a tick or two. The seat now goes by the pace the
+  horse is going at (`RideState.pace`, eased as the legs' speed is on the ground), which carries on through the air.

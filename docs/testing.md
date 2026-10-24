@@ -34,7 +34,7 @@ Picking what runs:
     with `film`, side clips at half speed into `stride-film/<lane>/` (frames: `ffmpeg -framerate 30 -i %04d.png`).
   - `exits`: out of water onto banks of a few heights, wading and swimming.
   - `landing`: a gallop jump down onto a hillside of steps, ridden on down it (also in `stairs`): the body never tilts
-    down past its landing and turns smoothly.
+    down past its landing and turns smoothly, and the rider keeps a gallop's seat through the air.
   - `strafe`: stopping after riding with A or D alone.
   - `hands`: the rider's arms with items, swings and a bow, with close shots.
   - `climbs`: 2-block climbs by angle, speed, start and what is round them, plus noisy mountain staircases and diagonal

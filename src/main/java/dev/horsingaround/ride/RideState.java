@@ -245,6 +245,9 @@ public final class RideState {
 	float inertiaVelocity;
 	float lastGroundSpeed;
 	float lastGroundSpeedO;
+	/** The pace the rider sits to, 0..1 on the legs' animation speed scale (see RideController.tickVisual). */
+	float pace;
+	float paceO;
 	/**
 	 * The body carried on its legs: world height of the front and the back of the body (at hoof level) and how fast each
 	 * is moving (blocks/tick; see RideController.steps), and the ground each is carried toward (reused while the horse
@@ -475,6 +478,11 @@ public final class RideState {
 	}
 
 	/** Rider lean from the horse speeding up (back, positive) or slowing (forward), degrees. */
+	/** The pace the rider sits to and the saddle rocks with, 0..1 as the legs' animation speed. */
+	public float pace(final float partialTicks) {
+		return this.paceO + (this.pace - this.paceO) * partialTicks;
+	}
+
 	public float inertia(final float partialTicks) {
 		return this.inertiaO + (this.inertia - this.inertiaO) * partialTicks;
 	}

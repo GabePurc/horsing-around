@@ -1175,18 +1175,25 @@ public final class RideFeelTest implements FabricClientGameTest {
 		final List<Double> hind = new ArrayList<>();
 		final List<Double> fore = new ArrayList<>();
 		final StringBuilder trace = new StringBuilder();
+		float cruisePace = Float.NaN;
+		float lowPace = Float.MAX_VALUE;
+		float lowStride = Float.MAX_VALUE;
 		ctx.runOnClient(mc -> LegProbe.arm(true));
 		for (int i = 0; i < 120; i++) {
 			ctx.waitTick();
 			final Sample s = sample(ctx);
 			final double z = horseZ(ctx);
 			if (!jumped && z < -26.0) {
+				cruisePace = ride(ctx, r -> r.pace(1.0F));
 				input.pressKey(o -> o.keyJump);
 				jumped = true;
 			}
 			if (!jumped) {
 				continue;
 			}
+			// The pace the rider sits to, against the legs' stride (which stops in the air).
+			lowPace = Math.min(lowPace, ride(ctx, r -> r.pace(1.0F)));
+			lowStride = Math.min(lowStride, ctx.computeOnClient(mc -> ((AbstractHorse) mc.player.getVehicle()).walkAnimation.speed()));
 			final float jump = ride(ctx, r -> r.jumpPitch(1.0F));
 			final float drawn = jump + ride(ctx, r -> r.pitch(1.0F));
 			final boolean flight = ride(ctx, r -> r.inAir);
@@ -1230,6 +1237,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("lands nose down, no more than a jump does (JUMP_PITCH_DOWN 25, deg)", -flightDown, 0.0, 26.0);
 		check("galloping on down the hillside, never tilted down more than it landed (deg past it)", flightDown - drawnDown, 0.0, 3.0);
 		check("...turning smoothly (most the tilt's turn changes in a tick, deg)", bob, 0.0, 3.0);
+		log("  the legs' stride at its lowest in the air: %.2f (the rider's pace at the jump %.2f)", lowStride, cruisePace);
+		check("the rider keeps the gallop's seat in the air and down the hillside (lowest pace / at the jump)", lowPace / cruisePace, 0.9, 1.1);
 		stop(ctx, input);
 	}
 

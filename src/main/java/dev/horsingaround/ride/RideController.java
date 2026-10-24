@@ -742,6 +742,13 @@ public final class RideController {
 		final float surge = groundSpeed - s.lastGroundSpeed;
 		s.lastGroundSpeedO = s.lastGroundSpeed;
 		s.lastGroundSpeed = groundSpeed;
+		// The pace the rider sits to and the saddle rocks with: what the legs' animation speed follows on the ground (see
+		// LivingEntityMixin), eased as it is, but on through the air, where the stride stops. Read off the legs, a rider at
+		// a gallop sat up as the horse left the ground (play-test, 2026-10-23).
+		s.paceO = s.pace;
+		s.pace = horse.getControllingPassenger() instanceof Player
+			? s.pace + (Math.min(groundSpeed / topSpeed(horse) * ANIMATION_SPEED_FACTOR, 1.0F) - s.pace) * PACE_EASE
+			: horse.walkAnimation.speed();
 		s.inertiaO = s.inertia;
 		final float inertiaTarget = horse.isVehicle() ? Mth.clamp(surge * INERTIA_GAIN, -INERTIA_MAX, INERTIA_MAX) : 0.0F;
 		s.inertiaVelocity += (inertiaTarget - s.inertia) * INERTIA_STIFFNESS - s.inertiaVelocity * INERTIA_DAMPING;

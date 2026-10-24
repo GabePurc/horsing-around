@@ -748,6 +748,8 @@ public final class RideTuning {
 	 * 0.4 and its gallop at 0.8, so walk ~0.35, trot ~0.6, canter ~0.85 and gallop 1.0 each get the matching gait.
 	 */
 	public static final float ANIMATION_SPEED_FACTOR = 1.0F;
+	/** How fast the pace the rider sits to follows the horse's speed: as the legs' animation speed does (vanilla's 0.4). */
+	static final float PACE_EASE = 0.4F;
 
 	/** Hoof sounds switch to the gallop clip at this fraction of vanilla top speed. */
 	public static final float GALLOP_SOUND_SPEED = 0.72F;
