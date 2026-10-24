@@ -913,7 +913,7 @@ public final class RideTuning {
 	 * back up just past where it was).
 	 */
 	public static final float SETTLE_KICK = 4.0F;
-	public static final float SETTLE_KICK_MAX = 0.35F;
+	public static final float SETTLE_KICK_MAX = 0.5F;
 	public static final float SETTLE_STIFFNESS = 0.2F;
 	public static final float SETTLE_DAMPING = 0.6F;
 	/** Given all the way: the upper body SETTLE_FOLD degrees forward, a standing rider's hips SETTLE_SINK blocks down, loose hands SETTLE_HANDS radians down. */
