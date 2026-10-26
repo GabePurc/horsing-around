@@ -136,9 +136,9 @@ public abstract class AbstractEquineModelMixin {
 			//?} else
 			/*final ModelPart root = LegacyRenderState.horseRoot(((EntityModel<?>) (Object) this).young);*/
 			final float pixels = 16.0F / root.yScale;
-			// (The plain model's own legs reach their ground themselves, see Strides.)
-			final boolean footing = !Strides.posed(ride) && GroundLegs.pose(
-				this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, pose.horsingaround$legTilt(), pose.horsingaround$foreLeg(),
+			// (The plain model's own legs already stand upright in the world, see Strides: no tilt to stand them against.)
+			final boolean footing = GroundLegs.pose(
+				this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, Strides.posed(ride) ? 0.0F : pose.horsingaround$legTilt(), pose.horsingaround$foreLeg(),
 				pose.horsingaround$hindLeg(), pixels, ride, root, air < RideTuning.AIR_GROUNDED || ride != null && !ride.leapt()
 			);
 			// (A step down is a short fall, not a jump: with the hooves finding their ground, no jump shape. Landing a jump,

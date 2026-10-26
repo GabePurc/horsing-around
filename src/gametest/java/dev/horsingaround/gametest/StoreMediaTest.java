@@ -308,16 +308,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 			this.steer(ctx, spot.yaw, 70);
 			ctx.runOnClient(mc -> FilmCamera.film(horse, sunBehind(spot), 5.5F, 0.75F, 2.0F, 0.0F, 0.1F));
 			final TestInput input = ctx.getInput();
-			ctx.runOnClient(mc -> dev.horsingaround.client.render.Strides.TRACE.setLength(0));
 			this.record(ctx, "study_" + gaits[g], ticks[g], CLIP_HEIGHT, t -> 0.5, t -> input.lookAt(spot.yaw, 12.0F));
-			final String gaitName = gaits[g];
-			ctx.runOnClient(mc -> {
-				try {
-					java.nio.file.Files.writeString(this.out.resolve("trace_" + gaitName + ".csv"), dev.horsingaround.client.render.Strides.TRACE);
-				} catch (final IOException e) {
-					throw new UncheckedIOException(e);
-				}
-			});
 			this.stop(ctx);
 		}
 	}

@@ -52,6 +52,8 @@ public final class Strides {
 	private static final Matrix4f INVERSE = new Matrix4f();
 	private static final Vector3f POINT = new Vector3f();
 	private static final BlockPos.MutableBlockPos POS = new BlockPos.MutableBlockPos();
+	/** The most a leg folds, a share of its length (the rest is the ride's ground work, see GroundLegs). */
+	private static final float FOLD_MOST = 0.6F;
 	/** Where {@link #tread} found its ground (world x, z). */
 	private static double TREAD_X;
 	private static double TREAD_Z;
@@ -63,9 +65,6 @@ public final class Strides {
 
 	private Strides() {
 	}
-
-	/** TEMP debug trace. */
-	public static final StringBuilder TRACE = new StringBuilder();
 
 	/** How much of the motion is a canter or gallop, 0..1, at leg-animation speed {@code speed}. */
 	public static float run(final float speed) {
@@ -131,7 +130,7 @@ public final class Strides {
 			s.gaitVelocityX = 0.0;
 			s.gaitVelocityZ = 0.0;
 			s.gaitPosedAt = Double.NaN;
-			s.gaitGround = horse.onGround() ? 1.0F : 0.0F;
+			s.gaitGround = grounded(horse, s, partialTicks) ? 1.0F : 0.0F;
 			return;
 		}
 		final float dt = (float) ((now - s.gaitAt) * 0.05);
@@ -157,7 +156,7 @@ public final class Strides {
 		s.gaitShare[2] = run - gallop;
 		s.gaitShare[3] = gallop;
 		s.gaitStride = smoothstep(speed / GAIT_FULL_SPEED);
-		s.gaitGround += ((horse.onGround() && !horse.isInWater() ? 1.0F : 0.0F) - s.gaitGround) * (1.0F - (float) Math.exp(-dt / GROUND_TIME));
+		s.gaitGround += ((grounded(horse, s, partialTicks) ? 1.0F : 0.0F) - s.gaitGround) * (1.0F - (float) Math.exp(-dt / GROUND_TIME));
 		// Each gait's cadence: quick enough that the ground a hoof stands for fits its leg's reach, between a real horse's
 		// at this speed and that a horse this size would go; then how long each hoof stands, at most its gait's share.
 		float rate = 0.0F;
@@ -271,11 +270,6 @@ public final class Strides {
 		final double going = Math.sqrt(s.gaitVelocityX * s.gaitVelocityX + s.gaitVelocityZ * s.gaitVelocityZ);
 		final double backX = going > 1.0E-3 ? -s.gaitVelocityX / going : 0.0;
 		final double backZ = going > 1.0E-3 ? -s.gaitVelocityZ / going : 0.0;
-		final float crouch = crouch(s.gaitShare[0], s.gaitShare[1], s.gaitShare[2], s.gaitShare[3]) * 16.0F;
-		// For the body's fit onto its legs (see GroundLegs.fit).
-		double missing = Double.NEGATIVE_INFINITY;
-		double hanging = Double.POSITIVE_INFINITY;
-		double landing = Double.NEGATIVE_INFINITY;
 		boolean settled = true;
 		for (int i = 0; i < 4; i++) {
 			final ModelPart part = PARTS[i];
@@ -382,8 +376,6 @@ public final class Strides {
 				final float there = mix(s, GAIT_SWING_OVER);
 				final float over = smoothstep((sw - first) / (there - first));
 				final float down = toY > s.hoofFromY[i] ? smoothstep(sw / (first + 0.6F * (there - first))) : smoothstep((sw - first) / (1.0F - first));
-				// (Landing higher than its leg can draw up for: the body comes up for it as it comes.)
-				landing = Math.max(landing, (toY - (hipY - length) - LEG_DRAW_MAX) * over);
 				// (Its lift: an arc highest early in the swing, held up until it is over its landing spot, then set down.)
 				final float setDown = Math.min(there, GAIT_SWING_SET_DOWN);
 				final float held = smoothstep(sw / GAIT_SWING_HOLD) * (1.0F - smoothstep((sw - setDown) / (1.0F - setDown)));
@@ -404,39 +396,38 @@ public final class Strides {
 			// in the air too, so nothing jumps as it lands or lifts.)
 			final float out = (relX * relX + relZ * relZ) / Math.max(relX * relX + relY * relY + relZ * relZ, 1.0E-6F);
 			relY -= leg.soleHalf * CORNER * (Mth.sqrt(out + CORNER_EASE * CORNER_EASE) - CORNER_EASE);
-			if (Boolean.getBoolean("horsingaround.stridesTrace") && TRACE.length() < 3_000_000) {
-				TRACE.append(String.format(java.util.Locale.ROOT, "%x,%.4f,%d,%.4f,%.4f,%d,%.4f,%.3f,%.3f,%.3f,%.3f,%.3f%n", System.identityHashCode(s), now, i, phase, p,
-					s.hoofDown[i] ? 1 : 0, s.hoofDown[i] ? 0.0 : s.swingThrough[i], relX, relY, relZ, stance,
-					rate));
-			}
 			// The leg turns about its top to point at its hoof, and folds by what is short of its length.
 			final float reach = Mth.sqrt(relX * relX + relY * relY + relZ * relZ);
 			final float turn = reach < 1.0E-3F ? 0.0F : (float) Math.asin(Mth.clamp(relZ / reach, -1.0F, 1.0F));
 			s.gaitLegTurn[i] = Mth.clamp(turn, -GAIT_LEG_MOST, GAIT_LEG_MOST);
 			s.gaitLegSide[i] = relY <= 0.0F ? 0.0F : (float) Math.atan2(-relX, relY);
-			// (Drawn up into the body by what is short of its length, or hanging at its length over lower ground.)
-			final float drawn = leg.length - reach;
-			s.gaitLegFold[i] = Mth.clamp(drawn, 0.0F, LEG_RISE_MAX * 16.0F);
+			// (Drawn up into the body by what is short of its length; the ride's ground work (GroundLegs) does the rest: a
+			// hoof still in the ground, and the body's fit onto its legs.)
+			s.gaitLegFold[i] = Mth.clamp(leg.length - reach, 0.0F, FOLD_MOST * leg.length);
 			s.hoofReach[i] = reach / 16.0F;
-			s.legRise[i] = 0.0F;
-			settled &= s.hoofDown[i] && Mth.square(s.hoofX[i] - hipX) + Mth.square(s.hoofZ[i] - hipZ) < GAIT_SQUARE * GAIT_SQUARE;
-			if (s.hoofDown[i]) {
-				if (s.plantReach[i] < 0.0F) {
-					s.plantReach[i] = reach / 16.0F;
-				}
-				final float under = drawn / 16.0F;
-				s.legRise[i] = Math.max(under, 0.0F);
-				missing = Math.max(missing, under - LEG_DRAW_MAX);
-				if (under > -HANG_REACH) {
-					hanging = Math.min(hanging, under < 0.0F ? Math.max(-under - GAIT_HANG_SLACK, 0.0F) : -under);
-				}
-				if (drawn > crouch + 1.0F) {
-					Legs.drawnFrames++;
-				}
+			if (s.hoofDown[i] && s.plantReach[i] < 0.0F) {
+				s.plantReach[i] = reach / 16.0F;
 			}
+			settled &= s.hoofDown[i] && Mth.square(s.hoofX[i] - hipX) + Mth.square(s.hoofZ[i] - hipZ) < GAIT_SQUARE * GAIT_SQUARE;
 		}
 		s.gaitSettled = settled;
-		GroundLegs.fit(s, missing, hanging, landing, s.gaitGround >= 1.0F, dt);
+	}
+
+	/**
+	 * Whether hoof {@code i} of these legs is in its swing, or about to step (the body has gone out of its reach), for the
+	 * ride's ground work: such a hoof doesn't hold the body down onto it. (GroundLegs goes by how high an animation has a
+	 * hoof; these legs lower the body as they go, so that would read planted hooves as lifted.)
+	 */
+	public static boolean lifted(final RideState s, final int i) {
+		return !s.hoofDown[i] || s.hoofReach[i] > Math.max(s.plantReach[i], GAIT_LEG) + GAIT_HANG_SLACK;
+	}
+
+	/**
+	 * Whether the hooves are on their ground: not in a jump (stepping or falling off something, they find the ground
+	 * under them, as GroundLegs has it) nor swimming.
+	 */
+	private static boolean grounded(final LivingEntity horse, final RideState s, final float partialTicks) {
+		return (s.airLegs(partialTicks) < AIR_GROUNDED || !s.leapt()) && !horse.isInWater();
 	}
 
 	/** Where hoof {@code i} stands (world height): on its ground, or off the ground (a jump, swimming), hanging from its leg. */

@@ -168,7 +168,9 @@ public final class GroundLegs {
 				continue;
 			}
 			// (How high the pack has the hoof, before it is turned upright: lifted mid-stride, it isn't standing.)
-			final float packLift = (groundY - (part.y + leg.soleY * Mth.cos(part.xRot) - leg.z * Mth.sin(part.xRot))) / pixels;
+			// (The plain model's own legs say: they lower the body as they go, so their planted hooves are below this line.)
+			final float packLift = drawn && Strides.posed(ride) ? (Strides.lifted(ride, i) ? PACK_LIFT : 0.0F)
+				: (groundY - (part.y + leg.soleY * Mth.cos(part.xRot) - leg.z * Mth.sin(part.xRot))) / pixels;
 			PACK_LIFTS[i] = packLift;
 			// On steep ground the stride is shorter (a horse picks its way up and down stairs): the pack's swing, turned
 			// about the top of the leg, is scaled down; then the leg stands upright against the tilt, its top's corner drawn
@@ -283,7 +285,9 @@ public final class GroundLegs {
 				// Standing: not lifted by the stride, and over ground in reach (not stepping off a drop, or over the ground
 				// behind a ledge).
 				if (packLift < PACK_LIFT && !StepLegs.stepping && under > -HANG_REACH) {
-					hanging = Math.min(hanging, -under);
+					// (The plain model's own planted hooves may hang a hair as the body rises and falls with the stride: that is
+					// the stride's, not ground to come down onto.)
+					hanging = Math.min(hanging, under < 0.0 && Strides.posed(ride) ? Math.max(-under - GAIT_HANG_SLACK, 0.0) : -under);
 				}
 			}
 			if (draw > 0.0F) {
@@ -308,55 +312,44 @@ public final class GroundLegs {
 			groundFrames++;
 			ride.legsActive = active;
 			ride.legsFound = grounded && found;
-			fit(ride, missing, hanging, landing, grounded, dt);
+			// The body rests on its legs: where the ride carries it, unless that leaves every standing hoof above its ground
+			// (it comes down onto them) or a leg needing to draw up further than it can (it comes up, at once: a hard stop,
+			// in a jump too). Otherwise it settles back to where the ride carries it.
+			// (A leg can draw up past LEG_DRAW_MAX for a moment, to LEG_RISE_MAX: the body rises smoothly to bring it back, and
+			// only comes up at once for a leg that couldn't reach its ground at all.)
+			final float floor = missing == Double.NEGATIVE_INFINITY ? -FIT_DOWN_MAX : (float) Math.min(ride.drawnFit + missing, FIT_UP_MAX);
+			final float hardFloor = floor - (LEG_RISE_MAX - LEG_DRAW_MAX);
+			float wanted = 0.0F;
+			if (grounded) {
+				if (hanging != Double.POSITIVE_INFINITY) {
+					// (Never so low the chest meets a step ahead.)
+					wanted = Math.max(Math.min(wanted, ride.drawnFit - (float) hanging), -ride.chestRoom);
+				}
+				// A hoof about to land on higher ground than its leg can draw up for: the body rises for it as it comes (the
+				// other legs pushing), rather than all at once when it lands.
+				if (landing > 0.0) {
+					wanted = Math.max(wanted, ride.drawnFit + (float) landing);
+				}
+				wanted = Math.max(wanted, floor);
+			}
+			wanted = Mth.clamp(wanted, -FIT_DOWN_MAX, FIT_UP_MAX);
+			if (dt > 0.0F) {
+				// On its legs, a critically damped spring (solved implicitly), coming down no faster than it would fall.
+				final float w = 1.0F / FIT_TIME;
+				final float velocity = (ride.drawnFitVelocity + w * w * (wanted - ride.drawnFit) * dt) / (1.0F + 2.0F * w * dt + w * w * dt * dt);
+				ride.drawnFitVelocity = Math.max(velocity, ride.drawnFitVelocity - FIT_GRAVITY * dt);
+				ride.drawnFit += ride.drawnFitVelocity * dt;
+			}
+			if (grounded && ride.drawnFit < hardFloor) {
+				ride.drawnFit = hardFloor;
+				ride.drawnFitVelocity = Math.max(ride.drawnFitVelocity, 0.0F);
+			}
+			if (Math.abs(ride.drawnFit) < 1.0E-3F && wanted == 0.0F && Math.abs(ride.drawnFitVelocity) < 1.0E-2F) {
+				ride.drawnFit = 0.0F;
+				ride.drawnFitVelocity = 0.0F;
+			}
 		}
 		return drawn && grounded && found;
-	}
-
-	/**
-	 * The body rests on its legs (the plain model's own strides use this too, see {@link Strides}): where the ride carries
-	 * it, unless that leaves every standing hoof above its ground (it comes down onto them) or a leg needing to draw up
-	 * further than it can (it comes up, at once: a hard stop, in a jump too). Otherwise it settles back to where the ride
-	 * carries it.
-	 *
-	 * @param missing the most any leg would have to draw up past LEG_DRAW_MAX (blocks), or negative infinity
-	 * @param hanging the least any standing hoof is above its ground (blocks), or positive infinity
-	 * @param landing the most a hoof on its way onto higher ground will need the body up, to land there (blocks)
-	 */
-	static void fit(final RideState ride, final double missing, final double hanging, final double landing, final boolean grounded, final float dt) {
-		// (A leg can draw up past LEG_DRAW_MAX for a moment, to LEG_RISE_MAX: the body rises smoothly to bring it back, and
-		// only comes up at once for a leg that couldn't reach its ground at all.)
-		final float floor = missing == Double.NEGATIVE_INFINITY ? -FIT_DOWN_MAX : (float) Math.min(ride.drawnFit + missing, FIT_UP_MAX);
-		final float hardFloor = floor - (LEG_RISE_MAX - LEG_DRAW_MAX);
-		float wanted = 0.0F;
-		if (grounded) {
-			if (hanging != Double.POSITIVE_INFINITY) {
-				// (Never so low the chest meets a step ahead.)
-				wanted = Math.max(Math.min(wanted, ride.drawnFit - (float) hanging), -ride.chestRoom);
-			}
-			// A hoof about to land on higher ground than its leg can draw up for: the body rises for it as it comes (the
-			// other legs pushing), rather than all at once when it lands.
-			if (landing > 0.0) {
-				wanted = Math.max(wanted, ride.drawnFit + (float) landing);
-			}
-			wanted = Math.max(wanted, floor);
-		}
-		wanted = Mth.clamp(wanted, -FIT_DOWN_MAX, FIT_UP_MAX);
-		if (dt > 0.0F) {
-			// On its legs, a critically damped spring (solved implicitly), coming down no faster than it would fall.
-			final float w = 1.0F / FIT_TIME;
-			final float velocity = (ride.drawnFitVelocity + w * w * (wanted - ride.drawnFit) * dt) / (1.0F + 2.0F * w * dt + w * w * dt * dt);
-			ride.drawnFitVelocity = Math.max(velocity, ride.drawnFitVelocity - FIT_GRAVITY * dt);
-			ride.drawnFit += ride.drawnFitVelocity * dt;
-		}
-		if (grounded && ride.drawnFit < hardFloor) {
-			ride.drawnFit = hardFloor;
-			ride.drawnFitVelocity = Math.max(ride.drawnFitVelocity, 0.0F);
-		}
-		if (Math.abs(ride.drawnFit) < 1.0E-3F && wanted == 0.0F && Math.abs(ride.drawnFitVelocity) < 1.0E-2F) {
-			ride.drawnFit = 0.0F;
-			ride.drawnFitVelocity = 0.0F;
-		}
 	}
 
 	/**

@@ -105,7 +105,6 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	systemProperty "horsingaround.sections", rideSections
 	systemProperty "horsingaround.plainTextures", project.hasProperty("plainTextures")
 	systemProperty "horsingaround.vanillaModel", project.hasProperty("vanillaModel")
-	systemProperty "horsingaround.stridesTrace", project.hasProperty("stridesTrace")
 	dependsOn installDebugPack
 	lightTestGame(it)
 }
