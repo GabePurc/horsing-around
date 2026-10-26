@@ -925,8 +925,9 @@ blocks a step (Fresh Animations' do too).
   its own progress through the air, not a time on the clock. Standing still, the legs step square and the stride stops.
 - On slopes and stairs the ride's ground work (`GroundLegs`) goes on top, as for an animation pack, told which hooves
   are planted (these legs lower the body, which would read as lifted); it leaves alone a planted hoof hanging under 0.05
-  blocks (the stride's own rise and fall), and doesn't hold the body down onto a hoof about to step.
+  blocks (the stride's own rise and fall), doesn't hold the body down onto a hoof about to step, and counts a leg folded
+  onto its hoof as drawn up (else a body come down onto its legs stopping stayed 0.01-0.02 low).
 - Measured (flat ground, plain model): a planted hoof slides at most 0.003-0.03 blocks a step at every gait (Fresh
   Animations: 0.55-1.65 on average). Known limit: walking up and down stairs, a pair of hooves is off the ground together
-  a little more than with vanilla's swing (90th percentile 0.38-0.42 / 0.32-0.35 blocks against vanilla's 0.33 / 0.32):
+  a little more than with vanilla's swing (90th percentile 0.36-0.42 / 0.32-0.40 blocks against vanilla's 0.33 / 0.32):
   the climb takes a planted hoof out of a one-piece leg's reach within a few ticks.

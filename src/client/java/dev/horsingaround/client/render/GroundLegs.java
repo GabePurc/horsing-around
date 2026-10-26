@@ -276,9 +276,8 @@ public final class GroundLegs {
 				landing = Math.max(landing, swung - sole - LEG_DRAW_MAX);
 			}
 			if (!Double.isNaN(now) && now != Double.NEGATIVE_INFINITY) {
-				// (Only the ground under a hoof holds the body up at once; the lift to clear what is ahead doesn't. The plain
-				// model's own legs fold onto their hooves: that is drawn up too, so a body come down onto them rises back.)
-				final double under = now - sole + (Strides.posed(ride) ? ride.gaitLegFold[i] / pixels : 0.0);
+				// (Only the ground under a hoof holds the body up at once; the lift to clear what is ahead doesn't.)
+				final double under = now - sole;
 				found = true;
 				if (!heave || i >= 2) {
 					missing = Math.max(missing, under - LEG_DRAW_MAX);
@@ -286,9 +285,14 @@ public final class GroundLegs {
 				// Standing: not lifted by the stride, and over ground in reach (not stepping off a drop, or over the ground
 				// behind a ledge).
 				if (packLift < PACK_LIFT && !StepLegs.stepping && under > -HANG_REACH) {
-					// (The plain model's own planted hooves may hang a hair as the body rises and falls with the stride: that is
-					// the stride's, not ground to come down onto.)
-					hanging = Math.min(hanging, under < 0.0 && Strides.posed(ride) ? Math.max(-under - GAIT_HANG_SLACK, 0.0) : -under);
+					if (Strides.posed(ride)) {
+						// (The plain model's own planted hooves may hang a hair as the body rises and falls with the stride: that
+						// is the stride's, not ground to come down onto. Their legs fold onto them: that is drawn up, so a body
+						// come down onto them rises back.)
+						hanging = Math.min(hanging, (under < 0.0 ? Math.max(-under - GAIT_HANG_SLACK, 0.0) : -under) - ride.gaitLegFold[i] / pixels);
+					} else {
+						hanging = Math.min(hanging, -under);
+					}
 				}
 			}
 			if (draw > 0.0F) {
