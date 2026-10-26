@@ -71,12 +71,15 @@ whatever the speed; no stamina; no visual weight.
 - Stay vanilla (user, 2026-10-08): vanilla's one-piece legs, never a knee or extra joint (tried and removed). With an
   animation pack (Fresh Animations, EMF + ETF), never replace its animation; only add transforms on top, and keep
   vanilla animation inputs truthful.
-- The plain model gets gaits of our own (user direction, 2026-10-23, replacing vanilla's one sine swing there), based
-  on how real horses move (user, 2026-10-24: the first try was "way too stiff"): footfalls, stance shares and limb
-  angles from published gait kinematics, the legs swinging about 1.5 times a real limb's angle (they pivot at the body's
-  bottom, not the withers) and folding in the air; the body sits a little lower while moving so planted hooves stay
-  down; the neck lowers with speed and nods a beat behind the body; the tail follows. Vanilla's cadence, in time with
-  the saddle motion, no jolt anywhere (`GaitCycle`, numbers and sources in `RideTuning` and the PR).
+- The plain model's legs are procedural (user direction, 2026-10-24, after keyframed gaits slid at every speed but
+  the gallop): each hoof is planted in the world where it lands and stays there while the body goes over it, the
+  one-piece leg turning about its top to point at it; a leg lifts on its gait's timing (real footfall order and stance
+  shares) or when the body has gone out of its reach, and swings to where it will land, predicted from the horse's
+  actual velocity, on the real ground there. The cadence comes from the real ground speed: a real horse's stride rate
+  for the gait, up to 1.3 times that to fit a leg this short, never more (hooves then stand a shorter share). Gaits blend
+  by speed; standing still, the legs step square and stop. Neck and tail as before. The ride's ground work
+  (GroundLegs: a hoof still in a step drawn up out of it, the body's fit onto its legs) goes on top, as for any
+  animation. `Strides`; numbers in `RideTuning.GAIT_*`, sources in PR #67.
 - Physically right first (user): hooves planted on the ground actually under them (not in it, not floating), legs
   drawing up into the body over higher ground; the body is a mass carried on its legs, never falling faster than
   gravity; the tilt is the line between the ground under the front and the hind hooves.

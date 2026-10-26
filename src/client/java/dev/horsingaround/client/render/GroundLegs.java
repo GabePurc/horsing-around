@@ -276,8 +276,9 @@ public final class GroundLegs {
 				landing = Math.max(landing, swung - sole - LEG_DRAW_MAX);
 			}
 			if (!Double.isNaN(now) && now != Double.NEGATIVE_INFINITY) {
-				// (Only the ground under a hoof holds the body up at once; the lift to clear what is ahead doesn't.)
-				final double under = now - sole;
+				// (Only the ground under a hoof holds the body up at once; the lift to clear what is ahead doesn't. The plain
+				// model's own legs fold onto their hooves: that is drawn up too, so a body come down onto them rises back.)
+				final double under = now - sole + (Strides.posed(ride) ? ride.gaitLegFold[i] / pixels : 0.0);
 				found = true;
 				if (!heave || i >= 2) {
 					missing = Math.max(missing, under - LEG_DRAW_MAX);

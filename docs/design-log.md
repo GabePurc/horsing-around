@@ -904,3 +904,29 @@ horse runs." Reworked from published kinematics (Miró 2006, Rhodin 2022, Dunbar
   front mid-stance, at a trot's push-off, in the canter's and gallop's moment in the air.
 - The neck is carried lower the faster the gait (stretched out at a gallop) and nods up to ±7°, lowest at each front
   mid-stance (walk, trot) or as the leading front hoof lands (canter, gallop); the tail bounces after the body.
+
+## Procedural legs for the plain model (play-test, 2026-10-24)
+
+"At full speed its decent but any other speed the legs are sliding cause they arent moving fast enough. I think that
+instead of making actual animations, it would be cool to use some sort of procedural animation system that makes the
+horse run like a real horse." Keyframed cycles on vanilla's cadence can't match the ground: hooves slid about 0.5-1.5
+blocks a step (Fresh Animations' do too).
+
+- Hooves are planted in the world (`Strides`): where a hoof lands it stays while the body goes over it, and its leg
+  turns about its top (and folds, drawn up into the body) to point at it. Each leg lifts on its gait's timing, or once
+  the body has gone more than 0.08 blocks out of its reach (climbing, or left behind), and swings through the air to
+  where it will land: half a stance ahead of where the top of its leg will be, from the horse's actual velocity, on the
+  real ground there (a step's face too high to stand on, it lands back from it). Its swing lifts before it moves and is
+  over its spot before it sets down, so it neither skims nor stamps.
+- Cadence from the real ground speed: each gait's real stride rate at that speed (walk 0.55 + 0.25 v, the faster gaits
+  nearly flat), up to 1.3 times that so a stride fits a leg this short, never more ("legs at light speed" was
+  rejected in #66); faster than that, hooves stand a shorter share of the stride, as they do at speed. Footfall order
+  and stance shares from the published kinematics (as before). Gaits blend by speed with no snap: each leg's swing is
+  its own progress through the air, not a time on the clock. Standing still, the legs step square and the stride stops.
+- On slopes and stairs the ride's ground work (`GroundLegs`) goes on top, as for an animation pack, told which hooves
+  are planted (these legs lower the body, which would read as lifted); it leaves alone a planted hoof hanging under 0.05
+  blocks (the stride's own rise and fall), and doesn't hold the body down onto a hoof about to step.
+- Measured (flat ground, plain model): a planted hoof slides at most 0.003-0.03 blocks a step at every gait (Fresh
+  Animations: 0.55-1.65 on average). Known limit: walking up and down stairs, a pair of hooves is off the ground together
+  a little more than with vanilla's swing (90th percentile 0.38-0.42 / 0.32-0.35 blocks against vanilla's 0.33 / 0.32):
+  the climb takes a planted hoof out of a one-piece leg's reach within a few ticks.
