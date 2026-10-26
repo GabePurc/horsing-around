@@ -960,3 +960,9 @@ smooth." Filmed close (`-Pscenario=legs`) and measured from each leg's angle:
   folds to its hoof's height (else riding sideways put a hoof 0.085 into the ground).
 - Stairs (90th percentile off the ground): walking up 0.30-0.36 (was 0.36-0.42), walking down 0.45-0.48 (was
   0.32-0.40; not the support rule, the stance angle or the descent's timing, each tried).
+- Head (user, same day, from the clips): "the horses head is moving too much at slow speeds and then the movement of the
+  head just doesnt look right overall. The head movement is really important for feeling the power of the horse and its
+  running mechanics." The scripted nods (twice a stride at a walk, about 4 a second at the ride's walk speed, 7 degrees)
+  are gone: the neck is a damped spring at the withers (2 swings a second), swung by the body's rise and pitch through
+  the stride. Measured swing either way: walk 1.3 degrees, trot 4, canter 8.5, gallop 10; the head lowest just after the
+  leading foreleg leaves the ground at a canter (0.23 of the stride after it lands), 0.35 at a gallop.

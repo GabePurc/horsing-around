@@ -81,7 +81,9 @@ whatever the speed; no stamina; no visual weight.
   third of a second, each leg keeping step with its gait's footfalls by going a little quicker or slower (never a jump);
   at a walk a hoof always stands; legs lean out at most 20 degrees. The body's rise, pitch and crouch follow how far the
   strides sweep, so a slow horse barely bobs (user, 2026-10-26: "the bounce at slow speeds is too much"); standing
-  still, the legs step square and stop. Neck and tail as before. The ride's ground work
+  still, the legs step square and stop. The neck swings on its own like a weight on a spring at the withers, driven by
+  the body's rise, fall and pitch (user, 2026-10-26: the head shows the horse's power): it pumps at the canter and
+  gallop and is nearly still at a walk. The tail as before. The ride's ground work
   (GroundLegs: a hoof still in a step drawn up out of it, the body's fit onto its legs) goes on top, as for any
   animation. `Strides`; numbers in `RideTuning.GAIT_*`, sources in PR #67.
 - Physically right first (user): hooves planted on the ground actually under them (not in it, not floating), legs

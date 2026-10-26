@@ -1053,14 +1053,22 @@ public final class RideTuning {
 	 */
 	public static final float[] GAIT_BODY_HIGH = {0.045F, 0.335F, 0.58F, 0.55F};
 	public static final float[] GAIT_BODY_NOSE_UP = {0.0F, 0.0F, 0.8F, 0.8F};
-	/**
-	 * The neck: carried lower the faster the gait (radians forward and down; stretched out at a gallop), nodding about it
-	 * (radians), lowest at these points of the stride (the walk and trot at each front leg's mid-stance, twice a stride;
-	 * the canter and gallop as the leading front hoof lands, once), so it follows the body a beat behind.
-	 */
+	/** The neck: carried lower the faster the gait (radians forward and down; stretched out at a gallop). */
 	public static final float[] GAIT_NECK = {0.05F, 0.06F, 0.12F, 0.26F};
-	public static final float[] GAIT_NOD = {0.12F, 0.045F, 0.1F, 0.12F};
-	public static final float[] GAIT_NOD_LOW = {0.03F, 0.08F, 0.12F, 0.14F};
+	/**
+	 * And it swings on its own like a weight on a spring at the withers (user, 2026-10-26: the head moved too much at slow
+	 * speeds and didn't look right, and it is what shows the horse's power): NECK_SWING times a second, damped NECK_DAMPING
+	 * of the way to not swinging back at all. The body's rise and fall through the stride swing it NECK_RISE radians a
+	 * second squared for each block a second squared the body is pushed up, its pitch NECK_PITCH for each radian a second
+	 * squared nose up (the withers rising, and the neck staying behind as the body turns), at most NECK_MOST radians
+	 * either way. Lagging them, it pumps at the canter and gallop, whose once-a-stride rise is near its own swing, and is
+	 * nearly still at a quick walk or trot, whose rise comes twice a stride.
+	 */
+	public static final float NECK_SWING = 2.0F;
+	public static final float NECK_DAMPING = 0.4F;
+	public static final float NECK_RISE = 1.4F;
+	public static final float NECK_PITCH = 1.4F;
+	public static final float NECK_MOST = 0.4F;
 	/** The tail bounces after the body (radians, up positive; highest at these points) and swings with the walk's hips. */
 	public static final float[] GAIT_TAIL = {0.03F, 0.07F, 0.15F, 0.12F};
 	public static final float[] GAIT_TAIL_HIGH = {0.17F, 0.46F, 0.83F, 0.8F};

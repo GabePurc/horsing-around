@@ -1229,13 +1229,14 @@ public final class StoreMediaTest implements FabricClientGameTest {
 						row.append(String.format(Locale.ROOT, ",%.2f,%.4f", Mth.rotLerp(partialTick, h.yBodyRotO, h.yBodyRot),
 							ride.drawnCameraY + ride.drawnPose.m31() - Mth.lerp(partialTick, h.yo, h.getY())));
 						// (The plain model's stride: ground speed, strides a second, front and hind stance, which hooves stand, sweep;
-						// per leg how far through its stance or swing and its stride it is.)
+						// per leg how far through its stance or swing and its stride it is; the neck on its spring.)
 						row.append(String.format(Locale.ROOT, ",%.3f,%.3f,%.3f,%.3f,%d%d%d%d,%.3f", Math.sqrt(ride.gaitVelocityX * ride.gaitVelocityX
 							+ ride.gaitVelocityZ * ride.gaitVelocityZ), ride.gaitRate, ride.gaitForeStance, ride.gaitHindStance, ride.hoofDown[0] ? 1 : 0,
 							ride.hoofDown[1] ? 1 : 0, ride.hoofDown[2] ? 1 : 0, ride.hoofDown[3] ? 1 : 0, ride.gaitSweep));
 						for (int leg = 0; leg < 4; leg++) {
 							row.append(String.format(Locale.ROOT, ",%.3f,%.3f", ride.hoofDown[leg] ? ride.stood[leg] : ride.swingThrough[leg], ride.legPhase[leg]));
 						}
+						row.append(String.format(Locale.ROOT, ",%.4f", ride.neck));
 					}
 					LEGS.add(row.toString());
 					if (mc.player.getVehicle() instanceof RideStateHolder holder) {

@@ -357,6 +357,9 @@ public final class RideState {
 	public double gaitZ;
 	public final float[] gaitShare = new float[4];
 	public float gaitStride;
+	/** The plain model's neck on its spring (see Strides.advance): how far it is swung down from its carriage (radians), and how fast. */
+	public float neck;
+	public float neckSpeed;
 	/** How far the legs sweep on the ground against their gait's full stance (0 standing, 1 full strides; see Strides.advance). */
 	public float gaitSweep;
 	public float gaitGround;

@@ -138,6 +138,8 @@ public final class Strides {
 			s.gaitVelocityZ = 0.0;
 			s.gaitPosedAt = Double.NaN;
 			s.gaitGround = grounded(horse, s, partialTicks) ? 1.0F : 0.0F;
+			s.neck = 0.0F;
+			s.neckSpeed = 0.0F;
 			return;
 		}
 		final float dt = (float) ((now - s.gaitAt) * 0.05);
@@ -196,6 +198,20 @@ public final class Strides {
 		final float sweep = Mth.clamp((1.0F - Mth.sqrt(1.0F - half * half)) / (1.0F - Mth.cos(mix(s, GAIT_STANCE_ANGLE))), 0.0F, 1.0F);
 		s.gaitSweep += (sweep - s.gaitSweep) * k;
 		s.gaitPhase += (forward < 0.0 ? -rate : rate) * dt;
+		// The neck: a weight on a spring at the withers (NECK_*), swung by the body's rise and fall and its pitch through
+		// the stride (as the saddle motion has them), lagging them.
+		final float t = phase(s);
+		final float swing = Mth.TWO_PI * rate;
+		final float push = s.gaitSweep * s.gaitGround * swing * swing * (NECK_RISE * -bodyLift(t, s.gaitShare[0] * 4.0F, s.gaitShare[1] * 4.0F,
+			s.gaitShare[2], s.gaitShare[3]) + NECK_PITCH * Mth.DEG_TO_RAD * -bodyPitch(t, s.gaitShare[0] * 4.0F, s.gaitShare[1] * 4.0F, s.gaitShare[2],
+			s.gaitShare[3]));
+		final float spring = Mth.TWO_PI * NECK_SWING;
+		final int steps = Math.min(8, Mth.ceil(Math.min(dt, 0.1F) * 240.0F));
+		final float step = Math.min(dt, 0.1F) / steps;
+		for (int n = 0; n < steps; n++) {
+			s.neckSpeed += (push - spring * spring * s.neck - 2.0F * NECK_DAMPING * spring * s.neckSpeed) * step;
+			s.neck = Mth.clamp(s.neck + s.neckSpeed * step, -NECK_MOST, NECK_MOST);
+		}
 	}
 
 	/**
@@ -244,11 +260,10 @@ public final class Strides {
 				Legs.draw(part, fold);
 			}
 		}
-		// The neck: carried lower at faster gaits, nodding twice a stride at a walk and trot (lowest at each front leg's
-		// mid-stance) and once at a canter and gallop (lowest as the leading front hoof lands), a beat behind the body.
-		// The tail bounces after the body, and swings with the walk's hips.
+		// The neck: carried lower at faster gaits, and swinging on its spring (see advance). The tail bounces after the
+		// body, and swings with the walk's hips.
 		final float t = phase(s);
-		head.xRot += stride * (mix(s, GAIT_NECK) + beats(s, GAIT_NOD, GAIT_NOD_LOW, t));
+		head.xRot += stride * mix(s, GAIT_NECK) + upright * s.neck;
 		tail.xRot += stride * beats(s, GAIT_TAIL, GAIT_TAIL_HIGH, t);
 		tail.yRot += stride * s.gaitShare[0] * GAIT_TAIL_SWAY * Mth.sin(Mth.TWO_PI * (t - GAIT_TOUCHDOWN[0][2]));
 		posed = s;
