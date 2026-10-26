@@ -11,8 +11,8 @@ feels; tuning happens in `RideTuning.java`.
 - Gait-specific hoof cadence with Fresh Animations: its planted hooves slide (about 1.5 blocks a footfall at a walk);
   quicker legs were tried and rejected (user, 2026-10-23), so only something that keeps the legs' pace is open. (The
   plain model's procedural legs don't slide, 2026-10-26.)
-- Plain model: hooves on stairs (a pair off the ground together a little more than with vanilla's swing); the canter and
-  gallop lead following the turn (always the left now).
+- Plain model: hooves walking down stairs (90th percentile 0.45-0.48 blocks off the ground, vanilla's swing 0.32); the
+  canter and gallop lead following the turn (always the left now).
 - Legs into tree trunks and boulders the narrowed ridden box brushes past (sideways; seen in the terrain test's leg numbers).
 - The user saw the horse sink into flat ground or standing (2026-10-23, on the first stride build); not reproduced in tests.
 - Expose gait to Fresh Animations (an EMF custom variable) if its speed-based legs don't read gaits clearly enough.

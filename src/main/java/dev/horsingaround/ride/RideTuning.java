@@ -929,13 +929,14 @@ public final class RideTuning {
 	/**
 	 * Saddle motion used when no animation pack moves the horse's body (vanilla model): applied to the horse and the
 	 * rider alike so they stay in step. Lift in blocks, pitch in degrees. Walk and trot twice per stride, canter and
-	 * gallop once.
+	 * gallop once. The plain model's own legs scale them by how far their strides sweep (see Strides.advance): a horse
+	 * stepping short rises and pitches little.
 	 */
-	public static final float SADDLE_LIFT_WALK = 0.03F;
-	public static final float SADDLE_LIFT_TROT = 0.06F;
+	public static final float SADDLE_LIFT_WALK = 0.012F;
+	public static final float SADDLE_LIFT_TROT = 0.04F;
 	public static final float SADDLE_LIFT_CANTER = 0.07F;
 	public static final float SADDLE_LIFT_GALLOP = 0.05F;
-	public static final float SADDLE_PITCH_WALK = 0.8F;
+	public static final float SADDLE_PITCH_WALK = 0.4F;
 	public static final float SADDLE_PITCH_TROT = 1.0F;
 	public static final float SADDLE_PITCH_CANTER = 3.0F;
 	public static final float SADDLE_PITCH_GALLOP = 2.5F;
@@ -980,23 +981,32 @@ public final class RideTuning {
 	public static final float[] GAIT_CADENCE_RISE = {0.25F, 0.05F, 0.06F, 0.06F};
 	public static final float GAIT_CADENCE_SIZE = 1.3F;
 	/**
-	 * How high a hoof clears the ground in its swing, blocks (a real trot's front hoof about 14 cm, hind 11), and where in
-	 * the swing it is highest: a front one early (it folds up under the forearm, then reaches out).
+	 * How high a hoof clears the ground in its swing, blocks, and where in the swing it is highest: a front one early (it
+	 * folds up under the forearm, then reaches out). Less than a real horse's (a trot's front hoof about 14 cm): a one-piece
+	 * leg can only draw up into the body for it.
 	 */
-	public static final float[] GAIT_FORE_LIFT = {0.1F, 0.14F, 0.17F, 0.2F};
-	public static final float[] GAIT_HIND_LIFT = {0.08F, 0.11F, 0.14F, 0.16F};
+	public static final float[] GAIT_FORE_LIFT = {0.06F, 0.09F, 0.11F, 0.13F};
+	public static final float[] GAIT_HIND_LIFT = {0.05F, 0.07F, 0.09F, 0.11F};
 	public static final float GAIT_FORE_LIFT_PEAK = 0.42F;
 	public static final float GAIT_HIND_LIFT_PEAK = 0.5F;
 	/**
-	 * A hoof lifts before it sets off forward (a share of the swing: the heel rises and it breaks over the toe), and is
-	 * over its landing spot a little before the end, coming straight down onto it, so it never skims the ground; at the
-	 * faster gaits, lifted higher, it goes forward over more of the swing. Its lift is held up from GAIT_SWING_HOLD of the
-	 * swing until it is over its landing spot (at most GAIT_SWING_SET_DOWN).
+	 * In its swing a hoof goes from where it lifted to where it lands, each against the top of its leg (it goes on with
+	 * the body, the leg swinging about its top): it sets off a moment after lifting (a share of the swing: the heel rises
+	 * and it breaks over the toe) and is over its landing spot a moment before the end, coming down onto it. It lets go of
+	 * the spot it lifted from over GAIT_SWING_LET_GO of the swing (until then a hoof barely off the ground stays over it).
+	 * The leg flicks back as it lifts (the lower leg folding up behind) and reaches forward before it lands, radians about
+	 * its top, at their most a quarter of the swing in and a quarter from the end.
 	 */
-	public static final float[] GAIT_SWING_LIFT_FIRST = {0.15F, 0.1F, 0.07F, 0.05F};
-	public static final float[] GAIT_SWING_OVER = {0.85F, 0.9F, 0.93F, 0.95F};
-	public static final float GAIT_SWING_HOLD = 0.2F;
-	public static final float GAIT_SWING_SET_DOWN = 0.85F;
+	public static final float[] GAIT_SWING_LIFT_FIRST = {0.06F, 0.05F, 0.04F, 0.03F};
+	public static final float[] GAIT_SWING_OVER = {0.92F, 0.94F, 0.95F, 0.96F};
+	public static final float GAIT_SWING_LET_GO = 0.12F;
+	/**
+	 * The longest a swing takes, seconds (about a real horse's at a walk): slower, the hooves stand longer instead, as far
+	 * as they reach.
+	 */
+	public static final float GAIT_SWING_TIME = 0.35F;
+	public static final float[] GAIT_SWING_FLICK = {0.08F, 0.12F, 0.13F, 0.14F};
+	public static final float[] GAIT_SWING_REACH = {0.04F, 0.07F, 0.08F, 0.1F};
 	/** The most a leg turns from upright, radians. */
 	public static final float GAIT_LEG_MOST = 1.45F;
 	/** Ground speed (blocks a second) from which the neck and tail move fully with the stride. */
@@ -1011,8 +1021,10 @@ public final class RideTuning {
 	 * On uneven ground each hoof lands on the tread under its landing spot, up to LEG_RISE_MAX above where its leg reaches
 	 * straight down (the leg draws up onto it, the body coming up as GroundLegs has it); higher is a step's face, and the
 	 * hoof lands back from it, looking up to GAIT_FACE_STEPS steps of GAIT_FACE_STEP blocks back. A planted hoof the body
-	 * has moved more than GAIT_STEP_REACH blocks out of its leg's reach (climbing a step, or leaving it behind) steps on at
-	 * once, once it has stood GAIT_STEP_STOOD of its stance. The rest is the ride's ground work (GroundLegs), as for any
+	 * has moved more than GAIT_STEP_REACH blocks out of its leg's reach (climbing a step, or leaving it behind), or more
+	 * than GAIT_SIDE_STEP blocks out to the side of it (turning), steps on at once, once it has stood GAIT_STEP_STOOD of its
+	 * stance; GAIT_STEP_FAR out of reach, whatever it has stood. A leg leans out to the side at most GAIT_SIDE_MOST radians
+	 * (a hoof further out turns on the ground instead). The rest is the ride's ground work (GroundLegs), as for any
 	 * animation: a hoof still in the ground drawn up onto it, and the body's fit onto its legs (which leaves a planted
 	 * hoof hanging less than GAIT_HANG_SLACK blocks alone: that is the stride's own rise and fall).
 	 */
@@ -1021,8 +1033,19 @@ public final class RideTuning {
 	public static final int GAIT_FACE_STEPS = 6;
 	public static final float GAIT_STEP_REACH = 0.08F;
 	public static final float GAIT_STEP_STOOD = 0.2F;
+	public static final float GAIT_STEP_FAR = 0.2F;
+	public static final float GAIT_SIDE_STEP = 0.15F;
+	public static final float GAIT_SIDE_MOST = 0.35F;
 	/** How quickly the legs follow a change in the horse's speed (seconds). */
 	public static final float GAIT_SPEED_TIME = 0.25F;
+	/**
+	 * How quickly the legs go from one gait to the next (seconds). A leg out of step with its gait's footfalls (a change
+	 * of gait, or a step out of turn) goes through its stance and swing GAIT_KEEP_STEP times quicker for each share of
+	 * the stride it is behind (slower, ahead), at most GAIT_KEEP_STEP_MOST either way.
+	 */
+	public static final float GAIT_BLEND_TIME = 0.35F;
+	public static final float GAIT_KEEP_STEP = 3.0F;
+	public static final float GAIT_KEEP_STEP_MOST = 0.5F;
 	/**
 	 * When in the stride the body is highest (the saddle motion's lift, with its pitch a quarter-beat later): the walk at
 	 * each front leg's mid-stance, the trot as a diagonal pair pushes off, the canter and the gallop in their moment in

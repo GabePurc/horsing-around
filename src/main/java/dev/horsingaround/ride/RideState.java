@@ -342,7 +342,7 @@ public final class RideState {
 	/**
 	 * The plain model's own legs (see Strides), client only. The stride: how far through it (strides; it runs backwards
 	 * when the horse backs up), when last moved on (game ticks, NaN until the horse is drawn), strides a second, the share
-	 * of it each front and hind hoof stands, the length of ground a hoof stands for (blocks); the horse's ground velocity
+	 * of it each front and hind hoof stands; the horse's ground velocity
 	 * (blocks a second, smoothed), where it was, its share of each gait (walk, trot, canter, gallop), how much its legs
 	 * stride (0 standing to 1), and how much it stands on the ground (0 in a jump or swimming).
 	 */
@@ -351,13 +351,14 @@ public final class RideState {
 	public float gaitRate;
 	public float gaitForeStance;
 	public float gaitHindStance;
-	public float gaitStance;
 	public double gaitVelocityX;
 	public double gaitVelocityZ;
 	public double gaitX;
 	public double gaitZ;
 	public final float[] gaitShare = new float[4];
 	public float gaitStride;
+	/** How far the legs sweep on the ground against their gait's full stance (0 standing, 1 full strides; see Strides.advance). */
+	public float gaitSweep;
 	public float gaitGround;
 	/** Every hoof on the ground and under its leg (the horse stood square): with the horse still, the stride stops. */
 	public boolean gaitSettled;
@@ -385,6 +386,19 @@ public final class RideState {
 	/** Per leg, the last frame: how far from the top of its leg its hoof is (blocks), and was as it was set down (or -1). */
 	public final float[] hoofReach = new float[4];
 	public final float[] plantReach = new float[4];
+	/**
+	 * Per leg, the last frame: how far out to the side of its leg's top its hoof is (blocks); as it lifted, how far its leg
+	 * was turned forward (radians) and where the top of its leg was (world).
+	 */
+	public final float[] hoofSide = new float[4];
+	public final float[] liftTurn = new float[4];
+	public final double[] liftHipX = new double[4];
+	public final double[] liftHipZ = new double[4];
+	/** Per leg: where the top of its leg is and how fast it goes (world, blocks a second). */
+	public final double[] hipX = new double[4];
+	public final double[] hipZ = new double[4];
+	public final double[] hipVelocityX = new double[4];
+	public final double[] hipVelocityZ = new double[4];
 	public double gaitPosedAt = Double.NaN;
 	/** Per leg (front left, front right, hind left, hind right), the last frame: how far it was drawn up onto its ground, blocks. */
 	public final float[] legRise = new float[4];

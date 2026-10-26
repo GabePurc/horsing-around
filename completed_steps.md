@@ -57,7 +57,7 @@ at most two lines, under the right area; details go in the PR, not here.
 - Ground probes go through leaves to the ground, so bushes aren't read as steps; the drawn horse never stands on leaves
 - Footing: in the air a hoof finds anything within a step, a shoulder caught on a corner slips past; snaps are measured in `slowstep` and `drawn` (legs as the renderer drew them, via `LegProbe`)
 - Idle horses' legs are reset before posing on versions before 1.21.2 (shared model)
-- The plain model (no animation pack) has procedural legs: hooves planted in the world, cadence from real ground speed and real gait timing (walk, trot, canter, gallop), neck and tail with the stride (2026-10-26)
+- The plain model (no animation pack) has procedural legs: hooves planted in the world, cadence from real ground speed and real gait timing (walk, trot, canter, gallop), neck and tail with the stride (2026-10-26); after play-test, no splaying in turns, smooth gait changes, a gentler bob (2026-10-26)
 
 ## Rider
 

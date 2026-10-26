@@ -74,10 +74,14 @@ whatever the speed; no stamina; no visual weight.
 - The plain model's legs are procedural (user direction, 2026-10-24, after keyframed gaits slid at every speed but
   the gallop): each hoof is planted in the world where it lands and stays there while the body goes over it, the
   one-piece leg turning about its top to point at it; a leg lifts on its gait's timing (real footfall order and stance
-  shares) or when the body has gone out of its reach, and swings to where it will land, predicted from the horse's
-  actual velocity, on the real ground there. The cadence comes from the real ground speed: a real horse's stride rate
-  for the gait, up to 1.3 times that to fit a leg this short, never more (hooves then stand a shorter share). Gaits blend
-  by speed; standing still, the legs step square and stop. Neck and tail as before. The ride's ground work
+  shares) or when the body has gone out of its reach or out to its side, and swings to where it will land, predicted
+  from its leg's own velocity (turning too), on the real ground there; the swing goes with the body, flicking back as it
+  lifts and reaching before it lands. The cadence comes from the real ground speed: a real horse's stride rate for the
+  gait, up to 1.3 times that to fit a leg this short, never more (hooves then stand a shorter share). Gaits blend over a
+  third of a second, each leg keeping step with its gait's footfalls by going a little quicker or slower (never a jump);
+  at a walk a hoof always stands; legs lean out at most 20 degrees. The body's rise, pitch and crouch follow how far the
+  strides sweep, so a slow horse barely bobs (user, 2026-10-26: "the bounce at slow speeds is too much"); standing
+  still, the legs step square and stop. Neck and tail as before. The ride's ground work
   (GroundLegs: a hoof still in a step drawn up out of it, the body's fit onto its legs) goes on top, as for any
   animation. `Strides`; numbers in `RideTuning.GAIT_*`, sources in PR #67.
 - Physically right first (user): hooves planted on the ground actually under them (not in it, not floating), legs

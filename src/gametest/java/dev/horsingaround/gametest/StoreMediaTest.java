@@ -116,7 +116,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 
 	private static final List<Want> WANTS = List.of(
 		// Heading roughly south, so filming from the horse's left looks west into the evening sun.
-		new Want("savanna", Ground.OPEN, 90, any(Biomes.SAVANNA, Biomes.SAVANNA_PLATEAU), -35.0F, 35.0F, "gaits", "study", "jump", "rider", "hat",
+		new Want("savanna", Ground.OPEN, 90, any(Biomes.SAVANNA, Biomes.SAVANNA_PLATEAU), -35.0F, 35.0F, "gaits", "study", "legs", "jump", "rider", "hat",
 			// The camera shot last: it leaves a target standing on the route.
 			"seat", "stamina", "settings", "camera"),
 		new Want("plains", Ground.OPEN, 110, any(Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS, Biomes.MEADOW), 0.0F, 360.0F, "turn"),
@@ -191,13 +191,14 @@ public final class StoreMediaTest implements FabricClientGameTest {
 				}
 				for (final String shot : want.shots) {
 					// (The gait study is for judging the plain model's gaits, not the store: only when asked for.)
-					if (!this.wanted(shot) || shot.equals("study") && !this.only.contains("study")) {
+					if (!this.wanted(shot) || (shot.equals("study") || shot.equals("legs")) && !this.only.contains(shot)) {
 						continue;
 					}
 					LOGGER.info("[store] filming {}", shot);
 					switch (shot) {
 						case "gaits" -> this.gaits(ctx, world, spot);
 						case "study" -> this.study(ctx, world, spot);
+						case "legs" -> this.legs(ctx, world, spot);
 						case "jump" -> this.jump(ctx, world, spot);
 						case "rider" -> this.rider(ctx, world, spot);
 						case "hat" -> this.hat(ctx, world, spot);
@@ -311,6 +312,75 @@ public final class StoreMediaTest implements FabricClientGameTest {
 			this.record(ctx, "study_" + gaits[g], ticks[g], CLIP_HEIGHT, t -> 0.5, t -> input.lookAt(spot.yaw, 12.0F));
 			this.stop(ctx);
 		}
+	}
+
+	/**
+	 * Not for the store: the plain model's legs where a steady pace doesn't show them ({@code -Pscenario=legs}): speeding
+	 * up through the gaits and slowing to a stop, weaving and circling at a trot and a walk.
+	 */
+	private void legs(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
+		final TestInput input = ctx.getInput();
+		this.mount(ctx, world, spot, BAY, NOON);
+		this.flatten(ctx, world, spot);
+		input.holdKey(o -> o.keyUp);
+		this.closeUp(ctx, 90.0F, 6.0F, 0.6F, 0.3F);
+		this.record(ctx, "legs_speeds", 260, CLIP_HEIGHT, REAL_TIME, t -> {
+			if (t == 50 || t == 100 || t == 140) {
+				input.pressKey(o -> o.keySprint);
+			} else if (t == 180) {
+				input.releaseKey(o -> o.keyUp);
+			}
+			input.lookAt(spot.yaw, 12.0F);
+		});
+		this.stop(ctx);
+		// Weaving at a trot, then a walk, from behind (as a rider sees it).
+		this.mount(ctx, world, spot, BAY, NOON);
+		this.gait(ctx, 1);
+		this.closeUp(ctx, 20.0F, 5.0F, 2.2F, 0.4F);
+		this.record(ctx, "legs_weave", 200, CLIP_HEIGHT, REAL_TIME, t -> {
+			if (t == 100) {
+				input.pressKey(o -> o.keyDown);
+			}
+			input.lookAt(spot.yaw + 35.0F * Mth.sin(t * Mth.TWO_PI / 50.0F), 12.0F);
+		});
+		this.stop(ctx);
+		this.mount(ctx, world, spot, BAY, NOON);
+		this.gait(ctx, 1);
+		final float[] yaw = {spot.yaw};
+		this.closeUp(ctx, 60.0F, 6.0F, 2.5F, 0.5F);
+		this.record(ctx, "legs_circle", 200, CLIP_HEIGHT, REAL_TIME, t -> {
+			if (t == 100) {
+				input.pressKey(o -> o.keyDown);
+			}
+			yaw[0] += t < 100 ? 4.0F : 3.0F;
+			input.lookAt(yaw[0], 12.0F);
+		});
+		this.stop(ctx);
+	}
+
+	/** Close on the legs: {@code angle} round the horse's heading (0 behind, 90 its left), following its heading at {@code follow} a tick. */
+	private void closeUp(final ClientGameTestContext ctx, final float angle, final float distance, final float height, final float follow) {
+		ctx.runOnClient(mc -> {
+			FilmCamera.shoot(mc.player.getVehicle(), follow);
+			FilmCamera.key(0, FilmCamera.Setup.orbit(angle, distance, height, 0.8F, 0.0F, 34.0F));
+		});
+	}
+
+	/** A flat stage of bare grass around the spot and along its route, so no step or plant gets in the way of the legs. */
+	private void flatten(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
+		final BlockPos p = spot.start;
+		final int y = ctx.computeOnClient(mc -> mc.player.getVehicle().getBlockY());
+		final float fx = -Mth.sin(spot.yaw * Mth.DEG_TO_RAD);
+		final float fz = Mth.cos(spot.yaw * Mth.DEG_TO_RAD);
+		final int x0 = Math.min(p.getX(), p.getX() + Math.round(fx * 70.0F)) - 12;
+		final int x1 = Math.max(p.getX(), p.getX() + Math.round(fx * 70.0F)) + 12;
+		final int z0 = Math.min(p.getZ(), p.getZ() + Math.round(fz * 70.0F)) - 12;
+		final int z1 = Math.max(p.getZ(), p.getZ() + Math.round(fz * 70.0F)) + 12;
+		final TestServerContext server = world.getServer();
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d dirt", x0, y - 3, z0, x1, y - 2, z1));
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d grass_block", x0, y - 1, z0, x1, y - 1, z1));
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air", x0, y, z0, x1, y + 5, z1));
+		waitForWorld(ctx);
 	}
 
 	/** A jump at a gallop: low and side on with the sun behind, slowing right down through the jump, then swinging behind as it gallops on. */
@@ -1124,7 +1194,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 			LegProbe.arm(true);
 			LegProbe.listen(false);
 			LEGS.clear();
-			LEGS.add("# time (clip ticks), partial tick, then per leg (FL, FR, HL, HR) the sole against the top of the leg: x, y, z");
+			LEGS.add("# time (clip ticks), partial tick, then per leg (FL, FR, HL, HR) the sole against the top of the leg: x, y, z; the horse's heading (degrees) and where its model is drawn against it (blocks up); its stride (see below)");
 			RIDER.clear();
 			RIDER.add("time,stand,brace,settle,inertia,ground speed,body pitch,jump pitch,head gap");
 		});
@@ -1152,6 +1222,19 @@ public final class StoreMediaTest implements FabricClientGameTest {
 					for (int leg = 0; leg < 4; leg++) {
 						for (int i = 0; i < 3; i++) {
 							row.append(String.format(Locale.ROOT, ",%.4f", LegProbe.sole[leg][i] - LegProbe.top[leg][i]));
+						}
+					}
+					if (mc.player.getVehicle() instanceof AbstractHorse h) {
+						final RideState ride = ((RideStateHolder) h).horsingaround$ride();
+						row.append(String.format(Locale.ROOT, ",%.2f,%.4f", Mth.rotLerp(partialTick, h.yBodyRotO, h.yBodyRot),
+							ride.drawnCameraY + ride.drawnPose.m31() - Mth.lerp(partialTick, h.yo, h.getY())));
+						// (The plain model's stride: ground speed, strides a second, front and hind stance, which hooves stand, sweep;
+						// per leg how far through its stance or swing and its stride it is.)
+						row.append(String.format(Locale.ROOT, ",%.3f,%.3f,%.3f,%.3f,%d%d%d%d,%.3f", Math.sqrt(ride.gaitVelocityX * ride.gaitVelocityX
+							+ ride.gaitVelocityZ * ride.gaitVelocityZ), ride.gaitRate, ride.gaitForeStance, ride.gaitHindStance, ride.hoofDown[0] ? 1 : 0,
+							ride.hoofDown[1] ? 1 : 0, ride.hoofDown[2] ? 1 : 0, ride.hoofDown[3] ? 1 : 0, ride.gaitSweep));
+						for (int leg = 0; leg < 4; leg++) {
+							row.append(String.format(Locale.ROOT, ",%.3f,%.3f", ride.hoofDown[leg] ? ride.stood[leg] : ride.swingThrough[leg], ride.legPhase[leg]));
 						}
 					}
 					LEGS.add(row.toString());

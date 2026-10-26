@@ -77,16 +77,14 @@ public final class SaddleMotion {
 		}
 
 		this.synthetic = true;
-		final float canter = run - gallop;
-		final float trot = Strides.trot(pace);
-		final float walk = (1.0F - trot - run) * this.moving;
-		// (In time with the plain model's own stride, see Strides.)
+		// (In time with the plain model's own stride and its blend of gaits, as much as its strides sweep; see Strides.)
+		final float[] share = s.gaitShare;
 		final float t = Strides.phase(s);
-		final float stance = horse.onGround() ? 1.0F : 0.0F;
-		this.lift = stance * Strides.bodyLift(t, walk, trot, canter, gallop);
-		this.pitch = stance * Strides.bodyPitch(t, walk, trot, canter, gallop);
-		// Lower on its legs while moving, and further for a hoof standing on lower ground than its leg reaches.
-		this.crouch = Strides.crouch(walk, trot, canter, gallop);
+		final float sweep = horse.onGround() ? s.gaitSweep : 0.0F;
+		this.lift = sweep * Strides.bodyLift(t, share[0], share[1], share[2], share[3]);
+		this.pitch = sweep * Strides.bodyPitch(t, share[0], share[1], share[2], share[3]);
+		// Lower on its legs while moving: as far as a leg turned to the end of its stance comes down.
+		this.crouch = s.gaitSweep * Strides.crouch(share[0], share[1], share[2], share[3]);
 		this.forward = 0.0F;
 		this.side = 0.0F;
 		this.roll = 0.0F;

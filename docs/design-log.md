@@ -931,3 +931,32 @@ blocks a step (Fresh Animations' do too).
   Animations: 0.55-1.65 on average). Known limit: walking up and down stairs, a pair of hooves is off the ground together
   a little more than with vanilla's swing (90th percentile 0.36-0.42 / 0.32-0.40 blocks against vanilla's 0.33 / 0.32):
   the climb takes a planted hoof out of a one-piece leg's reach within a few ticks.
+
+### Second play-test (2026-10-26)
+
+"The legs are doing some weird spinny stuff. Its too rigid. In a way i like the rigidity sometimes, but other times its
+too much. Also the transitions between speeds isnt smooth enough. Also, the bounce at slow speeds is too much and not
+smooth." Filmed close (`-Pscenario=legs`) and measured from each leg's angle:
+
+- Spinning: in turns the planted hooves stayed while the hips swung round, so the legs splayed up to 70 degrees sideways
+  and crossed (worst from behind, the rider's view). Now a hoof lands under where its own leg's top is going (its
+  velocity, not the horse's), steps once it is 0.15 blocks out to the side, and a leg leans out at most 20 degrees.
+  Setting off from standing, hooves were aimed at a landing a near-zero cadence put far away (front legs flung out flat).
+- Speed changes: each leg's footfall jumped with the blend of gaits, stalling or hurrying legs (a hoof left 60 degrees
+  back), and a swing timed off the stride landed late when the stance changed under it. Now the gait blends over 0.35 s
+  and each leg stands for a stance's worth of stride and swings for a swing's worth, up to half again quicker or slower
+  by how far it is behind or ahead of its gait (front legs had fallen into lockstep when re-anchored at touch-down).
+- Rigid: the swing lifted straight up, moved, and set straight down, and trailed the body (legs 50-60 degrees out). Now
+  the hoof's path is from where it lifted to where it lands, each against the top of its leg (it goes on with the
+  body), in one arc, the leg flicking back as it lifts and reaching before it lands. Angles in the leg's frame (a
+  pendulum) were tried first: on a 37-degree slope "upright" pointed down the hill (hooves 0.2 blocks higher on a trot
+  up full blocks), so the path is in the world, against the leg's top.
+- Bounce: the walk's cadence (about 2 strides a second at the ride's walk speed) bobbed the body 4 times a second, and
+  hooves all lifted together. The rise, pitch and crouch now scale with how far the strides sweep (0 standing, 1 at a
+  gait's full stride), the walk's lift 0.03 to 0.012 and pitch 0.8 to 0.4 degrees, the trot's lift 0.06 to 0.04; at a
+  walk a hoof waits to lift while it is the only one standing. Body motion at a walk 0.03 blocks peak to peak (trot 0.08).
+- A swing takes at most 0.35 s only as far as the hoof has reach to stand the longer (a shorter swing everywhere made
+  legs on a climb step out of turn, hooves 0.2 off the ground on a trot up full blocks). A leg the side limit holds in
+  folds to its hoof's height (else riding sideways put a hoof 0.085 into the ground).
+- Stairs (90th percentile off the ground): walking up 0.30-0.36 (was 0.36-0.42), walking down 0.45-0.48 (was
+  0.32-0.40; not the support rule, the stance angle or the descent's timing, each tried).
