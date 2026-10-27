@@ -5,6 +5,7 @@ import net.minecraft.client.model.geom.ModelPart;
 //? if >=1.21.11 {
 import net.minecraft.gizmos.Gizmos;
 //?}
+import java.util.List;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -16,7 +17,8 @@ import org.jspecify.annotations.Nullable;
  * the hidden hip bone to the shoulder or hip joint (orange), the hidden thigh bone to the elbow or stifle (yellow), and
  * the leg as drawn, from its top to the middle of its sole (aqua; in two pieces, the lower blue below the knee or hock); a red line where the shin's drawn top isn't where the
  * hidden bones put it (the ride's ground work moved the leg). The hoof's spot: green where it stands, magenta where it is
- * going to land. The right legs' bones are darker, so the far side's tell apart from the near side's where the two
+ * going to land. The rest of the horse's bones (see BodyBones): the neck to the poll and the head beyond it (pink),
+ * the ears (light pink), and the tail's three pieces (purple). The right legs' bones are darker, so the far side's tell apart from the near side's where the two
  * overlap (side on, a pair in step). Debug only, so it may allocate. Needs gizmos, which came in 1.21.11; before, it draws nothing.
  */
 public final class LegBones {
@@ -55,10 +57,10 @@ public final class LegBones {
 		HAVE[i] = true;
 	}
 
-	/** Once the legs (front left, front right, hind left, hind right) are posed for the frame: draws them. */
+	/** Once the legs (front left, front right, hind left, hind right), neck and tail are posed for the frame: draws them. */
 	public static void draw(
 		final @Nullable RideState ride, final @Nullable ModelPart root, final @Nullable ModelPart leftFront, final @Nullable ModelPart rightFront,
-		final @Nullable ModelPart leftHind, final @Nullable ModelPart rightHind
+		final @Nullable ModelPart leftHind, final @Nullable ModelPart rightHind, final @Nullable ModelPart headParts, final @Nullable ModelPart tail
 	) {
 		//? if >=1.21.11 {
 		if (!on || ride == null || root == null || !ride.drawnPoseSet || !Strides.posed(ride)) {
@@ -120,7 +122,63 @@ public final class LegBones {
 				Gizmos.point(new Vec3(ride.landX[i], ride.landY[i], ride.landZ[i]), 0xFFFF40FF, 8.0F).setAlwaysOnTop();
 			}
 		}
+		// The neck from the withers to the poll, the head from there to the muzzle, the ears, and the tail piece by piece.
+		if (headParts != null) {
+			final Matrix4f neck = child(ROOT, headParts);
+			final Vec3 withers = at(ride, neck, 0.0F, 6.0F, 1.5F);
+			final Vec3 poll = at(ride, neck, 0.0F, -6.0F, 4.0F);
+			Gizmos.line(withers, poll, 0xFFFF80C0, 3.0F).setAlwaysOnTop();
+			Gizmos.point(poll, 0xFFFF80C0, 6.0F).setAlwaysOnTop();
+			final ModelPart skull = ((PartData) (Object) headParts).horsingaround$children().get("head");
+			if (skull != null) {
+				final Matrix4f head = child(neck, skull);
+				Gizmos.line(poll, at(ride, head, 0.0F, -8.5F, -7.0F), 0xFFFF80C0, 3.0F).setAlwaysOnTop();
+				for (final String name : new String[] {"left_ear", "right_ear"}) {
+					final ModelPart ear = ((PartData) (Object) skull).horsingaround$children().get(name);
+					final List<ModelPart.Cube> cubes = ear == null ? List.of() : ((PartData) (Object) ear).horsingaround$cubes();
+					if (!cubes.isEmpty()) {
+						final ModelPart.Cube cube = cubes.get(0);
+						final Matrix4f frame = child(head, ear);
+						final float x = (cube.minX + cube.maxX) * 0.5F;
+						final float z = (cube.minZ + cube.maxZ) * 0.5F;
+						Gizmos.line(at(ride, frame, x, cube.maxY, z), at(ride, frame, x, cube.minY, z), 0xFFFFC0E0, 3.0F).setAlwaysOnTop();
+					}
+				}
+			}
+		}
+		final ModelPart body = ((PartData) (Object) root).horsingaround$children().get("body");
+		if (tail != null && body != null) {
+			Matrix4f frame = child(child(ROOT, body), tail);
+			Vec3 from = at(ride, frame, 0.0F, 0.0F, 2.0F);
+			ModelPart piece = tail;
+			float length = BodyBones.TAIL_DOCK;
+			for (final String next : new String[] {BodyBones.TAIL_MID, BodyBones.TAIL_END, null}) {
+				final ModelPart below = next == null ? null : ((PartData) (Object) piece).horsingaround$children().get(next);
+				final Vec3 to = below != null ? at(ride, child(frame, below), 0.0F, 0.0F, 0.0F) : at(ride, frame, 0.0F, length, piece == tail ? 2.0F : 0.0F);
+				Gizmos.line(from, to, 0xFFB060FF, 3.0F).setAlwaysOnTop();
+				Gizmos.point(from, 0xFFB060FF, 5.0F).setAlwaysOnTop();
+				if (below == null) {
+					break;
+				}
+				frame = child(frame, below);
+				from = to;
+				piece = below;
+				length = BodyBones.TAIL_HAIR;
+			}
+		}
 		//?}
+	}
+
+	/** A part's frame in its parent's (debug only: it allocates). */
+	private static Matrix4f child(final Matrix4f parent, final ModelPart part) {
+		return new Matrix4f(parent).translate(part.x / 16.0F, part.y / 16.0F, part.z / 16.0F).rotateZYX(part.zRot, part.yRot, part.xRot)
+			.scale(part.xScale, part.yScale, part.zScale);
+	}
+
+	/** A point in {@code frame} (pixels) in the world. */
+	private static Vec3 at(final RideState ride, final Matrix4f frame, final float x, final float y, final float z) {
+		final Vector3f point = frame.transformPosition(x / 16.0F, y / 16.0F, z / 16.0F, new Vector3f());
+		return new Vec3(ride.drawnCameraX + point.x, ride.drawnCameraY + point.y, ride.drawnCameraZ + point.z);
 	}
 
 	/** A point in the model root's frame (pixels) in the world. */

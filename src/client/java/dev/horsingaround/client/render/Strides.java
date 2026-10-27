@@ -231,6 +231,10 @@ public final class Strides {
 			s.neckSpeed += (push - spring * spring * s.neck - 2.0F * NECK_DAMPING * spring * s.neckSpeed) * step;
 			s.neck = Mth.clamp(s.neck + s.neckSpeed * step, -NECK_MOST, NECK_MOST);
 		}
+		// The other bones (tail, poll, ears), swung by the same rise and pitch of the stride, and by the ride.
+		final float drive = s.gaitSweep * s.gaitGround * swing * swing;
+		BodyBones.advance(s, horse.getId(), now, dt, drive * -bodyLift(t, s.gaitShare[0] * 4.0F, s.gaitShare[1] * 4.0F, s.gaitShare[2], s.gaitShare[3]),
+			drive * Mth.DEG_TO_RAD * -bodyPitch(t, s.gaitShare[0] * 4.0F, s.gaitShare[1] * 4.0F, s.gaitShare[2], s.gaitShare[3]));
 	}
 
 	/**
@@ -291,6 +295,7 @@ public final class Strides {
 		head.xRot += stride * mix(s, GAIT_NECK) + upright * s.neck;
 		tail.xRot += stride * beats(s, GAIT_TAIL, GAIT_TAIL_HIGH, t);
 		tail.yRot += stride * s.gaitShare[0] * GAIT_TAIL_SWAY * Mth.sin(Mth.TWO_PI * (t - GAIT_TOUCHDOWN[0][2]));
+		BodyBones.pose(head, tail, s, upright);
 		posed = s;
 		return true;
 	}

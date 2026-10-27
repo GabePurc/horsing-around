@@ -2,6 +2,7 @@ package dev.horsingaround.client.mixin;
 
 import dev.horsingaround.client.compat.AnimationPacks;
 import dev.horsingaround.client.render.AirLegs;
+import dev.horsingaround.client.render.BodyBones;
 import dev.horsingaround.client.render.GroundLegs;
 import dev.horsingaround.client.render.LegBones;
 import dev.horsingaround.client.render.RidePoseState;
@@ -96,6 +97,14 @@ public abstract class AbstractEquineModelMixin {
 		horsingaround$knee(root, "right_hind_leg", false, -1.0F, -1.0F, -4.0F, 7.0F, false, g);
 		horsingaround$knee(root, "left_front_leg", true, -3.0F, -1.9F, 4.0F, -10.0F, true, g);
 		horsingaround$knee(root, "right_front_leg", false, -1.0F, -1.9F, -4.0F, -10.0F, true, g);
+		// The tail in three: the dock (vanilla's part, at its place and angle) and two lengths of hair, each turning at its top.
+		final float hair = BodyBones.TAIL_HAIR;
+		root.getChild("body").addOrReplaceChild("tail", CubeListBuilder.create().texOffs(42, 36).addBox(-1.5F, 0.0F, 0.0F, 3.0F, BodyBones.TAIL_DOCK, 4.0F, g),
+				PartPose.offsetAndRotation(0.0F, -5.0F, 2.0F, (float) (Math.PI / 6), 0.0F, 0.0F))
+			.addOrReplaceChild(BodyBones.TAIL_MID, CubeListBuilder.create().texOffs(42, 36 + (int) BodyBones.TAIL_DOCK).addBox(-1.5F, 0.0F, -2.0F, 3.0F, hair, 4.0F, g),
+				PartPose.offset(0.0F, BodyBones.TAIL_DOCK, 2.0F))
+			.addOrReplaceChild(BodyBones.TAIL_END, CubeListBuilder.create().texOffs(42, 36 + (int) (BodyBones.TAIL_DOCK + hair)).addBox(-1.5F, 0.0F, -2.0F, 3.0F, hair, 4.0F, g),
+				PartPose.offset(0.0F, hair, 0.0F));
 	}
 
 	@Unique
@@ -173,6 +182,7 @@ public abstract class AbstractEquineModelMixin {
 			Legs.of(this.rightFrontLeg);
 			Legs.of(this.leftHindLeg);
 			Legs.of(this.rightHindLeg);
+			BodyBones.hide(this.tail);
 		}
 		//?}
 		this.headParts.xRot += pose.horsingaround$neckPitch();
@@ -203,7 +213,7 @@ public abstract class AbstractEquineModelMixin {
 				AirLegs.pose(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, shaped, pose.horsingaround$airRise());
 				GroundLegs.floor(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, pixels, ride, root);
 			}
-			LegBones.draw(ride, root, this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg);
+			LegBones.draw(ride, root, this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, this.headParts, this.tail);
 		}
 		this.tail.xRot += pose.horsingaround$tail();
 	}

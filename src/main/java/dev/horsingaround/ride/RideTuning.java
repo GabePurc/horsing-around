@@ -1153,6 +1153,51 @@ public final class RideTuning {
 	public static final float NECK_RISE = 1.4F;
 	public static final float NECK_PITCH = 1.4F;
 	public static final float NECK_MOST = 0.4F;
+	/**
+	 * The rest of the plain model's bones (user direction, 2026-10-27: the whole horse moving as a real one, not stiffly; see
+	 * BodyBones), each a damped spring: TAIL_BONE_SWING times a second for the dock and each length of hair, damped
+	 * TAIL_BONE_DAMPING of the way to not swinging back. The hair hangs TAIL_CURL radians down from the dock standing and
+	 * streams out TAIL_HAIR_STREAM at TAIL_STREAM_SPEED blocks a second; the body pushed up hangs it down by TAIL_RISE radians a
+	 * second squared for each block a second squared, speeding up lifts it TAIL_SURGE, a turn swings it out TAIL_SIDE (each
+	 * piece further out TAIL_BONE_OUTER more), at most TAIL_BONE_MOST against the piece above. How fast the ride changes is
+	 * smoothed over BONE_SMOOTH_TIME seconds.
+	 */
+	public static final float[] TAIL_BONE_SWING = {2.2F, 1.8F, 1.5F};
+	public static final float TAIL_BONE_DAMPING = 0.3F;
+	public static final float[] TAIL_CURL = {0.0F, -0.25F, -0.3F};
+	public static final float[] TAIL_HAIR_STREAM = {0.1F, 0.15F, 0.1F};
+	public static final float TAIL_STREAM_SPEED = 10.0F;
+	public static final float TAIL_RISE = 2.5F;
+	public static final float TAIL_SURGE = 4.0F;
+	public static final float TAIL_SIDE = 3.0F;
+	public static final float TAIL_BONE_OUTER = 0.6F;
+	public static final float TAIL_BONE_MOST = 0.9F;
+	public static final float BONE_SMOOTH_TIME = 0.08F;
+	/**
+	 * The head on its poll: POLL_SWING times a second, damped POLL_DAMPING, toward POLL_COUNTER of the neck's swing the other
+	 * way (the eyes stay steadier than the neck), lagging the neck's turn by POLL_LAG of it, at most POLL_MOST radians.
+	 */
+	public static final float POLL_SWING = 2.5F;
+	public static final float POLL_DAMPING = 0.5F;
+	public static final float POLL_COUNTER = 0.5F;
+	public static final float POLL_LAG = 0.25F;
+	public static final float POLL_MOST = 0.35F;
+	/**
+	 * The ears: EAR_SWING times a second, damped EAR_DAMPING, pricked EAR_FORWARD radians forward once moving
+	 * (EAR_MOVING_SPEED blocks a second), flopping EAR_FLOP of the head's swing, turned EAR_TURN radians for each radian a
+	 * second the horse turns, and about once in EAR_FLICK_EVERY ticks each flicked back EAR_FLICK over EAR_FLICK_TICKS; at
+	 * most EAR_MOST either way.
+	 */
+	public static final float EAR_SWING = 3.5F;
+	public static final float EAR_DAMPING = 0.25F;
+	public static final float EAR_FORWARD = 0.2F;
+	public static final float EAR_MOVING_SPEED = 1.0F;
+	public static final float EAR_FLOP = 0.4F;
+	public static final float EAR_TURN = 0.25F;
+	public static final float EAR_FLICK = 0.7F;
+	public static final double EAR_FLICK_EVERY = 110.0;
+	public static final double EAR_FLICK_TICKS = 6.0;
+	public static final float EAR_MOST = 0.8F;
 	/** The tail bounces after the body (radians, up positive; highest at these points) and swings with the walk's hips. */
 	public static final float[] GAIT_TAIL = {0.03F, 0.07F, 0.15F, 0.12F};
 	public static final float[] GAIT_TAIL_HIGH = {0.17F, 0.46F, 0.83F, 0.8F};

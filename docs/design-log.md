@@ -1051,3 +1051,13 @@ the legs look almost as before (shin swing -64 to +56 degrees against -56 to +54
   most 92 and 69 degrees), the upper piece turning to keep the hoof on its path; on the ground it stays straight. This
   reverses, for the plain model, the 2026-10-08 call to keep vanilla's one-piece legs; Fresh Animations' models are their
   own and unchanged. The ground work and the bone overlay find the sole through the knee.
+
+## The whole horse on bones, stage 1: tail, head, ears (user direction, 2026-10-27)
+
+User: the whole horse needs bones that animate everything procedurally as in real life; everything feels stiff. First the
+parts that read stiff (`BodyBones`, plain model): the tail cut in three (the dock and two lengths of hair, 1.21.2 on),
+the head turning on a poll joint at the top of the neck (with the bridle; done by turning the neck's parts about the
+poll, no model change), and each ear on its own. Each is a damped spring swung by the body's rise and pitch through the
+stride, speeding up and slowing, and turning, a piece further out lagging the one above: the hair hangs standing and
+streams out at speed, the head counters the neck's swing, the ears prick forward on the move, swivel into turns and
+now and then flick back. Hidden on animation packs' models, as the knee is. Next (stage 2): the trunk itself.

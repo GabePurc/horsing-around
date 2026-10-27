@@ -360,6 +360,26 @@ public final class RideState {
 	/** The plain model's neck on its spring (see Strides.advance): how far it is swung down from its carriage (radians), and how fast. */
 	public float neck;
 	public float neckSpeed;
+	/**
+	 * The plain model's other bones (see BodyBones), each a spring with its speed: the tail's three pieces (dock, two of
+	 * hair) turned up and to the side against the piece above, the head on its poll, each ear pricked forward and both
+	 * turned; and what they go by, the ride's speed, surge, turn and its change, and the neck's speed, as last seen.
+	 */
+	public final float[] tailPitch = new float[3];
+	public final float[] tailPitchV = new float[3];
+	public final float[] tailYaw = new float[3];
+	public final float[] tailYawV = new float[3];
+	public float poll;
+	public float pollV;
+	public final float[] earPitch = new float[2];
+	public final float[] earPitchV = new float[2];
+	public float earYaw;
+	public float earYawV;
+	public float boneSpeed;
+	public float boneSurge;
+	public float boneYawRate;
+	public float boneYawAccel;
+	public float boneNeckSpeed;
 	/** How far the legs sweep on the ground against their gait's full stance (0 standing, 1 full strides; see Strides.advance). */
 	public float gaitSweep;
 	public float gaitGround;

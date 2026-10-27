@@ -29,6 +29,8 @@ abstract class ModelPartMixin implements PartData {
 	private Legs.@Nullable Leg horsingaround$leg;
 	@Unique
 	private @Nullable Object horsingaround$rootParts;
+	@Unique
+	private @Nullable Object horsingaround$bones;
 
 	@Override
 	public Map<String, ModelPart> horsingaround$children() {
@@ -58,5 +60,15 @@ abstract class ModelPartMixin implements PartData {
 	@Override
 	public void horsingaround$setRootParts(final Object parts) {
 		this.horsingaround$rootParts = parts;
+	}
+
+	@Override
+	public @Nullable Object horsingaround$bones() {
+		return this.horsingaround$bones;
+	}
+
+	@Override
+	public void horsingaround$setBones(final Object bones) {
+		this.horsingaround$bones = bones;
 	}
 }

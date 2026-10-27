@@ -23,4 +23,9 @@ public interface PartData {
 	@Nullable Object horsingaround$rootParts();
 
 	void horsingaround$setRootParts(Object parts);
+
+	/** The parts a model's bones move from this one (see BodyBones), found once; null until looked up. */
+	@Nullable Object horsingaround$bones();
+
+	void horsingaround$setBones(Object bones);
 }
