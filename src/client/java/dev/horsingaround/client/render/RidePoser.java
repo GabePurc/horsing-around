@@ -135,14 +135,11 @@ public final class RidePoser {
 		final float measuredLift = saddle.synthetic ? 0.0F : saddle.lift;
 		final float measuredForward = saddle.synthetic ? 0.0F : saddle.forward;
 		final float measuredSide = saddle.synthetic ? 0.0F : saddle.side;
-		// Standing in the stirrups, the hips come up off the saddle and forward over the stirrups, and the legs take most of
-		// the saddle's bounce (and sink a little as the rider gives on landing); braced, the feet go forward and the seat
-		// stays. In the horse's own frame, like the seat.
-		final float stand = s.stand(partialTicks);
+		// Braced, the feet go forward and the seat stays. In the horse's own frame, like the seat.
 		final float brace = s.brace(partialTicks);
 		final float settle = s.settle(partialTicks);
-		RiderSeat.solve(stand, brace, stand * (STAND_RISE - saddle.lift * STAND_ABSORB - Math.max(settle, 0.0F) * SETTLE_SINK));
-		HORSE_ROTATION.transform(OFFSET.set(fx * RiderSeat.hipForward, RiderSeat.hipUp, fz * RiderSeat.hipForward));
+		RiderSeat.solve(brace);
+		HORSE_ROTATION.transform(OFFSET.set(fx * RiderSeat.hipForward, 0.0F, fz * RiderSeat.hipForward));
 		final float seatX = OFFSET.x;
 		final float seatY = OFFSET.y;
 		final float seatZ = OFFSET.z;
@@ -151,14 +148,14 @@ public final class RidePoser {
 		final float ty = hy + OFFSET.y - RIDER_SEAT_HEIGHT + bodyLift + measuredLift - RIDER_SEAT_DROP + seatY;
 		final float tz = hz + OFFSET.z + fz * measuredForward + rz * measuredSide + shiftZ + seatZ;
 		// The torso stays closer to upright: resists the bank, leans forward uphill, stays vertical downhill, takes
-		// part of the saddle's rocking (less standing), sways against the horse's surges and the push of leaves, leans a
-		// little forward moving and standing, back when bracing, and folds forward in jumps and as the rider gives on landing.
+		// part of the saddle's rocking, sways against the horse's surges and the push of leaves, leans a
+		// little forward moving and standing still, back when bracing, and folds forward in jumps and as the rider gives on landing.
 		final float seatedLean = FORWARD_LEAN_STILL + (FORWARD_LEAN_MOVING - FORWARD_LEAN_STILL) * saddle.moving;
-		final float forwardLean = seatedLean + (STAND_LEAN - seatedLean) * stand - brace * BRACE_LEAN_BACK + settle * SETTLE_FOLD;
+		final float forwardLean = seatedLean - brace * BRACE_LEAN_BACK + settle * SETTLE_FOLD;
 		final float riderBank = bank * RIDER_BANK_FOLLOW + saddle.roll * RIDER_BANK_FOLLOW * Mth.DEG_TO_RAD;
 		// Jumping, they fold forward over the neck with the horse's rise, and sit up again coming down.
 		final float jumpFold = s.airLegs(partialTicks) * RIDER_JUMP_FOLD * Mth.DEG_TO_RAD + Math.max(jump, 0.0F) * (RIDER_JUMP_FOLLOW - RIDER_UPHILL_LEAN);
-		final float rocking = saddle.pitch * RIDER_SADDLE_PITCH_FOLLOW * (1.0F - STAND_QUIET * stand);
+		final float rocking = saddle.pitch * RIDER_SADDLE_PITCH_FOLLOW;
 		final float riderPitch = -Math.max(pitch, 0.0F) * RIDER_UPHILL_LEAN - jumpFold
 			+ (rocking - forwardLean + s.inertia(partialTicks) + s.leafPush(partialTicks)) * Mth.DEG_TO_RAD;
 		// Room between the horse's head and the rider (a jump, a steep climb): too close, the horse stretches its neck
@@ -198,8 +195,8 @@ public final class RidePoser {
 		final float legPitch = seatedPitch - bodyPitch;
 		// The stirrups roll with the saddle's sway, so the legs do too.
 		final float legRoll = riderBank - bank - (saddle.synthetic ? 0.0F : saddle.roll * Mth.DEG_TO_RAD);
-		// At a canter the pelvis rocks a little with the stride while the shoulders stay put; less the more the rider stands.
-		final float pelvis = -saddle.run * saddle.lift * PELVIS_SLIDE * (1.0F - stand);
+		// At a canter the pelvis rocks a little with the stride while the shoulders stay put.
+		final float pelvis = -saddle.run * saddle.lift * PELVIS_SLIDE;
 
 		// Hips stay square to the horse; the head and torso turn toward where the rider looks.
 		final float headYaw = Mth.rotLerp(partialTicks, entity.yHeadRotO, entity.yHeadRot);

@@ -194,13 +194,10 @@ public final class RideState {
 	public float roomAt = Float.NaN;
 	public float headGap = Float.MAX_VALUE;
 	/**
-	 * How the rider carries their weight (see RiderMotion), each on a spring: standing in the stirrups (0 sitting, 1 up out
-	 * of the saddle), bracing the legs forward (0..1), and giving at the hips after a landing (0..1, a little below 0 as it
-	 * comes back up); and how fast the drawn body rose the tick before (blocks/tick).
+	 * How the rider carries their weight (see RiderMotion), each on a spring: bracing the legs forward (0..1), and giving
+	 * at the hips after a landing (0..1, a little below 0 as it comes back up); and how fast the drawn body rose the tick
+	 * before (blocks/tick).
 	 */
-	float stand;
-	float standO;
-	float standVelocity;
 	float brace;
 	float braceO;
 	float braceVelocity;
@@ -500,11 +497,6 @@ public final class RideState {
 
 	public float inertia(final float partialTicks) {
 		return this.inertiaO + (this.inertia - this.inertiaO) * partialTicks;
-	}
-
-	/** How far the rider stands in the stirrups, 0 (sitting) to 1 (up out of the saddle). */
-	public float stand(final float partialTicks) {
-		return this.standO + (this.stand - this.standO) * partialTicks;
 	}
 
 	/** How far the rider braces their legs forward in the stirrups, 0..1. */

@@ -797,7 +797,7 @@ public final class RideTuning {
 	public static final int ROOM_STEPS = 7;
 	public static final float ROOM_IN_SECONDS = 0.05F;
 	public static final float ROOM_OUT_SECONDS = 0.35F;
-	/** Forward lean of the upper body sitting, degrees: a little standing still, a little more moving (STAND_LEAN standing). */
+	/** Forward lean of the upper body, degrees: a little standing still, a little more moving. */
 	public static final float FORWARD_LEAN_STILL = 4.0F;
 	public static final float FORWARD_LEAN_MOVING = 6.0F;
 	/** The torso turns toward where the rider looks by this share of the head's turn, up to the max (degrees). */
@@ -852,8 +852,7 @@ public final class RideTuning {
 	/**
 	 * At a canter the rider's seat follows the horse's back: the pelvis rocks a little forward and back with the stride
 	 * while the shoulders stay quiet (torso swing from the shoulders, radians per block of saddle lift; ~3cm of hip travel
-	 * at a canter), less the more they stand in the stirrups (none standing: the legs take the motion). (Play-test: 1.7
-	 * read as humping the horse.)
+	 * at a canter). (Play-test: 1.7 read as humping the horse.)
 	 */
 	public static final float PELVIS_SLIDE = 0.6F;
 	/**
@@ -864,32 +863,7 @@ public final class RideTuning {
 	public static final float INERTIA_STIFFNESS = 0.25F;
 	public static final float INERTIA_DAMPING = 0.45F;
 	public static final float INERTIA_MAX = 12.0F;
-	/**
-	 * Standing in the stirrups, as a medieval rider did in a long-stirruped war saddle: STAND_CANTER of the way up at a
-	 * canter (a light seat), all the way at a gallop, STAND_UPHILL climbing a slope as steep as STAND_UPHILL_FULL degrees
-	 * and STAND_LEDGE heaving up a ledge; on a critically damped spring at STAND_RATE (radians a tick, ~0.7 s to settle).
-	 * Bracing sits them down (STAND_BRACE_SIT of the stand per unit of brace).
-	 */
-	public static final float STAND_CANTER = 0.25F;
-	public static final float STAND_UPHILL = 0.5F;
-	public static final float STAND_UPHILL_FULL = 25.0F;
-	public static final float STAND_LEDGE = 0.7F;
-	public static final float STAND_RATE = 0.25F;
-	public static final float STAND_BRACE_SIT = 1.5F;
-	/**
-	 * Standing all the way: the hips STAND_RISE blocks up off the saddle, the stirrups swung STAND_STIRRUP_BACK radians
-	 * back toward straight down (the hips come forward over them as far as the straight legs make them), the upper body
-	 * STAND_LEAN degrees forward (upright, not a jockey's crouch), and the legs taking STAND_ABSORB of the saddle's bounce
-	 * and the torso STAND_QUIET less of its rocking. The legs reach no straighter than STAND_REACH_MAX of their length
-	 * straight down. A foot is RIDER_LEG_REACH blocks from the hip (the model's leg), in a stirrup on a STIRRUP_LEATHER
-	 * leather.
-	 */
-	public static final float STAND_RISE = 0.11F;
-	public static final float STAND_STIRRUP_BACK = 0.2F;
-	public static final float STAND_LEAN = 8.0F;
-	public static final float STAND_ABSORB = 0.6F;
-	public static final float STAND_QUIET = 0.7F;
-	public static final float STAND_REACH_MAX = 0.97F;
+	/** A foot is RIDER_LEG_REACH blocks from the hip (the model's leg), in a stirrup on a STIRRUP_LEATHER leather. */
 	public static final float RIDER_LEG_REACH = 0.7F;
 	public static final float STIRRUP_LEATHER = 0.5F;
 	/**
@@ -916,9 +890,8 @@ public final class RideTuning {
 	public static final float SETTLE_KICK_MAX = 0.5F;
 	public static final float SETTLE_STIFFNESS = 0.2F;
 	public static final float SETTLE_DAMPING = 0.6F;
-	/** Given all the way: the upper body SETTLE_FOLD degrees forward, a standing rider's hips SETTLE_SINK blocks down, loose hands SETTLE_HANDS radians down. */
+	/** Given all the way: the upper body SETTLE_FOLD degrees forward, loose hands SETTLE_HANDS radians down. */
 	public static final float SETTLE_FOLD = 12.0F;
-	public static final float SETTLE_SINK = 0.06F;
 	public static final float SETTLE_HANDS = 0.25F;
 	/**
 	 * Fresh Animations' stirrups are swung forward to meet the seated leg (its leathers hang from the saddle's front

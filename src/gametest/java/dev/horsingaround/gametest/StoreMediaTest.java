@@ -1089,7 +1089,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 			LEGS.clear();
 			LEGS.add("# time (clip ticks), partial tick, then per leg (FL, FR, HL, HR) the sole against the top of the leg: x, y, z");
 			RIDER.clear();
-			RIDER.add("time,stand,brace,settle,inertia,ground speed,body pitch,jump pitch,head gap");
+			RIDER.add("time,brace,settle,inertia,ground speed,body pitch,jump pitch,head gap");
 		});
 		int frames = 0;
 		// The next frame's moment and the one before, in clip ticks.
@@ -1120,7 +1120,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 					LEGS.add(row.toString());
 					if (mc.player.getVehicle() instanceof RideStateHolder holder) {
 						final RideState s = holder.horsingaround$ride();
-						RIDER.add(String.format(Locale.ROOT, "%.4f,%.4f,%.4f,%.4f,%.3f,%.4f,%.3f,%.3f,%.3f", at, s.stand(partialTick), s.brace(partialTick),
+						RIDER.add(String.format(Locale.ROOT, "%.4f,%.4f,%.4f,%.3f,%.4f,%.3f,%.3f,%.3f", at, s.brace(partialTick),
 							s.settle(partialTick), s.inertia(partialTick), s.groundSpeed(partialTick), s.pitch(partialTick), s.jumpPitch(partialTick), s.headGap));
 					}
 				});

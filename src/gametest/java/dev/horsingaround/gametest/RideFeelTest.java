@@ -314,7 +314,6 @@ public final class RideFeelTest implements FabricClientGameTest {
 		ctx.waitTicks(40);
 		check("walk speed (blocks/tick)", averageSpeed(ctx, 10), WALK_SPEED * 0.85, WALK_SPEED * 1.15);
 		check("gait is walk", sample(ctx).gait == RideTuning.WALK);
-		check("at a walk the rider sits in the saddle (standing, 0..1)", ride(ctx, r -> r.stand(1.0F)), 0.0, 0.02);
 		check("walk leg-animation speed (Fresh Animations walk < 0.4)", sample(ctx).limbSpeed, 0.25, 0.39);
 		if (FabricLoader.getInstance().isModLoaded("entity_model_features")) {
 			float low = Float.MAX_VALUE;
@@ -342,24 +341,16 @@ public final class RideFeelTest implements FabricClientGameTest {
 			ticks += 8;
 		}
 		float surgeLean = 0.0F;
-		float rising = 0.0F;
-		float stood = ride(ctx, r -> r.stand(1.0F));
 		while (sample(ctx).speed < GALLOP_SPEED * 0.95 && ticks < 200) {
 			ctx.waitTick();
 			ticks++;
 			surgeLean = Math.max(surgeLean, riderInertia(ctx));
-			final float stand = ride(ctx, r -> r.stand(1.0F));
-			rising = Math.max(rising, Math.abs(stand - stood));
-			stood = stand;
 		}
 		check("rider sways back as the horse surges (deg)", surgeLean, 1.0, 12.0);
-		// (A tick in the test can be more than one game tick.)
-		check("the rider rises into the stirrups smoothly (most in a test tick, 0..1)", rising, 0.0, 0.2);
 		check("ticks from walk to 95% gallop", ticks, 25, 70);
 		ctx.waitTicks(10);
 		check("gallop speed (blocks/tick)", averageSpeed(ctx, 10), GALLOP_SPEED * 0.9, GALLOP_SPEED * 1.1);
 		check("gait is gallop", sample(ctx).gait == RideTuning.GALLOP);
-		check("at a gallop the rider stands in the stirrups (0..1)", ride(ctx, r -> r.stand(1.0F)), 0.9, 1.0);
 		check("gallop leg-animation speed (Fresh Animations gallop >= 0.8)", sample(ctx).limbSpeed, 0.95, 1.0);
 		screenshot(ctx, "03_gallop");
 		frontScreenshot(ctx, "03b_gallop_front");
@@ -814,7 +805,6 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("brake ticks from " + String.format(Locale.ROOT, "%.2f", cruising) + " b/t", brakeTicks, 5, 20);
 		check("rider tips forward under braking (deg)", brakeLean, -12.0, -1.5);
 		check("...and braces their legs forward in the stirrups (0..1)", braced, 0.3, 1.0);
-		check("...sitting down to do it (standing, 0..1)", ride(ctx, r -> r.stand(1.0F)), 0.0, 0.4);
 		ctx.waitTicks(20);
 		check("backs up while S held", sample(ctx).gait == RideTuning.STOP && signedSpeed(ctx) < -0.01);
 		input.releaseKey(o -> o.keyDown);

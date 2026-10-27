@@ -110,7 +110,7 @@ body.
   drops video, so its description keeps the WebPs (`scripts/store-descriptions.sh` writes both to `build/` for pasting). Both load from
   `raw.githubusercontent.com/.../main/docs/media/`, so they show only once merged to main.
   `-Pscenario=seat` (only by name, not for the store) films the rider side on for review: the gaits and a hard stop, the
-  same through the riding camera, a jump and a drop off a 3-block ledge, each with `<clip>-rider.csv` (stand, brace,
+  same through the riding camera, a jump and a drop off a 3-block ledge, each with `<clip>-rider.csv` (brace,
   settle and what drives them, a line a frame).
 
 ## Smoke test (every version)

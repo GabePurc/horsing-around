@@ -864,3 +864,5 @@ their trunk only ~5 degrees a stride; knees and ankles take landings.
   (stirrups and legs forward, sitting back 7 degrees, sitting down out of a stand); when the horse's body is caught from
   below (a landing, a step at speed) the rider gives at the hips and knees and comes back up. Each is a spring on game
   ticks (`RiderMotion`), read by the pose (`RiderSeat`, `RidePoser`).
+- Standing taken out (user, 2026-10-26: "I dont want the player to stand up anymore. It looks dumb"): the rider sits at
+  every gait, on climbs and ledge heaves too; bracing and giving on landings stay.
