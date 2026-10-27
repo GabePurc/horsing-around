@@ -436,8 +436,8 @@ kinematics, still driven by Fresh Animations' animation.
 ## Staying vanilla
 
 - No new HUD panels. Stamina lives in the vanilla horse jump bar, which charged jumping no longer needs.
-- Speeds are multiples of each horse's own speed attribute, so breeding still matters. Canter is a little below vanilla
-  top speed and gallop a little above, so long-distance travel time is similar to vanilla.
+- Speeds are multiples of each horse's own speed attribute, so breeding still matters. Gallop is a little above vanilla
+  top speed; since 2026-10-26 the slower gaits are near real horses' (canter about two thirds of vanilla's top speed).
 - Vanilla keys only: W/S/A/D, sprint, jump. No new keybinds for the core loop.
 - Jumping is the ride's own press-to-jump (see "Jumping"); vanilla's charge-and-release jump no longer runs on the
   horses this mod rides.
@@ -1009,3 +1009,18 @@ the legs to move it) and "the front and back legs seem a bit close to each other
 - Hooves landed 0.2-0.3 blocks outside a circle (the leg's smoothed velocity lags in a turn, and the landing was guessed
   along a straight): now round the arc. Legs lean in a circle as on `77da80e` (at most 16-20 degrees), weaving about 4
   more (23-24).
+
+## Real speeds for real legs (user direction, 2026-10-26)
+
+Research (report in the session: Johansen's semi-procedural locomotion, Unreal's distance matching and stride warping,
+Raibert's foot placement, equine kinematics): a planted hoof stays put only if the cadence times the ground a hoof stands
+for matches the ground speed, and every method gets there by matching the two. The ride's gaits were about twice as fast
+as a horse with legs this short goes, so the legs either stepped quickly or the hooves stood for a short share of the
+stride: at a walk 37% (a real walk about 60%) at 2 strides a second, and at a trot all four hooves were off the ground
+nearly half the time.
+
+User: speeds can be more realistic, still varying with how the horse was bred. The gaits are now 0.2, 0.42, 0.68 and
+1.15 (gallop as before) of the horse's own top speed; the gait blends, the gallop hoof sound and the wall crash moved
+with them, and backing up is slower than a walk. Prototype: two cadence caps filmed side by side for the user to pick
+(`GAIT_CADENCE_SIZE` 1.3 and 1.6, `-PcadenceSize`); at 1.6 a walk's hooves stand 57% of the stride at 1.8 strides a
+second.

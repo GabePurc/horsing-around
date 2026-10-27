@@ -114,6 +114,10 @@ def installFreshAnimations = tasks.register("installFreshAnimations") {
 	}
 }
 tasks.matching { it.name == "runClient" }.configureEach { dependsOn installFreshAnimations }
+// (Prototype: another cadence to try, see RideTuning.GAIT_CADENCE_SIZE.)
+if (project.hasProperty("cadenceSize")) {
+	tasks.matching { it.name == "runClient" }.configureEach { jvmArgs("-Dhorsingaround.cadenceSize=${project.property("cadenceSize")}") }
+}
 // Plain "runClient" would start every version's game: only the main version's answers to it, the others only by path
 // (./gradlew :1.21.11:runClient).
 if (!mainVersion) {

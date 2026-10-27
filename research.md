@@ -15,8 +15,8 @@ whatever the speed; no stamina; no visual weight.
 
 - Gaits (walk, trot, canter, gallop): sprint taps step up, S taps step down, releasing W coasts to a stop, S held
   brakes hard then backs up. A double tap of W (user, 2026-10-18) steps up too and locks the horse into riding on with W
-  let go, until S. Speeds are multiples of each horse's own speed attribute (breeding matters); canter a
-  little below vanilla top speed, gallop a little above.
+  let go, until S. Speeds are multiples of each horse's own speed attribute (breeding matters), near a real
+  horse's (user, 2026-10-26): an average horse walks about 2 blocks a second, trots 4.2, canters 6.7, gallops 11.4.
 - Momentum: gradual acceleration and coasting, harder braking; a head-on wall hit at speed sheds momentum, a graze
   slips past.
 - Turning (user): the horse shifts its weight before it turns; turn rate is grip-limited, so a gallop turn is wide.

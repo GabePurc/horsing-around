@@ -17,8 +17,12 @@ public final class RideTuning {
 
 	// ---- Gaits and momentum ----
 
-	/** Target speed for each gait. */
-	public static final float[] GAIT_SPEED = {0.0F, 0.35F, 0.6F, 0.85F, 1.15F};
+	/**
+	 * Target speed for each gait, a multiple of the horse's own top speed (so a better-bred horse is quicker at every gait).
+	 * Near a real horse's (user, 2026-10-26: speeds can be more realistic, still varying by the horse): an average horse
+	 * walks at about 2 blocks a second, trots at 4.2, canters at 6.7 and gallops at 11.4.
+	 */
+	public static final float[] GAIT_SPEED = {0.0F, 0.2F, 0.42F, 0.68F, 1.15F};
 	/** Acceleration toward each gait per tick; higher gaits build up more slowly. */
 	static final float[] GAIT_ACCEL = {0.0F, 0.05F, 0.035F, 0.025F, 0.018F};
 	/** Forward key released: horse eases to a stop (~2s from a gallop). */
@@ -27,7 +31,8 @@ public final class RideTuning {
 	static final float DECEL_REIN = 0.035F;
 	/** Back key held while moving: hard stop (~0.8s from a gallop). */
 	static final float DECEL_BRAKE = 0.07F;
-	static final float REVERSE_SPEED = -0.2F;
+	/** Backing up: slower than a walk, as a horse steps back. */
+	static final float REVERSE_SPEED = -0.12F;
 	static final float REVERSE_ACCEL = 0.03F;
 	/**
 	 * Double-tapping W within this many ticks spurs up a gait and keeps the horse riding on with W let go, until S. Vanilla's
@@ -86,7 +91,7 @@ public final class RideTuning {
 	 * Hitting a wall above this speed sheds momentum and drops the horse to a trot, when the hit takes more than
 	 * CRASH_BLOCKED of the tick's travel (head-on, not a scrape along a trunk or the corner of a block).
 	 */
-	static final float CRASH_SPEED = 0.45F;
+	static final float CRASH_SPEED = 0.32F;
 	static final float CRASH_KEEP = 0.5F;
 	public static final float CRASH_BLOCKED = 0.65F;
 	/**
@@ -744,15 +749,15 @@ public final class RideTuning {
 	static final float TAIL_MAX_DOWN = 0.6F;
 
 	/**
-	 * Leg animation speed for a ridden horse = fraction of vanilla top speed. Fresh Animations switches to its trot at
-	 * 0.4 and its gallop at 0.8, so walk ~0.35, trot ~0.6, canter ~0.85 and gallop 1.0 each get the matching gait.
+	 * Leg animation speed for a ridden horse = fraction of vanilla top speed. (Fresh Animations switches to its trot at
+	 * 0.4 and its gallop at 0.8; since the gaits slowed down to real horses' its canter shows its trot.)
 	 */
 	public static final float ANIMATION_SPEED_FACTOR = 1.0F;
 	/** How fast the pace the rider sits to follows the horse's speed: as the legs' animation speed does (vanilla's 0.4). */
 	static final float PACE_EASE = 0.4F;
 
 	/** Hoof sounds switch to the gallop clip at this fraction of vanilla top speed. */
-	public static final float GALLOP_SOUND_SPEED = 0.72F;
+	public static final float GALLOP_SOUND_SPEED = 0.55F;
 	/** Flat-ground top speed per tick is ~2.2x the speed attribute (friction 0.6 * drag 0.91). */
 	public static final float TERMINAL_VELOCITY_FACTOR = 2.2F;
 
@@ -941,9 +946,9 @@ public final class RideTuning {
 	public static final float SADDLE_PITCH_CANTER = 3.0F;
 	public static final float SADDLE_PITCH_GALLOP = 2.5F;
 	/** Leg-animation speeds where the motion blends into trot, into canter, and into gallop. */
-	public static final float TROT_ANIMATION_SPEED = 0.4F;
-	public static final float RUN_ANIMATION_SPEED = 0.8F;
-	public static final float GALLOP_ANIMATION_SPEED = 0.95F;
+	public static final float TROT_ANIMATION_SPEED = 0.3F;
+	public static final float RUN_ANIMATION_SPEED = 0.55F;
+	public static final float GALLOP_ANIMATION_SPEED = 0.9F;
 
 	/**
 	 * The plain model's own gaits (when no animation pack poses it; see Strides): walk, trot, canter, gallop, at the
@@ -979,7 +984,8 @@ public final class RideTuning {
 	 */
 	public static final float[] GAIT_CADENCE = {0.55F, 1.2F, 1.45F, 1.6F};
 	public static final float[] GAIT_CADENCE_RISE = {0.25F, 0.05F, 0.06F, 0.06F};
-	public static final float GAIT_CADENCE_SIZE = 1.3F;
+	// (Prototype, 2026-10-26: -PcadenceSize on runClient or the client tests tries another, to compare clips. Not for merging.)
+	public static final float GAIT_CADENCE_SIZE = Float.parseFloat(System.getProperty("horsingaround.cadenceSize", "1.3"));
 	/**
 	 * How high a hoof clears the ground in its swing, blocks, and where in the swing it is highest: a front one early (it
 	 * folds up under the forearm, then reaches out). Less than a real horse's (a trot's front hoof about 14 cm): a one-piece
