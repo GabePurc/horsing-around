@@ -42,6 +42,7 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.InactivityFpsLimit;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.gizmos.Gizmos;
 import net.minecraft.client.Options;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -1366,7 +1367,11 @@ public final class StoreMediaTest implements FabricClientGameTest {
 			FilmCamera.recording(false);
 			mc.gameRenderer.extract(timer, true);
 			LegProbe.listen(true);
-			mc.gameRenderer.render();
+			// (Collecting the frame's debug lines as the game's own frames do, so what is drawn with the horse, the leg bones,
+			// is in this frame and only this one.)
+			try (Gizmos.TemporaryCollection gizmos = mc.levelRenderer.collectPerFrameRenderThreadGizmos()) {
+				mc.gameRenderer.render();
+			}
 		} finally {
 			LegProbe.listen(false);
 			FilmCamera.drawingClip(false);

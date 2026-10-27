@@ -29,9 +29,9 @@ public final class LegBones {
 	private static final Matrix4f ROOT = new Matrix4f();
 	private static final Matrix4f MATRIX = new Matrix4f();
 	private static final Vector3f POINT = new Vector3f();
-	/** The ride and frame last drawn (a horse is posed again for its saddle and armour in the same frame). */
+	/** The ride and the moment (its legs' clock) last drawn: a horse is posed again for its saddle and armour in the same frame. */
 	private static @Nullable RideState drawnRide;
-	private static int drawnFrame = Integer.MIN_VALUE;
+	private static double drawnAt = Double.NaN;
 
 	private LegBones() {
 	}
@@ -63,11 +63,10 @@ public final class LegBones {
 		if (!on || ride == null || root == null || !ride.drawnPoseSet || !Strides.posed(ride)) {
 			return;
 		}
-		final int frame = SaddleMotion.frame();
-		if (frame == drawnFrame && ride == drawnRide) {
+		if (ride.gaitPosedAt == drawnAt && ride == drawnRide) {
 			return;
 		}
-		drawnFrame = frame;
+		drawnAt = ride.gaitPosedAt;
 		drawnRide = ride;
 		ROOT.set(ride.drawnPose)
 			.translate(root.x / 16.0F, root.y / 16.0F, root.z / 16.0F)
