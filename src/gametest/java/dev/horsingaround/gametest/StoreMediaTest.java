@@ -6,6 +6,7 @@ import com.mojang.renderpearl.api.commands.CommandEncoder;
 import com.mojang.renderpearl.api.commands.GpuFence;
 import com.mojang.datafixers.util.Pair;
 import dev.horsingaround.client.config.HorseSettingsScreen;
+import dev.horsingaround.client.render.LegBones;
 import dev.horsingaround.devtools.LegProbe;
 import dev.horsingaround.gametest.mixin.DeltaTrackerTimerAccessor;
 import dev.horsingaround.gametest.mixin.RideCameraAccessor;
@@ -366,6 +367,22 @@ public final class StoreMediaTest implements FabricClientGameTest {
 			this.record(ctx, taps == GALLOP ? "legs_climb_gallop" : "legs_climb_trot", 140, CLIP_HEIGHT, REAL_TIME, t -> input.lookAt(heading, 12.0F));
 			this.stop(ctx);
 		}
+		// The bones drawn over the legs (LegBones, F8 in a dev game), side on: walking, then trotting, then stopping.
+		ctx.runOnClient(mc -> LegBones.on = true);
+		this.mount(ctx, world, spot, BAY, NOON);
+		this.flatten(ctx, world, spot);
+		input.holdKey(o -> o.keyUp);
+		this.closeUp(ctx, 90.0F, 5.0F, 0.6F, 0.3F);
+		this.record(ctx, "legs_bones", 200, CLIP_HEIGHT, REAL_TIME, t -> {
+			if (t == 90) {
+				input.pressKey(o -> o.keySprint);
+			} else if (t == 150) {
+				input.releaseKey(o -> o.keyUp);
+			}
+			input.lookAt(spot.yaw, 12.0F);
+		});
+		this.stop(ctx);
+		ctx.runOnClient(mc -> LegBones.on = false);
 	}
 
 	/**

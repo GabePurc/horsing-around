@@ -2,6 +2,7 @@ package dev.horsingaround.client.mixin;
 
 import dev.horsingaround.client.render.AirLegs;
 import dev.horsingaround.client.render.GroundLegs;
+import dev.horsingaround.client.render.LegBones;
 import dev.horsingaround.client.render.RidePoseState;
 import dev.horsingaround.client.render.Strides;
 import dev.horsingaround.ride.RideState;
@@ -148,6 +149,7 @@ public abstract class AbstractEquineModelMixin {
 				AirLegs.pose(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, shaped, pose.horsingaround$airRise());
 				GroundLegs.floor(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, pixels, ride, root);
 			}
+			LegBones.draw(ride, root, this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg);
 		}
 		this.tail.xRot += pose.horsingaround$tail();
 	}

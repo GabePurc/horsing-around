@@ -79,7 +79,8 @@ recorder: in a dev game it records every frame of the ridden horse into a ring o
 (height, pitch and roll off the model) and what turns it (the slope's tilt, a jump's, the lean, the legs' jump shape), the
 horse's state (in the air, leapt, ledge climb, heave, vertical speed, on the ground), how far its head is in the ground, the camera, the keys, what the
 crosshair targets and the attack charge, and each leg as drawn with its step state. **F7** saves it to `run/devtools/<time>/` (`frames.csv`, `ground.csv` with the
-ground along the way, `events.txt`). Every hitch (a hoof, the body, its tilt or the camera changing speed in one frame)
+ground along the way, `events.txt`). **F8** draws the plain model's leg bones over the horses (`LegBones`: hip bone orange, thigh
+yellow, shin aqua, a red line where the drawn shin left its bones, the hoof's spot green standing or magenta landing). Every hitch (a hoof, the body, its tilt or the camera changing speed in one frame)
 and every sunk hoof also goes to `run/devtools/events.log` as it happens, with every turn of the body faster than 150
 degrees a second, takeoff, landing, ledge climb, leap and crosshair target. After a play-test, read those instead of
 guessing. Stride lanes and terrain scenarios report the same hitches (`LegProbe.hitches`), measured against the drawn
@@ -98,7 +99,7 @@ body.
 - `-Ptests=store`: films the README's clips and stills in a generated world (`StoreMediaTest`; `-Pscenario=gaits,river`
   for some; `-Pscenario=study`, never in a full store run: each gait side on at half speed, with `-PvanillaModel` the
   plain model's own gaits; `-Pscenario=legs`, likewise: speeding up through the gaits and stopping, weaving and circling,
-  up a hill of full blocks at a gallop and a trot, close on the legs, each with a `-legs.csv` of every leg's angle, the
+  up a hill of full blocks at a gallop and a trot, and the bones drawn over the legs (`legs_bones`), close on the legs, each with a `-legs.csv` of every leg's angle, the
   heading, the body's height, the stride, each leg's turn, lean and draw-up, where each leg's top (the joint with its
   hidden bones) went, and the body's pitch and roll on its legs and lean into turns), with ATMOSPHERICS loaded for the sky. Clips are widescreen at 30 frames a second, slowed down where a shot
   asks; the ones shown as you play (the stamina bar, the riding camera, the settings) are 16:9 with the HUD, and while a

@@ -61,7 +61,8 @@ server). Jars land in `versions/<version>/build/libs/`. Gradle picks JDK 25 thro
 
 Play-test: `./gradlew :26.3:runClient` (`./gradlew :<version>:runClient` for another). Dev runs load Mod Menu, Entity
 Model Features, Entity Texture Features and the Fresh Animations pack (the user's target setup), and on 26.3 the dev tools
-(`src/devtools`): F7 saves the last 30 s of riding and hitches are logged to `run/devtools/` (see `docs/testing.md`).
+(`src/devtools`): F7 saves the last 30 s of riding, F8 draws the plain model's leg bones over the horses, and hitches
+are logged to `run/devtools/` (see `docs/testing.md`).
 
 ## Testing
 

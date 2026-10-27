@@ -45,7 +45,7 @@ at most two lines, under the right area; details go in the PR, not here.
 - Each hoof sits on its own ground (block grid, slabs, stairs, water as a floor), upright against slopes only, never in the ground; vanilla's one-piece legs, no knee joints
 - Hooves move to their height on a short spring and look ahead along their own path, so they lift onto higher ground smoothly instead of popping (2026-10-22)
 - Legs work in old worlds: the time they read was a float, stuck in a world past 16.7 million ticks (hooves sank)
-- Dev tools mod (`src/devtools`, dev games and tests only): leg probe and a play-test recorder (F7, `run/devtools/`), hitches logged
+- Dev tools mod (`src/devtools`, dev games and tests only): leg probe and a play-test recorder (F7, `run/devtools/`), the plain model's leg bones drawn over the horses (F8), hitches logged
 - The drawn body's tilt follows a smooth curve between ticks (no judder at twenty a second)
 - The body turns as one weight (2026-10-23): slope and jump tilt never add up, so landing down a hillside doesn't tip it
   nose down twice over with the hind hooves in the air (`landing` lane)

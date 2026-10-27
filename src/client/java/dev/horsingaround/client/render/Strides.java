@@ -71,6 +71,11 @@ public final class Strides {
 	private static float AIM_REACH;
 	private static float AIM_JOINT_Y;
 	private static float AIM_JOINT_Z;
+	/** And where the hip bone's fixed point and the shoulder or hip joint went, against the leg's top (for LegBones). */
+	private static float AIM_ROOT_Y;
+	private static float AIM_ROOT_Z;
+	private static float AIM_PIVOT_Y;
+	private static float AIM_PIVOT_Z;
 	private static float AIM_SHORT;
 	private static float AIM_OUT;
 	private static float AIM_FORE;
@@ -488,6 +493,9 @@ public final class Strides {
 				// On the ground: the leg reaches its hoof from the end of its hidden bones (see aim; the ride's ground
 				// work, GroundLegs, does the rest: a hoof still in the ground, and the body's fit onto its legs).
 				aim(leg, fore, s.hoofX[i] - cx, hoofHeight(s, i, hipY, length) - cy, s.hoofZ[i] - cz, topX, topY, topZ);
+				if (LegBones.on) {
+					LegBones.chain(i, topX, topY, topZ, AIM_ROOT_Y, AIM_ROOT_Z, AIM_PIVOT_Y, AIM_PIVOT_Z, AIM_JOINT_Y, AIM_JOINT_Z);
+				}
 				s.gaitLegTurn[i] = AIM_TURN;
 				s.gaitLegSide[i] = AIM_SIDE;
 				s.gaitJointY[i] = AIM_JOINT_Y;
@@ -526,6 +534,9 @@ public final class Strides {
 					* shape(sw, fore ? FORE_LIFT : HIND_LIFT);
 				final double hoofY = s.hoofFromY[i] + (toY - s.hoofFromY[i]) * down + lift;
 				aim(leg, fore, hoofX - cx, hoofY - cy, hoofZ - cz, topX, topY, topZ);
+				if (LegBones.on) {
+					LegBones.chain(i, topX, topY, topZ, AIM_ROOT_Y, AIM_ROOT_Z, AIM_PIVOT_Y, AIM_PIVOT_Z, AIM_JOINT_Y, AIM_JOINT_Z);
+				}
 				final float sweep = mix(s, GAIT_SWING_FLICK) * shape(sw, FLICK) - mix(s, GAIT_SWING_REACH) * shape(sw, REACH);
 				s.gaitLegTurn[i] = Mth.clamp(AIM_TURN + Math.signum(s.liftTurn[i]) * s.gaitGround * sweep, -GAIT_SWING_MOST, GAIT_SWING_MOST);
 				s.gaitLegSide[i] = AIM_SIDE;
@@ -643,6 +654,10 @@ public final class Strides {
 		final float boneZ = restZ - rootZ;
 		final float pivotY = rootY + boneY * cos - boneZ * sin;
 		final float pivotZ = rootZ + boneY * sin + boneZ * cos;
+		AIM_ROOT_Y = rootY;
+		AIM_ROOT_Z = rootZ;
+		AIM_PIVOT_Y = pivotY;
+		AIM_PIVOT_Z = pivotZ;
 		// Then the thigh bone and the leg: the leg as long side on as it is, leaning out as far as it can, less what it draws
 		// up first (GAIT_LEG_GIVE), and how far the point is from the shoulder or hip joint, no further than the two straight
 		// nor nearer than they close as far as they go.
