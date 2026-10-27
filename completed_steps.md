@@ -61,7 +61,7 @@ at most two lines, under the right area; details go in the PR, not here.
 - Gaits near real horses' speeds, still scaled by each horse's own (walk 2, trot 4.2, canter 6.7, gallop 11.4 blocks/s on average); the legs step up to 1.6x a real horse's cadence
 - Plain-model legs: hidden hip and thigh bones that flex with the stride (joints follow the hoof), and each leg in two pieces with a knee or hock that folds in the swing
 - Plain-model body bones: a three-piece tail, the head on a poll and the ears, each on springs swung by the body's motion (`BodyBones`); F8 draws them
-- Plain-model trunk in three (chest, barrel, hindquarters; 1.21.9 on): the back flexes with the legs, bends in turns, the hips sway, with no gaps at the joints
+- Plain-model back on two bones (1.21.9 on): vanilla's one body box drawn bent smoothly on them (`BentBody`), flexing with the legs, bending in turns, the hips swaying, sized to a real horse's back
 
 ## Rider
 

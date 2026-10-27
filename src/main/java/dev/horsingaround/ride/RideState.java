@@ -387,6 +387,8 @@ public final class RideState {
 	public final float[] spineYawV = new float[2];
 	public float hipRoll;
 	public float hipRollV;
+	/** The front and hind legs' mean swing, followed slowly: the middle the back flexes either side of. */
+	public final float[] spineMiddle = new float[2];
 	/** How far the legs sweep on the ground against their gait's full stance (0 standing, 1 full strides; see Strides.advance). */
 	public float gaitSweep;
 	public float gaitGround;

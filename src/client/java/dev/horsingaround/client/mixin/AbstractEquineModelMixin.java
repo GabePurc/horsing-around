@@ -2,6 +2,7 @@ package dev.horsingaround.client.mixin;
 
 import dev.horsingaround.client.compat.AnimationPacks;
 import dev.horsingaround.client.render.AirLegs;
+import dev.horsingaround.client.render.BentBody;
 import dev.horsingaround.client.render.BodyBones;
 import dev.horsingaround.client.render.GroundLegs;
 import dev.horsingaround.client.render.LegBones;
@@ -98,21 +99,11 @@ public abstract class AbstractEquineModelMixin {
 		horsingaround$knee(root, "left_front_leg", true, -3.0F, -1.9F, 4.0F, -10.0F, true, g);
 		horsingaround$knee(root, "right_front_leg", false, -1.0F, -1.9F, -4.0F, -10.0F, true, g);
 		//? if >=1.21.9 {
-		// The body in three: the barrel (vanilla's body part, under the saddle) and the chest and hindquarters, each turning at
-		// its joint with it and reaching a pixel into it, a hair inside its faces (so a bend never opens the joint, and
-		// straight, nothing flickers there). Their texture is put back as one box's by BodyBones.remap once the model is built.
-		root.addOrReplaceChild("body", CubeListBuilder.create().texOffs(0, 32)
-			.addBox(-5.0F, -8.0F, BodyBones.BARREL_FRONT, 10.0F, 10.0F, BodyBones.BARREL_BACK - BodyBones.BARREL_FRONT, new CubeDeformation(0.05F)),
-			PartPose.offset(0.0F, 11.0F, 5.0F));
+		// The back's two bones, at the joints behind the chest and in front of the hindquarters (parts with nothing to draw):
+		// vanilla's body box bends on them as drawn (BentBody), all in one piece.
 		final PartDefinition body = root.getChild("body");
-		final CubeDeformation inside = new CubeDeformation(0.04F, 0.04F, 0.05F);
-		final float y = -8.0F - BodyBones.SPINE_Y;
-		body.addOrReplaceChild(BodyBones.CHEST, CubeListBuilder.create().texOffs(0, 32)
-			.addBox(-5.0F, y, -17.0F - BodyBones.BARREL_FRONT, 10.0F, 10.0F, BodyBones.BARREL_FRONT + 17.0F + BodyBones.OVERLAP, inside),
-			PartPose.offset(0.0F, BodyBones.SPINE_Y, BodyBones.BARREL_FRONT));
-		body.addOrReplaceChild(BodyBones.CROUP, CubeListBuilder.create().texOffs(0, 32)
-			.addBox(-5.0F, y, -BodyBones.OVERLAP, 10.0F, 10.0F, 5.0F - BodyBones.BARREL_BACK + BodyBones.OVERLAP, inside),
-			PartPose.offset(0.0F, BodyBones.SPINE_Y, BodyBones.BARREL_BACK));
+		body.addOrReplaceChild(BodyBones.CHEST, CubeListBuilder.create(), PartPose.offset(0.0F, BodyBones.SPINE_Y, BodyBones.BARREL_FRONT));
+		body.addOrReplaceChild(BodyBones.CROUP, CubeListBuilder.create(), PartPose.offset(0.0F, BodyBones.SPINE_Y, BodyBones.BARREL_BACK));
 		//?}
 		// The tail in three: the dock (vanilla's part, at its place and angle) and two lengths of hair, each turning at its top.
 		final float hair = BodyBones.TAIL_HAIR;
@@ -146,19 +137,19 @@ public abstract class AbstractEquineModelMixin {
 
 	//? if >=1.21.9 {
 	@Inject(method = "<init>(Lnet/minecraft/client/model/geom/ModelPart;)V", at = @At("TAIL"))
-	private void horsingaround$remap(final ModelPart root, final CallbackInfo ci) {
-		BodyBones.remap(root);
+	private void horsingaround$bend(final ModelPart root, final CallbackInfo ci) {
+		BentBody.attach(root);
 	}
 
 	@Inject(
 		method = "<init>(Lnet/minecraft/client/model/geom/ModelPart;Lnet/minecraft/client/model/geom/ModelPart;Lnet/minecraft/client/model/geom/ModelPart;Lnet/minecraft/client/model/geom/ModelPart;Lnet/minecraft/client/model/geom/ModelPart;Lnet/minecraft/client/model/geom/ModelPart;Lnet/minecraft/client/model/geom/ModelPart;)V",
 		at = @At("TAIL")
 	)
-	private void horsingaround$remapParts(
+	private void horsingaround$bendParts(
 		final ModelPart root, final ModelPart headParts, final ModelPart rightHindLeg, final ModelPart rightFrontLeg, final ModelPart leftHindLeg,
 		final ModelPart leftFrontLeg, final ModelPart tail, final CallbackInfo ci
 	) {
-		BodyBones.remap(root);
+		BentBody.attach(root);
 	}
 	//?}
 
@@ -218,7 +209,6 @@ public abstract class AbstractEquineModelMixin {
 			Legs.of(this.leftHindLeg);
 			Legs.of(this.rightHindLeg);
 			BodyBones.hide(this.tail);
-			BodyBones.hideTrunk(((Model<?>) (Object) this).root());
 		}
 		//?}
 		this.headParts.xRot += pose.horsingaround$neckPitch();

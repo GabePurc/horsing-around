@@ -1075,3 +1075,18 @@ Kept small (at most about 2 degrees; turning about 1): at 7 a piece's side stood
 saddle's back showed above a dipping croup. A frame where the legs couldn't be worked out (the first few, before the hooves
 are placed) once left a spring not a number, and the chest, hindquarters, neck and tail vanished: springs that aren't a
 number now start over from rest.
+
+## The whole horse on bones, stage 2b: one body, bent (user direction, 2026-10-27)
+
+User, riding stage 2: the body still looked like one piece and normal; bend it as a real horse would. The three boxes
+had to stay within about 2 degrees to hide their joints, too little to see. Now vanilla's one body box is drawn bent
+(`BentBody`, 1.21.9 on): each face along the body in 1-pixel slices, every corner turned with the chest bone, the
+hindquarters bone, or a smooth blend of the two over each joint, as a skinned model's are. One surface, vanilla's texture,
+so nothing can open or show an edge; the saddle (and a donkey's chests) bend with it, and the legs, neck and tail sit wholly
+on their bone. The bones are empty parts, back to straight with the model's pose each frame; drawn by vanilla while
+straight. The spine sits in the top of the trunk (5 pixels down, not the middle). Bends are sized to a real horse's back
+(treadmill studies: a few degrees of flex and sway at a walk and trot, the hips rolling most at a walk, several degrees of
+flex at a canter and gallop, most just in front of the croup), and flex about the legs' own middle over the last strides
+so the back is never held bent. Measured on the legs clips (degrees, 3rd to 97th percentile): at a gallop the hindquarters flex
+-4.4 to +3.8 and the chest -1.5 to +1.6; at a canter -4.0 to +2.8; at a walk the hips roll ±2.4 and the hindquarters sway
+±2.5; round a turn the body bends up to 4. (Before centring, the gallop held the rump about 4 up throughout.)

@@ -1300,6 +1300,9 @@ public final class StoreMediaTest implements FabricClientGameTest {
 						// (The body's pitch and roll on its legs, and its lean into a turn, degrees.)
 						row.append(String.format(Locale.ROOT, ",%.2f,%.2f,%.2f", ride.gaitBodyPitch * Mth.RAD_TO_DEG, ride.gaitBodyRoll * Mth.RAD_TO_DEG,
 							ride.lean(partialTick)));
+						// (The back's bones: the chest's and the hindquarters' pitch and yaw, and the hips' roll, degrees.)
+						row.append(String.format(Locale.ROOT, ",%.2f,%.2f,%.2f,%.2f,%.2f", ride.spinePitch[0] * Mth.RAD_TO_DEG, ride.spinePitch[1] * Mth.RAD_TO_DEG,
+							ride.spineYaw[0] * Mth.RAD_TO_DEG, ride.spineYaw[1] * Mth.RAD_TO_DEG, ride.hipRoll * Mth.RAD_TO_DEG));
 					}
 					LEGS.add(row.toString());
 					if (mc.player.getVehicle() instanceof RideStateHolder holder) {

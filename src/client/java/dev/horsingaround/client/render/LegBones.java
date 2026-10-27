@@ -18,8 +18,8 @@ import org.jspecify.annotations.Nullable;
  * the leg as drawn, from its top to the middle of its sole (aqua; in two pieces, the lower blue below the knee or hock); a red line where the shin's drawn top isn't where the
  * hidden bones put it (the ride's ground work moved the leg). The hoof's spot: green where it stands, magenta where it is
  * going to land. The rest of the horse's bones (see BodyBones): the neck to the poll and the head beyond it (pink),
- * the ears (light pink), the tail's three pieces (purple), and the back along the trunk's three pieces with their joints
- * (white). The right legs' bones are darker, so the far side's tell apart from the near side's where the two
+ * the ears (light pink), the tail's three pieces (purple), and the back along the chest, the barrel and the hindquarters,
+ * as their bones turn them, with the joints (white). The right legs' bones are darker, so the far side's tell apart from the near side's where the two
  * overlap (side on, a pair in step). Debug only, so it may allocate. Needs gizmos, which came in 1.21.11; before, it draws nothing.
  */
 public final class LegBones {
@@ -149,7 +149,7 @@ public final class LegBones {
 		}
 		final ModelPart body = ((PartData) (Object) root).horsingaround$children().get("body");
 		if (body != null) {
-			// The back: along the top of the chest, the barrel and the hindquarters, each piece as turned on its joint.
+			// The back: along the top of the chest, the barrel and the hindquarters, each as turned on its bone.
 			final Matrix4f barrel = child(ROOT, body);
 			final ModelPart chest = ((PartData) (Object) body).horsingaround$children().get(BodyBones.CHEST);
 			final ModelPart croup = ((PartData) (Object) body).horsingaround$children().get(BodyBones.CROUP);
