@@ -1021,11 +1021,48 @@ public final class RideTuning {
 	public static final float[] GAIT_SWING_FLICK = {0.08F, 0.12F, 0.13F, 0.14F};
 	public static final float[] GAIT_SWING_REACH = {0.04F, 0.07F, 0.08F, 0.1F};
 	/**
-	 * The most a leg turns from upright, radians; in its swing, GAIT_SWING_MOST (about a real horse's at full stretch: up a
-	 * hill a hoof's path can go far behind or above the leg, and the leg would swing round to it).
+	 * The most a leg turns from upright, radians; in its swing, GAIT_SWING_MOST (up a hill a hoof's path can go far ahead
+	 * of and above the leg, and the leg would point past flat to it).
 	 */
 	public static final float GAIT_LEG_MOST = 1.45F;
 	public static final float GAIT_SWING_MOST = 1.0F;
+	/**
+	 * Each leg is a chain of two bones: a hidden upper one (the shoulder's or hip's) from a fixed point inside the body to
+	 * the top of the visible leg, and the visible leg from there to its hoof. GAIT_UPPER: the upper bone's length, a share
+	 * of the visible leg's (front, hind); GAIT_UPPER_TILT: how far it slopes from straight down where the model puts the
+	 * leg, radians (front legs down and back from the shoulder, hind legs down and forward from the hip, so the joint bends
+	 * back on front legs and forward on hind ones, as a horse's elbow and stifle do, and only ever goes up into the body).
+	 * It turns at most GAIT_UPPER_MOST radians from there, and the two bones close to no less than GAIT_JOINT_LEAST radians
+	 * apart: a hoof nearer than that draws its leg up along its length. A hoof up to GAIT_LEG_GIVE of the leg's length nearer
+	 * than its length draws the leg up first, the joint staying put (on level ground the body sits that little lower on
+	 * its legs, see Strides.crouch, and the joints going in for it would bring the front and hind legs together).
+	 */
+	public static final float[] GAIT_UPPER = {0.5F, 0.5F};
+	public static final float[] GAIT_UPPER_TILT = {0.4F, 0.35F};
+	public static final float GAIT_UPPER_MOST = 0.9F;
+	public static final float GAIT_JOINT_LEAST = 1.22F;
+	public static final float GAIT_LEG_GIVE = 0.2F;
+	/**
+	 * How far ahead of the top of its leg a front hoof stands and lands, and behind it a hind one, blocks (user, 2026-10-26:
+	 * the front and hind legs looked a little close together, but not far out either).
+	 */
+	public static final float[] GAIT_HOOF_OUT = {0.1F, 0.1F};
+	/**
+	 * The body rides on its legs: each corner comes down as far as its leg is turned from upright (a leg straight under
+	 * holds it highest) and, its hoof in the air, dips by GAIT_BODY_DIP of the leg's length at mid-swing (walk, trot,
+	 * canter, gallop). The body pitches GAIT_BODY_FOLLOW of the way to how its corners stand front against hind, and rolls
+	 * GAIT_BODY_ROLL of the way left against right (less: the legs stand close together across, and rolling the body much
+	 * would lean them out), following within GAIT_BODY_TIME seconds, at most GAIT_BODY_MOST radians either way. Only the
+	 * stride's own rocking: how the corners stand on average over GAIT_BODY_SETTLE seconds is left out (the hind legs
+	 * standing further from upright than the front ones would tilt the body for good; slopes are the ride's ground work).
+	 * Its height stays the stride's own (see Strides.bodyLift and crouch), which leaves every leg reaching.
+	 */
+	public static final float[] GAIT_BODY_DIP = {0.06F, 0.04F, 0.02F, 0.01F};
+	public static final float GAIT_BODY_FOLLOW = 0.4F;
+	public static final float GAIT_BODY_ROLL = 0.15F;
+	public static final float GAIT_BODY_TIME = 0.08F;
+	public static final float GAIT_BODY_SETTLE = 1.0F;
+	public static final float[] GAIT_BODY_MOST = {0.07F, 0.05F};
 	/** Ground speed (blocks a second) from which the neck and tail move fully with the stride. */
 	public static final float GAIT_FULL_SPEED = 1.0F;
 	/**

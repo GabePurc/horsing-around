@@ -89,10 +89,16 @@ public final class RidePoser {
 		final float moveForward = jointForward * cosJump - jointUp * sinJump + pivot;
 		final float moveUp = jointForward * sinJump + jointUp * cosJump;
 		final float bankSin = Mth.sin(bank);
-		final float bodyLift = s.heightOffset(partialTicks) + (saddle.synthetic ? saddle.lift - saddle.crouch : 0.0F) + moveUp * Mth.cos(bank);
-		final float shiftX = fx * moveForward + rx * moveUp * bankSin;
-		final float shiftZ = fz * moveForward + rz * moveUp * bankSin;
-		HORSE_ROTATION.rotationAxis(bank, fx, 0.0F, fz).rotateAxis(bodyPitch, rx, 0.0F, rz);
+		// A generated gait's roll turns the horse model too, about the leg joints (the body rolls on its legs: their tops go
+		// up and down, not out to the side).
+		final float gaitRoll = saddle.synthetic ? saddle.roll * Mth.DEG_TO_RAD : 0.0F;
+		final float rollOut = -LEG_LENGTH * Mth.sin(gaitRoll);
+		final float bodyLift = s.heightOffset(partialTicks) + (saddle.synthetic ? saddle.lift - saddle.crouch : 0.0F) + moveUp * Mth.cos(bank)
+			+ LEG_LENGTH * (1.0F - Mth.cos(gaitRoll));
+		final float shiftX = fx * moveForward + rx * (moveUp * bankSin + rollOut);
+		final float shiftZ = fz * moveForward + rz * (moveUp * bankSin + rollOut);
+		final float horseBank = bank + gaitRoll;
+		HORSE_ROTATION.rotationAxis(horseBank, fx, 0.0F, fz).rotateAxis(bodyPitch, rx, 0.0F, rz);
 
 		pose.horsingaround$setRide(isHorse ? s : null);
 		if (isHorse) {
@@ -122,7 +128,7 @@ public final class RidePoser {
 			}
 			pose.horsingaround$setAirLegs(packAnimated ? 0.0F : s.airLegs(partialTicks), s.airRise(partialTicks));
 			pose.horsingaround$setTail(packAnimated ? 0.0F : s.tailLift(partialTicks));
-			if (bank == 0.0F && bodyPitch == 0.0F && bodyLift == 0.0F) {
+			if (horseBank == 0.0F && bodyPitch == 0.0F && bodyLift == 0.0F) {
 				pose.horsingaround$clearPose();
 			} else {
 				pose.horsingaround$setPose(shiftX, bodyLift, shiftZ, HORSE_ROTATION.x, HORSE_ROTATION.y, HORSE_ROTATION.z, HORSE_ROTATION.w, 0.0F, 0.0F, 0.0F);
@@ -201,7 +207,7 @@ public final class RidePoser {
 		// them.
 		final float legPitch = seatedPitch - bodyPitch;
 		// The stirrups roll with the saddle's sway, so the legs do too.
-		final float legRoll = riderBank - bank - (saddle.synthetic ? 0.0F : saddle.roll * Mth.DEG_TO_RAD);
+		final float legRoll = riderBank - bank - saddle.roll * Mth.DEG_TO_RAD;
 		// At a canter the pelvis rocks a little with the stride while the shoulders stay put; less the more the rider stands.
 		final float pelvis = -saddle.run * saddle.lift * PELVIS_SLIDE * (1.0F - stand);
 

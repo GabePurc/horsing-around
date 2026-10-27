@@ -82,12 +82,13 @@ public final class SaddleMotion {
 		final float t = Strides.phase(s);
 		final float sweep = horse.onGround() ? s.gaitSweep : 0.0F;
 		this.lift = sweep * Strides.bodyLift(t, share[0], share[1], share[2], share[3]);
-		this.pitch = sweep * Strides.bodyPitch(t, share[0], share[1], share[2], share[3]);
+		// (And as its legs carry it: see GAIT_BODY_FOLLOW.)
+		this.pitch = sweep * (Strides.bodyPitch(t, share[0], share[1], share[2], share[3]) + s.gaitBodyPitch * Mth.RAD_TO_DEG);
 		// Lower on its legs while moving: as far as a leg turned to the end of its stance comes down.
 		this.crouch = s.gaitSweep * Strides.crouch(share[0], share[1], share[2], share[3]);
 		this.forward = 0.0F;
 		this.side = 0.0F;
-		this.roll = 0.0F;
+		this.roll = sweep * s.gaitBodyRoll * Mth.RAD_TO_DEG;
 		return this;
 	}
 }

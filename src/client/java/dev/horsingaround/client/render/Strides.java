@@ -17,7 +17,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * The horse family's own legs on the plain model (no animation pack posing it): procedural, the way a real horse's work.
  * A hoof on the ground stays exactly where it landed while the body goes over it, so it never slides, and its leg (still
- * vanilla's one rigid piece) turns about its top to point at it, folding up where the ground stands higher. A leg lifts
+ * vanilla's one rigid piece) reaches it from a joint with a hidden upper bone in the body (an elbow or stifle, going up
+ * into the body as it bends: see aim), folding up where the ground stands higher still. A leg lifts
  * and swings forward when the stride's timing says so, to land ahead of where its top will be by half the ground a hoof
  * stands for, on the ground actually there (steps and slopes are just ground), keeping the hoof's pace through lift-off
  * and touch-down. The stride's timing is each gait's footfalls (walk, trot, canter, gallop, from published kinematics,
@@ -57,7 +58,9 @@ public final class Strides {
 	/** The most a leg folds, a share of its length (the rest is the ride's ground work, see GroundLegs). */
 	private static final float FOLD_MOST = 0.6F;
 	/** The most the top of a leg goes straight up into the body, against its length (the rest of FOLD_MOST is along it). */
-	private static final float RISE_MOST = 0.3F;
+	/** sin GAIT_SIDE_MOST and cos GAIT_JOINT_LEAST, for aim. */
+	private static final float SIDE_SIN = Mth.sin(GAIT_SIDE_MOST);
+	private static final float JOINT_COS = Mth.cos(GAIT_JOINT_LEAST);
 	/** Where {@link #tread} found its ground (world x, z). */
 	private static double TREAD_X;
 	private static double TREAD_Z;
@@ -65,9 +68,15 @@ public final class Strides {
 	private static float AIM_TURN;
 	private static float AIM_SIDE;
 	private static float AIM_REACH;
-	private static float AIM_RISE;
+	private static float AIM_JOINT_Y;
+	private static float AIM_JOINT_Z;
 	private static float AIM_SHORT;
 	private static float AIM_OUT;
+	private static float AIM_FORE;
+	private static float AIM_SPAN;
+	/** Per leg this frame: the top of its leg (model pixels, across and along). */
+	private static final float[] TOP_X = new float[4];
+	private static final float[] TOP_Z = new float[4];
 	private static final ModelPart[] PARTS = new ModelPart[4];
 	/** How much of vanilla's swing each leg has (front left, front right, hind left, hind right). */
 	private static final float[] VANILLA_SWING = {0.8F, -0.8F, -0.5F, 0.5F};
@@ -259,7 +268,8 @@ public final class Strides {
 			part.xRot -= vanilla * VANILLA_SWING[i];
 			Legs.swing(part, leg, part.xRot + s.gaitLegTurn[i] * upright);
 			part.zRot += s.gaitLegSide[i] * upright;
-			part.y -= s.gaitLegRise[i] * upright;
+			part.y += s.gaitJointY[i] * upright;
+			part.z += s.gaitJointZ[i] * upright;
 			final float draw = s.gaitLegDraw[i] * upright;
 			if (draw > 0.0F) {
 				Legs.draw(part, draw);
@@ -313,6 +323,23 @@ public final class Strides {
 			standing += s.hoofDown[i] ? 1 : 0;
 		}
 		final int support = s.gaitShare[0] > 0.5F ? 1 : 0;
+		// (The way the body faces, level: hooves stand GAIT_HOOF_OUT ahead of or behind their leg's top.)
+		ROOT.transformDirection(0.0F, 0.0F, -1.0F, POINT);
+		final double facing = Math.max(Math.sqrt(POINT.x * POINT.x + POINT.z * POINT.z), 1.0E-6);
+		final double faceX = POINT.x / facing;
+		final double faceZ = POINT.z / facing;
+		// (And how fast it turns: a hoof lands on the arc the top of its leg goes round, not off it along the straight it is
+		// going now.)
+		if (seed) {
+			s.gaitYawRate = 0.0F;
+		} else if (dt > 0.0F) {
+			final float turned = (float) Math.atan2(s.gaitFaceX * faceZ - s.gaitFaceZ * faceX, s.gaitFaceX * faceX + s.gaitFaceZ * faceZ);
+			s.gaitYawRate += (turned / dt - s.gaitYawRate) * (1.0F - (float) Math.exp(-dt / GAIT_SPEED_TIME));
+		}
+		s.gaitFaceX = faceX;
+		s.gaitFaceZ = faceZ;
+		final float dip = mix(s, GAIT_BODY_DIP);
+		int carried = 0;
 		for (int i = 0; i < 4; i++) {
 			final ModelPart part = PARTS[i];
 			final Legs.Leg leg = part == null ? null : Legs.of(part);
@@ -330,6 +357,9 @@ public final class Strides {
 			final double hipY = cy + POINT.y;
 			final double hipZ = cz + POINT.z;
 			final float length = leg.length / 16.0F;
+			final double out = fore ? GAIT_HOOF_OUT[0] : -GAIT_HOOF_OUT[1];
+			final double homeX = hipX + faceX * out;
+			final double homeZ = hipZ + faceZ * out;
 			// How fast the top of the leg goes (the body's speed, and its swing round as the horse turns).
 			if (seed) {
 				s.hipVelocityX[i] = s.gaitVelocityX;
@@ -363,7 +393,7 @@ public final class Strides {
 				vz = s.hipVelocityZ[i] = s.gaitVelocityZ;
 				final boolean down = p < stance;
 				final double back = (down ? p / stance : 1.0) * 2.0 * ahead;
-				s.hoofY[i] = tread(level, hipX + vx * (ahead - back), hipZ + vz * (ahead - back), backX, backZ, hipY, length, s.gaitGround);
+				s.hoofY[i] = tread(level, homeX + vx * (ahead - back), homeZ + vz * (ahead - back), backX, backZ, hipY, length, s.gaitGround);
 				s.hoofX[i] = TREAD_X;
 				s.hoofZ[i] = TREAD_Z;
 				s.hoofDown[i] = down;
@@ -391,6 +421,7 @@ public final class Strides {
 				if (far || (reached || s.stood[i] >= 1.0F) && standing > support) {
 					standing--;
 					s.liftTurn[i] = s.gaitLegTurn[i];
+					s.liftCorner[i] = s.gaitCorner[i];
 					s.liftHipX[i] = hipX;
 					s.liftHipZ[i] = hipZ;
 					s.hoofFromX[i] = s.hoofX[i];
@@ -435,7 +466,15 @@ public final class Strides {
 				final boolean fresh = Double.isNaN(s.landX[i]);
 				if (fresh || s.swingThrough[i] < GAIT_LAND_FIX) {
 					final double climb = Mth.clamp(s.hipVelocityY[i] * left, -GAIT_LAND_CLIMB, GAIT_LAND_CLIMB);
-					s.goalY[i] = tread(level, hipX + vx * (ahead + left), hipZ + vz * (ahead + left), backX, backZ, hipY + climb, length, s.gaitGround);
+					// (Round the arc: the way it goes, turned on by as far as its smoothed velocity lags in a turn (GAIT_SPEED_TIME)
+					// and by half as far as the body turns by then, and the chord's length.)
+					final double soon = ahead + left;
+					final double half = s.gaitYawRate * soon * 0.5;
+					final double lag = Math.atan(s.gaitYawRate * GAIT_SPEED_TIME);
+					final double chord = (Math.abs(half) < 1.0E-4 ? soon : soon * Math.sin(half) / half) / Math.cos(lag);
+					final double cos = Math.cos(half + lag);
+					final double sin = Math.sin(half + lag);
+					s.goalY[i] = tread(level, homeX + (vx * cos - vz * sin) * chord, homeZ + (vx * sin + vz * cos) * chord, backX, backZ, hipY + climb, length, s.gaitGround);
 					s.goalX[i] = TREAD_X;
 					s.goalZ[i] = TREAD_Z;
 				}
@@ -445,19 +484,19 @@ public final class Strides {
 				s.landZ[i] = fresh ? s.goalZ[i] : s.landZ[i] + (s.goalZ[i] - s.landZ[i]) * follow;
 			}
 			if (s.hoofDown[i]) {
-				// On the ground: the leg turns about its top to point at its hoof, its top going up into the body for a hoof
-				// nearer than its length (see aim; the ride's ground work, GroundLegs, does the rest: a hoof still in the ground,
-				// and the body's fit onto its legs).
-				aim(leg, s.hoofX[i] - cx, hoofHeight(s, i, hipY, length) - cy, s.hoofZ[i] - cz, topX, topY, topZ);
+				// On the ground: the leg reaches its hoof from the joint with its hidden upper bone (see aim; the ride's ground
+				// work, GroundLegs, does the rest: a hoof still in the ground, and the body's fit onto its legs).
+				aim(leg, fore, s.hoofX[i] - cx, hoofHeight(s, i, hipY, length) - cy, s.hoofZ[i] - cz, topX, topY, topZ);
 				s.gaitLegTurn[i] = AIM_TURN;
 				s.gaitLegSide[i] = AIM_SIDE;
-				s.gaitLegRise[i] = AIM_RISE;
-				s.gaitLegDraw[i] = Mth.clamp(leg.length - AIM_REACH, 0.0F, FOLD_MOST * leg.length - AIM_RISE);
+				s.gaitJointY[i] = AIM_JOINT_Y;
+				s.gaitJointZ[i] = AIM_JOINT_Z;
+				s.gaitLegDraw[i] = Mth.clamp(leg.length - AIM_REACH, 0.0F, Math.max(FOLD_MOST * leg.length + AIM_JOINT_Y, 0.0F));
 				s.gaitLegFold[i] = AIM_SHORT;
-				s.hoofReach[i] = AIM_REACH / 16.0F;
+				s.hoofReach[i] = AIM_SPAN / 16.0F;
 				s.hoofSide[i] = AIM_OUT / 16.0F;
 				if (s.plantReach[i] < 0.0F) {
-					s.plantReach[i] = AIM_REACH / 16.0F;
+					s.plantReach[i] = AIM_SPAN / 16.0F;
 				}
 			} else {
 				// The swing: the hoof goes from where it lifted to where it lands, along the ground each against the top of its
@@ -485,19 +524,52 @@ public final class Strides {
 				final double lift = (mix(s, fore ? GAIT_FORE_LIFT : GAIT_HIND_LIFT) + Math.min(Math.abs(s.hoofFromY[i] - toY), LEG_RISE_MAX) * 0.5) * s.gaitGround
 					* shape(sw, fore ? FORE_LIFT : HIND_LIFT);
 				final double hoofY = s.hoofFromY[i] + (toY - s.hoofFromY[i]) * down + lift;
-				aim(leg, hoofX - cx, hoofY - cy, hoofZ - cz, topX, topY, topZ);
+				aim(leg, fore, hoofX - cx, hoofY - cy, hoofZ - cz, topX, topY, topZ);
 				final float sweep = mix(s, GAIT_SWING_FLICK) * shape(sw, FLICK) - mix(s, GAIT_SWING_REACH) * shape(sw, REACH);
 				s.gaitLegTurn[i] = Mth.clamp(AIM_TURN + Math.signum(s.liftTurn[i]) * s.gaitGround * sweep, -GAIT_SWING_MOST, GAIT_SWING_MOST);
 				s.gaitLegSide[i] = AIM_SIDE;
-				s.gaitLegRise[i] = AIM_RISE;
-				s.gaitLegDraw[i] = Mth.clamp(leg.length - AIM_REACH, 0.0F, FOLD_MOST * leg.length - AIM_RISE);
+				s.gaitJointY[i] = AIM_JOINT_Y;
+				s.gaitJointZ[i] = AIM_JOINT_Z;
+				s.gaitLegDraw[i] = Mth.clamp(leg.length - AIM_REACH, 0.0F, Math.max(FOLD_MOST * leg.length + AIM_JOINT_Y, 0.0F));
 				s.gaitLegFold[i] = AIM_SHORT;
-				s.hoofReach[i] = AIM_REACH / 16.0F;
+				s.hoofReach[i] = AIM_SPAN / 16.0F;
 				s.hoofSide[i] = AIM_OUT / 16.0F;
 			}
-			settled &= s.hoofDown[i] && Mth.square(s.hoofX[i] - hipX) + Mth.square(s.hoofZ[i] - hipZ) < GAIT_SQUARE * GAIT_SQUARE;
+			settled &= s.hoofDown[i] && Mth.square(s.hoofX[i] - homeX) + Mth.square(s.hoofZ[i] - homeZ) < GAIT_SQUARE * GAIT_SQUARE;
+			// Its corner of the body: as low as its leg is turned from upright; its hoof in the air, going from where it held it
+			// as it lifted to where it will as it lands, dipping on the way.
+			TOP_X[i] = topX;
+			TOP_Z[i] = topZ;
+			if (s.hoofDown[i]) {
+				s.gaitCorner[i] = corner(leg, AIM_FORE);
+			} else {
+				// (Where it lands against where its leg's top will be then.)
+				final float sw = Mth.clamp(s.swingThrough[i], 0.0F, 1.0F);
+				final double left = (1.0F - sw) * swingTime(s, stance, rate);
+				modelPoint(s.landX[i] - vx * left - cx, s.landY[i] - cy, s.landZ[i] - vz * left - cz, topX, topY, topZ);
+				s.gaitCorner[i] = Mth.lerp(sw, s.liftCorner[i], corner(leg, POINT.z)) - dip * leg.length * Mth.sin(Mth.PI * sw);
+			}
+			if (seed) {
+				s.liftCorner[i] = s.gaitCorner[i];
+			}
+			carried++;
 		}
 		s.gaitSettled = settled;
+		// The body pitches and rolls toward how its corners stand (see GAIT_BODY_FOLLOW).
+		final float[] c = s.gaitCorner;
+		if (carried == 4 && Float.isFinite(c[0] + c[1] + c[2] + c[3])) {
+			final float span = (TOP_Z[2] + TOP_Z[3] - TOP_Z[0] - TOP_Z[1]) * 0.5F;
+			final float width = Math.abs(TOP_X[0] + TOP_X[2] - TOP_X[1] - TOP_X[3]) * 0.5F;
+			final float follow = GAIT_BODY_FOLLOW * s.gaitGround;
+			final float pitch = span > 1.0E-3F ? follow * (float) Math.atan2(c[0] + c[1] - c[2] - c[3], 2.0F * span) : 0.0F;
+			final float roll = width > 1.0E-3F ? GAIT_BODY_ROLL * s.gaitGround * (float) Math.atan2(c[0] + c[2] - c[1] - c[3], 2.0F * width) : 0.0F;
+			final float settle = seed ? 1.0F : 1.0F - (float) Math.exp(-dt / GAIT_BODY_SETTLE);
+			s.gaitBodyPitchMean += (pitch - s.gaitBodyPitchMean) * settle;
+			s.gaitBodyRollMean += (roll - s.gaitBodyRollMean) * settle;
+			final float k = seed ? 1.0F : 1.0F - (float) Math.exp(-dt / GAIT_BODY_TIME);
+			s.gaitBodyPitch += (Mth.clamp(pitch - s.gaitBodyPitchMean, -GAIT_BODY_MOST[0], GAIT_BODY_MOST[0]) - s.gaitBodyPitch) * k;
+			s.gaitBodyRoll += (Mth.clamp(roll - s.gaitBodyRollMean, -GAIT_BODY_MOST[1], GAIT_BODY_MOST[1]) - s.gaitBodyRoll) * k;
+		}
 	}
 
 	/**
@@ -523,30 +595,65 @@ public final class Strides {
 	}
 
 	/**
-	 * How the leg turns about its top (topX, topY, topZ, model pixels) to point at the camera-relative world point (x, y,
-	 * z), in AIM_: forward and out to the side (radians, at most GAIT_SIDE_MOST: a hoof further out turns on the ground
-	 * under it), how far its top goes straight up into the body, how far along it the hoof is from there, how far short of
-	 * its length the point is (for the body's fit, as a leg drawn up) and how far out to the side the point is (pixels). The leg keeps its length, unless leaning out less than the point. A leg turned out
-	 * stands on the corner of
-	 * its sole: the point comes up by as much, so none of the hoof is in the ground (in the air too, so nothing jumps as it
-	 * lands or lifts).
+	 * How leg {@code fore} or hind reaches the camera-relative world point (x, y, z), its top where the model put it at
+	 * (topX, topY, topZ, model pixels), in AIM_. The leg is the lower of two bones: the upper one (hidden in the body) runs
+	 * from a fixed shoulder or hip point (GAIT_UPPER, GAIT_UPPER_TILT) to the leg's top, the joint, which goes back on a
+	 * front leg and forward on a hind one (as an elbow or stifle bends) as far as keeps the leg its length to the point,
+	 * less GAIT_LEG_GIVE (which the leg draws up first), within GAIT_UPPER_MOST and GAIT_JOINT_LEAST, and only ever up into
+	 * the body. Found: where the joint goes from the
+	 * leg's top (pixels, down and back), how the leg turns about it forward and out to the side (radians, at most
+	 * GAIT_SIDE_MOST: a hoof further out turns on the ground under it), how far along it the hoof is from there (more than
+	 * its length: out of reach; less: drawn up), how far the point is from the leg's top and how far short of its length
+	 * that is (for the steps and the body's fit, which go by the leg as the model puts it, as they always have) and how
+	 * far out to the side the point is (pixels). A leg turned out stands on the corner of its sole: the point comes up by
+	 * as much, so none of the hoof is in the ground (in the air too, so nothing jumps as it lands or lifts).
 	 */
-	private static void aim(final Legs.Leg leg, final double x, final double y, final double z, final float topX, final float topY, final float topZ) {
+	private static void aim(
+		final Legs.Leg leg, final boolean fore, final double x, final double y, final double z, final float topX, final float topY, final float topZ
+	) {
 		modelPoint(x, y, z, topX, topY, topZ);
 		final float relX = POINT.x;
 		final float relZ = POINT.z;
+		AIM_FORE = relZ;
 		// (How far the leg is turned from upright, as the square of the sine: it is at least its length long, below.)
 		final float out = (relX * relX + relZ * relZ) / Math.max(relX * relX + POINT.y * POINT.y + relZ * relZ, leg.length * leg.length);
 		final float deep = POINT.y - leg.soleHalf * CORNER * (Mth.sqrt(out + CORNER_EASE * CORNER_EASE) - CORNER_EASE);
-		// (A point nearer than the leg is long: the top of the leg goes straight up into the body, as far as keeps the leg its
-		// length, up to RISE_MOST of it, rather than the leg swinging round its top to it (a hoof high under the body, up a
-		// step); nearer still, the leg turns to it from there and draws up along its length as well.)
-		final float below = Mth.sqrt(Math.max(leg.length * leg.length - relX * relX - relZ * relZ, 0.0F));
-		AIM_RISE = Mth.clamp(below - deep, 0.0F, RISE_MOST * leg.length);
-		AIM_SHORT = Mth.clamp(leg.length - Mth.sqrt(relX * relX + deep * deep + relZ * relZ), 0.0F, FOLD_MOST * leg.length);
-		final float relY = deep + AIM_RISE;
-		AIM_REACH = Mth.sqrt(relX * relX + relY * relY + relZ * relZ);
-		AIM_TURN = AIM_REACH < 1.0E-3F ? 0.0F : Mth.clamp((float) Math.asin(Mth.clamp(relZ / AIM_REACH, -1.0F, 1.0F)), -GAIT_LEG_MOST, GAIT_LEG_MOST);
+		AIM_SPAN = Mth.sqrt(relX * relX + deep * deep + relZ * relZ);
+		AIM_SHORT = Mth.clamp(leg.length - AIM_SPAN, 0.0F, FOLD_MOST * leg.length);
+		// The chain side on (down and back from the leg's top; angles from straight down, toward the tail): the shoulder or
+		// hip, the leg as long side on as it is, leaning out as far as it can, less what it draws up first (GAIT_LEG_GIVE),
+		// and how far the point is from the shoulder or
+		// hip, no further than the chain straight nor nearer than it closed as far as it goes.
+		final float upper = GAIT_UPPER[fore ? 0 : 1] * leg.length;
+		final float tilt = fore ? GAIT_UPPER_TILT[0] : -GAIT_UPPER_TILT[1];
+		final float pivotY = -upper * Mth.cos(tilt);
+		final float pivotZ = -upper * Mth.sin(tilt);
+		final float lower = Mth.sqrt(leg.length * leg.length - Math.min(relX * relX, Mth.square(leg.length * SIDE_SIN))) - GAIT_LEG_GIVE * leg.length;
+		final float toY = deep - pivotY;
+		final float toZ = relZ - pivotZ;
+		final float to = Mth.sqrt(toY * toY + toZ * toZ);
+		final float least = Mth.sqrt(upper * upper + lower * lower - 2.0F * upper * lower * JOINT_COS);
+		final float far = Mth.clamp(to, least, upper + lower);
+		// (The upper bone turns from the line to the point by the angle that closes the triangle: back of it on a front
+		// leg, in front of it on a hind one, and no further forward on a front leg, or back on a hind one, than where the
+		// model put the leg: the joint never comes down out of the body.)
+		final float bend = (float) Math.acos(Mth.clamp((upper * upper + far * far - lower * lower) / (2.0F * upper * far), -1.0F, 1.0F));
+		final float toward = to < 1.0E-3F ? 0.0F : (float) Math.atan2(toZ, toY);
+		final float turn = fore ? Mth.clamp(toward + bend, tilt, tilt + GAIT_UPPER_MOST) : Mth.clamp(toward - bend, tilt - GAIT_UPPER_MOST, tilt);
+		AIM_JOINT_Y = pivotY + upper * Mth.cos(turn);
+		AIM_JOINT_Z = pivotZ + upper * Mth.sin(turn);
+		// The leg, from the joint: toward the point, or nearer than the chain closes, toward where the chain closed reaches
+		// on the line to it (so a hoof coming up close by the joint in its swing never swings the leg round); bent no more
+		// than GAIT_JOINT_LEAST from the upper bone nor back past it, and as far along as the point is.
+		final float chainY = (to < least ? pivotY + least * (to < 1.0E-3F ? 1.0F : toY / to) : deep) - AIM_JOINT_Y;
+		final float chainZ = (to < least ? pivotZ + least * (to < 1.0E-3F ? 0.0F : toZ / to) : relZ) - AIM_JOINT_Z;
+		final float aimed = (float) Math.atan2(chainZ, chainY);
+		final float way = fore ? Mth.clamp(aimed, turn - Mth.PI + GAIT_JOINT_LEAST, turn) : Mth.clamp(aimed, turn, turn + Mth.PI - GAIT_JOINT_LEAST);
+		final float along = Math.max((relZ - AIM_JOINT_Z) * Mth.sin(way) + (deep - AIM_JOINT_Y) * Mth.cos(way), 0.0F);
+		final float relY = along * Mth.cos(way);
+		final float legZ = along * Mth.sin(way);
+		AIM_REACH = Mth.sqrt(relX * relX + relY * relY + legZ * legZ);
+		AIM_TURN = AIM_REACH < 1.0E-3F ? 0.0F : Mth.clamp((float) Math.asin(Mth.clamp(legZ / AIM_REACH, -1.0F, 1.0F)), -GAIT_LEG_MOST, GAIT_LEG_MOST);
 		final float side = relY <= 0.0F ? 0.0F : (float) Math.atan2(-relX, relY);
 		AIM_SIDE = Mth.clamp(side, -GAIT_SIDE_MOST, GAIT_SIDE_MOST);
 		if (AIM_SIDE != side) {
@@ -554,6 +661,11 @@ public final class Strides {
 			AIM_REACH = Math.min(AIM_REACH, relY / (Mth.cos(AIM_SIDE) * Mth.cos(AIM_TURN)));
 		}
 		AIM_OUT = relX;
+	}
+
+	/** How high leg {@code leg} holds its corner of the body, its hoof {@code fore} pixels back of its top: lower turned out. */
+	private static float corner(final Legs.Leg leg, final float fore) {
+		return Mth.sqrt(Math.max(leg.length * leg.length - fore * fore, 0.0F)) - leg.length;
 	}
 
 	/** Leaves in {@link #POINT} the camera-relative world point (x, y, z) in the legs' frame, model pixels from (topX, topY, topZ). */

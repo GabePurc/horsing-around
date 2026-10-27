@@ -979,11 +979,33 @@ leg's aim:
   three quarters of the swing and then kept, the swing following it within 0.04 s and arriving by touch-down, and the
   hoof lands where its swing went.
 - The user was right about the top of the leg: a hoof high under the body (up a step) was reached by swinging the leg
-  round its top, up to 83 degrees, flipping past flat when the hoof went above the top. Now the leg keeps its length and
-  its top goes straight up into the body (up to 0.6 of the leg) for a hoof nearer than that; higher still, the hoof is
-  as high as the leg reaches, under the point. Legs turn at most 57 degrees (was 83).
+  round its top, up to 83 degrees, flipping past flat when the hoof went above the top. Letting the top rise straight
+  up into the body floated hooves going down full blocks, so the user asked for a hidden upper bone instead (below).
+  In its swing a leg turns at most 57 degrees (was 83).
 - Hooves were left on the step below while the body climbed on (up to 2 blocks below the hip), then whipped forward.
   A leg turned back more than 49 degrees now lifts at once; the landing spot is looked for as high as the hip will be
   when it lands (up to 0.3 blocks more); a swing's extra lift for a step is at most a quarter block.
 - Up the hill, the most a leg's turn changed in a frame (30 a second) went from 145 to 50 degrees at a trot, 160 to 80 at
   a gallop; on flat ground legs turn at most 60 degrees (was 73), otherwise the same.
+
+### A hidden upper bone, and the body on its legs (2026-10-26)
+
+User: replace the leg's fixed top with a two-bone chain whose upper bone is hidden; then "the body is a bit stiff" (use
+the legs to move it) and "the front and back legs seem a bit close to each other (don't let them go super far out)".
+
+- Each leg is a shoulder or hip point in the body, a hidden upper bone (half the leg's length, sloping 23 degrees back
+  from the shoulder, 20 forward from the hip) and the visible leg. The joint bends back on front legs and forward on
+  hind ones, only ever up into the body (at most 52 degrees of upper-bone turn, 70 degrees closed). A front hoof high
+  under the body now has its leg at -20 to -1 degrees instead of swinging from -63 to +27.
+- On level ground the body sits a little low on its legs (the crouch), and a nearly straight chain turned that into 2
+  px of joint travel inward at every stance, bunching the legs: a leg now draws up by a fifth of its length first. Steps
+  and moves by its length go by the leg's top as the model puts it, as before, so step timing is unchanged.
+- A hoof coming up close by the joint in its swing swung the leg round in a frame; the leg now aims along the chain
+  there.
+- Hooves stand 0.1 blocks ahead of the front legs' tops and behind the hind ones'.
+- The body pitches (up to 4 degrees) and rolls (up to 3) with its corners, each lower as its leg turns from upright and
+  dipping while its hoof is in the air; only the stride's rocking (a lasting tilt is averaged out). Rolling about the
+  ground swung the leg tops out, and hooves landed out to the side, so it rolls about the leg tops.
+- Hooves landed 0.2-0.3 blocks outside a circle (the leg's smoothed velocity lags in a turn, and the landing was guessed
+  along a straight): now round the arc. Legs lean in a circle as on `77da80e` (at most 16-20 degrees), weaving about 4
+  more (23-24).

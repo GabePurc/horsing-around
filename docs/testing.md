@@ -99,7 +99,8 @@ body.
   for some; `-Pscenario=study`, never in a full store run: each gait side on at half speed, with `-PvanillaModel` the
   plain model's own gaits; `-Pscenario=legs`, likewise: speeding up through the gaits and stopping, weaving and circling,
   up a hill of full blocks at a gallop and a trot, close on the legs, each with a `-legs.csv` of every leg's angle, the
-  heading, the body's height, the stride and each leg's turn, lean and draw-up), with ATMOSPHERICS loaded for the sky. Clips are widescreen at 30 frames a second, slowed down where a shot
+  heading, the body's height, the stride, each leg's turn, lean and draw-up, where each leg's top (the joint with its
+  hidden upper bone) went, and the body's pitch and roll on its legs and lean into turns), with ATMOSPHERICS loaded for the sky. Clips are widescreen at 30 frames a second, slowed down where a shot
   asks; the ones shown as you play (the stamina bar, the riding camera, the settings) are 16:9 with the HUD, and while a
   clip records a menu doesn't pause the game and draws a pointer. Each frame is drawn at its own moment on the game's own timer (the mod's legs and Fresh Animations read the
   partial tick from it), and while a clip records only its frames draw the world, so frame-to-frame animation moves with

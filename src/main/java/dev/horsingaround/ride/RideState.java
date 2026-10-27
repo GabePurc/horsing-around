@@ -386,12 +386,27 @@ public final class RideState {
 	public final float[] gaitLegTurn = new float[4];
 	public final float[] gaitLegSide = new float[4];
 	/**
-	 * Per leg, pixels: how far short of its length its hoof is (the body's fit counts it as drawn up), how far its top goes
-	 * straight up into the body, and how far it is drawn up along its length.
+	 * Per leg, pixels: how far short of its length its hoof is from where the model puts its top (the body's fit counts it
+	 * as drawn up), where its top (the joint with the hidden upper bone) goes from there, down and back (the model's y and
+	 * z), and how far it is drawn up along its length.
 	 */
 	public final float[] gaitLegFold = new float[4];
-	public final float[] gaitLegRise = new float[4];
+	public final float[] gaitJointY = new float[4];
+	public final float[] gaitJointZ = new float[4];
 	public final float[] gaitLegDraw = new float[4];
+	/** The way the body faced last frame (level), and how fast it turns (radians a second, as the facing turns x to z). */
+	public double gaitFaceX;
+	public double gaitFaceZ;
+	public float gaitYawRate;
+	/** Per leg, model pixels: how high it holds its corner of the body (see GAIT_BODY_FOLLOW), and did as it lifted. */
+	public final float[] gaitCorner = new float[4];
+	public final float[] liftCorner = new float[4];
+	/** How the body pitches (nose up) and rolls (to its right) with how its legs carry it, radians (see GAIT_BODY_FOLLOW). */
+	public float gaitBodyPitch;
+	public float gaitBodyRoll;
+	/** How the corners stand on average (the same, radians), left out of the above. */
+	public float gaitBodyPitchMean;
+	public float gaitBodyRollMean;
 	/** Per leg, the last frame: how far from the top of its leg its hoof is (blocks), and was as it was set down (or -1). */
 	public final float[] hoofReach = new float[4];
 	public final float[] plantReach = new float[4];

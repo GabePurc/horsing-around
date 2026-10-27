@@ -73,16 +73,26 @@ whatever the speed; no stamina; no visual weight.
   vanilla animation inputs truthful.
 - The plain model's legs are procedural (user direction, 2026-10-24, after keyframed gaits slid at every speed but
   the gallop): each hoof is planted in the world where it lands and stays there while the body goes over it, the
-  one-piece leg turning about its top to point at it (at most 57 degrees), its top going straight up into the body for
-  a hoof nearer than its length (user, 2026-10-26: legs spun round their tops to reach up steps); a leg lifts on its
+  one-piece leg reaching it from a joint with a hidden upper bone (user, 2026-10-26: legs spun round their fixed tops
+  to reach up steps): the upper bone runs from a fixed shoulder or hip point in the body to the leg's top, which bends
+  back on front legs and forward on hind ones (elbow, stifle) and only ever goes up into the body, so a hoof high under
+  the body is reached with the leg near its length and little turn; on level ground the leg first draws up a little
+  (a fifth of its length) so the joints stay put and the legs stay apart; nearer than the chain closes (70 degrees), the
+  leg draws up along its length. Hooves stand a little ahead of the front legs' tops and behind the hind ones' (user,
+  2026-10-26: legs looked close together, but not far out). A leg lifts on its
   gait's timing (real footfall order and stance shares) or when the body has gone out of its reach, out to its side or
-  well past it, and swings to where it will land, predicted from its leg's own velocity (turning too), on the real
-  ground there, kept for the last quarter of the swing so a climb never jumps it; the swing goes with the body, flicking back as it
+  well past it, and swings to where it will land, predicted from its leg's own velocity round the arc it is turning
+  (not off along the straight), on the real ground there, kept for the last quarter of the swing so a climb never jumps
+  it; the swing goes with the body, flicking back as it
   lifts and reaching before it lands. The cadence comes from the real ground speed: a real horse's stride rate for the
   gait, up to 1.3 times that to fit a leg this short, never more (hooves then stand a shorter share). Gaits blend over a
   third of a second, each leg keeping step with its gait's footfalls by going a little quicker or slower (never a jump);
   at a walk a hoof always stands; legs lean out at most 20 degrees. The body's rise, pitch and crouch follow how far the
-  strides sweep, so a slow horse barely bobs (user, 2026-10-26: "the bounce at slow speeds is too much"); standing
+  strides sweep, so a slow horse barely bobs (user, 2026-10-26: "the bounce at slow speeds is too much"). The body also
+  rides on its legs (user, 2026-10-26: "the body is a bit stiff"): each corner sits lower the further its leg is turned
+  from upright and dips while its hoof is in the air, and the body pitches and rolls a few degrees toward that (pitch
+  front against hind, roll left against right, less as the legs stand close across; rolling about the leg tops so they
+  don't swing out), only the stride's own rocking, not a lasting tilt; its height stays as above; standing
   still, the legs step square and stop. The neck swings on its own like a weight on a spring at the withers, driven by
   the body's rise, fall and pitch (user, 2026-10-26: the head shows the horse's power): it pumps at the canter and
   gallop and is nearly still at a walk. The tail as before. The ride's ground work

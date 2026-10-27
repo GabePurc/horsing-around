@@ -1264,7 +1264,8 @@ public final class StoreMediaTest implements FabricClientGameTest {
 							ride.drawnCameraY + ride.drawnPose.m31() - Mth.lerp(partialTick, h.yo, h.getY())));
 						// (The plain model's stride: ground speed, strides a second, front and hind stance, which hooves stand, sweep;
 						// per leg how far through its stance or swing and its stride it is; the neck on its spring; per leg how far it
-						// turns forward and out to the side, radians, and is drawn up into the body, pixels.)
+						// turns forward and out to the side, radians, and is drawn up into the body, pixels; per leg where its top goes, down
+						// and back, pixels.)
 						row.append(String.format(Locale.ROOT, ",%.3f,%.3f,%.3f,%.3f,%d%d%d%d,%.3f", Math.sqrt(ride.gaitVelocityX * ride.gaitVelocityX
 							+ ride.gaitVelocityZ * ride.gaitVelocityZ), ride.gaitRate, ride.gaitForeStance, ride.gaitHindStance, ride.hoofDown[0] ? 1 : 0,
 							ride.hoofDown[1] ? 1 : 0, ride.hoofDown[2] ? 1 : 0, ride.hoofDown[3] ? 1 : 0, ride.gaitSweep));
@@ -1273,8 +1274,14 @@ public final class StoreMediaTest implements FabricClientGameTest {
 						}
 						row.append(String.format(Locale.ROOT, ",%.4f", ride.neck));
 						for (int leg = 0; leg < 4; leg++) {
-							row.append(String.format(Locale.ROOT, ",%.3f,%.3f,%.2f", ride.gaitLegTurn[leg], ride.gaitLegSide[leg], ride.gaitLegRise[leg] + ride.gaitLegDraw[leg]));
+							row.append(String.format(Locale.ROOT, ",%.3f,%.3f,%.2f", ride.gaitLegTurn[leg], ride.gaitLegSide[leg], ride.gaitLegDraw[leg] - ride.gaitJointY[leg]));
 						}
+						for (int leg = 0; leg < 4; leg++) {
+							row.append(String.format(Locale.ROOT, ",%.2f,%.2f", ride.gaitJointY[leg], ride.gaitJointZ[leg]));
+						}
+						// (The body's pitch and roll on its legs, and its lean into a turn, degrees.)
+						row.append(String.format(Locale.ROOT, ",%.2f,%.2f,%.2f", ride.gaitBodyPitch * Mth.RAD_TO_DEG, ride.gaitBodyRoll * Mth.RAD_TO_DEG,
+							ride.lean(partialTick)));
 					}
 					LEGS.add(row.toString());
 					if (mc.player.getVehicle() instanceof RideStateHolder holder) {
