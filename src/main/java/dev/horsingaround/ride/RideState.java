@@ -433,6 +433,15 @@ public final class RideState {
 	public final float[] gaitCorner = new float[4];
 	public final float[] liftCorner = new float[4];
 	/** How the body pitches (nose up) and rolls (to its right) with how its legs carry it, radians (see GAIT_BODY_FOLLOW). */
+	/**
+	 * The body carried by its legs (see BodyWeight): its rise, blocks, and pitch, radians nose up, from how its hooves push,
+	 * each with its speed; and on average how much its hooves carry and how they turn it.
+	 */
+	public float weightLift;
+	public float weightLiftV;
+	public float weightPitch;
+	public float weightPitchV;
+	public final float[] weightMean = new float[2];
 	public float gaitBodyPitch;
 	public float gaitBodyRoll;
 	/** How the corners stand on average (the same, radians), left out of the above. */

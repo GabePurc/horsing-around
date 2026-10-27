@@ -199,7 +199,7 @@ public final class Strides {
 			}
 			final float reach = 2.0F * GAIT_LEG * Mth.sin(GAIT_STANCE_ANGLE[g]);
 			final float real = GAIT_CADENCE[g] + GAIT_CADENCE_RISE[g] * speed;
-			final float cadence = Mth.clamp(speed * GAIT_FORE_STANCE[g] / reach, real, real * GAIT_CADENCE_SIZE);
+			final float cadence = Mth.clamp(speed * GAIT_FORE_STANCE[g] / reach, real, real * GAIT_CADENCE_SIZE[g]);
 			rate += share * cadence;
 			fore += share * Math.min(GAIT_FORE_STANCE[g], speed > 1.0E-3F ? reach * cadence / speed : 1.0F);
 			hind += share * Math.min(GAIT_HIND_STANCE[g], speed > 1.0E-3F ? reach * cadence / speed : 1.0F);
@@ -595,6 +595,8 @@ public final class Strides {
 			s.gaitBodyPitch += (Mth.clamp(pitch - s.gaitBodyPitchMean, -GAIT_BODY_MOST[0], GAIT_BODY_MOST[0]) - s.gaitBodyPitch) * k;
 			s.gaitBodyRoll += (Mth.clamp(roll - s.gaitBodyRollMean, -GAIT_BODY_MOST[1], GAIT_BODY_MOST[1]) - s.gaitBodyRoll) * k;
 		}
+		// And the body rises, falls and rocks on what its hooves push (see BodyWeight).
+		BodyWeight.advance(s, dt, seed);
 	}
 
 	/**

@@ -9,8 +9,8 @@ import net.minecraft.world.entity.LivingEntity;
 /**
  * How the saddle is moving this frame relative to the horse's resting pose. When an animation pack moves the horse's
  * body (Fresh Animations through Entity Model Features), this is measured from the animated model so the rider rides
- * the real motion. Otherwise it is generated here from the leg cycle and applied to the horse as well, so both move
- * together. Reused per caller; render thread only.
+ * the real motion. Otherwise it is generated here from the plain model's legs (its stride at a walk, what its hooves push
+ * at a run: see BodyWeight) and applied to the horse as well, so both move together. Reused per caller; render thread only.
  */
 public final class SaddleMotion {
 	/** Frames drawn (counted as each frame's camera is placed): motion measured in an earlier frame than the last is stale. */
@@ -81,9 +81,10 @@ public final class SaddleMotion {
 		final float[] share = s.gaitShare;
 		final float t = Strides.phase(s);
 		final float sweep = horse.onGround() ? s.gaitSweep : 0.0F;
-		this.lift = sweep * Strides.bodyLift(t, share[0], share[1], share[2], share[3]);
+		// (A walk's rise and pitch by its stride; the running gaits' from what the hooves push, see BodyWeight.)
+		this.lift = sweep * Strides.bodyLift(t, share[0], 0.0F, 0.0F, 0.0F) + s.weightLift;
 		// (And as its legs carry it: see GAIT_BODY_FOLLOW.)
-		this.pitch = sweep * (Strides.bodyPitch(t, share[0], share[1], share[2], share[3]) + s.gaitBodyPitch * Mth.RAD_TO_DEG);
+		this.pitch = sweep * (Strides.bodyPitch(t, share[0], 0.0F, 0.0F, 0.0F) + s.gaitBodyPitch * Mth.RAD_TO_DEG) + s.weightPitch * Mth.RAD_TO_DEG;
 		// Lower on its legs while moving: as far as a leg turned to the end of its stance comes down.
 		this.crouch = s.gaitSweep * Strides.crouch(share[0], share[1], share[2], share[3]);
 		this.forward = 0.0F;

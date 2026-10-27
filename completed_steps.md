@@ -62,6 +62,7 @@ at most two lines, under the right area; details go in the PR, not here.
 - Plain-model legs: hidden hip and thigh bones that flex with the stride (joints follow the hoof), and each leg in two pieces with a knee or hock that folds in the swing
 - Plain-model body bones: a three-piece tail, the head on a poll and the ears, each on springs swung by the body's motion (`BodyBones`); F8 draws them
 - Plain-model back on two bones (1.21.9 on): vanilla's one body box drawn bent smoothly on them (`BentBody`), flexing with the legs, bending in turns, the hips swaying, sized to a real horse's back
+- Plain-model running gaits nearer a real horse's cadence (all hooves up a third of a gallop's stride), the body carried by its hooves' pushes (`BodyWeight`): bounce, rock and float from the hooves standing
 
 ## Rider
 

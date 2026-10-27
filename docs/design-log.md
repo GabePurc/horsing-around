@@ -1090,3 +1090,20 @@ flex at a canter and gallop, most just in front of the croup), and flex about th
 so the back is never held bent. Measured on the legs clips (degrees, 3rd to 97th percentile): at a gallop the hindquarters flex
 -4.4 to +3.8 and the chest -1.5 to +1.6; at a canter -4.0 to +2.8; at a walk the hips roll ±2.4 and the hindquarters sway
 ±2.5; round a turn the body bends up to 4. (Before centring, the gallop held the rump about 4 up throughout.)
+
+## Longer strides and the body carried by its hooves (user direction, 2026-10-27)
+
+User: the legs move too fast; a real horse running fast has all four feet off the ground at times, its strides so long
+(Muybridge's 1878 gallop as the reference); and the horse should shift its weight as a real one. The cadence was up to
+1.6 times a real horse's at every gait, to fit Minecraft's short legs (a gallop at 11 blocks a second took 3.6 strides a
+second, its hooves all up a fifth of each, a frame or two). Now the walk keeps 1.6 (the user's pick) and the trot, canter
+and gallop go up to 1.4, 1.25 and 1.15 times a real horse's, the hooves standing a shorter share instead: a gallop about
+2.6 strides a second with every hoof up about a third of it, a canter 2.3 and a fifth, a fast trot 2.0 and a sixth.
+At those gaits the body is no longer a fixed wave timed to the stride (`BodyWeight`): each standing hoof pushes up
+through its stance, hardest mid-stance (a half sine, as on a force plate), the front pair carrying 58% over a stride and
+the hind pair the rest, and the body rises and falls by real gravity against those pushes (highest in the air, lowest
+as they push hardest) and pitches as the front hooves push its nose up and the hind ones down, about the middle of its
+weight: the canter's and gallop's rock, from the hooves actually standing. A first try that scaled pushes by their
+running average drifted to its limits on a hard stop (the hooves suddenly standing longer); each push now spreads over
+its stance as planned, and what they carry is taken against its last half second's average, on a soft spring. The walk
+keeps its stride-timed motion (a walk vaults over straight legs rather than bouncing).

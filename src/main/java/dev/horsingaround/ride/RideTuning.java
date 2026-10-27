@@ -985,12 +985,16 @@ public final class RideTuning {
 	 * Strides a second at each gait, against ground speed (blocks a second): real horses' (walk 0.55 + 0.25 v; trot,
 	 * canter and gallop nearly flat, rising slowly, their strides lengthening instead) is the slowest the legs go, and up
 	 * to GAIT_CADENCE_SIZE times that (a horse this size, legs this long, steps that much quicker at the same speed) to
-	 * keep up with the ground; beyond that the hooves stand for a shorter share of the stride, as at speed they do. (1.6,
-	 * user, 2026-10-26, picked from clips against 1.3: a walk's hooves stand 57% of the stride, a real walk's about 60%.)
+	 * keep up with the ground; beyond that the hooves stand for a shorter share of the stride, as at speed they do, and the
+	 * running gaits spend longer with every hoof in the air. The walk 1.6 (user, 2026-10-26, picked from clips against 1.3:
+	 * a walk's hooves stand 57% of the stride, a real walk's about 60%); the trot, canter and gallop closer to a real
+	 * horse's (user, 2026-10-27: the legs went too fast; a real horse running has all four feet off the ground at times,
+	 * its strides so long, as in Muybridge's 1878 gallop): a gallop at 11 blocks a second about 2.6 strides a second, its
+	 * hooves all up about a third of each (it was 3.6 and a fifth).
 	 */
 	public static final float[] GAIT_CADENCE = {0.55F, 1.2F, 1.45F, 1.6F};
 	public static final float[] GAIT_CADENCE_RISE = {0.25F, 0.05F, 0.06F, 0.06F};
-	public static final float GAIT_CADENCE_SIZE = 1.6F;
+	public static final float[] GAIT_CADENCE_SIZE = {1.6F, 1.4F, 1.25F, 1.15F};
 	/**
 	 * How high a hoof clears the ground in its swing, blocks, and where in the swing it is highest: a front one early (it
 	 * folds up under the forearm, then reaches out). Less than a real horse's (a trot's front hoof about 14 cm): a one-piece
@@ -1086,6 +1090,30 @@ public final class RideTuning {
 	 * Its height stays the stride's own (see Strides.bodyLift and crouch), which leaves every leg reaching.
 	 */
 	public static final float[] GAIT_BODY_DIP = {0.06F, 0.04F, 0.02F, 0.01F};
+	/**
+	 * The body carried by its legs at a trot, canter and gallop (the plain model; see BodyWeight; user direction,
+	 * 2026-10-27: the horse should shift its weight as a real one does): each hoof on the ground pushes up through its
+	 * stance, hardest in the middle (a half sine, as on a force plate), the front hooves carrying WEIGHT_FORE of the horse
+	 * (a horse's forehand carries about 58%) and the hind ones the rest over a stride, so the shorter a hoof stands the
+	 * harder it pushes (its stance taken as at least WEIGHT_STANCE_LEAST of the stride); what they carry and how they turn
+	 * it each against its own average over WEIGHT_MEAN_TIME seconds, so a hoof lifting early or a gait changing never
+	 * drifts the body off. The body rises and falls as the pushes and gravity
+	 * (WEIGHT_GRAVITY blocks a second squared: real gravity, at a block a metre) don't balance, and pitches about the
+	 * middle of its weight, the front and hind legs WEIGHT_SPAN blocks apart (the model's), its weight WEIGHT_TURN_RADIUS
+	 * blocks out from that middle for turning (a horse's body and neck, at this size), so it rocks as a canter and gallop
+	 * do. A soft spring (WEIGHT_CENTRE times a second, damped WEIGHT_CENTRE_DAMPING, far slower than a stride) keeps it
+	 * from wandering; at most WEIGHT_LIFT_MOST blocks and WEIGHT_PITCH_MOST radians. Measured: see the design log.
+	 */
+	public static final float WEIGHT_FORE = 0.58F;
+	public static final float WEIGHT_MEAN_TIME = 0.5F;
+	public static final float WEIGHT_STANCE_LEAST = 0.05F;
+	public static final float WEIGHT_GRAVITY = 9.81F;
+	public static final float WEIGHT_SPAN = 17.0F / 16.0F;
+	public static final float WEIGHT_TURN_RADIUS = 0.64F;
+	public static final float WEIGHT_CENTRE = 0.8F;
+	public static final float WEIGHT_CENTRE_DAMPING = 0.7F;
+	public static final float WEIGHT_LIFT_MOST = 0.12F;
+	public static final float WEIGHT_PITCH_MOST = 0.12F;
 	public static final float GAIT_BODY_FOLLOW = 0.4F;
 	public static final float GAIT_BODY_ROLL = 0.15F;
 	public static final float GAIT_BODY_TIME = 0.08F;

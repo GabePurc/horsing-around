@@ -88,9 +88,14 @@ whatever the speed; no stamina; no visual weight.
   (not off along the straight), on the real ground there, kept for the last quarter of the swing so a climb never jumps
   it; the swing goes with the body, flicking back as it
   lifts and reaching before it lands. The cadence comes from the real ground speed: a real horse's stride rate for the
-  gait, up to 1.3 times that to fit a leg this short, never more (hooves then stand a shorter share). Gaits blend over a
+  gait, up to a little more to fit a leg this short (1.6 times at a walk; 1.4, 1.25 and 1.15 at a trot, canter and
+  gallop, user, 2026-10-27: the legs went too fast), never more: hooves then stand a shorter share, so a fast trot,
+  canter and gallop have every hoof in the air for a moment each stride, a gallop about a third of it, as in Muybridge's. Gaits blend over a
   third of a second, each leg keeping step with its gait's footfalls by going a little quicker or slower (never a jump);
-  at a walk a hoof always stands; legs lean out at most 20 degrees. The body's rise, pitch and crouch follow how far the
+  at a walk a hoof always stands; legs lean out at most 20 degrees. At a trot, canter and gallop the body is carried by its hooves
+  (user, 2026-10-27: shift weight as a real horse): each standing hoof pushes up through its stance, the front ones
+  carrying 58%, and the body rises and falls and pitches by real gravity against those pushes (highest in the air, a
+  canter's and gallop's rock), not a fixed wave. The crouch, and a walk's rise and pitch, follow how far the
   strides sweep, so a slow horse barely bobs (user, 2026-10-26: "the bounce at slow speeds is too much"). The body also
   rides on its legs (user, 2026-10-26: "the body is a bit stiff"): each corner sits lower the further its leg is turned
   from upright and dips while its hoof is in the air, and the body pitches and rolls a few degrees toward that (pitch
