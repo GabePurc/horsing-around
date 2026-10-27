@@ -68,7 +68,8 @@ whatever the speed; no stamina; no visual weight.
 
 ## Body, legs and steps
 
-- Stay vanilla (user, 2026-10-08): vanilla's one-piece legs, never a knee or extra joint (tried and removed). With an
+- Stay vanilla (user, 2026-10-08): vanilla's one-piece legs, never a knee or extra joint (tried and removed; but since 2026-10-27, user
+  request, the plain model's legs are two pieces, a knee in front and a hock behind, folding in the swing). With an
   animation pack (Fresh Animations, EMF + ETF), never replace its animation; only add transforms on top, and keep
   vanilla animation inputs truthful.
 - The plain model's legs are procedural (user direction, 2026-10-24, after keyframed gaits slid at every speed but

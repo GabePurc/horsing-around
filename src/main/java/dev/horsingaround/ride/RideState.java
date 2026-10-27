@@ -394,6 +394,8 @@ public final class RideState {
 	public final float[] gaitJointY = new float[4];
 	public final float[] gaitJointZ = new float[4];
 	public final float[] gaitLegDraw = new float[4];
+	/** Per leg in two pieces, how far its knee (front) or hock (hind) is bent, radians, toward the tail positive. */
+	public final float[] gaitKnee = new float[4];
 	/** The way the body faced last frame (level), and how fast it turns (radians a second, as the facing turns x to z). */
 	public double gaitFaceX;
 	public double gaitFaceZ;

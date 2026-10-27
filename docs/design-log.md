@@ -1035,3 +1035,19 @@ thigh bone (upper arm, thigh) and the shin. The model's leg tops are flush with 
 spare), so the shin's top can only go back on a front leg, forward on a hind one, and up into the body: on level ground
 the legs look almost as before (shin swing -64 to +56 degrees against -56 to +54, top back up to 2.3 pixels against
 2.2); up a hill of blocks the tops go up to 6 pixels into the body (against 3.6), so the shins turn less to reach.
+
+## Bones that work as a horse's, and a knee (user direction, 2026-10-27)
+
+- The shin did all the moving, hinged from its top: the chain treated it as a fifth shorter than it is (the old "give"),
+  so the hidden thigh never reached and the shin's top stayed put. With the shin's real length the joints flex as the
+  body comes down over its legs, the hip bone and thigh turn with the stride, and the shin's top travels (up to 3 px
+  along, 3 up). Going against the hoof (a front elbow sliding back while the hoof reached forward) made the legs look
+  bent the wrong way: a front elbow now goes back only as the hoof goes behind it, a hind stifle forward only as it comes
+  ahead (`GAIT_JOINT_FOLLOW`); trotting, 2.3 px against before, 0 now.
+- User: front legs bend inward at the knee; split the Minecraft leg in two, the same height. On the plain model each
+  grown horse-family leg is now two boxes (vanilla's box cut 6 px down, same texture, 1.21.2 on), the lower one a part of
+  its own hinged at the front edge of a front leg (knee) and the back edge of a hind one (hock). In the swing the knee
+  folds instead of the leg drawing up into the body (the lower piece back under a front leg, forward under a hind one, at
+  most 92 and 69 degrees), the upper piece turning to keep the hoof on its path; on the ground it stays straight. This
+  reverses, for the plain model, the 2026-10-08 call to keep vanilla's one-piece legs; Fresh Animations' models are their
+  own and unchanged. The ground work and the bone overlay find the sole through the knee.

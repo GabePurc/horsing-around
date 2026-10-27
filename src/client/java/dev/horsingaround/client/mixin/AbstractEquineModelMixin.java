@@ -1,5 +1,6 @@
 package dev.horsingaround.client.mixin;
 
+import dev.horsingaround.client.compat.AnimationPacks;
 import dev.horsingaround.client.render.AirLegs;
 import dev.horsingaround.client.render.GroundLegs;
 import dev.horsingaround.client.render.LegBones;
@@ -9,8 +10,16 @@ import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideTuning;
 //? if >=1.21.2
 import net.minecraft.client.model.Model;
-//? if >=1.21.2
+//? if >=1.21.2 {
+import dev.horsingaround.client.render.Legs;
 import net.minecraft.client.model.animal.equine.AbstractEquineModel;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeDeformation;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+//?}
 import net.minecraft.client.model.geom.ModelPart;
 //? if >=1.21.2
 import net.minecraft.client.renderer.entity.state.EquineRenderState;
@@ -74,6 +83,41 @@ public abstract class AbstractEquineModelMixin {
 	*///?}
 
 	//? if >=1.21.2 {
+	/**
+	 * Each grown horse-family leg in two pieces (user request, 2026-10-27): the upper LEG_UPPER pixels of vanilla's box,
+	 * and below a knee (front legs) or hock (hind legs) the rest, a part of its own hinged at the front edge of a front leg
+	 * and the back edge of a hind one, so the lower piece folds back under a front leg and forward under a hind one. The
+	 * same size and texture as vanilla's box; straight, as everything but these legs leaves it, it looks the same.
+	 */
+	@Inject(method = "createBodyMesh", at = @At("RETURN"))
+	private static void horsingaround$knees(final CubeDeformation g, final CallbackInfoReturnable<MeshDefinition> cir) {
+		final PartDefinition root = cir.getReturnValue().getRoot();
+		horsingaround$knee(root, "left_hind_leg", true, -3.0F, -1.0F, 4.0F, 7.0F, false, g);
+		horsingaround$knee(root, "right_hind_leg", false, -1.0F, -1.0F, -4.0F, 7.0F, false, g);
+		horsingaround$knee(root, "left_front_leg", true, -3.0F, -1.9F, 4.0F, -10.0F, true, g);
+		horsingaround$knee(root, "right_front_leg", false, -1.0F, -1.9F, -4.0F, -10.0F, true, g);
+	}
+
+	@Unique
+	private static void horsingaround$knee(
+		final PartDefinition root, final String name, final boolean mirror, final float boxX, final float boxZ, final float x, final float z, final boolean fore,
+		final CubeDeformation g
+	) {
+		final float top = -1.01F;
+		final CubeListBuilder upper = CubeListBuilder.create().texOffs(48, 21);
+		final CubeListBuilder lower = CubeListBuilder.create().texOffs(48, 21 + (int) Legs.LEG_UPPER);
+		if (mirror) {
+			upper.mirror();
+			lower.mirror();
+		}
+		upper.addBox(boxX, top, boxZ, 4.0F, Legs.LEG_UPPER, 4.0F, g);
+		// (Its hinge on the front or back edge, where the lower piece's box starts.)
+		final float hinge = fore ? boxZ : boxZ + 4.0F;
+		lower.addBox(boxX, 0.0F, fore ? 0.0F : -4.0F, 4.0F, 11.0F - Legs.LEG_UPPER, 4.0F, g);
+		root.addOrReplaceChild(name, upper, PartPose.offset(x, 14.0F, z))
+			.addOrReplaceChild(Legs.KNEE, lower, PartPose.offset(0.0F, top + Legs.LEG_UPPER, hinge));
+	}
+
 	@Inject(method = "setupAnim(Lnet/minecraft/client/renderer/entity/state/EquineRenderState;)V", at = @At("TAIL"))
 	private void horsingaround$headShake(final EquineRenderState state, final CallbackInfo ci) {
 		this.horsingaround$pose((RidePoseState) state);
@@ -121,6 +165,16 @@ public abstract class AbstractEquineModelMixin {
 
 	@Unique
 	private void horsingaround$pose(final RidePoseState pose) {
+		//? if >=1.21.2 {
+		if (AnimationPacks.animates(this)) {
+			// (An animation pack builds its model on vanilla's, the legs' lower pieces and all, and draws legs of its own:
+			// measuring a leg once hides its lower piece there, see Legs.of.)
+			Legs.of(this.leftFrontLeg);
+			Legs.of(this.rightFrontLeg);
+			Legs.of(this.leftHindLeg);
+			Legs.of(this.rightHindLeg);
+		}
+		//?}
 		this.headParts.xRot += pose.horsingaround$neckPitch();
 		final float yaw = pose.horsingaround$headShakeYaw();
 		if (yaw != 0.0F) {

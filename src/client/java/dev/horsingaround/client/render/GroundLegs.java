@@ -439,9 +439,9 @@ public final class GroundLegs {
 		return (ride.drawnCameraX + POINT.x) * fx + (ride.drawnCameraZ + POINT.z) * fz;
 	}
 
-	/** Sets {@link #MATRIX} to the leg part as drawn. */
-	private static void legMatrix(final ModelPart part) {
-		MATRIX.set(ROOT)
+	/** Sets {@link #MATRIX} to the leg part as drawn, and returns it. */
+	private static Matrix4f legMatrix(final ModelPart part) {
+		return MATRIX.set(ROOT)
 			.translate(part.x / 16.0F, part.y / 16.0F, part.z / 16.0F)
 			.rotateZYX(part.zRot, part.yRot, part.xRot)
 			.scale(part.xScale, part.yScale, part.zScale);
@@ -453,14 +453,14 @@ public final class GroundLegs {
 	 * back to front there put a kink in every step; only keeping a hoof out of the ground looks at its lower edge.)
 	 */
 	private static double sole(final RideState ride, final ModelPart part, final Legs.Leg leg) {
-		legMatrix(part);
+		Legs.lower(legMatrix(part), part);
 		MATRIX.transformPosition(leg.soleX / 16.0F, leg.soleY / 16.0F, leg.z / 16.0F, POINT);
 		return ride.drawnCameraY + POINT.y;
 	}
 
 	/** World height of a point {@code along} pixels toward the tail of the middle of a sole, the leg as drawn; leaves {@link #POINT} there. */
 	private static double edge(final RideState ride, final ModelPart part, final Legs.Leg leg, final float along) {
-		legMatrix(part);
+		Legs.lower(legMatrix(part), part);
 		MATRIX.transformPosition(leg.soleX / 16.0F, leg.soleY / 16.0F, (leg.z + along) / 16.0F, POINT);
 		return ride.drawnCameraY + POINT.y;
 	}

@@ -280,6 +280,10 @@ public final class Strides {
 			if (draw > 0.0F) {
 				Legs.draw(part, draw);
 			}
+			final ModelPart knee = Legs.knee(part);
+			if (knee != null) {
+				knee.xRot += s.gaitKnee[i] * upright;
+			}
 		}
 		// The neck: carried lower at faster gaits, and swinging on its spring (see advance). The tail bounces after the
 		// body, and swings with the walk's hips.
@@ -501,6 +505,7 @@ public final class Strides {
 				s.gaitJointY[i] = AIM_JOINT_Y;
 				s.gaitJointZ[i] = AIM_JOINT_Z;
 				s.gaitLegDraw[i] = Mth.clamp(leg.length - AIM_REACH, 0.0F, Math.max(FOLD_MOST * leg.length + AIM_JOINT_Y, 0.0F));
+				s.gaitKnee[i] = 0.0F;
 				s.gaitLegFold[i] = AIM_SHORT;
 				s.hoofReach[i] = AIM_SPAN / 16.0F;
 				s.hoofSide[i] = AIM_OUT / 16.0F;
@@ -543,6 +548,7 @@ public final class Strides {
 				s.gaitJointY[i] = AIM_JOINT_Y;
 				s.gaitJointZ[i] = AIM_JOINT_Z;
 				s.gaitLegDraw[i] = Mth.clamp(leg.length - AIM_REACH, 0.0F, Math.max(FOLD_MOST * leg.length + AIM_JOINT_Y, 0.0F));
+				fold(leg, fore, s, i);
 				s.gaitLegFold[i] = AIM_SHORT;
 				s.hoofReach[i] = AIM_SPAN / 16.0F;
 				s.hoofSide[i] = AIM_OUT / 16.0F;
@@ -611,8 +617,8 @@ public final class Strides {
 	 * (topX, topY, topZ, model pixels), in AIM_. The leg is the last of three bones (see GAIT_THIGH): from a fixed point
 	 * high in the body the hidden hip bone, turned a little with the leg's swing, reaches the shoulder or hip joint, and the
 	 * hidden thigh bone and the leg reach the point from there, the joint between them (elbow, stifle) going back on a
-	 * front leg and forward on a hind one as far as keeps the leg its length to the point, less GAIT_LEG_GIVE (which the leg
-	 * draws up first), within GAIT_JOINT_LEAST, and never out of the body. Found: where the joint goes from the
+	 * front leg and forward on a hind one as far as keeps the leg its length to the point, within GAIT_JOINT_LEAST and
+	 * GAIT_JOINT_TRAVEL, and never out of the body. Found: where the joint goes from the
 	 * leg's top (pixels, down and back), how the leg turns about it forward and out to the side (radians, at most
 	 * GAIT_SIDE_MOST: a hoof further out turns on the ground under it), how far along it the hoof is from there (more than
 	 * its length: out of reach; less: drawn up), how far the point is from the leg's top and how far short of its length
@@ -658,10 +664,10 @@ public final class Strides {
 		AIM_ROOT_Z = rootZ;
 		AIM_PIVOT_Y = pivotY;
 		AIM_PIVOT_Z = pivotZ;
-		// Then the thigh bone and the leg: the leg as long side on as it is, leaning out as far as it can, less what it draws
-		// up first (GAIT_LEG_GIVE), and how far the point is from the shoulder or hip joint, no further than the two straight
-		// nor nearer than they close as far as they go.
-		final float lower = Mth.sqrt(leg.length * leg.length - Math.min(relX * relX, Mth.square(leg.length * SIDE_SIN))) - GAIT_LEG_GIVE * leg.length;
+		// Then the thigh bone and the leg: the leg as long side on as it is, leaning out as far as it can, and how far the
+		// point is from the shoulder or hip joint, no further than the two straight nor nearer than they close as far as they
+		// go.
+		final float lower = Mth.sqrt(leg.length * leg.length - Math.min(relX * relX, Mth.square(leg.length * SIDE_SIN)));
 		final float toY = deep - pivotY;
 		final float toZ = relZ - pivotZ;
 		final float to = Mth.sqrt(toY * toY + toZ * toZ);
@@ -669,12 +675,19 @@ public final class Strides {
 		final float far = Mth.clamp(to, least, upper + lower);
 		// (The thigh bone turns from the line to the point by the angle that closes the triangle: back of it on a front leg,
 		// in front of it on a hind one. The joint never comes down out of the body, nor ahead of the leg's top on a front leg
-		// or behind it on a hind one, where the chest and the rump end: held in, the leg still reaches from it.)
+		// or behind it on a hind one, where the chest and the rump end, nor further than GAIT_JOINT_TRAVEL the other way, nor
+		// against the hoof: a front elbow goes back only as the hoof goes back behind it, a hind stifle forward only as the
+		// hoof comes forward ahead of it (GAIT_JOINT_FOLLOW). Held in, it stays on the end of the thigh bone, and the leg
+		// still reaches from it.)
 		final float bend = (float) Math.acos(Mth.clamp((upper * upper + far * far - lower * lower) / (2.0F * upper * far), -1.0F, 1.0F));
 		final float toward = to < 1.0E-3F ? 0.0F : (float) Math.atan2(toZ, toY);
 		final float reached = fore ? toward + bend : toward - bend;
-		AIM_JOINT_Y = Math.min(pivotY + upper * Mth.cos(reached), 0.0F);
-		AIM_JOINT_Z = fore ? Math.max(pivotZ + upper * Mth.sin(reached), 0.0F) : Math.min(pivotZ + upper * Mth.sin(reached), 0.0F);
+		final float travel = Math.min(GAIT_JOINT_TRAVEL * leg.length, GAIT_JOINT_FOLLOW * Math.abs(relZ));
+		final float wantZ = pivotZ + upper * Mth.sin(reached);
+		final float jointZ = fore ? Mth.clamp(wantZ, 0.0F, relZ > 0.0F ? travel : 0.0F) : Mth.clamp(wantZ, relZ < 0.0F ? -travel : 0.0F, 0.0F);
+		final float across = jointZ - pivotZ;
+		AIM_JOINT_Z = jointZ;
+		AIM_JOINT_Y = Math.min(jointZ == wantZ ? pivotY + upper * Mth.cos(reached) : pivotY + Mth.sqrt(Math.max(upper * upper - across * across, 0.0F)), 0.0F);
 		final float turn = (float) Math.atan2(AIM_JOINT_Z - pivotZ, AIM_JOINT_Y - pivotY);
 		// The leg, from the joint: toward the point, or nearer than the chain closes, toward where the chain closed reaches
 		// on the line to it (so a hoof coming up close by the joint in its swing never swings the leg round); bent no more
@@ -696,6 +709,44 @@ public final class Strides {
 		}
 		AIM_OUT = relX;
 	}
+
+	/**
+	 * A leg in two pieces (see Legs.KNEE), its hoof in the air: as far as the leg would draw up into the body to reach its
+	 * hoof, its knee (front) or hock (hind) folds instead, the lower piece back under a front leg and forward under a hind
+	 * one, at most GAIT_KNEE_MOST, the upper piece turning the other way just as far as keeps the hoof where it was going;
+	 * only past that is the leg drawn up.
+	 */
+	private static void fold(final Legs.Leg leg, final boolean fore, final RideState s, final int i) {
+		final float upper = leg.upper;
+		final float lower = leg.length - upper;
+		if (lower <= 0.0F) {
+			s.gaitKnee[i] = 0.0F;
+			return;
+		}
+		// In the leg's own frame (from the middle of its top, z toward the tail, y down; pixels): the hinge is on the
+		// front edge of a front leg and the back edge of a hind one, and the sole, straight, under the middle.
+		final float hinge = fore ? -leg.soleHalf : leg.soleHalf;
+		final float reach = leg.length - s.gaitLegDraw[i];
+		// How far the sole is from the top with the knee bent k (toward the tail positive) goes as
+		// a cos k + b sin k = (span^2 - |hinge|^2 - |hinge to sole|^2) / 2: solved for the bend that spans the reach.
+		final float a = upper * lower - hinge * hinge;
+		final float b = hinge * (upper + lower);
+		final float r = Mth.sqrt(a * a + b * b);
+		final float most = GAIT_KNEE_MOST[fore ? 0 : 1];
+		final float c = (reach * reach - 2.0F * hinge * hinge - upper * upper - lower * lower) * 0.5F;
+		final float phi = (float) Math.atan2(b, a);
+		final float off = (float) Math.acos(Mth.clamp(c / r, -1.0F, 1.0F));
+		final float bent = fore ? Mth.clamp(phi + off, 0.0F, most) : Mth.clamp(phi - off, -most, 0.0F);
+		// Where the sole goes with that bend: the leg turns to keep it on its way, and is drawn up for any reach left over.
+		final float cos = Mth.cos(bent);
+		final float sin = Mth.sin(bent);
+		final float soleZ = hinge + (-hinge * cos + lower * sin);
+		final float soleY = upper + (lower * cos + hinge * sin);
+		s.gaitKnee[i] = bent;
+		s.gaitLegTurn[i] -= (float) Math.atan2(soleZ, soleY);
+		s.gaitLegDraw[i] = Math.max(Mth.sqrt(soleZ * soleZ + soleY * soleY) - reach, 0.0F);
+	}
+
 
 	/** How high leg {@code leg} holds its corner of the body, its hoof {@code fore} pixels back of its top: lower turned out. */
 	private static float corner(final Legs.Leg leg, final float fore) {

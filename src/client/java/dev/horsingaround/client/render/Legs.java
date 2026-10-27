@@ -1,9 +1,11 @@
 package dev.horsingaround.client.render;
 
 import java.util.List;
+import java.util.Map;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.util.Mth;
+import org.joml.Matrix4f;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -11,7 +13,8 @@ import org.jspecify.annotations.Nullable;
  * (vanilla at the top of the leg, Fresh Animations near the hoof, animating the stride by moving the hoof and turning the
  * leg about it), so every swing here turns a leg about the top of its box, moving the pivot to keep the top where the
  * model put it; and a leg is shortened by drawing it up into the body along its own length (the way a horse folds at the
- * shoulder, elbow and knee). The model's boxes are only measured, never changed. Render thread only.
+ * shoulder, elbow and knee). The model's boxes are only measured, never changed (but for the plain model's legs, cut in two
+ * at the knee: see {@link #KNEE}). Render thread only.
  */
 public final class Legs {
 	/** A leg's shape, in the leg part's own frame (model pixels, y down, z toward the tail). */
@@ -24,16 +27,31 @@ public final class Legs {
 		final float soleY;
 		final float z;
 		final float length;
+		/** A leg in two pieces (see {@link #KNEE}): how long the upper one is; else the whole length. */
+		final float upper;
 
 		Leg(final float soleX, final float soleHalf, final float hipY, final float soleY, final float z) {
+			this(soleX, soleHalf, hipY, soleY, z, soleY - hipY);
+		}
+
+		Leg(final float soleX, final float soleHalf, final float hipY, final float soleY, final float z, final float upper) {
 			this.soleX = soleX;
 			this.soleHalf = soleHalf;
 			this.hipY = hipY;
 			this.soleY = soleY;
 			this.z = z;
 			this.length = soleY - hipY;
+			this.upper = upper;
 		}
 	}
+
+	/**
+	 * The horse family's legs on the plain model are two pieces (user request, 2026-10-27): the leg part's box is the upper
+	 * LEG_UPPER pixels, and a child part of this name, the knee (front) or hock (hind), holds the rest, hinged at its front
+	 * or back edge (see the equine model mixin). Straight, the two are vanilla's one box.
+	 */
+	public static final String KNEE = "horsingaround_knee";
+	public static final float LEG_UPPER = 6.0F;
 
 	/** Kept on a part with no leg box (see PartData), so it is measured once. */
 	private static final Leg NONE = new Leg(0.0F, 0.0F, 0.0F, 1.0F, 0.0F);
@@ -43,15 +61,46 @@ public final class Legs {
 	private Legs() {
 	}
 
-	/** The leg's shape (measured the first time); null if the part has no leg box. */
+	/** The leg's shape (measured the first time), the two pieces of a leg with a knee as one; null if the part has no leg box. */
 	public static @Nullable Leg of(final ModelPart part) {
 		final PartData data = (PartData) (Object) part;
 		Leg leg = data.horsingaround$leg();
 		if (leg == null) {
 			leg = find(part, 0.0F, 0.0F, 0.0F, 0);
+			final ModelPart knee = knee(part);
+			if (knee != null) {
+				// (Only on the leg it was cut from: an animation pack builds its model on vanilla's, the lower piece and all,
+				// and puts legs of its own round it. There the piece is hidden and the pack's leg is the leg.)
+				final PartPose pose = knee.getInitialPose();
+				final Leg lower = leg == null ? null : find(knee, pose.x(), pose.y(), pose.z(), 1);
+				if (lower != null && Math.abs(leg.length - LEG_UPPER) < 0.05F && Math.abs(pose.y() - leg.soleY) < 0.05F) {
+					leg = new Leg(leg.soleX, leg.soleHalf, leg.hipY, lower.soleY, leg.z, leg.length);
+				} else {
+					knee.visible = false;
+				}
+			}
 			data.horsingaround$setLeg(leg == null ? NONE : leg);
 		}
 		return leg == NONE ? null : leg;
+	}
+
+	/** The lower piece of a leg in two (see {@link #KNEE}), or null. */
+	public static @Nullable ModelPart knee(final ModelPart part) {
+		return ((PartData) (Object) part).horsingaround$children().get(KNEE);
+	}
+
+	/**
+	 * Turns {@code matrix}, the leg part's, so points on the leg's lower piece (in the leg part's own frame) go where its
+	 * knee has bent them: the sole, say. Nothing for a leg in one piece or a straight knee.
+	 */
+	public static Matrix4f lower(final Matrix4f matrix, final ModelPart part) {
+		final ModelPart knee = knee(part);
+		if (knee != null && (knee.xRot != 0.0F || knee.yRot != 0.0F || knee.zRot != 0.0F)) {
+			matrix.translate(knee.x / 16.0F, knee.y / 16.0F, knee.z / 16.0F)
+				.rotateZYX(knee.zRot, knee.yRot, knee.xRot)
+				.translate(-knee.x / 16.0F, -knee.y / 16.0F, -knee.z / 16.0F);
+		}
+		return matrix;
 	}
 
 	/** Turns the leg part to {@code xRot} about the top of the leg, which stays where it was. */
@@ -97,7 +146,12 @@ public final class Legs {
 			);
 		}
 		if (depth < 2) {
-			for (final ModelPart child : access.horsingaround$children().values()) {
+			for (final Map.Entry<String, ModelPart> entry : access.horsingaround$children().entrySet()) {
+				// (Not the lower piece of a leg cut in two: under a pack's leg, it isn't the leg.)
+				if (entry.getKey().equals(KNEE)) {
+					continue;
+				}
+				final ModelPart child = entry.getValue();
 				final PartPose pose = child.getInitialPose();
 				if (pose.xRot() == 0.0F && pose.yRot() == 0.0F && pose.zRot() == 0.0F) {
 					final Leg leg = find(child, dx + pose.x(), dy + pose.y(), dz + pose.z(), depth + 1);

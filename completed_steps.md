@@ -59,6 +59,7 @@ at most two lines, under the right area; details go in the PR, not here.
 - Idle horses' legs are reset before posing on versions before 1.21.2 (shared model)
 - The plain model (no animation pack) has procedural legs: hooves planted in the world, cadence from real ground speed and real gait timing (walk, trot, canter, gallop), neck and tail with the stride (2026-10-26); after play-test, no splaying in turns, smooth gait changes, a gentler bob (2026-10-26); no spinning legs up hills of blocks (2026-10-26); legs as a two-bone chain with a hidden upper bone, the body pitching and rolling on its legs, legs a little further apart (2026-10-26)
 - Gaits near real horses' speeds, still scaled by each horse's own (walk 2, trot 4.2, canter 6.7, gallop 11.4 blocks/s on average); the legs step up to 1.6x a real horse's cadence
+- Plain-model legs: hidden hip and thigh bones that flex with the stride (joints follow the hoof), and each leg in two pieces with a knee or hock that folds in the swing
 
 ## Rider
 

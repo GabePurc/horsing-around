@@ -1038,6 +1038,12 @@ public final class RideTuning {
 	public static final float GAIT_LEG_MOST = 1.45F;
 	public static final float GAIT_SWING_MOST = 1.0F;
 	/**
+	 * A leg in two pieces (the plain model's, see Legs.KNEE), its hoof in the air, folds at the knee (front) or hock (hind)
+	 * instead of drawing up into the body, at most this far, radians (front, hind): a front leg's lower piece folds back
+	 * under it, a hind leg's forward. On the ground the knee stays straight, as a horse's does.
+	 */
+	public static final float[] GAIT_KNEE_MOST = {1.6F, 1.2F};
+	/**
 	 * Each leg is a chain of three bones, as a horse's (user direction, 2026-10-27: everything but the foot, only the shin
 	 * seen): a hidden hip bone (the shoulder blade or the pelvis) from a fixed point high in the body, a hidden thigh bone
 	 * (the upper arm or the thigh) from the shoulder or hip joint to the top of the visible leg, and the visible leg, the
@@ -1048,9 +1054,12 @@ public final class RideTuning {
 	 * (as a shoulder blade rocks with the stride), at most GAIT_HIP_MOST radians; the thigh and shin then reach the hoof, the
 	 * joint between them (elbow, stifle) bending back on front legs and forward on hind ones, closing to no less than
 	 * GAIT_JOINT_LEAST radians, and never out of the body: no lower than where the model puts the leg's top, nor ahead of it
-	 * on a front leg (the chest is there) or behind it on a hind one (the rump). A hoof up to GAIT_LEG_GIVE of the leg's
-	 * length nearer than its length draws the leg up first, the joint staying put (on level ground the body sits that little
-	 * lower on its legs, see Strides.crouch, and the joints going in for it would bring the front and hind legs together).
+	 * on a front leg (the chest is there) or behind it on a hind one (the rump), and at most GAIT_JOINT_TRAVEL of the leg's
+	 * length the other way; and it goes the way the hoof does (user, 2026-10-27: going against it, the legs looked bent the
+	 * wrong way): a front elbow back only as far as GAIT_JOINT_FOLLOW of how far the hoof is behind it, a hind stifle
+	 * forward only as far as that share of how far the hoof is ahead. The shin is drawn up only where the bones can't fold
+	 * far enough (user, 2026-10-27: the shin was doing all the moving, hinged from its top; the bones now work as a horse's
+	 * do: the shin's top travels with the stride and the joints flex as the body comes down over its legs).
 	 */
 	public static final float[] GAIT_THIGH = {0.4F, 0.4F};
 	public static final float[] GAIT_THIGH_TILT = {0.45F, 0.45F};
@@ -1059,7 +1068,8 @@ public final class RideTuning {
 	public static final float GAIT_HIP_FOLLOW = 0.3F;
 	public static final float GAIT_HIP_MOST = 0.35F;
 	public static final float GAIT_JOINT_LEAST = 1.22F;
-	public static final float GAIT_LEG_GIVE = 0.2F;
+	public static final float GAIT_JOINT_TRAVEL = 0.35F;
+	public static final float GAIT_JOINT_FOLLOW = 0.5F;
 	/**
 	 * How far ahead of the top of its leg a front hoof stands and lands, and behind it a hind one, blocks (user, 2026-10-26:
 	 * the front and hind legs looked a little close together, but not far out either).

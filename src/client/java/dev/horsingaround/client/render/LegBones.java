@@ -14,9 +14,10 @@ import org.jspecify.annotations.Nullable;
  * For play-testing (dev tools' F8, and the tests): draws the bones of every horse on the plain model's legs (ridden or
  * not), every frame just as it is drawn (user request, 2026-10-27: to see that the bones work). Per leg: the hip bone's fixed point (white),
  * the hidden hip bone to the shoulder or hip joint (orange), the hidden thigh bone to the elbow or stifle (yellow), and
- * the shin as drawn (aqua), from its top to the middle of its sole; a red line where the shin's drawn top isn't where the
+ * the leg as drawn, from its top to the middle of its sole (aqua; in two pieces, the lower blue below the knee or hock); a red line where the shin's drawn top isn't where the
  * hidden bones put it (the ride's ground work moved the leg). The hoof's spot: green where it stands, magenta where it is
- * going to land. Debug only, so it may allocate. Needs gizmos, which came in 1.21.11; before, it draws nothing.
+ * going to land. The right legs' bones are darker, so the far side's tell apart from the near side's where the two
+ * overlap (side on, a pair in step). Debug only, so it may allocate. Needs gizmos, which came in 1.21.11; before, it draws nothing.
  */
 public final class LegBones {
 	/** Whether the bones are drawn. */
@@ -95,16 +96,24 @@ public final class LegBones {
 				.rotateZYX(part.zRot, part.yRot, part.xRot)
 				.scale(part.xScale, part.yScale, part.zScale);
 			final Vec3 top = drawn(ride, leg.soleX, leg.hipY, leg.z);
+			final Vec3 knee = drawn(ride, leg.soleX, leg.hipY + leg.upper, leg.z);
+			Legs.lower(MATRIX, part);
 			final Vec3 sole = drawn(ride, leg.soleX, leg.soleY, leg.z);
-			Gizmos.line(fixed, hip, 0xFFFF9020, 3.0F).setAlwaysOnTop();
-			Gizmos.line(hip, joint, 0xFFFFE040, 3.0F).setAlwaysOnTop();
-			Gizmos.line(top, sole, 0xFF40E0FF, 4.0F).setAlwaysOnTop();
+			// (Right legs, 1 and 3, in darker colours.)
+			final boolean right = (i & 1) == 1;
+			Gizmos.line(fixed, hip, right ? 0xFF8A4A10 : 0xFFFF9020, 3.0F).setAlwaysOnTop();
+			Gizmos.line(hip, joint, right ? 0xFF8A7A20 : 0xFFFFE040, 3.0F).setAlwaysOnTop();
+			Gizmos.line(top, knee, right ? 0xFF207A8A : 0xFF40E0FF, 4.0F).setAlwaysOnTop();
+			if (leg.upper < leg.length) {
+				Gizmos.line(knee, sole, right ? 0xFF2A4A9A : 0xFF6080FF, 4.0F).setAlwaysOnTop();
+				Gizmos.point(knee, right ? 0xFF207A8A : 0xFF40E0FF, 6.0F).setAlwaysOnTop();
+			}
 			if (top.distanceToSqr(joint) > 1.0 / (32.0 * 32.0)) {
 				Gizmos.line(joint, top, 0xFFFF3030, 2.0F).setAlwaysOnTop();
 			}
-			Gizmos.point(fixed, 0xFFFFFFFF, 7.0F).setAlwaysOnTop();
-			Gizmos.point(hip, 0xFFFF9020, 6.0F).setAlwaysOnTop();
-			Gizmos.point(joint, 0xFFFFE040, 6.0F).setAlwaysOnTop();
+			Gizmos.point(fixed, right ? 0xFF909090 : 0xFFFFFFFF, 7.0F).setAlwaysOnTop();
+			Gizmos.point(hip, right ? 0xFF8A4A10 : 0xFFFF9020, 6.0F).setAlwaysOnTop();
+			Gizmos.point(joint, right ? 0xFF8A7A20 : 0xFFFFE040, 6.0F).setAlwaysOnTop();
 			if (ride.hoofDown[i]) {
 				Gizmos.point(new Vec3(ride.hoofX[i], ride.hoofY[i], ride.hoofZ[i]), 0xFF40FF60, 8.0F).setAlwaysOnTop();
 			} else {
