@@ -105,10 +105,6 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	systemProperty "horsingaround.sections", rideSections
 	systemProperty "horsingaround.plainTextures", project.hasProperty("plainTextures")
 	systemProperty "horsingaround.vanillaModel", project.hasProperty("vanillaModel")
-	// (Prototype: another cadence to compare clips, see RideTuning.GAIT_CADENCE_SIZE.)
-	if (project.hasProperty("cadenceSize")) {
-		systemProperty "horsingaround.cadenceSize", project.property("cadenceSize")
-	}
 	dependsOn installDebugPack
 	lightTestGame(it)
 }

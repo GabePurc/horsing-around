@@ -315,7 +315,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("walk speed (blocks/tick)", averageSpeed(ctx, 10), WALK_SPEED * 0.85, WALK_SPEED * 1.15);
 		check("gait is walk", sample(ctx).gait == RideTuning.WALK);
 		check("at a walk the rider sits in the saddle (standing, 0..1)", ride(ctx, r -> r.stand(1.0F)), 0.0, 0.02);
-		check("walk leg-animation speed (Fresh Animations walk < 0.4)", sample(ctx).limbSpeed, 0.25, 0.39);
+		check("walk leg-animation speed (its share of top speed)", sample(ctx).limbSpeed, RideTuning.GAIT_SPEED[RideTuning.WALK] * 0.85,
+			RideTuning.GAIT_SPEED[RideTuning.WALK] * 1.15);
 		if (TestPacks.animated()) {
 			float low = Float.MAX_VALUE;
 			float high = -Float.MAX_VALUE;
@@ -1010,7 +1011,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 
 	private void stairs(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
 		final TestServerContext server = world.getServer();
-		section("Climbing a staircase of 1-block steps at a trot");
+		section("Climbing a staircase of 1-block steps at a walk");
 		// Go there first so the chunks are loaded, then build four steps northward, three blocks deep, and a plateau.
 		server.runCommand("tp @p 100.5 -60 0.5 180 10");
 		ctx.waitTicks(20);
@@ -1042,16 +1043,21 @@ public final class RideFeelTest implements FabricClientGameTest {
 		double maxVisualStep = 0.0;
 		float maxPitch = 0.0F;
 		Sample previous = sample(ctx);
-		for (int i = 0; i < 80; i++) {
+		// (On until a few ticks onto the plateau, however quick the walk.)
+		int onTop = -1;
+		for (int i = 0; i < 240 && (onTop < 0 || i < onTop + 10); i++) {
 			ctx.waitTick();
 			final Sample s = sample(ctx);
+			if (onTop < 0 && s.onGround && s.y - startY > 3.95) {
+				onTop = i;
+			}
 			maxPhysicsStep = Math.max(maxPhysicsStep, s.y - previous.y);
 			maxVisualStep = Math.max(maxVisualStep, s.visualY - previous.visualY);
 			maxPitch = Math.max(maxPitch, s.pitch);
-			if (i == 30) {
+			if (i == 52) {
 				sideScreenshot(ctx, "08_stairs_side");
 			}
-			if (i == 34) {
+			if (i == 60) {
 				screenshot(ctx, "08b_stairs_back");
 			}
 			previous = s;
@@ -1339,11 +1345,15 @@ public final class RideFeelTest implements FabricClientGameTest {
 	private void trample(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
 		section("Trampling small animals");
 		final TestServerContext server = world.getServer();
+		// (Level ground well ahead, whatever the walk before has left of the plateau: a gallop off its edge sails over some.)
+		server.runCommand("execute at @e[tag=stairs_test,limit=1] run fill ~-4 ~-4 ~-2 ~4 ~-1 ~-60 minecraft:stone");
+		server.runCommand("execute at @e[tag=stairs_test,limit=1] run fill ~-4 ~ ~-2 ~4 ~3 ~-60 minecraft:air");
 		input.lookAt(180.0F, 10.0F);
 		ctx.waitTicks(5);
 		server.runCommand("execute at @e[tag=stairs_test,limit=1] run summon minecraft:chicken ~ ~ ~-4 {NoAI:1b,Tags:[\"walk_victim\"]}");
 		input.holdKey(o -> o.keyUp);
-		ctx.waitTicks(40);
+		// (Long enough to walk on past it, so it isn't still under the horse setting off at a gallop.)
+		ctx.waitTicks(70);
 		input.releaseKey(o -> o.keyUp);
 		ticksUntilStopped(ctx, 40);
 		check("walking into a chicken doesn't hurt it", trampled(server, "walk_victim"), 0, 0);
@@ -1353,6 +1363,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 			server.runCommand("execute at @e[tag=stairs_test,limit=1] run summon minecraft:rabbit ~ ~ ~-" + (26 + i * 5) + " {NoAI:1b,Tags:[\"gallop_victim\"]}");
 		}
 		input.holdKey(o -> o.keyUp);
+		// (Moving first: a spur from a standstill isn't counted, and three spurs on from a walk make a gallop.)
+		ctx.waitTicks(5);
 		for (int i = 0; i < 3; i++) {
 			input.pressKey(o -> o.keySprint);
 			ctx.waitTicks(5);
@@ -2746,7 +2758,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 				contactSpeed = Math.max(sample(ctx).speed, ctx.computeOnClient(mc -> mc.player.getVehicle().getDeltaMovement().horizontalDistance()));
 			}
 		}
-		check("slows to a walk before the wall (speed at contact / walk)", contactSpeed / WALK_SPEED, 0.0, 1.15);
+		check("slows right down before the wall (speed at contact / trot)", contactSpeed / TROT_SPEED, 0.0, 0.85);
 		check("walks right up to it (gap to the wall, blocks)", horseZ(ctx) - half(ctx) - -39.0, -0.01, 0.3);
 		check("doesn't veer off along a wall it can't get round (blocks off the line)", maxSide, 0.0, 1.0);
 		ctx.waitTicks(40);
@@ -2942,12 +2954,13 @@ public final class RideFeelTest implements FabricClientGameTest {
 			headGap = Math.min(headGap, ride(ctx, r -> r.headGap));
 			// From the side, from the crouch to walking on from the top (a fixed camera: the horse alone, as the game never
 			// draws the local player for another camera), and its trace.
-			if (z < -15.0 && frames < 16) {
+			if (z < -16.5 && frames < 16) {
 				ledgeTrace.append(String.format(Locale.ROOT, "t%d z%.2f y%.2f vis%.2f tilt%.1f jump%.1f air%.2f | ",
 					tick, z, s.y, s.visualY, s.pitch, ride(ctx, r -> r.jumpPitch(1.0F)), ride(ctx, r -> r.airLegs(1.0F))));
 				cameraShot(ctx, String.format(Locale.ROOT, "14s_ledge_seq_%02d", frames));
-				if (z < -16.5 && frames % 2 == 0) {
-					// And from the riding camera swung to the side, to see the rider.
+				if (!Double.isNaN(takeoffZ) && frames % 2 == 0) {
+					// And from the riding camera swung to the side, to see the rider: once off the ground (turning the view in
+					// the run-up turns the rider away from the ledge, and the horse gives the jump up).
 					sideScreenshot(ctx, String.format(Locale.ROOT, "14r_ledge_rider_%02d", frames), 0.0F);
 				}
 				frames++;
@@ -4520,7 +4533,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("a hoof is hardly ever in the ground (share of frames one is more than 0.1 in)", frames == 0 ? 1.0 : (double) sunkFrames / frames, 0.0, 0.1);
 		check("a leg is hardly ever in the ground (share of frames one is more than 0.1 in)", frames == 0 ? 1.0 : (double) legFrames / frames, 0.0, 0.1);
 		check("a hoof lifted to step comes down again (longest more than 0.2 above the ground, ticks)", longestUp, 0, fullBlocks ? !up && trot ? 8 : 6 : up ? 3 : 4);
-		check("never far above it, reaching down for the next step at most (most a hoof floats, blocks)", worstFloat, 0.0, fullBlocks ? (up ? 1.0 : 1.5) : 0.8);
+		// (Up full blocks, a step and a pixel: at a walk a hoof can hang a block over the next step for a moment.)
+		check("never far above it, reaching down for the next step at most (most a hoof floats, blocks)", worstFloat, 0.0, fullBlocks ? (up ? 1.0625 : 1.5) : 0.8);
 		check("hooves come up onto the higher ground (most, blocks)", maxFold, 0.05, RideTuning.LEG_RISE_MAX + 0.01);
 		check("legs draw up onto higher ground on the way (frames)", ctx.computeOnClient(mc -> dev.horsingaround.client.render.Legs.drawnFrames) - drawnBefore > 0);
 		check("rider's head clear of the horse's (closest, centre to centre, blocks)", headGap, 0.45, 10.0);

@@ -347,7 +347,7 @@ public final class Awareness {
 		final Vec3 moving = horse.getDeltaMovement();
 		wayVelU = (float) (moving.x * wayFx + moving.z * wayFz);
 		wayVelV = (float) (-moving.x * wayFz + moving.z * wayFx);
-		final float unitSpeed = Math.max(s.speed, GAIT_SPEED[WALK]);
+		final float unitSpeed = Math.max(s.speed, PLAN_MIN_SPEED);
 		final float speed = unitSpeed * blocksPerUnit;
 		if (s.wayX == null) {
 			s.wayX = new float[PATH_POINTS];

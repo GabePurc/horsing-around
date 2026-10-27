@@ -1020,7 +1020,8 @@ stride: at a walk 37% (a real walk about 60%) at 2 strides a second, and at a tr
 nearly half the time.
 
 User: speeds can be more realistic, still varying with how the horse was bred. The gaits are now 0.2, 0.42, 0.68 and
-1.15 (gallop as before) of the horse's own top speed; the gait blends, the gallop hoof sound and the wall crash moved
-with them, and backing up is slower than a walk. Prototype: two cadence caps filmed side by side for the user to pick
-(`GAIT_CADENCE_SIZE` 1.3 and 1.6, `-PcadenceSize`); at 1.6 a walk's hooves stand 57% of the stride at 1.8 strides a
-second.
+1.15 (gallop as before) of the horse's own top speed; the gait blends, the gallop hoof sound, the wall crash, trampling
+(from a trot, as before) and a shoulder's slip past a corner moved with them, a planned way still plans for at least the
+old walk's speed (lower, it slowed ever more round tight corners and swung coming out of them), and backing up is slower
+than a walk. Two cadence caps were filmed side by side and the user picked the
+quicker (`GAIT_CADENCE_SIZE` 1.6 over 1.3): a walk's hooves stand 57% of the stride at 1.8 strides a second.

@@ -91,7 +91,7 @@ public final class RideTuning {
 	 * Hitting a wall above this speed sheds momentum and drops the horse to a trot, when the hit takes more than
 	 * CRASH_BLOCKED of the tick's travel (head-on, not a scrape along a trunk or the corner of a block).
 	 */
-	static final float CRASH_SPEED = 0.32F;
+	static final float CRASH_SPEED = 0.4F;
 	static final float CRASH_KEEP = 0.5F;
 	public static final float CRASH_BLOCKED = 0.65F;
 	/**
@@ -109,7 +109,7 @@ public final class RideTuning {
 	 * it, by up to CORNER_SLIP blocks in CORNER_SLIP_STEP steps, and keeps its pace.
 	 */
 	static final float CORNER_SLIP_BLOCKED = 0.9F;
-	static final float CORNER_SLIP_MIN_SPEED = 0.05F;
+	static final float CORNER_SLIP_MIN_SPEED = 0.025F;
 	static final double CORNER_SLIP = 0.3;
 	static final double CORNER_SLIP_STEP = 0.1;
 
@@ -282,6 +282,11 @@ public final class RideTuning {
 	static final float PATH_BACK_MAX = 8.0F;
 	static final float PATH_CHECK = 0.7F;
 	static final float PATH_REACH = 10.0F;
+	/**
+	 * A way is planned for at least this speed (a multiple, as the gaits'), so slowing for a corner doesn't plan the next
+	 * stretch ever slower (once the walk's speed; since the walk slowed, it is its own).
+	 */
+	static final float PLAN_MIN_SPEED = 0.35F;
 	static final float PATH_AHEAD_MIN = 6.0F;
 	static final float PATH_AHEAD_MAX = 18.0F;
 	static final float PATH_AHEAD_FACTOR = 1.5F;
@@ -980,12 +985,12 @@ public final class RideTuning {
 	 * Strides a second at each gait, against ground speed (blocks a second): real horses' (walk 0.55 + 0.25 v; trot,
 	 * canter and gallop nearly flat, rising slowly, their strides lengthening instead) is the slowest the legs go, and up
 	 * to GAIT_CADENCE_SIZE times that (a horse this size, legs this long, steps that much quicker at the same speed) to
-	 * keep up with the ground; beyond that the hooves stand for a shorter share of the stride, as at speed they do.
+	 * keep up with the ground; beyond that the hooves stand for a shorter share of the stride, as at speed they do. (1.6,
+	 * user, 2026-10-26, picked from clips against 1.3: a walk's hooves stand 57% of the stride, a real walk's about 60%.)
 	 */
 	public static final float[] GAIT_CADENCE = {0.55F, 1.2F, 1.45F, 1.6F};
 	public static final float[] GAIT_CADENCE_RISE = {0.25F, 0.05F, 0.06F, 0.06F};
-	// (Prototype, 2026-10-26: -PcadenceSize on runClient or the client tests tries another, to compare clips. Not for merging.)
-	public static final float GAIT_CADENCE_SIZE = Float.parseFloat(System.getProperty("horsingaround.cadenceSize", "1.3"));
+	public static final float GAIT_CADENCE_SIZE = 1.6F;
 	/**
 	 * How high a hoof clears the ground in its swing, blocks, and where in the swing it is highest: a front one early (it
 	 * folds up under the forearm, then reaches out). Less than a real horse's (a trot's front hoof about 14 cm): a one-piece
@@ -1238,8 +1243,8 @@ public final class RideTuning {
 	public static final boolean RIDE_THROUGH_LEAVES = true;
 	/** A horse moving faster than a walk tramples small creatures in its path. */
 	public static final boolean TRAMPLE = true;
-	/** Trampling starts above this share of vanilla top speed (a walk is 0.35, a trot 0.6). */
-	static final float TRAMPLE_MIN_SPEED = 0.5F;
+	/** Trampling starts above this share of vanilla top speed (a walk is 0.2, a trot 0.42). */
+	static final float TRAMPLE_MIN_SPEED = 0.3F;
 	/** Damage at a full gallop, half-hearts; scales down to nothing at TRAMPLE_MIN_SPEED. */
 	static final float TRAMPLE_DAMAGE_MAX = 8.0F;
 	/** Knock aside strength at a full gallop. */
