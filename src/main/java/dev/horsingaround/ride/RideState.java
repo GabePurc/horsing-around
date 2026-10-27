@@ -385,7 +385,13 @@ public final class RideState {
 	public final float[] legPhase = new float[4];
 	public final float[] gaitLegTurn = new float[4];
 	public final float[] gaitLegSide = new float[4];
+	/**
+	 * Per leg, pixels: how far short of its length its hoof is (the body's fit counts it as drawn up), how far its top goes
+	 * straight up into the body, and how far it is drawn up along its length.
+	 */
 	public final float[] gaitLegFold = new float[4];
+	public final float[] gaitLegRise = new float[4];
+	public final float[] gaitLegDraw = new float[4];
 	/** Per leg, the last frame: how far from the top of its leg its hoof is (blocks), and was as it was set down (or -1). */
 	public final float[] hoofReach = new float[4];
 	public final float[] plantReach = new float[4];
@@ -397,10 +403,19 @@ public final class RideState {
 	public final float[] liftTurn = new float[4];
 	public final double[] liftHipX = new double[4];
 	public final double[] liftHipZ = new double[4];
+	/** Per leg in its swing: where it lands (world; x NaN before it has looked), and the spot its swing heads for, after it. */
+	public final double[] goalX = new double[4];
+	public final double[] goalY = new double[4];
+	public final double[] goalZ = new double[4];
+	public final double[] landX = new double[4];
+	public final double[] landY = new double[4];
+	public final double[] landZ = new double[4];
 	/** Per leg: where the top of its leg is and how fast it goes (world, blocks a second). */
 	public final double[] hipX = new double[4];
+	public final double[] hipY = new double[4];
 	public final double[] hipZ = new double[4];
 	public final double[] hipVelocityX = new double[4];
+	public final double[] hipVelocityY = new double[4];
 	public final double[] hipVelocityZ = new double[4];
 	public double gaitPosedAt = Double.NaN;
 	/** Per leg (front left, front right, hind left, hind right), the last frame: how far it was drawn up onto its ground, blocks. */

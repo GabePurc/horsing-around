@@ -73,9 +73,11 @@ whatever the speed; no stamina; no visual weight.
   vanilla animation inputs truthful.
 - The plain model's legs are procedural (user direction, 2026-10-24, after keyframed gaits slid at every speed but
   the gallop): each hoof is planted in the world where it lands and stays there while the body goes over it, the
-  one-piece leg turning about its top to point at it; a leg lifts on its gait's timing (real footfall order and stance
-  shares) or when the body has gone out of its reach or out to its side, and swings to where it will land, predicted
-  from its leg's own velocity (turning too), on the real ground there; the swing goes with the body, flicking back as it
+  one-piece leg turning about its top to point at it (at most 57 degrees), its top going straight up into the body for
+  a hoof nearer than its length (user, 2026-10-26: legs spun round their tops to reach up steps); a leg lifts on its
+  gait's timing (real footfall order and stance shares) or when the body has gone out of its reach, out to its side or
+  well past it, and swings to where it will land, predicted from its leg's own velocity (turning too), on the real
+  ground there, kept for the last quarter of the swing so a climb never jumps it; the swing goes with the body, flicking back as it
   lifts and reaching before it lands. The cadence comes from the real ground speed: a real horse's stride rate for the
   gait, up to 1.3 times that to fit a leg this short, never more (hooves then stand a shorter share). Gaits blend over a
   third of a second, each leg keeping step with its gait's footfalls by going a little quicker or slower (never a jump);

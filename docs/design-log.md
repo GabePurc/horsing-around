@@ -966,3 +966,24 @@ smooth." Filmed close (`-Pscenario=legs`) and measured from each leg's angle:
   are gone: the neck is a damped spring at the withers (2 swings a second), swung by the body's rise and pitch through
   the stride. Measured swing either way: walk 1.3 degrees, trot 4, canter 8.5, gallop 10; the head lowest just after the
   leading foreleg leaves the ground at a canter (0.23 of the stride after it lands), 0.35 at a gallop.
+
+### Third play-test: climbing blocks (2026-10-26)
+
+"The legs are still spinning or something. I think its because the top of the leg is like locked in place, and so it has
+to spin to reach when going up blocks." The user's recording (F7) had hooves jumping up to 1.1 blocks in a frame on a
+climb. Filmed up a hill of full blocks (`-Pscenario=legs`, a step every two blocks, then every block) and traced each
+leg's aim:
+
+- The landing spot was looked up every frame, so as the body climbed it moved onto the next step or back from a step's
+  face, and the hoof in the air jumped with it (up to 1.5 blocks in a frame). Now it is looked for through the first
+  three quarters of the swing and then kept, the swing following it within 0.04 s and arriving by touch-down, and the
+  hoof lands where its swing went.
+- The user was right about the top of the leg: a hoof high under the body (up a step) was reached by swinging the leg
+  round its top, up to 83 degrees, flipping past flat when the hoof went above the top. Now the leg keeps its length and
+  its top goes straight up into the body (up to 0.6 of the leg) for a hoof nearer than that; higher still, the hoof is
+  as high as the leg reaches, under the point. Legs turn at most 57 degrees (was 83).
+- Hooves were left on the step below while the body climbed on (up to 2 blocks below the hip), then whipped forward.
+  A leg turned back more than 49 degrees now lifts at once; the landing spot is looked for as high as the hip will be
+  when it lands (up to 0.3 blocks more); a swing's extra lift for a step is at most a quarter block.
+- Up the hill, the most a leg's turn changed in a frame (30 a second) went from 145 to 50 degrees at a trot, 160 to 80 at
+  a gallop; on flat ground legs turn at most 60 degrees (was 73), otherwise the same.

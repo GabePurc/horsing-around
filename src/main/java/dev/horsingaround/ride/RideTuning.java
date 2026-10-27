@@ -1005,10 +1005,27 @@ public final class RideTuning {
 	 * as they reach.
 	 */
 	public static final float GAIT_SWING_TIME = 0.35F;
+	/**
+	 * Where a hoof lands is looked for afresh through its swing (the body's speed and turn change it) until GAIT_LAND_FIX of
+	 * it, then kept; the spot the swing heads for follows it within GAIT_LAND_TIME seconds, getting there by the end. Up a
+	 * hill of blocks the landing spot moves onto a step, or back from one's face, as the body climbs: without this the hoof
+	 * jumped up to a block in a frame.
+	 */
+	public static final float GAIT_LAND_FIX = 0.75F;
+	public static final float GAIT_LAND_TIME = 0.04F;
+	/**
+	 * The most a hoof's landing spot is looked for higher or lower for the top of its leg going up or down by the time it
+	 * lands (climbing, it lands on the step the body will be over), blocks.
+	 */
+	public static final float GAIT_LAND_CLIMB = 0.3F;
 	public static final float[] GAIT_SWING_FLICK = {0.08F, 0.12F, 0.13F, 0.14F};
 	public static final float[] GAIT_SWING_REACH = {0.04F, 0.07F, 0.08F, 0.1F};
-	/** The most a leg turns from upright, radians. */
+	/**
+	 * The most a leg turns from upright, radians; in its swing, GAIT_SWING_MOST (about a real horse's at full stretch: up a
+	 * hill a hoof's path can go far behind or above the leg, and the leg would swing round to it).
+	 */
 	public static final float GAIT_LEG_MOST = 1.45F;
+	public static final float GAIT_SWING_MOST = 1.0F;
 	/** Ground speed (blocks a second) from which the neck and tail move fully with the stride. */
 	public static final float GAIT_FULL_SPEED = 1.0F;
 	/**
@@ -1023,7 +1040,8 @@ public final class RideTuning {
 	 * hoof lands back from it, looking up to GAIT_FACE_STEPS steps of GAIT_FACE_STEP blocks back. A planted hoof the body
 	 * has moved more than GAIT_STEP_REACH blocks out of its leg's reach (climbing a step, or leaving it behind), or more
 	 * than GAIT_SIDE_STEP blocks out to the side of it (turning), steps on at once, once it has stood GAIT_STEP_STOOD of its
-	 * stance; GAIT_STEP_FAR out of reach, whatever it has stood. A leg leans out to the side at most GAIT_SIDE_MOST radians
+	 * stance; GAIT_STEP_FAR out of reach, or its leg turned back more than GAIT_STEP_TURN radians (up a hill the body
+	 * climbs away from a hoof on the step below), whatever it has stood. A leg leans out to the side at most GAIT_SIDE_MOST radians
 	 * (a hoof further out turns on the ground instead). The rest is the ride's ground work (GroundLegs), as for any
 	 * animation: a hoof still in the ground drawn up onto it, and the body's fit onto its legs (which leaves a planted
 	 * hoof hanging less than GAIT_HANG_SLACK blocks alone: that is the stride's own rise and fall).
@@ -1034,6 +1052,7 @@ public final class RideTuning {
 	public static final float GAIT_STEP_REACH = 0.08F;
 	public static final float GAIT_STEP_STOOD = 0.2F;
 	public static final float GAIT_STEP_FAR = 0.2F;
+	public static final float GAIT_STEP_TURN = 0.85F;
 	public static final float GAIT_SIDE_STEP = 0.15F;
 	public static final float GAIT_SIDE_MOST = 0.35F;
 	/** How quickly the legs follow a change in the horse's speed (seconds). */

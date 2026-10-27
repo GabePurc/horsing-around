@@ -356,6 +356,40 @@ public final class StoreMediaTest implements FabricClientGameTest {
 			input.lookAt(yaw[0], 12.0F);
 		});
 		this.stop(ctx);
+		// Up a hill of full blocks at a gallop, then a trot, side on.
+		for (final int taps : new int[] {GALLOP, 1}) {
+			this.mount(ctx, world, spot, BAY, NOON);
+			final float heading = this.hill(ctx, world, spot);
+			this.steer(ctx, heading, 20);
+			this.closeUp(ctx, 90.0F, 7.0F, 1.0F, 0.3F);
+			this.gait(ctx, taps);
+			this.record(ctx, taps == GALLOP ? "legs_climb_gallop" : "legs_climb_trot", 140, CLIP_HEIGHT, REAL_TIME, t -> input.lookAt(heading, 12.0F));
+			this.stop(ctx);
+		}
+	}
+
+	/**
+	 * A hill of full blocks ahead of the spot, along its heading turned to the nearest axis (returned): flat for 6 blocks, a
+	 * step every two blocks for 20, every block for 10, then flat on top.
+	 */
+	private float hill(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
+		this.flatten(ctx, world, spot);
+		final float yaw = Math.round(spot.yaw / 90.0F) * 90.0F;
+		final int fx = Math.round(-Mth.sin(yaw * Mth.DEG_TO_RAD));
+		final int fz = Math.round(Mth.cos(yaw * Mth.DEG_TO_RAD));
+		final int y = ctx.computeOnClient(mc -> mc.player.getVehicle().getBlockY());
+		final TestServerContext server = world.getServer();
+		for (int d = 6; d < 80; d++) {
+			final int h = Math.min(d < 26 ? (d - 6) / 2 + 1 : d - 15, 20);
+			final int x = spot.start.getX() + fx * d;
+			final int z = spot.start.getZ() + fz * d;
+			final int ax = 3 * Math.abs(fz);
+			final int az = 3 * Math.abs(fx);
+			server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d grass_block", x - ax, y, z - az, x + ax, y + h - 1, z + az));
+			server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air", x - ax, y + h, z - az, x + ax, y + h + 6, z + az));
+		}
+		waitForWorld(ctx);
+		return yaw;
 	}
 
 	/** Close on the legs: {@code angle} round the horse's heading (0 behind, 90 its left), following its heading at {@code follow} a tick. */
@@ -1229,7 +1263,8 @@ public final class StoreMediaTest implements FabricClientGameTest {
 						row.append(String.format(Locale.ROOT, ",%.2f,%.4f", Mth.rotLerp(partialTick, h.yBodyRotO, h.yBodyRot),
 							ride.drawnCameraY + ride.drawnPose.m31() - Mth.lerp(partialTick, h.yo, h.getY())));
 						// (The plain model's stride: ground speed, strides a second, front and hind stance, which hooves stand, sweep;
-						// per leg how far through its stance or swing and its stride it is; the neck on its spring.)
+						// per leg how far through its stance or swing and its stride it is; the neck on its spring; per leg how far it
+						// turns forward and out to the side, radians, and is drawn up into the body, pixels.)
 						row.append(String.format(Locale.ROOT, ",%.3f,%.3f,%.3f,%.3f,%d%d%d%d,%.3f", Math.sqrt(ride.gaitVelocityX * ride.gaitVelocityX
 							+ ride.gaitVelocityZ * ride.gaitVelocityZ), ride.gaitRate, ride.gaitForeStance, ride.gaitHindStance, ride.hoofDown[0] ? 1 : 0,
 							ride.hoofDown[1] ? 1 : 0, ride.hoofDown[2] ? 1 : 0, ride.hoofDown[3] ? 1 : 0, ride.gaitSweep));
@@ -1237,6 +1272,9 @@ public final class StoreMediaTest implements FabricClientGameTest {
 							row.append(String.format(Locale.ROOT, ",%.3f,%.3f", ride.hoofDown[leg] ? ride.stood[leg] : ride.swingThrough[leg], ride.legPhase[leg]));
 						}
 						row.append(String.format(Locale.ROOT, ",%.4f", ride.neck));
+						for (int leg = 0; leg < 4; leg++) {
+							row.append(String.format(Locale.ROOT, ",%.3f,%.3f,%.2f", ride.gaitLegTurn[leg], ride.gaitLegSide[leg], ride.gaitLegRise[leg] + ride.gaitLegDraw[leg]));
+						}
 					}
 					LEGS.add(row.toString());
 					if (mc.player.getVehicle() instanceof RideStateHolder holder) {
