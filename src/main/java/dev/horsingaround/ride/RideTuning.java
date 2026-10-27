@@ -1038,19 +1038,26 @@ public final class RideTuning {
 	public static final float GAIT_LEG_MOST = 1.45F;
 	public static final float GAIT_SWING_MOST = 1.0F;
 	/**
-	 * Each leg is a chain of two bones: a hidden upper one (the shoulder's or hip's) from a fixed point inside the body to
-	 * the top of the visible leg, and the visible leg from there to its hoof. GAIT_UPPER: the upper bone's length, a share
-	 * of the visible leg's (front, hind); GAIT_UPPER_TILT: how far it slopes from straight down where the model puts the
-	 * leg, radians (front legs down and back from the shoulder, hind legs down and forward from the hip, so the joint bends
-	 * back on front legs and forward on hind ones, as a horse's elbow and stifle do, and only ever goes up into the body).
-	 * It turns at most GAIT_UPPER_MOST radians from there, and the two bones close to no less than GAIT_JOINT_LEAST radians
-	 * apart: a hoof nearer than that draws its leg up along its length. A hoof up to GAIT_LEG_GIVE of the leg's length nearer
-	 * than its length draws the leg up first, the joint staying put (on level ground the body sits that little lower on
-	 * its legs, see Strides.crouch, and the joints going in for it would bring the front and hind legs together).
+	 * Each leg is a chain of three bones, as a horse's (user direction, 2026-10-27: everything but the foot, only the shin
+	 * seen): a hidden hip bone (the shoulder blade or the pelvis) from a fixed point high in the body, a hidden thigh bone
+	 * (the upper arm or the thigh) from the shoulder or hip joint to the top of the visible leg, and the visible leg, the
+	 * shin, from there to its hoof. Lengths are shares of the visible leg's (front, hind); tilts are how far each slopes from
+	 * straight down where the model puts the leg, radians: the thigh bone up and forward to the shoulder on a front leg, up
+	 * and back to the hip on a hind one; the hip bone on up and back to the top of the shoulder blade, or up and forward to
+	 * the point of the hip. The hip bone turns with the leg by GAIT_HIP_FOLLOW of how far the hoof is swung from under it
+	 * (as a shoulder blade rocks with the stride), at most GAIT_HIP_MOST radians; the thigh and shin then reach the hoof, the
+	 * joint between them (elbow, stifle) bending back on front legs and forward on hind ones, closing to no less than
+	 * GAIT_JOINT_LEAST radians, and never out of the body: no lower than where the model puts the leg's top, nor ahead of it
+	 * on a front leg (the chest is there) or behind it on a hind one (the rump). A hoof up to GAIT_LEG_GIVE of the leg's
+	 * length nearer than its length draws the leg up first, the joint staying put (on level ground the body sits that little
+	 * lower on its legs, see Strides.crouch, and the joints going in for it would bring the front and hind legs together).
 	 */
-	public static final float[] GAIT_UPPER = {0.5F, 0.5F};
-	public static final float[] GAIT_UPPER_TILT = {0.4F, 0.35F};
-	public static final float GAIT_UPPER_MOST = 0.9F;
+	public static final float[] GAIT_THIGH = {0.4F, 0.4F};
+	public static final float[] GAIT_THIGH_TILT = {0.45F, 0.45F};
+	public static final float[] GAIT_HIP = {0.45F, 0.4F};
+	public static final float[] GAIT_HIP_TILT = {0.5F, 0.5F};
+	public static final float GAIT_HIP_FOLLOW = 0.3F;
+	public static final float GAIT_HIP_MOST = 0.35F;
 	public static final float GAIT_JOINT_LEAST = 1.22F;
 	public static final float GAIT_LEG_GIVE = 0.2F;
 	/**

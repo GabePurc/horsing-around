@@ -73,10 +73,12 @@ whatever the speed; no stamina; no visual weight.
   vanilla animation inputs truthful.
 - The plain model's legs are procedural (user direction, 2026-10-24, after keyframed gaits slid at every speed but
   the gallop): each hoof is planted in the world where it lands and stays there while the body goes over it, the
-  one-piece leg reaching it from a joint with a hidden upper bone (user, 2026-10-26: legs spun round their fixed tops
-  to reach up steps): the upper bone runs from a fixed shoulder or hip point in the body to the leg's top, which bends
-  back on front legs and forward on hind ones (elbow, stifle) and only ever goes up into the body, so a hoof high under
-  the body is reached with the leg near its length and little turn; on level ground the leg first draws up a little
+  one-piece leg (the shin) reaching it from the end of two hidden bones (user, 2026-10-26: legs spun round their fixed
+  tops to reach up steps; 2026-10-27: three bones as a horse's, everything but the foot, only the shin seen): a hip bone
+  (shoulder blade, pelvis) from a fixed point high in the body, rocking a little with the stride, and a thigh bone (upper
+  arm, thigh) to the shin's top, which bends back on front legs and forward on hind ones (elbow, stifle) and never leaves
+  the body (not below its underside, nor past the chest or the rump), so a hoof high under the body is reached with the
+  leg near its length and little turn; on level ground the leg first draws up a little
   (a fifth of its length) so the joints stay put and the legs stay apart; nearer than the chain closes (70 degrees), the
   leg draws up along its length. Hooves stand a little ahead of the front legs' tops and behind the hind ones' (user,
   2026-10-26: legs looked close together, but not far out). A leg lifts on its

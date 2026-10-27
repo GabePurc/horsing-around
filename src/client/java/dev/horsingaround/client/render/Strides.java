@@ -17,8 +17,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * The horse family's own legs on the plain model (no animation pack posing it): procedural, the way a real horse's work.
  * A hoof on the ground stays exactly where it landed while the body goes over it, so it never slides, and its leg (still
- * vanilla's one rigid piece) reaches it from a joint with a hidden upper bone in the body (an elbow or stifle, going up
- * into the body as it bends: see aim), folding up where the ground stands higher still. A leg lifts
+ * vanilla's one rigid piece, the shin) reaches it from the end of two hidden bones in the body (the shoulder blade and
+ * upper arm, or the pelvis and thigh: the elbow or stifle goes back or forward and up into the body as it bends, see aim),
+ * folding up where the ground stands higher still. A leg lifts
  * and swings forward when the stride's timing says so, to land ahead of where its top will be by half the ground a hoof
  * stands for, on the ground actually there (steps and slopes are just ground), keeping the hoof's pace through lift-off
  * and touch-down. The stride's timing is each gait's footfalls (walk, trot, canter, gallop, from published kinematics,
@@ -484,7 +485,7 @@ public final class Strides {
 				s.landZ[i] = fresh ? s.goalZ[i] : s.landZ[i] + (s.goalZ[i] - s.landZ[i]) * follow;
 			}
 			if (s.hoofDown[i]) {
-				// On the ground: the leg reaches its hoof from the joint with its hidden upper bone (see aim; the ride's ground
+				// On the ground: the leg reaches its hoof from the end of its hidden bones (see aim; the ride's ground
 				// work, GroundLegs, does the rest: a hoof still in the ground, and the body's fit onto its legs).
 				aim(leg, fore, s.hoofX[i] - cx, hoofHeight(s, i, hipY, length) - cy, s.hoofZ[i] - cz, topX, topY, topZ);
 				s.gaitLegTurn[i] = AIM_TURN;
@@ -596,11 +597,11 @@ public final class Strides {
 
 	/**
 	 * How leg {@code fore} or hind reaches the camera-relative world point (x, y, z), its top where the model put it at
-	 * (topX, topY, topZ, model pixels), in AIM_. The leg is the lower of two bones: the upper one (hidden in the body) runs
-	 * from a fixed shoulder or hip point (GAIT_UPPER, GAIT_UPPER_TILT) to the leg's top, the joint, which goes back on a
-	 * front leg and forward on a hind one (as an elbow or stifle bends) as far as keeps the leg its length to the point,
-	 * less GAIT_LEG_GIVE (which the leg draws up first), within GAIT_UPPER_MOST and GAIT_JOINT_LEAST, and only ever up into
-	 * the body. Found: where the joint goes from the
+	 * (topX, topY, topZ, model pixels), in AIM_. The leg is the last of three bones (see GAIT_THIGH): from a fixed point
+	 * high in the body the hidden hip bone, turned a little with the leg's swing, reaches the shoulder or hip joint, and the
+	 * hidden thigh bone and the leg reach the point from there, the joint between them (elbow, stifle) going back on a
+	 * front leg and forward on a hind one as far as keeps the leg its length to the point, less GAIT_LEG_GIVE (which the leg
+	 * draws up first), within GAIT_JOINT_LEAST, and never out of the body. Found: where the joint goes from the
 	 * leg's top (pixels, down and back), how the leg turns about it forward and out to the side (radians, at most
 	 * GAIT_SIDE_MOST: a hoof further out turns on the ground under it), how far along it the hoof is from there (more than
 	 * its length: out of reach; less: drawn up), how far the point is from the leg's top and how far short of its length
@@ -620,31 +621,49 @@ public final class Strides {
 		final float deep = POINT.y - leg.soleHalf * CORNER * (Mth.sqrt(out + CORNER_EASE * CORNER_EASE) - CORNER_EASE);
 		AIM_SPAN = Mth.sqrt(relX * relX + deep * deep + relZ * relZ);
 		AIM_SHORT = Mth.clamp(leg.length - AIM_SPAN, 0.0F, FOLD_MOST * leg.length);
-		// The chain side on (down and back from the leg's top; angles from straight down, toward the tail): the shoulder or
-		// hip, the leg as long side on as it is, leaning out as far as it can, less what it draws up first (GAIT_LEG_GIVE),
-		// and how far the point is from the shoulder or
-		// hip, no further than the chain straight nor nearer than it closed as far as it goes.
-		final float upper = GAIT_UPPER[fore ? 0 : 1] * leg.length;
-		final float tilt = fore ? GAIT_UPPER_TILT[0] : -GAIT_UPPER_TILT[1];
-		final float pivotY = -upper * Mth.cos(tilt);
-		final float pivotZ = -upper * Mth.sin(tilt);
+		// The chain side on (down and back from the leg's top; angles from straight down, toward the tail). Where the model
+		// puts it, the thigh bone runs up from the leg's top to the shoulder or hip joint and the hip bone on up to its fixed
+		// point; the hip bone turns from there by a share of how far the point is swung from under the leg (seen from that
+		// fixed point), giving the shoulder or hip joint.
+		final int k = fore ? 0 : 1;
+		final float upper = GAIT_THIGH[k] * leg.length;
+		final float hip = GAIT_HIP[k] * leg.length;
+		final float thighTilt = fore ? -GAIT_THIGH_TILT[0] : GAIT_THIGH_TILT[1];
+		final float hipTilt = fore ? GAIT_HIP_TILT[0] : -GAIT_HIP_TILT[1];
+		final float restY = -upper * Mth.cos(thighTilt);
+		final float restZ = upper * Mth.sin(thighTilt);
+		final float rootY = restY - hip * Mth.cos(hipTilt);
+		final float rootZ = restZ + hip * Mth.sin(hipTilt);
+		final float swung = (float) (Math.atan2(relZ - rootZ, POINT.y - rootY) - Math.atan2(-rootZ, leg.length - rootY));
+		final float hipTurn = Mth.clamp(swung * GAIT_HIP_FOLLOW, -GAIT_HIP_MOST, GAIT_HIP_MOST);
+		final float cos = Mth.cos(hipTurn);
+		final float sin = Mth.sin(hipTurn);
+		// (The hip bone, from its fixed point to the joint, turned about that point.)
+		final float boneY = restY - rootY;
+		final float boneZ = restZ - rootZ;
+		final float pivotY = rootY + boneY * cos - boneZ * sin;
+		final float pivotZ = rootZ + boneY * sin + boneZ * cos;
+		// Then the thigh bone and the leg: the leg as long side on as it is, leaning out as far as it can, less what it draws
+		// up first (GAIT_LEG_GIVE), and how far the point is from the shoulder or hip joint, no further than the two straight
+		// nor nearer than they close as far as they go.
 		final float lower = Mth.sqrt(leg.length * leg.length - Math.min(relX * relX, Mth.square(leg.length * SIDE_SIN))) - GAIT_LEG_GIVE * leg.length;
 		final float toY = deep - pivotY;
 		final float toZ = relZ - pivotZ;
 		final float to = Mth.sqrt(toY * toY + toZ * toZ);
 		final float least = Mth.sqrt(upper * upper + lower * lower - 2.0F * upper * lower * JOINT_COS);
 		final float far = Mth.clamp(to, least, upper + lower);
-		// (The upper bone turns from the line to the point by the angle that closes the triangle: back of it on a front
-		// leg, in front of it on a hind one, and no further forward on a front leg, or back on a hind one, than where the
-		// model put the leg: the joint never comes down out of the body.)
+		// (The thigh bone turns from the line to the point by the angle that closes the triangle: back of it on a front leg,
+		// in front of it on a hind one. The joint never comes down out of the body, nor ahead of the leg's top on a front leg
+		// or behind it on a hind one, where the chest and the rump end: held in, the leg still reaches from it.)
 		final float bend = (float) Math.acos(Mth.clamp((upper * upper + far * far - lower * lower) / (2.0F * upper * far), -1.0F, 1.0F));
 		final float toward = to < 1.0E-3F ? 0.0F : (float) Math.atan2(toZ, toY);
-		final float turn = fore ? Mth.clamp(toward + bend, tilt, tilt + GAIT_UPPER_MOST) : Mth.clamp(toward - bend, tilt - GAIT_UPPER_MOST, tilt);
-		AIM_JOINT_Y = pivotY + upper * Mth.cos(turn);
-		AIM_JOINT_Z = pivotZ + upper * Mth.sin(turn);
+		final float reached = fore ? toward + bend : toward - bend;
+		AIM_JOINT_Y = Math.min(pivotY + upper * Mth.cos(reached), 0.0F);
+		AIM_JOINT_Z = fore ? Math.max(pivotZ + upper * Mth.sin(reached), 0.0F) : Math.min(pivotZ + upper * Mth.sin(reached), 0.0F);
+		final float turn = (float) Math.atan2(AIM_JOINT_Z - pivotZ, AIM_JOINT_Y - pivotY);
 		// The leg, from the joint: toward the point, or nearer than the chain closes, toward where the chain closed reaches
 		// on the line to it (so a hoof coming up close by the joint in its swing never swings the leg round); bent no more
-		// than GAIT_JOINT_LEAST from the upper bone nor back past it, and as far along as the point is.
+		// than GAIT_JOINT_LEAST from the thigh bone nor back past it, and as far along as the point is.
 		final float chainY = (to < least ? pivotY + least * (to < 1.0E-3F ? 1.0F : toY / to) : deep) - AIM_JOINT_Y;
 		final float chainZ = (to < least ? pivotZ + least * (to < 1.0E-3F ? 0.0F : toZ / to) : relZ) - AIM_JOINT_Z;
 		final float aimed = (float) Math.atan2(chainZ, chainY);

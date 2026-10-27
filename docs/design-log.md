@@ -1025,3 +1025,13 @@ User: speeds can be more realistic, still varying with how the horse was bred. T
 old walk's speed (lower, it slowed ever more round tight corners and swung coming out of them), and backing up is slower
 than a walk. Two cadence caps were filmed side by side and the user picked the
 quicker (`GAIT_CADENCE_SIZE` 1.6 over 1.3): a walk's hooves stand 57% of the stride at 1.8 strides a second.
+
+## Three bones a leg (user direction, 2026-10-27)
+
+User: the legs still move weird, maybe because they have two bones; a rigged horse has four (hip, thigh, shin, foot):
+use all but the foot, and only the shin is seen. Each plain-model leg is now a hidden hip bone (shoulder blade, pelvis)
+from a fixed point high in the body, rocking with the stride by 0.3 of the leg's swing (at most 20 degrees), a hidden
+thigh bone (upper arm, thigh) and the shin. The model's leg tops are flush with the chest and the rump (0.1 pixel to
+spare), so the shin's top can only go back on a front leg, forward on a hind one, and up into the body: on level ground
+the legs look almost as before (shin swing -64 to +56 degrees against -56 to +54, top back up to 2.3 pixels against
+2.2); up a hill of blocks the tops go up to 6 pixels into the body (against 3.6), so the shins turn less to reach.
