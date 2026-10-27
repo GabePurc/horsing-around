@@ -18,7 +18,8 @@ import org.jspecify.annotations.Nullable;
  * the leg as drawn, from its top to the middle of its sole (aqua; in two pieces, the lower blue below the knee or hock); a red line where the shin's drawn top isn't where the
  * hidden bones put it (the ride's ground work moved the leg). The hoof's spot: green where it stands, magenta where it is
  * going to land. The rest of the horse's bones (see BodyBones): the neck to the poll and the head beyond it (pink),
- * the ears (light pink), and the tail's three pieces (purple). The right legs' bones are darker, so the far side's tell apart from the near side's where the two
+ * the ears (light pink), the tail's three pieces (purple), and the back along the trunk's three pieces with their joints
+ * (white). The right legs' bones are darker, so the far side's tell apart from the near side's where the two
  * overlap (side on, a pair in step). Debug only, so it may allocate. Needs gizmos, which came in 1.21.11; before, it draws nothing.
  */
 public final class LegBones {
@@ -147,6 +148,23 @@ public final class LegBones {
 			}
 		}
 		final ModelPart body = ((PartData) (Object) root).horsingaround$children().get("body");
+		if (body != null) {
+			// The back: along the top of the chest, the barrel and the hindquarters, each piece as turned on its joint.
+			final Matrix4f barrel = child(ROOT, body);
+			final ModelPart chest = ((PartData) (Object) body).horsingaround$children().get(BodyBones.CHEST);
+			final ModelPart croup = ((PartData) (Object) body).horsingaround$children().get(BodyBones.CROUP);
+			final float top = -8.0F;
+			Gizmos.line(at(ride, barrel, 0.0F, top, BodyBones.BARREL_FRONT), at(ride, barrel, 0.0F, top, BodyBones.BARREL_BACK), 0xFFF0F0F0, 3.0F).setAlwaysOnTop();
+			if (chest != null && croup != null) {
+				final Matrix4f front = child(barrel, chest);
+				final Matrix4f back = child(barrel, croup);
+				final float pieceTop = top - BodyBones.SPINE_Y;
+				Gizmos.line(at(ride, front, 0.0F, pieceTop, -17.0F - BodyBones.BARREL_FRONT), at(ride, front, 0.0F, pieceTop, 0.0F), 0xFFF0F0F0, 3.0F).setAlwaysOnTop();
+				Gizmos.line(at(ride, back, 0.0F, pieceTop, 0.0F), at(ride, back, 0.0F, pieceTop, 5.0F - BodyBones.BARREL_BACK), 0xFFF0F0F0, 3.0F).setAlwaysOnTop();
+				Gizmos.point(at(ride, barrel, 0.0F, BodyBones.SPINE_Y, BodyBones.BARREL_FRONT), 0xFFF0F0F0, 6.0F).setAlwaysOnTop();
+				Gizmos.point(at(ride, barrel, 0.0F, BodyBones.SPINE_Y, BodyBones.BARREL_BACK), 0xFFF0F0F0, 6.0F).setAlwaysOnTop();
+			}
+		}
 		if (tail != null && body != null) {
 			Matrix4f frame = child(child(ROOT, body), tail);
 			Vec3 from = at(ride, frame, 0.0F, 0.0F, 2.0F);

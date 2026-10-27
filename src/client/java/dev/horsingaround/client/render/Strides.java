@@ -265,6 +265,8 @@ public final class Strides {
 			head.xRot -= Mth.cos(position * 0.8F) * 0.15F * speed * (standing + 1.0F - Math.max(standing, eating));
 		}
 		final double now = level.getGameTime() + (double) Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
+		// The trunk's pieces turned and the legs, neck and tail carried with them, before the legs are worked out from their tops.
+		BodyBones.carry(root, PARTS, head, tail, s, upright);
 		if (now != s.gaitPosedAt) {
 			solve(s, root, level, now);
 		}

@@ -380,6 +380,13 @@ public final class RideState {
 	public float boneYawRate;
 	public float boneYawAccel;
 	public float boneNeckSpeed;
+	/** The trunk (see BodyBones): the chest's and the hindquarters' pitch and yaw at their joints, the hips' roll, each with its speed. */
+	public final float[] spinePitch = new float[2];
+	public final float[] spinePitchV = new float[2];
+	public final float[] spineYaw = new float[2];
+	public final float[] spineYawV = new float[2];
+	public float hipRoll;
+	public float hipRollV;
 	/** How far the legs sweep on the ground against their gait's full stance (0 standing, 1 full strides; see Strides.advance). */
 	public float gaitSweep;
 	public float gaitGround;

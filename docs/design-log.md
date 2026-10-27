@@ -1061,3 +1061,17 @@ poll, no model change), and each ear on its own. Each is a damped spring swung b
 stride, speeding up and slowing, and turning, a piece further out lagging the one above: the hair hangs standing and
 streams out at speed, the head counters the neck's swing, the ears prick forward on the move, swivel into turns and
 now and then flick back. Hidden on animation packs' models, as the knee is. Next (stage 2): the trunk itself.
+
+## The whole horse on bones, stage 2: the trunk (user direction, 2026-10-27)
+
+User: split the body, with no big gaps between the parts in turns. On the plain model (1.21.9 on) the body is three
+boxes: the barrel (vanilla's body part, under the saddle) and the chest and hindquarters, each turning on its joint with
+it. Each end piece reaches a pixel into the barrel, a hair inside its faces, and the faces where they meet are left out, so
+a bend never opens a gap and nothing flickers straight. The texture is put back exactly as one box's (each corner takes the
+coordinates vanilla's box has there). The back rounds and opens with the legs (most at a canter and gallop), bends a
+little round turns, and at a walk the hindquarters swing and the hips roll; the chest carries the front legs and the neck,
+the hindquarters the hind legs and the tail, moved before the legs reach for their hooves so nothing is pulled off them.
+Kept small (at most about 2 degrees; turning about 1): at 7 a piece's side stood out as a block of its own, and at 3 the
+saddle's back showed above a dipping croup. A frame where the legs couldn't be worked out (the first few, before the hooves
+are placed) once left a spring not a number, and the chest, hindquarters, neck and tail vanished: springs that aren't a
+number now start over from rest.

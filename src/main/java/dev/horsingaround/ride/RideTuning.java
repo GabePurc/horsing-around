@@ -1198,6 +1198,28 @@ public final class RideTuning {
 	public static final double EAR_FLICK_EVERY = 110.0;
 	public static final double EAR_FLICK_TICKS = 6.0;
 	public static final float EAR_MOST = 0.8F;
+	/**
+	 * The trunk in three (the plain model, 1.21.9 on; see BodyBones): the chest and the hindquarters each turn on their joint
+	 * with the barrel, and carry the legs, neck and tail on them. The back rounds and stretches with the legs: the
+	 * hindquarters SPINE_HIND of the hind legs' mean swing (tucking under as they reach forward, opening as they push), the
+	 * chest SPINE_FORE of the front legs', each gait SPINE_FLEX of that (walk, trot, canter, gallop: a horse's back moves
+	 * most at a canter and gallop). The body bends round a turn SPINE_TURN radians for each radian a second it turns, at most
+	 * SPINE_BEND_MOST; at a walk the hindquarters swing SPINE_WALK of the hind legs' difference side to side and the hips roll
+	 * SPINE_HIP_ROLL as each hind leg swings. Each follows on a spring of SPINE_SWING times a second, damped SPINE_DAMPING,
+	 * at most SPINE_MOST radians: small (user, 2026-10-27: no gaps between the pieces), as at 7 degrees a piece's side stood
+	 * out from the barrel's and read as a block of its own, and at 3 the saddle (on the barrel) showed its back above a
+	 * dipping croup; the end pieces reach a pixel into the barrel, so a joint never opens.
+	 */
+	public static final float SPINE_HIND = 0.05F;
+	public static final float SPINE_FORE = 0.02F;
+	public static final float[] SPINE_FLEX = {0.3F, 0.35F, 0.85F, 1.0F};
+	public static final float SPINE_TURN = 0.015F;
+	public static final float SPINE_BEND_MOST = 0.017F;
+	public static final float SPINE_WALK = 0.012F;
+	public static final float SPINE_HIP_ROLL = 0.012F;
+	public static final float SPINE_SWING = 3.5F;
+	public static final float SPINE_DAMPING = 0.7F;
+	public static final float SPINE_MOST = 0.04F;
 	/** The tail bounces after the body (radians, up positive; highest at these points) and swings with the walk's hips. */
 	public static final float[] GAIT_TAIL = {0.03F, 0.07F, 0.15F, 0.12F};
 	public static final float[] GAIT_TAIL_HIGH = {0.17F, 0.46F, 0.83F, 0.8F};
