@@ -47,6 +47,7 @@ if (neoforge) {
 			smoke {
 				client()
 				sourceSet = sourceSets.smoke
+				loadedMods = [mods.horsingaround, mods.horsingaround_smoke]
 				gameDirectory = smokeDir
 				systemProperty 'horsingaround.smoke', 'true'
 				jvmArgument '-Xmx2G'

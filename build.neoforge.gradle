@@ -61,6 +61,8 @@ neoForge {
 	runs {
 		configureEach {
 			sourceSet = sourceSets.client
+			// Only this mod (MDG loads every declared mod by default: the smoke test's would keep the mouse free).
+			loadedMods = [mods.horsingaround]
 		}
 		client {
 			client()
