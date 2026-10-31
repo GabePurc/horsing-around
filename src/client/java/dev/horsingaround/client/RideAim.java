@@ -22,8 +22,6 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class RideAim {
 	private static boolean active;
-	/** Times the game's own targeting landed on the rider's horse and was moved past it (see PickMixin; for tests). */
-	public static int horsePicks;
 	private static float yaw;
 	private static float pitch;
 

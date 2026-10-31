@@ -8,10 +8,7 @@ feels; tuning happens in `RideTuning.java`.
 ## Polish (from the old phase 2)
 
 - Sync gait and stamina to the server (custom payload) so stamina persists and other clients can see the gait.
-- Gait-specific hoof cadence: the animation's planted hooves slide (about 1.5 blocks a footfall at a walk); quicker legs
-  were tried and rejected (user, 2026-10-23), so only something that keeps the legs' pace (a longer reach, say) is open.
-- Legs into tree trunks and boulders the narrowed ridden box brushes past (sideways; seen in the terrain test's leg numbers).
-- The user saw the horse sink into flat ground or standing (2026-10-23, on the first stride build); not reproduced in tests.
+- Gait-specific hoof cadence.
 - Expose gait to Fresh Animations (an EMF custom variable) if its speed-based legs don't read gaits clearly enough.
 - (Dropped, user direction 2026-10-08: a config file for feel numbers. Settings stay comfort and preference only.)
 

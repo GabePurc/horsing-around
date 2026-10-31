@@ -26,10 +26,6 @@ public class LivingEntityRenderStateMixin implements RidePoseState {
 	@Unique
 	private float horsingaround$handBob;
 	@Unique
-	private float horsingaround$legForward;
-	@Unique
-	private float horsingaround$legSplay;
-	@Unique
 	private float horsingaround$legPitch;
 	@Unique
 	private float horsingaround$legRoll;
@@ -94,11 +90,9 @@ public class LivingEntityRenderStateMixin implements RidePoseState {
 
 	@Override
 	public void horsingaround$setRider(
-		final float handBob, final float legForward, final float legSplay, final float legPitch, final float legRoll, final float twistRadians,
-		final float pelvis, final float shield, final float bowRelease, final float bowPull
+		final float handBob, final float legPitch, final float legRoll, final float twistRadians, final float pelvis, final float shield,
+		final float bowRelease, final float bowPull
 	) {
-		this.horsingaround$legForward = legForward;
-		this.horsingaround$legSplay = legSplay;
 		this.horsingaround$pelvis = pelvis;
 		this.horsingaround$shield = shield;
 		this.horsingaround$bowRelease = bowRelease;
@@ -149,16 +143,6 @@ public class LivingEntityRenderStateMixin implements RidePoseState {
 	@Override
 	public float horsingaround$legPitch() {
 		return this.horsingaround$legPitch;
-	}
-
-	@Override
-	public float horsingaround$legForward() {
-		return this.horsingaround$legForward;
-	}
-
-	@Override
-	public float horsingaround$legSplay() {
-		return this.horsingaround$legSplay;
 	}
 
 	@Override

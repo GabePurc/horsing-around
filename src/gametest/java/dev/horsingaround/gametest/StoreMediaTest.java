@@ -6,13 +6,11 @@ import com.mojang.renderpearl.api.commands.CommandEncoder;
 import com.mojang.renderpearl.api.commands.GpuFence;
 import com.mojang.datafixers.util.Pair;
 import dev.horsingaround.client.config.HorseSettingsScreen;
-import dev.horsingaround.devtools.LegProbe;
 import dev.horsingaround.gametest.mixin.DeltaTrackerTimerAccessor;
 import dev.horsingaround.gametest.mixin.RideCameraAccessor;
 import dev.horsingaround.client.cosmetic.Hats;
 import dev.horsingaround.client.cosmetic.Supporters;
 import dev.horsingaround.ride.HorseConfig;
-import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -116,7 +114,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		// Heading roughly south, so filming from the horse's left looks west into the evening sun.
 		new Want("savanna", Ground.OPEN, 90, any(Biomes.SAVANNA, Biomes.SAVANNA_PLATEAU), -35.0F, 35.0F, "gaits", "jump", "rider", "hat",
 			// The camera shot last: it leaves a target standing on the route.
-			"seat", "stamina", "settings", "camera"),
+			"stamina", "settings", "camera"),
 		new Want("plains", Ground.OPEN, 110, any(Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS, Biomes.MEADOW), 0.0F, 360.0F, "turn"),
 		// The sunset shots look west into the sun: heading roughly south, filmed from the horse's left.
 		new Want("badlands", Ground.OPEN, 80, any(Biomes.BADLANDS, Biomes.WOODED_BADLANDS, Biomes.ERODED_BADLANDS), -35.0F, 35.0F, "sunset", "cliff"),
@@ -125,8 +123,6 @@ public final class StoreMediaTest implements FabricClientGameTest {
 	private static final Logger LOGGER = LoggerFactory.getLogger("horsingaround-store");
 	/** The clip being recorded's legs as drawn, a line a frame (client thread). */
 	private static final List<String> LEGS = new ArrayList<>();
-	/** The clip being recorded's rider, a line a frame (client thread). */
-	private static final List<String> RIDER = new ArrayList<>();
 	private final List<String> log = new ArrayList<>();
 	private Path out;
 	private String only;
@@ -197,12 +193,6 @@ public final class StoreMediaTest implements FabricClientGameTest {
 						case "jump" -> this.jump(ctx, world, spot);
 						case "rider" -> this.rider(ctx, world, spot);
 						case "hat" -> this.hat(ctx, world, spot);
-						case "seat" -> {
-							// (A study of the rider for review, not for the store page: only when asked for by name.)
-							if (this.only.contains("seat")) {
-								this.seat(ctx, world, spot);
-							}
-						}
 						case "settings" -> this.settings(ctx, world, spot);
 						case "turn" -> this.turn(ctx, world, spot);
 						case "stamina" -> this.stamina(ctx, world, spot);
@@ -334,109 +324,6 @@ public final class StoreMediaTest implements FabricClientGameTest {
 		});
 		this.still(ctx, "gallery_rider");
 		this.stop(ctx);
-	}
-
-	/**
-	 * The rider's seat, side on and lit, for review ({@code -Pscenario=seat}): walk, trot, canter and gallop and a hard stop
-	 * ({@code seat_gaits}, real time, and again through the riding camera as {@code seat_play}); a jump at a gallop ({@code seat_jump}, slowed through the jump); and cantering off a
-	 * 3-block ledge built on the route ({@code seat_drop}, slowed through the drop and the landing).
-	 */
-	private void seat(final ClientGameTestContext ctx, final TestSingleplayerContext world, final Spot spot) {
-		// Square on from the horse's right (heading roughly south, the low sun in the west lights that side), with the grass
-		// along the route cut so it doesn't hide the legs.
-		final float side = -90.0F;
-		final TestInput input = ctx.getInput();
-		final TestServerContext server = world.getServer();
-		final double fx = -Mth.sin(spot.yaw * Mth.DEG_TO_RAD);
-		final double fz = Mth.cos(spot.yaw * Mth.DEG_TO_RAD);
-		final int ground = server.computeOnServer(s -> standY(s.overworld(), spot.start.getX(), spot.start.getZ()));
-		for (int along = -8; along <= 120; along += 8) {
-			final int x = Mth.floor(spot.start.getX() + 0.5 + fx * along);
-			final int z = Mth.floor(spot.start.getZ() + 0.5 + fz * along);
-			for (final String plant : new String[] {"short_grass", "tall_grass", "short_dry_grass", "tall_dry_grass", "fern", "large_fern", "bush"}) {
-				server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air replace minecraft:%s", x - 7, ground - 6, z - 7, x + 7, ground + 6, z + 7, plant));
-			}
-		}
-		AbstractHorse horse = this.mount(ctx, world, spot, CHESTNUT, GOLDEN_HOUR);
-		final AbstractHorse walking = horse;
-		ctx.runOnClient(mc -> {
-			FilmCamera.shoot(walking, 0.08F);
-			FilmCamera.key(0, FilmCamera.Setup.orbit(side, 4.5F, 1.6F, 1.6F, 0.0F, 36.0F));
-		});
-		input.holdKey(o -> o.keyUp);
-		final IntConsumer gaitsAndStop = t -> {
-			tap(input, o -> o.keySprint, t, 50, 95, 140);
-			if (t == 205) {
-				input.releaseKey(o -> o.keyUp);
-				input.holdKey(o -> o.keyDown);
-			} else if (t == 228) {
-				input.releaseKey(o -> o.keyDown);
-			}
-			input.lookAt(spot.yaw, 12.0F);
-		};
-		this.record(ctx, "seat_gaits", 250, REAL_TIME, gaitsAndStop);
-		this.stop(ctx);
-		// The same through the riding camera, as it is played.
-		this.mount(ctx, world, spot, CHESTNUT, GOLDEN_HOUR);
-		input.holdKey(o -> o.keyUp);
-		this.record(ctx, "seat_play", 250, REAL_TIME, gaitsAndStop);
-		this.stop(ctx);
-
-		horse = this.mount(ctx, world, spot, BAY, GOLDEN_HOUR);
-		this.gait(ctx, GALLOP);
-		ctx.waitTicks(40);
-		final AbstractHorse jumping = horse;
-		// Held beside where it jumps (it takes off about 13 blocks on) and turning with it, so the camera's lag in following
-		// the horse up and down doesn't take the rider out of the frame.
-		final double[] from = ctx.computeOnClient(mc -> new double[] {jumping.getX(), jumping.getZ()});
-		final Vec3 besideJump = beside(server, from[0] + fx * 16.0, from[1] + fz * 16.0, fx, fz, 7.0);
-		ctx.runOnClient(mc -> {
-			FilmCamera.shoot(jumping, 0.1F);
-			FilmCamera.key(0, FilmCamera.Setup.fixed(besideJump, 1.7F, 0.0F, 40.0F));
-		});
-		this.record(ctx, "seat_jump", 70, slowMotion(18.0, 52.0, 0.35, 5.0), t -> {
-			tap(input, o -> o.keyJump, t, 20);
-			input.lookAt(spot.yaw, 12.0F);
-		});
-		this.stop(ctx);
-
-		// A ledge 3 blocks high along the route, from just behind the start to EDGE blocks ahead: mounted on top of it.
-		final int edge = 22;
-		for (int along = -4; along < edge; along++) {
-			for (int across = -2; across <= 2; across++) {
-				final int x = Mth.floor(spot.start.getX() + 0.5 + fx * along + fz * across);
-				final int z = Mth.floor(spot.start.getZ() + 0.5 + fz * along - fx * across);
-				server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:coarse_dirt", x, ground - 2, z, x, ground + 2, z));
-				server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:grass_block", x, ground + 2, z, x, ground + 2, z));
-			}
-		}
-		horse = this.mount(ctx, world, spot, DARK, GOLDEN_HOUR);
-		final AbstractHorse dropping = horse;
-		final double startX = spot.start.getX() + 0.5;
-		final double startZ = spot.start.getZ() + 0.5;
-		final double[] slow = {Double.NaN};
-		final Vec3 besideDrop = beside(server, startX + fx * (edge + 2.0), startZ + fz * (edge + 2.0), fx, fz, 7.0);
-		ctx.runOnClient(mc -> {
-			FilmCamera.shoot(dropping, 0.1F);
-			FilmCamera.key(0, FilmCamera.Setup.fixed(besideDrop, 1.5F, 0.0F, 40.0F));
-		});
-		this.gait(ctx, CANTER);
-		this.record(ctx, "seat_drop", 110, t -> Double.isNaN(slow[0]) ? 1.0 : slowMotion(slow[0], slow[0] + 30.0, 0.35, 4.0).at(t), t -> {
-			input.lookAt(spot.yaw, 12.0F);
-			final double along = ctx.computeOnClient(mc -> (dropping.getX() - startX) * fx + (dropping.getZ() - startZ) * fz);
-			if (Double.isNaN(slow[0]) && along > edge - 4.5) {
-				slow[0] = t + 5;
-			}
-		});
-		this.stop(ctx);
-	}
-
-	/** A camera place {@code out} blocks to the right of a heading ({@code fx}, {@code fz}) from a point, at eye height over the ground there. */
-	private static Vec3 beside(final TestServerContext server, final double x, final double z, final double fx, final double fz, final double out) {
-		final double cx = x - fz * out;
-		final double cz = z + fx * out;
-		final int y = server.computeOnServer(s -> standY(s.overworld(), Mth.floor(cx), Mth.floor(cz)));
-		return new Vec3(cx, y + 1.6, cz);
 	}
 
 	/** The supporters' cowboy hat on a rider at a canter: close on the face from ahead, round to the side and back, a little slowed. */
@@ -1088,8 +975,6 @@ public final class StoreMediaTest implements FabricClientGameTest {
 			LegProbe.listen(false);
 			LEGS.clear();
 			LEGS.add("# time (clip ticks), partial tick, then per leg (FL, FR, HL, HR) the sole against the top of the leg: x, y, z");
-			RIDER.clear();
-			RIDER.add("time,stand,brace,settle,inertia,ground speed,body pitch,jump pitch,head gap");
 		});
 		int frames = 0;
 		// The next frame's moment and the one before, in clip ticks.
@@ -1118,11 +1003,6 @@ public final class StoreMediaTest implements FabricClientGameTest {
 						}
 					}
 					LEGS.add(row.toString());
-					if (mc.player.getVehicle() instanceof RideStateHolder holder) {
-						final RideState s = holder.horsingaround$ride();
-						RIDER.add(String.format(Locale.ROOT, "%.4f,%.4f,%.4f,%.4f,%.3f,%.4f,%.3f,%.3f,%.3f", at, s.stand(partialTick), s.brace(partialTick),
-							s.settle(partialTick), s.inertia(partialTick), s.groundSpeed(partialTick), s.pitch(partialTick), s.jumpPitch(partialTick), s.headGap));
-					}
 				});
 				last = next;
 			}
@@ -1141,8 +1021,6 @@ public final class StoreMediaTest implements FabricClientGameTest {
 			Files.write(this.out.resolve(clip + "-camera.csv"), path);
 			final List<String> legPath = ctx.computeOnClient(mc -> new ArrayList<>(LEGS));
 			Files.write(this.out.resolve(clip + "-legs.csv"), legPath);
-			final List<String> rider = ctx.computeOnClient(mc -> new ArrayList<>(RIDER));
-			Files.write(this.out.resolve(clip + "-rider.csv"), rider);
 		} catch (final IOException e) {
 			throw new UncheckedIOException(e);
 		}
@@ -1163,7 +1041,7 @@ public final class StoreMediaTest implements FabricClientGameTest {
 	 * sometimes caught the next frame's drawing, so a clip showed one moment twice and then jumped.</li>
 	 * </ul>
 	 */
-	static void drawFrame(final Minecraft mc, final float partialTick, final float step, final Path file) {
+	private static void drawFrame(final Minecraft mc, final float partialTick, final float step, final Path file) {
 		final DeltaTracker timer = mc.getDeltaTracker();
 		final DeltaTrackerTimerAccessor clock = (DeltaTrackerTimerAccessor) timer;
 		final float deltaTicks = clock.horsingaroundtest$deltaTicks();

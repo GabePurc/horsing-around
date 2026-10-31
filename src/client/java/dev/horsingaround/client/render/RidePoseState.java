@@ -20,8 +20,6 @@ public interface RidePoseState {
 	void horsingaround$applyPose(PoseStack poseStack);
 
 	/**
-	 * @param legForward how far the legs lie forward of straight down against the horse, radians
-	 * @param legSplay how far they splay out from the horse, radians
 	 * @param legPitch radians to tip the legs (top-back positive) so they hold still against the saddle while the
 	 *                 torso rocks, leans and pumps
 	 * @param legRoll  same for roll (top-right positive)
@@ -30,8 +28,7 @@ public interface RidePoseState {
 	 * @param bowPull  how far that bow was drawn, 0..1
 	 */
 	void horsingaround$setRider(
-		float handBob, float legForward, float legSplay, float legPitch, float legRoll, float twistRadians, float pelvis, float shield, float bowRelease,
-		float bowPull
+		float handBob, float legPitch, float legRoll, float twistRadians, float pelvis, float shield, float bowRelease, float bowPull
 	);
 
 	boolean horsingaround$isRider();
@@ -48,10 +45,6 @@ public interface RidePoseState {
 	float horsingaround$handBob();
 
 	float horsingaround$legPitch();
-
-	float horsingaround$legForward();
-
-	float horsingaround$legSplay();
 
 	float horsingaround$legRoll();
 

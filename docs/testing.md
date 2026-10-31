@@ -18,25 +18,13 @@ rubber-banding) and log warnings.
 
 Picking what runs:
 
-- `-Ptests=ride,terrain,mounts,server`; `-Pscenario=<part of its name>` for one terrain scenario; `-Pgait=walk|trot|canter`
-  rides the terrain at that gait (gallop by default; the pace checks are for a gallop). Each terrain scenario logs the legs
-  (`LegProbe.about`, leaves counting as open): sole speed against the horse, soles, body and head in the ground and where.
+- `-Ptests=ride,terrain,mounts,server`; `-Pscenario=<part of its name>` for one terrain scenario.
 - `-Psections=core,cuts,stairs,picking,steps` for ride sections. Also:
   - `legs`: close shots of the legs in a jump.
   - `slopes`, `face`: just the slope-and-stairs lanes, and the jump-at-a-wall lanes.
   - `drawn`: the legs exactly as drawn on slopes, stairs and steps, shot up close.
   - `slowstep`: standing, stopping and single steps (walking, and running up one), frame by frame, for snaps.
-  - `stride`: single steps up and down, stairs, a hillside and a step met at an angle at every gait (plus flat runs, the
-    baseline, and riding then standing on flat ground), frame by frame at 120 fps: how far a hoof on the ground slides per
-    footfall, how deep any leg's box goes into a block (exact overlap), the jolts of the body, its tilt and the camera
-    (`LegProbe.feel`), and how far soles sink and legs draw up (`LegProbe.about`); a table at the end and
-    `stride-<lane>.csv` per lane (each leg's own step: 1 stepping, 2 held). `-Pscenario=<part of a lane name>` for some; with `shots` in it, side shots instead;
-    with `film`, side clips at half speed into `stride-film/<lane>/` (frames: `ffmpeg -framerate 30 -i %04d.png`).
   - `exits`: out of water onto banks of a few heights, wading and swimming.
-  - `landing`: a gallop jump down onto a hillside of steps, ridden on down it (also in `stairs`): the body never tilts
-    down past its landing and turns smoothly, and the rider keeps a gallop's seat through the air.
-  - `hill`: a gallop up a steep, ragged hillside of 1-block steps, ridden across it (also in `stairs`): the head never goes
-    into the hillside and the drawn body never falls far behind the horse.
   - `strafe`: stopping after riding with A or D alone.
   - `hands`: the rider's arms with items, swings and a bow, with close shots.
   - `climbs`: 2-block climbs by angle, speed, start and what is round them, plus noisy mountain staircases and diagonal
@@ -71,20 +59,6 @@ fps broke some), a 2 GB heap, and Sodium, Lithium, FerriteCore and
 ImmediatelyFast loaded only into test games). `-PplainGame` drops the mods; `-PfullGraphics` keeps normal settings (the
 gallery always gets them). Leg and body easing runs on game time, so results don't depend on frame rate.
 
-## Dev tools (src/devtools)
-
-A mod of its own, `horsingaround-devtools`, loaded in dev games (`./gradlew runClient`, 26.3) and the client tests, never
-in the jar players install. It holds `LegProbe` (the legs measured exactly as drawn; the tests use it) and the play-test
-recorder: in a dev game it records every frame of the ridden horse into a ring of about 30 seconds: the body as drawn
-(height, pitch and roll off the model) and what turns it (the slope's tilt, a jump's, the lean, the legs' jump shape), the
-horse's state (in the air, leapt, ledge climb, heave, vertical speed, on the ground), how far its head is in the ground, the camera, the keys, what the
-crosshair targets and the attack charge, and each leg as drawn with its step state. **F7** saves it to `run/devtools/<time>/` (`frames.csv`, `ground.csv` with the
-ground along the way, `events.txt`). Every hitch (a hoof, the body, its tilt or the camera changing speed in one frame)
-and every sunk hoof also goes to `run/devtools/events.log` as it happens, with every turn of the body faster than 150
-degrees a second, takeoff, landing, ledge climb, leap and crosshair target. After a play-test, read those instead of
-guessing. Stride lanes and terrain scenarios report the same hitches (`LegProbe.hitches`), measured against the drawn
-body.
-
 ## Other runs
 
 - `./gradlew runGameTest`: loads the mod on a bare dedicated server (no client code) and rides there.
@@ -109,9 +83,6 @@ body.
   README with the clips as video, because large animated images stutter in a browser where video doesn't; CurseForge
   drops video, so its description keeps the WebPs (`scripts/store-descriptions.sh` writes both to `build/` for pasting). Both load from
   `raw.githubusercontent.com/.../main/docs/media/`, so they show only once merged to main.
-  `-Pscenario=seat` (only by name, not for the store) films the rider side on for review: the gaits and a hard stop, the
-  same through the riding camera, a jump and a drop off a 3-block ledge, each with `<clip>-rider.csv` (stand, brace,
-  settle and what drives them, a line a frame).
 
 ## Smoke test (every version)
 

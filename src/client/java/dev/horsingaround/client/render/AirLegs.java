@@ -2,7 +2,6 @@ package dev.horsingaround.client.render;
 
 import static dev.horsingaround.ride.RideTuning.*;
 
-import dev.horsingaround.ride.RideState;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.util.Mth;
 import org.jspecify.annotations.Nullable;
@@ -14,30 +13,6 @@ import org.jspecify.annotations.Nullable;
  */
 public final class AirLegs {
 	private AirLegs() {
-	}
-
-	/**
-	 * How much of the jump's shape the legs take this frame (0..1, times {@link RideState#airLegs}): none while a hoof
-	 * finds its ground under it ({@code footing}, a step down is a short fall, not a jump), all of it otherwise, eased in
-	 * and out (AIR_SHAPE_IN_TIME, AIR_SHAPE_OUT_TIME). Switched each frame, falling past a slope (where a hoof found its ground one frame
-	 * and not the next) the legs flicked between the jump's shape and their stride, a flutter (play-test, 2026-10-23). The
-	 * same for every layer drawn in a frame.
-	 */
-	public static float shape(final @Nullable RideState ride, final boolean footing) {
-		final net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
-		if (ride == null || minecraft.level == null) {
-			return footing ? 0.0F : 1.0F;
-		}
-		final double now = (double) minecraft.level.getGameTime() + minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(true);
-		if (now == ride.airShapeAt) {
-			return ride.airShape;
-		}
-		final float dt = Double.isNaN(ride.airShapeAt) ? 1.0F : (float) Mth.clamp((now - ride.airShapeAt) / 20.0, 0.0, 0.1);
-		ride.airShapeAt = now;
-		final float target = footing ? 0.0F : 1.0F;
-		final float k = 1.0F - (float) Math.exp(-dt / (target > ride.airShape ? AIR_SHAPE_IN_TIME : AIR_SHAPE_OUT_TIME));
-		ride.airShape += (target - ride.airShape) * k;
-		return ride.airShape;
 	}
 
 	/**
