@@ -42,7 +42,8 @@ Firm rules, because the user asked for them or because breaking them breaks play
 
 - Nothing that changes how horses ride is a setting (user direction, 2026-10-08). Player settings (`HorseConfig`, JSON
   in the config folder, vanilla-style screen from Mod Menu, an optional dependency) are only comfort and preference:
-  camera, first-person motion, sound volume.
+  camera, first-person motion, sound volume. The one exception (user decision, 2026-10-31): with Icy's Better Horses
+  installed too, the server picks whose riding horses use (`ride/IcyCompat`).
 - Per-tick paths must not allocate beyond what vanilla already does, and must not do work for horses that are not
   being ridden. Prefer one mixin per vanilla class; keep logic in plain classes under `ride/`.
 - Every version keeps building and passing its audit (below). Builds work on any machine: never commit

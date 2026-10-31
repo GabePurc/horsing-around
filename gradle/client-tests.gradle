@@ -283,11 +283,18 @@ def compatPacks = [
 		"collective:S1V3Trc7",            // 8.42
 		"mounts-stay-still:oeEmUoJn",     // 1.3.2
 	],
+	icys: [
+		"icys-better-horses:AvgqdGip", // 2.1.8 (turns vanilla horses into its breeds: a pack of its own)
+		"geckolib:kSxHvs99",           // 5.5.7
+		"modonomicon:DwjrSwcC",        // 26.3-2.20.0
+		"cloth-config:fg2uyxOW",       // 26.3.159 (its settings screen needs it)
+	],
 ]
 
 def compatTests = project.findProperty("compatTests")
 // (The horses pack skips the server test: Horseman's server config isn't loaded in the test's second, in-process server.)
-def compatPackTests = [horses: "ride,mounts"]
+// (Icy's pack only rides the mounts: its breeds roll their own stats, so the ride test's numbers would not hold.)
+def compatPackTests = [horses: "ride,mounts", icys: "mounts"]
 def compatSections = project.findProperty("compatSections") ?: "core,cuts"
 
 configurations.register("compatBase") { transitive = false }
