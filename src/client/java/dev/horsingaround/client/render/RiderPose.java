@@ -57,16 +57,14 @@ public final class RiderPose {
 		if (!state.isPassenger || !(state instanceof RidePoseState rider) || !rider.horsingaround$isRider()) {
 			return;
 		}
-		final float legForward = rider.horsingaround$legForward();
-		final float legSplay = rider.horsingaround$legSplay();
 		final float legPitch = rider.horsingaround$legPitch();
 		final float legRoll = rider.horsingaround$legRoll();
-		model.rightLeg.xRot = -legForward + legPitch;
+		model.rightLeg.xRot = -STIRRUP_LEG_FORWARD + legPitch;
 		model.rightLeg.yRot = STIRRUP_TOE_OUT;
-		model.rightLeg.zRot = legSplay + legRoll;
-		model.leftLeg.xRot = -legForward + legPitch;
+		model.rightLeg.zRot = STIRRUP_LEG_SPLAY + legRoll;
+		model.leftLeg.xRot = -STIRRUP_LEG_FORWARD + legPitch;
 		model.leftLeg.yRot = -STIRRUP_TOE_OUT;
-		model.leftLeg.zRot = -legSplay + legRoll;
+		model.leftLeg.zRot = -STIRRUP_LEG_SPLAY + legRoll;
 
 		// Pelvis slide: swing the torso from the shoulders (its pivot) and carry the hips, where the legs attach. The torso
 		// is otherwise upright in the saddle (the whole-body lean is applied to the rider model as a whole).

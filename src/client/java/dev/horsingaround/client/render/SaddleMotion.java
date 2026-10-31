@@ -51,15 +51,12 @@ public final class SaddleMotion {
 
 	public SaddleMotion compute(final LivingEntity horse, final RideState s, final float partialTicks) {
 		final float limbSpeed = horse.walkAnimation.speed(partialTicks);
-		// The gait shares go by the pace the horse goes at (the legs' animation speed on the ground), not the legs: in the
-		// air their stride stops, and the rider sat up out of a gallop's forward seat in a tick.
-		final float pace = s.pace(partialTicks);
-		final float run = Mth.clamp((pace - RUN_ANIMATION_SPEED + 0.05F) * 10.0F, 0.0F, 1.0F);
-		final float gallop = run * Mth.clamp((pace - GALLOP_ANIMATION_SPEED + 0.03F) * 20.0F, 0.0F, 1.0F);
+		final float run = Mth.clamp((limbSpeed - RUN_ANIMATION_SPEED + 0.05F) * 10.0F, 0.0F, 1.0F);
+		final float gallop = run * Mth.clamp((limbSpeed - GALLOP_ANIMATION_SPEED + 0.03F) * 20.0F, 0.0F, 1.0F);
 		this.limbSpeed = limbSpeed;
 		this.gallop = gallop;
 		this.run = run;
-		this.moving = Math.min(pace * 5.0F, 1.0F);
+		this.moving = Math.min(limbSpeed * 5.0F, 1.0F);
 
 		// (Measured this frame or the last: by frames, not time, so a hitch or a low frame rate doesn't make a horse a pack
 		// animates look unanimated, and get the vanilla model's motion on top of the pack's.)
@@ -75,7 +72,7 @@ public final class SaddleMotion {
 
 		this.synthetic = true;
 		final float canter = run - gallop;
-		final float trot = Mth.clamp((pace - TROT_ANIMATION_SPEED + 0.02F) * 10.0F, 0.0F, 1.0F) * (1.0F - run);
+		final float trot = Mth.clamp((limbSpeed - TROT_ANIMATION_SPEED + 0.02F) * 10.0F, 0.0F, 1.0F) * (1.0F - run);
 		final float walk = (1.0F - trot - run) * this.moving;
 		// (In water vanilla's legs swing at a fifth of the pace; the body keeps time with them.)
 		final float phase = horse.walkAnimation.position(partialTicks) * VANILLA_LEG_PHASE * (horse.isInWater() ? VANILLA_WATER_LEG_PACE : 1.0F);

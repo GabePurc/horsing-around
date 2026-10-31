@@ -18,7 +18,8 @@ public final class AirLegs {
 
 	/**
 	 * How much of the jump's shape the legs take this frame (0..1, times {@link RideState#airLegs}): none while a hoof
-	 * finds its ground under it ({@code footing}, a step down is a short fall, not a jump), all of it otherwise, eased in
+	 * finds its ground under it or the legs aren't in the air ({@code footing}; a step down is a short fall, not a jump, and
+	 * eased toward the jump's shape on the ground every hop up a block began tucked, hooves off it), all of it otherwise, eased in
 	 * and out (AIR_SHAPE_IN_TIME, AIR_SHAPE_OUT_TIME). Switched each frame, falling past a slope (where a hoof found its ground one frame
 	 * and not the next) the legs flicked between the jump's shape and their stride, a flutter (play-test, 2026-10-23). The
 	 * same for every layer drawn in a frame.

@@ -80,13 +80,6 @@ whatever the speed; no stamina; no visual weight.
   ground for a moment, never more.
 - Steps in two beats (user): front legs up first, then the hind; one leg at a time at a walk, nearly together at
   speed; at a run a step comes in through the stride without a pop.
-- Steps of a hoof's own (user direction, 2026-10-23: the stride adjusts to climb a block, never hooves sliding up it,
-  in the ground or through a step's edge, and a smooth ride where nothing moves near instantly; never quicker legs, which
-  looked absurd): the gait keeps its own pace (its planted hooves slide a little everywhere); near a single step (not on
-  hillsides or staircases, which climb as before) a planted hoof doesn't creep up the step but steps up onto it, straight up, over the edge and down clear past it, then stays put until the stride
-  comes up to it; a hoof the rising forehand lifts before a step is carried with the body until it can reach; landings
-  avoid straddling an edge. Near a single step the ground the body follows is rounded off, so a climb or a step down
-  starts and ends in a curve.
 - No clipping between horse and rider (user): the horse reaches its neck forward, then the rider folds less.
 - Judge legs by `LegProbe` measurements and close shots, not formulas.
 - Known limits: on a slope of full blocks a leg can't reach a 1-block riser, so the horse scrambles; trotting down one,
@@ -95,13 +88,7 @@ whatever the speed; no stamina; no visual weight.
 ## Rider
 
 - Never looks detached (user): hips ride the animated body, feet in stirrups, hands on reins; resists the horse's
-  lean and stays upright; bounces with the gait.
-- Rides like a real person, medieval rather than modern racing (user, 2026-10-23): long stirrups and straight legs (a
-  Minecraft leg has no knee anyway: it turns about the foot in the stirrup); sits the walk and trot, a light seat at a
-  canter (a small pelvis rock, not a hump), standing in the stirrups at a gallop, upright and a little forward (not a
-  jockey's crouch), the legs taking the bounce. Weight shows: leans back from a surge; braces the legs forward and sits
-  back pulling up, going downhill and coming down out of a jump or off a drop; gives at the hips and knees landing;
-  rises into a steep climb or a ledge heave. All on springs: nothing snaps.
+  lean and stays upright; bounces with the gait; a small pelvis rock at a canter, a half seat at a gallop (not a hump).
 - Tools and weapons are held low and ready in the main hand, the other on the reins; swings start and end there.
 - The bow is drawn like an archer's (side-on, bow arm to the target, string hand to the cheek); crossbow square to
   the aim; first person and on-foot left to vanilla.

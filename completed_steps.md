@@ -21,6 +21,7 @@ at most two lines, under the right area; details go in the PR, not here.
 - Riding camera: third person on mount (restored on dismount), pulls back with speed, speed FOV, pitch eases to a riding angle when the mouse is idle; height follows in two eased stages; passes through leaves
 - First person: eyes follow the smoothed saddle height and never pitch or roll with the horse; reduced bob, nod and hoof-strike shake with View Bobbing; hands and held items bob with the saddle
 - Over-the-shoulder riding camera (default right; left, or off for centred; O swaps), folded in from the retired add-on: centre crosshair with targeting and server rotation aimed at it, leans in to aim, walls pull it in and it eases out; on foot third person stays vanilla
+- Over the shoulder, the crosshair never targets the horse ridden (the line from the eyes can pass through its head)
 - Steps aside while Shoulder Surfing Reloaded drives the camera
 
 ## Jumping, ledges, 2-block climbs, hurdles
@@ -44,24 +45,19 @@ at most two lines, under the right area; details go in the PR, not here.
 - The body is a mass on its legs: front and hind ends each ease to the ground under their hooves, tilt is the line between them, forehand leads on steps, legs give on landing
 - Each hoof sits on its own ground (block grid, slabs, stairs, water as a floor), upright against slopes only, never in the ground; vanilla's one-piece legs, no knee joints
 - Hooves move to their height on a short spring and look ahead along their own path, so they lift onto higher ground smoothly instead of popping (2026-10-22)
-- Legs work in old worlds: the time they read was a float, stuck in a world past 16.7 million ticks (hooves sank)
-- Dev tools mod (`src/devtools`, dev games and tests only): leg probe and a play-test recorder (F7, `run/devtools/`), hitches logged
-- The drawn body's tilt follows a smooth curve between ticks (no judder at twenty a second)
-- The body turns as one weight (2026-10-23): slope and jump tilt never add up, so landing down a hillside doesn't tip it
-  nose down twice over with the hind hooves in the air (`landing` lane)
-- Steps of a hoof's own (2026-10-23): a planted hoof at a step steps up onto it (up, over, down clear past the edge, held),
-  landings avoid edges, no hoof walks in the air or creeps up a face; the body's path is rounded off near steps (`stride` tests)
 - Running up a step eases in without a pop; drawn tilt is capped per tick; no rearing against a face
 - Leg animation speed tracks the gait so Fresh Animations shows the right cycle; legs take the shape of steps and jumps (vanilla model and Fresh Animations, every layer)
 - Neck reaches with the tilt (Fresh Animations' "neck2"); armour and bridle follow the head
 - Ground probes go through leaves to the ground, so bushes aren't read as steps; the drawn horse never stands on leaves
 - Footing: in the air a hoof finds anything within a step, a shoulder caught on a corner slips past; snaps are measured in `slowstep` and `drawn` (legs as the renderer drew them, via `LegProbe`)
 - Idle horses' legs are reset before posing on versions before 1.21.2 (shared model)
+- Legs work in old worlds: they read the time as a float, stuck past 16.7 million ticks (hooves sank); `slowstep` runs at tick 158 million
+- In the air, legs ease into and out of the jump's shape (no flutter falling past a slope); a ragged hillside's 2-block face
+  under the middle but a step under a side reads as a slope (no head in the hill, `hill` lane); a touchdown carries only a fall
 
 ## Rider
 
 - Seated pose pinned to the saddle through bank, pitch, steps, gait motion and Fresh Animations' sway; feet in the stirrups, hands on the reins; torso twists toward the look; seat bounce and a calm canter rock per gait
-- Medieval seat: stands in the stirrups at a gallop (light seat at a canter), braces against stops, descents and drops, gives on landings; straight legs turn about stirrups that swing with them (`RiderMotion`, `RiderSeat`; `-Pscenario=seat` films it)
 - Rider rides the horse's real animated body (Entity Model Features hook, or the same generated motion without it); inertia sways the rider back on surges and forward on braking
 - Hands: a tool or weapon is held ready at the side, swings play from there; drawing a bow turns the rider side-on with the string hand to the cheek; crossbow held on the aim (`-Psections=hands`)
 - Leaves at chest or face: the rider leans back and shields their face; the horse's neck stretches (and the rider folds less) so head and rider never clip
@@ -136,12 +132,11 @@ at most two lines, under the right area; details go in the PR, not here.
 
 ## Open / known limits
 
-- Hooves slide as the animation's stride has them (about 1.5 blocks a footfall at a walk); quicker legs to stop it were rejected (user, 2026-10-23)
-- Stepping down a block, a planted hoof slides off the edge and hangs a moment before the body comes down
 - Trotting down a slope of full blocks keeps hooves off the ground at times: a known limit (user decision, see `research.md`), tests set to what it does
 - Not yet played by the user on any version but 26.3
 - Skid stop is still open (MVP)
 - Fabulously Optimized 1.20.1 ships Fabric Loader 0.14.23, older than MixinExtras' floor (0.14.25): out of reach
 - Hoof soles meeting a bank's top mid-heave still jump up to 0.34 in a frame (logged by `exits`)
 - "Walking down a staircase of stair blocks": hooves 90th percentile ~0.29-0.31 against a 0.300 limit (tight margin)
+- Galloping up a ragged hillside the head can dip about 0.2 blocks into a step for a moment (`hill` lane, limit 0.3)
 - Leads tied above the llama's and horse's heads on 26.x come from Fresh Animations, not this mod
