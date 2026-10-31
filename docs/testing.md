@@ -102,10 +102,8 @@ are vanilla's own and only warned about). Run it after touching version-specific
 - `-PsmokeWild=<seed>` (and `-PsmokeWildAt=x,z` for a fixed start; spawn is spread at random): instead, a two-minute
   gallop with turns and jumps over a normal world of that seed, failing on any server correction. Natural ground brings
   out corrections the course doesn't (seed 2145202720632702597 at 7,41 crosses a dip that once rubber-banded for good).
-- NeoForge with Sinytra Connector (by hand, no task yet): the mod jar and a Loom-remapped jar of the `smoke` source set
-  run in a NeoForge game with Connector, Forgified Fabric API, Entity Model Features and Entity Texture Features, with
-  `-Dhorsingaround.smoke=true`. Connector caches remapped jars in `<game>/.cache/connector`: clear it after replacing a
-  jar of the same name, or the old one runs.
+- NeoForge: `./gradlew :<version>-neoforge:runSmoke` (26.3, 26.2, 26.1.2, 1.21.1) runs the same test natively, results
+  in `build/run/smoke/<version>-neoforge/`. `-PsmokeWithoutMod` is Fabric's only.
 - Look at the screenshots both with and without the pack: most players run the plain horse model, and a bug there
   (idle horses' legs adrift before 1.21.2) only showed without it.
 

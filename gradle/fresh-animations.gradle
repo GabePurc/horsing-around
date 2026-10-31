@@ -1,0 +1,27 @@
+// The dev-only Fresh Animations pack (a resource pack, not shipped): installFreshAnimations fetches it once into
+// .gradle/dev-packs/ and copies it into each folder in freshAnimationsTargets (set before applying this). The pack is
+// fresh_animations_file/_url in gradle.properties, or the version's own in versions/<version>/gradle.properties.
+def freshAnimationsZip = rootProject.layout.projectDirectory.file(".gradle/dev-packs/${project.fresh_animations_file}").asFile
+ext.freshAnimationsZip = freshAnimationsZip
+def freshAnimationsUrl = project.fresh_animations_url
+def freshAnimationsTargets = project.ext.freshAnimationsTargets
+tasks.register("installFreshAnimations") {
+	outputs.files(freshAnimationsTargets.collect { new File(it, freshAnimationsZip.name) })
+	doLast {
+		if (!freshAnimationsZip.exists()) {
+			// (Into a file of its own first, then moved into place whole: two versions' games started together may both download it.)
+			freshAnimationsZip.parentFile.mkdirs()
+			def part = File.createTempFile(freshAnimationsZip.name, ".part", freshAnimationsZip.parentFile)
+			try {
+				new URI(freshAnimationsUrl).toURL().withInputStream { input -> part.withOutputStream { it << input } }
+				java.nio.file.Files.move(part.toPath(), freshAnimationsZip.toPath(), java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+			} finally {
+				part.delete()
+			}
+		}
+		freshAnimationsTargets.each { dir ->
+			dir.mkdirs()
+			java.nio.file.Files.copy(freshAnimationsZip.toPath(), new File(dir, freshAnimationsZip.name).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+		}
+	}
+}

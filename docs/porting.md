@@ -18,6 +18,12 @@ the client tests and compatibility runs only exist there.
   `getFirst()`/`getLast()`, `Math.clamp`...).
 - `fabric.mod.json` and the mixin configs get `${minecraft}` (the range) and `${java}` filled in per version.
 - Jars: `versions/<version>/build/libs/horsing-around-<mod version>+<minecraft version>.jar`.
+- NeoForge: the `<version>-neoforge` projects (26.3, 26.2, 26.1.2 and 1.21.1, listed in `settings.gradle`) build the
+  same `src/` with `build.neoforge.gradle` (ModDevGradle) into `horsing-around-neoforge-<mod version>+<minecraft
+  version>.jar`, numbers in `versions/<version>-neoforge/gradle.properties`. Code for one loader only sits in `fabric/`
+  or `neoforge/` packages (each left out of the other loader's build) or behind `//? if neoforge`; the common code asks
+  the loader for things through `Platform`. NeoForge runs these versions with Mojang names, so there is no refmap.
+  `neoforge.mods.toml` is the NeoForge jars' `fabric.mod.json`.
 
 ## Version-specific code
 
@@ -115,6 +121,11 @@ nothing is registered beforehand.
   at a time. Logs in `build/run/audit/<version>/`.
 - `./gradlew :<version>:runClient`: play that version (its game folder is `run/versions/<version>/`; plain
   `runClient` is the main version).
+- NeoForge: `./gradlew :<version>-neoforge:auditMixins` does the same in a NeoForge client and dedicated server (dev
+  runs of the mod's classes, not the built jar; with Entity Model Features and Entity Texture Features on, logs in
+  `build/run/audit/<version>-neoforge/`), and `:<version>-neoforge:runClient`/`runServer` play it (game folder
+  `run/neoforge/<version>/`), and `:<version>-neoforge:runSmoke` rides the smoke test's course. The client tests are
+  Fabric's only (the ride code is the same).
 - `./gradlew :<version>:genSources`: decompiled Minecraft for looking things up
   (`.gradle/loom-cache/minecraftMaven/net/minecraft/*/<version>/*-sources.jar`).
 - `./gradlew :<version>:runSmoke`: a client of that version (with Entity Model Features, Entity Texture Features and the

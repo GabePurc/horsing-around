@@ -43,6 +43,13 @@ loom {
 	}
 }
 
+// The NeoForge-only code and metadata (build.neoforge.gradle builds those).
+sourceSets {
+	main.java.exclude 'dev/horsingaround/neoforge/**'
+	client.java.exclude 'dev/horsingaround/client/neoforge/**'
+	main.resources.exclude 'META-INF/neoforge.mods.toml'
+}
+
 // Before 26 the game is obfuscated at runtime: the mixin annotation processor writes the refmap that maps our Mojang
 // method names to the runtime ones.
 if (sc.current.parsed.matches('<26')) {
@@ -83,37 +90,15 @@ dependencies {
 }
 
 // Fresh Animations is a resource pack; fetch it once and drop it into both dev run folders.
-def freshAnimationsZip = repoDir.file(".gradle/dev-packs/${project.fresh_animations_file}").asFile
-ext.freshAnimationsZip = freshAnimationsZip
-def freshAnimationsUrl = project.fresh_animations_url
-def freshAnimationsTargets = [
+ext.freshAnimationsTargets = [
 	repoDir.dir("${runFolder}/resourcepacks").asFile,
 	rootProject.layout.buildDirectory.dir("run/smoke/${mc}/resourcepacks").get().asFile
 ]
 if (mainVersion) {
-	freshAnimationsTargets << rootProject.layout.buildDirectory.dir("run/clientGameTest/resourcepacks").get().asFile
+	ext.freshAnimationsTargets << rootProject.layout.buildDirectory.dir("run/clientGameTest/resourcepacks").get().asFile
 }
-def installFreshAnimations = tasks.register("installFreshAnimations") {
-	outputs.files(freshAnimationsTargets.collect { new File(it, freshAnimationsZip.name) })
-	doLast {
-		if (!freshAnimationsZip.exists()) {
-			// (Into a file of its own first, then moved into place whole: two versions' games started together may both download it.)
-			freshAnimationsZip.parentFile.mkdirs()
-			def part = File.createTempFile(freshAnimationsZip.name, ".part", freshAnimationsZip.parentFile)
-			try {
-				new URI(freshAnimationsUrl).toURL().withInputStream { input -> part.withOutputStream { it << input } }
-				java.nio.file.Files.move(part.toPath(), freshAnimationsZip.toPath(), java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-			} finally {
-				part.delete()
-			}
-		}
-		freshAnimationsTargets.each { dir ->
-			dir.mkdirs()
-			java.nio.file.Files.copy(freshAnimationsZip.toPath(), new File(dir, freshAnimationsZip.name).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-		}
-	}
-}
-tasks.matching { it.name == "runClient" }.configureEach { dependsOn installFreshAnimations }
+apply from: repoDir.file('gradle/fresh-animations.gradle')
+tasks.matching { it.name == "runClient" }.configureEach { dependsOn "installFreshAnimations" }
 // Plain "runClient" would start every version's game: only the main version's answers to it, the others only by path
 // (./gradlew :1.21.11:runClient).
 if (!mainVersion) {
@@ -144,7 +129,7 @@ auditTasks.each { side, type ->
 		// The versions' games share Loom's download caches (assets): with several versions at once
 		// (./gradlew auditMixins), run after every version's downloads, in one fixed order.
 		def key = "${mc}:${side}"
-		mustRunAfter(rootProject.childProjects.values().collectMany { other ->
+		mustRunAfter(rootProject.childProjects.values().findAll { !it.name.endsWith('-neoforge') }.collectMany { other ->
 			["${other.path}:downloadAssets"] + ["Client", "Server"].findAll { "${other.name}:${it}" < key }.collect { "${other.path}:audit${it}Mixins" }
 		})
 		mods.from(loomx.modJar.flatMap { it.archiveFile })

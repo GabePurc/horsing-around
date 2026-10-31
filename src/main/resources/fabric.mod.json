@@ -15,13 +15,13 @@
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"dev.horsingaround.HorsingAround"
+			"dev.horsingaround.fabric.HorsingAroundFabric"
 		],
 		"client": [
-			"dev.horsingaround.client.HorsingAroundClient"
+			"dev.horsingaround.client.fabric.HorsingAroundFabricClient"
 		],
 		"modmenu": [
-			"dev.horsingaround.client.config.HorseModMenu"
+			"dev.horsingaround.client.fabric.HorseModMenu"
 		]
 	},
 	"mixins": [

@@ -10,8 +10,15 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Locale;
 import java.util.function.Consumer;
+//? if fabric {
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+//?} else {
+/*import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.common.NeoForge;
+*///?}
 import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -37,7 +44,12 @@ import org.slf4j.Logger;
  * and before the next tick it is put back, so the ride itself never sees it. Views of anything else (the row of mobs) are from a
  * marker entity that is not in the world.
  */
+//? if fabric {
 public final class SmokeTest implements ClientModInitializer {
+//?} else {
+/*@Mod(value = "horsingaround_smoke", dist = Dist.CLIENT)
+public final class SmokeTest {
+*///?}
 	private static final Logger LOGGER = LogUtils.getLogger();
 
 	private static final String WORLD = "smoke";
@@ -104,6 +116,7 @@ public final class SmokeTest implements ClientModInitializer {
 	private volatile boolean jobDone;
 	private volatile Throwable jobError;
 
+	//? if fabric {
 	@Override
 	public void onInitializeClient() {
 		if (Boolean.getBoolean("horsingaround.smoke")) {
@@ -111,6 +124,14 @@ public final class SmokeTest implements ClientModInitializer {
 			ClientTickEvents.END_CLIENT_TICK.register(this::tick);
 		}
 	}
+	//?} else {
+	/*public SmokeTest() {
+		if (Boolean.getBoolean("horsingaround.smoke")) {
+			NeoForge.EVENT_BUS.addListener(ClientTickEvent.Pre.class, event -> turnBack(Minecraft.getInstance()));
+			NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, event -> tick(Minecraft.getInstance()));
+		}
+	}
+	*///?}
 
 	/** Before a tick the rider's view is the real one again. */
 	private void turnBack(final Minecraft minecraft) {

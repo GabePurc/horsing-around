@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.horsingaround.HorsingAround;
+import dev.horsingaround.Platform;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -19,7 +20,6 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 public final class Supporters {
 	private static final Logger LOGGER = LoggerFactory.getLogger(HorsingAround.MOD_ID);
 	private static final URI LIST = URI.create("https://raw.githubusercontent.com/GabePurc/horsing-around/main/supporters.json");
-	private static final Path CACHE = FabricLoader.getInstance().getConfigDir().resolve("horsingaround-supporters.json");
+	private static final Path CACHE = Platform.configDir().resolve("horsingaround-supporters.json");
 	/** The list is a few KB; anything over this is not it. */
 	private static final int MAX_BYTES = 1 << 20;
 

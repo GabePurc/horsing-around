@@ -49,4 +49,6 @@ Still open:
   other mods' player-model hooks, so check those still play on horseback if players report otherwise.
 - Intermittent ride check: "trotting past a 2-block ledge that only catches the flank" failed 2 of 7 full ride runs on
   the release branch and 0 of 3 on main, while passing every time on its own; the lane logs its path, so the next
-  failure shows what the horse did.
+  failure shows what the horse did. Also once (2026-10-31, full parallel run with the machine at load 27): "galloping
+  straight at a narrow 2-block ledge with a way round" ended 0.95 blocks off the line (target 0.3), having started the
+  lane 0.6 off; 3 of 3 passed at 0.00 on their own.

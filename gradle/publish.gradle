@@ -1,9 +1,11 @@
 // Release to Modrinth and CurseForge: ./gradlew publishModrinth (publishCurseforge) uploads every version's jar as a
-// version (file) of its own (its game versions from game_versions in versions/<version>/gradle.properties, Fabric, Fabric
-// API required, Mod Menu optional, the release notes from the top entry of CHANGELOG.md). .github/workflows/publish.yml
+// version (file) of its own (its game versions from game_versions in versions/<version>/gradle.properties; Fabric with
+// Fabric API required and Mod Menu optional, or NeoForge for the <version>-neoforge nodes; the release notes from the top
+// entry of CHANGELOG.md). .github/workflows/publish.yml
 // runs both when a GitHub release is published. -PpublishDryRun, or neither MODRINTH_TOKEN nor CURSEFORGE_TOKEN in the
 // environment, uploads nothing: what would go up is written to each version's build/publishMods/ instead.
 
+def neoforge = project.name.endsWith('-neoforge')
 def baseVersion = project.version.toString().split('\\+')[0]
 def gameVersions = project.game_versions.split(',')*.trim()
 def shownVersions = gameVersions.size() == 1 ? gameVersions[0] : "${gameVersions.first()}–${gameVersions.last()}"
@@ -23,19 +25,22 @@ def notesEnd = notesStart < 0 ? -1 : changelogLines.findIndexOf(notesStart + 1) 
 def notes = notesStart < 0 ? '' : changelogLines.subList(notesStart + 1, notesEnd < 0 ? changelogLines.size() : notesEnd).join('\n').trim()
 
 publishMods {
-	file = loomx.modJar.flatMap { it.archiveFile }
-	version = project.version.toString()
-	displayName = "Horsing Around ${baseVersion} for Minecraft ${shownVersions}"
+	file = neoforge ? tasks.named('jar').flatMap { it.archiveFile } : loomx.modJar.flatMap { it.archiveFile }
+	// (Version numbers are unique per project: the NeoForge jar of a Minecraft version gets its own.)
+	version = project.version.toString() + (neoforge ? '-neoforge' : '')
+	displayName = "Horsing Around ${baseVersion} for Minecraft ${shownVersions}${neoforge ? ' (NeoForge)' : ''}"
 	changelog = notes
 	type = isAlpha ? ALPHA : isBeta ? BETA : STABLE
-	modLoaders.add('fabric')
+	modLoaders.add(neoforge ? 'neoforge' : 'fabric')
 	dryRun = dry
 	modrinth {
 		accessToken = providers.environmentVariable('MODRINTH_TOKEN')
 		projectId = modrinthProject ?: 'not-set'
 		minecraftVersions.addAll(gameVersions)
-		requires('fabric-api')
-		optional('modmenu')
+		if (!neoforge) {
+			requires('fabric-api')
+			optional('modmenu')
+		}
 	}
 	curseforge {
 		accessToken = providers.environmentVariable('CURSEFORGE_TOKEN')
@@ -44,8 +49,10 @@ publishMods {
 		client = true
 		server = true
 		changelogType = 'markdown'
-		requires('fabric-api')
-		optional('modmenu')
+		if (!neoforge) {
+			requires('fabric-api')
+			optional('modmenu')
+		}
 	}
 }
 

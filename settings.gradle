@@ -11,6 +11,10 @@ pluginManagement {
 		mavenCentral()
 		gradlePluginPortal()
 	}
+	plugins {
+		// NeoForge's ModDevGradle, for the NeoForge nodes (build.neoforge.gradle).
+		id 'net.neoforged.moddev' version '2.0.148'
+	}
 }
 
 // Minecraft 26.x needs JDK 25. gradle/gradle-daemon-jvm.properties asks for it; this plugin downloads one when the
@@ -20,7 +24,8 @@ pluginManagement {
 //
 // Stonecutter builds one jar per Minecraft version from the shared src/ (version-specific code sits in //? comments;
 // each version's dependency numbers are in versions/<version>/gradle.properties). loom-back-compat picks the right
-// Fabric Loom: plain for 26.x (unobfuscated), remapping with Mojang names before that.
+// Fabric Loom: plain for 26.x (unobfuscated), remapping with Mojang names before that. The NeoForge nodes
+// (<version>-neoforge) build the same src/ for NeoForge with build.neoforge.gradle instead.
 plugins {
 	id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
 	id 'dev.kikugie.stonecutter' version '0.9.8'
@@ -33,6 +38,8 @@ stonecutter {
 	create(getRootProject()) {
 		// One node per group of Minecraft versions that share a jar (ranges in each node's gradle.properties).
 		versions '26.3', '26.2', '26.1.2', '1.21.11', '1.21.10', '1.21.8', '1.21.5', '1.21.4', '1.21.3', '1.21.1', '1.20.6', '1.20.4', '1.20.2', '1.20.1'
+		// NeoForge, for the versions NeoForge players are on.
+		['26.3', '26.2', '26.1.2', '1.21.1'].each { vers("${it}-neoforge", it).buildscript('build.neoforge.gradle') }
 		vcsVersion = '26.3'
 	}
 }
