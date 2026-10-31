@@ -1,6 +1,7 @@
-package dev.horsingaround.client.config;
+package dev.horsingaround.client.fabric;
 
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
+import dev.horsingaround.client.config.HorseSettingsScreen;
 import com.terraformersmc.modmenu.api.ModMenuApi;
 
 /** Mod Menu's "Configure" button for Horsing Around. Only loaded when Mod Menu is installed. */

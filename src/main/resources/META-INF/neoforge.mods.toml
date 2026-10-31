@@ -1,0 +1,36 @@
+# The NeoForge jars' mod metadata (fabric.mod.json is the Fabric jars'); filled in by build.neoforge.gradle.
+modLoader = "javafml"
+loaderVersion = "[1,)"
+license = "MIT"
+issueTrackerURL = "https://github.com/GabePurc/horsing-around/issues/new?template=bug_report.yml"
+
+[[mods]]
+modId = "horsingaround"
+version = "${version}"
+displayName = "Horsing Around"
+authors = "GabePurc"
+displayURL = "https://github.com/GabePurc/horsing-around"
+${logo} = "assets/horsingaround/icon.png"
+description = '''
+Weighty, momentum-based horse riding kept close to vanilla: gaits and stamina, turning inertia, a riding camera, and horses that pick their way.
+'''
+
+[[mixins]]
+config = "horsingaround.mixins.json"
+
+[[mixins]]
+config = "horsingaround.client.mixins.json"
+
+[[dependencies.horsingaround]]
+modId = "neoforge"
+type = "required"
+versionRange = "[${neoforge},)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.horsingaround]]
+modId = "minecraft"
+type = "required"
+versionRange = "${minecraft}"
+ordering = "NONE"
+side = "BOTH"

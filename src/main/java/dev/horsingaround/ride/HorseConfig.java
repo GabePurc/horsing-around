@@ -4,6 +4,7 @@ import static dev.horsingaround.ride.RideTuning.*;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import dev.horsingaround.Platform;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
@@ -12,7 +13,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import net.minecraft.util.Mth;
-import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 public final class HorseConfig {
 	private static final Logger LOGGER = LoggerFactory.getLogger("horsingaround");
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-	private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("horsingaround.json");
+	private static final Path FILE = Platform.configDir().resolve("horsingaround.json");
 	private static final HorseConfig DEFAULTS = new HorseConfig();
 	private static HorseConfig instance = new HorseConfig();
 	/** Range of the camera height setting, blocks. */

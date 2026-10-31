@@ -1,0 +1,177 @@
+plugins {
+	id 'net.neoforged.moddev'
+	id 'me.modmuss50.mod-publish-plugin' version '2.2.1'
+}
+
+// The NeoForge build of a Minecraft version (Stonecutter node <version>-neoforge, see settings.gradle), from the same
+// src/ as the Fabric one (build.gradle). Code for one loader only sits in fabric/ or neoforge/ packages, each left out of
+// the other loader's build, or in //? if neoforge comments. This node's numbers come from
+// versions/<version>-neoforge/gradle.properties. The client tests stay on Fabric (the ride code is the same); here
+// auditMixins loads every mixin target in a NeoForge client and dedicated server, and runSmoke rides the smoke test's
+// course (gradle/smoke-test.gradle).
+def mc = sc.current.version
+def javaVersion = sc.current.parsed.matches('>=26') ? 25 : 21
+ext.javaVersion = javaVersion // (for gradle/smoke-test.gradle)
+version = "${project.version}+${mc}"
+base.archivesName = 'horsing-around-neoforge'
+// Repo-level folders (each node's own project folder is versions/<version>-neoforge/).
+def repoDir = rootProject.layout.projectDirectory
+def runFolder = "run/neoforge/${mc}"
+
+repositories {
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = 'Modrinth'
+				url = 'https://api.modrinth.com/maven'
+			}
+		}
+		filter {
+			includeGroup 'maven.modrinth'
+		}
+	}
+}
+
+// The client-only code in a source set of its own, as Fabric Loom splits it (src/client), packed into the same jar.
+sourceSets {
+	client {
+		compileClasspath += main.output
+		runtimeClasspath += main.output
+	}
+	main.java.exclude 'dev/horsingaround/fabric/**'
+	client.java.exclude 'dev/horsingaround/client/fabric/**'
+	main.resources.exclude 'fabric.mod.json'
+}
+configurations {
+	clientCompileOnly.extendsFrom compileOnly
+	clientRuntimeOnly.extendsFrom runtimeOnly
+}
+
+neoForge {
+	version = project.neoforge_version
+	addModdingDependenciesTo sourceSets.client
+
+	mods {
+		"horsingaround" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+
+	runs {
+		configureEach {
+			sourceSet = sourceSets.client
+		}
+		client {
+			client()
+			gameDirectory = repoDir.dir(runFolder)
+		}
+		server {
+			server()
+			gameDirectory = repoDir.dir("${runFolder}/server")
+			programArgument '--nogui'
+		}
+		// ./gradlew :<version>-neoforge:auditMixins (below)
+		auditClient {
+			client()
+			gameDirectory = rootProject.layout.buildDirectory.dir("run/audit/${mc}-neoforge/client")
+			systemProperty 'horsingaround.audit', 'true'
+			systemProperty 'mixin.debug.countInjections', 'true'
+		}
+		auditServer {
+			server()
+			gameDirectory = rootProject.layout.buildDirectory.dir("run/audit/${mc}-neoforge/server")
+			programArgument '--nogui'
+			systemProperty 'horsingaround.audit', 'true'
+			systemProperty 'mixin.debug.countInjections', 'true'
+		}
+	}
+}
+
+dependencies {
+	// Optional integration: ride the horse's real animated body when Entity Model Features animates it.
+	compileOnly "maven.modrinth:entity-model-features:${project.emf_version}"
+	compileOnly "maven.modrinth:entitytexturefeatures:${project.etf_version}"
+	// Optional integration: the riding camera steps aside while Shoulder Surfing Reloaded drives the camera.
+	compileOnly "maven.modrinth:shoulder-surfing-reloaded:${project.shoulder_surfing_version}"
+
+	// Dev-only: the Fresh Animations stack, so runClient looks like the target setup.
+	if (!project.hasProperty("smokePlain")) {
+		runtimeOnly "maven.modrinth:entity-model-features:${project.emf_version}"
+		runtimeOnly "maven.modrinth:entitytexturefeatures:${project.etf_version}"
+	}
+}
+
+ext.freshAnimationsTargets = [
+	repoDir.dir("${runFolder}/resourcepacks").asFile,
+	rootProject.layout.buildDirectory.dir("run/smoke/${project.name}/resourcepacks").get().asFile
+]
+apply from: repoDir.file('gradle/fresh-animations.gradle')
+tasks.named("runClient") { dependsOn "installFreshAnimations" }
+
+// The in-game smoke test, as on Fabric: ./gradlew :<version>-neoforge:runSmoke.
+apply from: repoDir.file('gradle/smoke-test.gradle')
+// Plain "runClient" starts only the main version's (Fabric) game: these answer by path (./gradlew :26.3-neoforge:runClient).
+tasks.matching { it.name in ["runClient", "runServer"] }.configureEach { task ->
+	def plainEverywhere = gradle.startParameter.taskNames.contains(task.name) && (gradle.startParameter.projectDir ?: gradle.startParameter.currentDir) != projectDir
+	task.onlyIf("plain ${task.name} starts only the main version's game; use :${project.name}:${task.name}") { !plainEverywhere }
+}
+
+// ./gradlew :<version>-neoforge:auditMixins (plain auditMixins runs every version's): every class the mixins patch loaded in a
+// NeoForge client and dedicated server (MixinAudit), which then quit; fails unless both say so and nothing in the log
+// names a mixin failure. One NeoForge game at a time.
+abstract class NeoForgeAuditGame implements org.gradle.api.services.BuildService<org.gradle.api.services.BuildServiceParameters.None> {}
+def auditGame = gradle.sharedServices.registerIfAbsent("neoforgeAuditGame", NeoForgeAuditGame) { maxParallelUsages = 1 }
+["Client", "Server"].each { side ->
+	def auditDir = rootProject.layout.buildDirectory.dir("run/audit/${mc}-neoforge/${side.toLowerCase()}").get().asFile
+	tasks.named("runAudit${side}") {
+		group = "verification"
+		usesService(auditGame)
+		doFirst {
+			new File(auditDir, "logs").deleteDir()
+			auditDir.mkdirs()
+			new File(auditDir, "eula.txt").text = "eula=true\n"
+		}
+		doLast {
+			def log = new File(auditDir, "logs/latest.log")
+			def text = log.exists() ? log.text : ""
+			def problems = text.readLines().findAll { it =~ /Mixin apply for mod|Mixin apply failed|Injection validation failed|could not find any targets|InvalidInjectionException|InvalidMixinException|MixinApplyError|MixinTransformerError|Critical injection failure/ }
+			if (!text.contains("Horsing Around mixin audit passed") || !problems.isEmpty()) {
+				throw new GradleException("Mixin audit failed on ${mc} NeoForge (${side.toLowerCase()}); see ${log}\n" + problems.take(20).join("\n"))
+			}
+			logger.lifecycle("Mixin audit passed on ${mc} NeoForge (${side.toLowerCase()}).")
+		}
+	}
+}
+tasks.register("auditMixins") {
+	group = "verification"
+	dependsOn "runAuditClient", "runAuditServer"
+}
+tasks.named("runAuditServer") { mustRunAfter "runAuditClient" }
+
+// neoforge.mods.toml and the mixin configs carry this node's Minecraft range and Java version.
+// (The cowboy hat is done with the render state from 1.21.2; before, two mixins keep a helmet off the supporter's head.)
+def hatMixins = sc.current.parsed.matches('>=1.21.2') ? '"AvatarRenderStateMixin", "AvatarRendererMixin",' : '"CustomHeadLayerMixin", "HumanoidArmorLayerMixin",'
+// (NeoForge for 26.2 renamed the mod list's logoFile to iconFile, and warns at start-up about the old name.)
+def logo = sc.current.parsed.matches('>=26.2') ? 'iconFile' : 'logoFile'
+def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, neoforge: project.neoforge_minimum, mixinJava: javaVersion.toString(), hatMixins: hatMixins, logo: logo]
+tasks.matching { it.name in ["processResources", "processClientResources"] }.configureEach {
+	inputs.properties resourceProps
+	filesMatching(["META-INF/neoforge.mods.toml", "*.mixins.json"]) {
+		expand resourceProps
+	}
+}
+
+jar {
+	from sourceSets.client.output
+	from(repoDir.file("LICENSE")) {
+		rename { "${it}_horsingaround" }
+	}
+}
+
+java {
+	toolchain.languageVersion = JavaLanguageVersion.of(javaVersion)
+}
+
+// Release to Modrinth and CurseForge, with the Fabric jars (gradle/publish.gradle).
+apply from: repoDir.file('gradle/publish.gradle')

@@ -1,12 +1,12 @@
 package dev.horsingaround.net;
 
+import dev.horsingaround.Platform;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -63,8 +63,8 @@ public final class HatRelay {
 	}
 
 	public static void joined(final ServerPlayer player) {
-		if (ServerPlayNetworking.canSend(player, PlayerHatPayload.TYPE)) {
-			HATS.forEach((id, color) -> ServerPlayNetworking.send(player, new PlayerHatPayload(id, color)));
+		if (Platform.canSend(player, PlayerHatPayload.TYPE)) {
+			HATS.forEach((id, color) -> Platform.send(player, new PlayerHatPayload(id, color)));
 		}
 	}
 
@@ -92,8 +92,8 @@ public final class HatRelay {
 
 	private static void broadcast(final MinecraftServer server, final PlayerHatPayload payload) {
 		for (final ServerPlayer other : server.getPlayerList().getPlayers()) {
-			if (ServerPlayNetworking.canSend(other, PlayerHatPayload.TYPE)) {
-				ServerPlayNetworking.send(other, payload);
+			if (Platform.canSend(other, PlayerHatPayload.TYPE)) {
+				Platform.send(other, payload);
 			}
 		}
 	}

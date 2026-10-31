@@ -12,10 +12,15 @@
 // -PsmokePlain: no Entity Model Features, Entity Texture Features or Fresh Animations at all (build.gradle leaves the
 //   two mods off the runtime classpath), to tell this mod's problems from the animation stack's.
 //
+// The NeoForge nodes (build.neoforge.gradle) run the same test natively: ./gradlew :<version>-neoforge:runSmoke
+// (not -PsmokeWithoutMod, which needs Fabric Loader).
+//
 // Test code only: the smoke source set is not part of the jar.
 
 def mc = sc.current.version
-def smokeDir = rootProject.layout.buildDirectory.dir("run/smoke/${mc}").get().asFile
+def neoforge = project.name.endsWith('-neoforge')
+def label = neoforge ? "${mc} NeoForge" : mc
+def smokeDir = rootProject.layout.buildDirectory.dir("run/smoke/${project.name}").get().asFile
 def plain = project.hasProperty("smokePlain")
 def freshAnimations = !plain && !project.hasProperty("smokeNoPack")
 def freshAnimationsName = project.ext.freshAnimationsZip.name
@@ -27,9 +32,34 @@ sourceSets {
 		compileClasspath += sourceSets.main.compileClasspath + sourceSets.client.compileClasspath + sourceSets.main.output + sourceSets.client.output
 		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.client.runtimeClasspath + sourceSets.main.output + sourceSets.client.output
 	}
+	smoke.resources.exclude(neoforge ? 'fabric.mod.json' : 'META-INF/neoforge.mods.toml')
 }
 
-loom {
+if (neoforge) {
+	neoForge {
+		addModdingDependenciesTo sourceSets.smoke
+		mods {
+			"horsingaround_smoke" {
+				sourceSet sourceSets.smoke
+			}
+		}
+		runs {
+			smoke {
+				client()
+				sourceSet = sourceSets.smoke
+				gameDirectory = smokeDir
+				systemProperty 'horsingaround.smoke', 'true'
+				jvmArgument '-Xmx2G'
+				if (project.hasProperty("smokeWild")) {
+					systemProperty 'horsingaround.smoke.wild', project.property('smokeWild').toString()
+					if (project.hasProperty("smokeWildAt")) {
+						systemProperty 'horsingaround.smoke.wildAt', project.property('smokeWildAt').toString()
+					}
+				}
+			}
+		}
+	}
+} else loom {
 	mods {
 		"horsingaround-smoke" {
 			sourceSet sourceSets.smoke
@@ -86,15 +116,15 @@ def optionsText = [
 // Problems that name this mod, or a mixin that could not be applied.
 def smokeProblem = ~/(?i)(Mixin apply failed|Injection validation failed|could not find any targets|InvalidInjectionException|InvalidMixinException|MixinApplyError|MixinTransformerError|Critical injection failure|smoke test failed|\/(ERROR|FATAL)\].*horsing.?around|^\s+at dev\.horsingaround\.)/
 def serverCorrection = ~/moved wrongly|moved too quickly|was expected to be controlling/
-def withoutMod = project.hasProperty("smokeWithoutMod")
+def withoutMod = !neoforge && project.hasProperty("smokeWithoutMod")
 
 tasks.matching { it.name == "runSmoke" }.configureEach { task ->
 	task.group = "verification"
-	task.description = "Runs the smoke test in a client of Minecraft ${mc}: a short ride with screenshots (build/run/smoke/${mc}/)."
+	task.description = "Runs the smoke test in a client of Minecraft ${label}: a short ride with screenshots (build/run/smoke/${project.name}/)."
 	task.dependsOn "installFreshAnimations"
 	task.usesService(smokeGame)
 	// The versions run in one fixed order, after every version's downloads (they share Loom's asset cache).
-	task.mustRunAfter(rootProject.childProjects.values().collectMany { other ->
+	task.mustRunAfter(rootProject.childProjects.values().findAll { !it.name.endsWith('-neoforge') }.collectMany { other ->
 		["${other.path}:downloadAssets"] + (other.name < mc ? ["${other.path}:runSmoke"] : [])
 	})
 	// On the Java players run this version with (the old loaders' Mixin can't read a newer Java's classes).
@@ -105,6 +135,13 @@ tasks.matching { it.name == "runSmoke" }.configureEach { task ->
 		new File(smokeDir, "screenshots").deleteDir()
 		smokeDir.mkdirs()
 		new File(smokeDir, "options.txt").text = optionsText
+		if (neoforge) {
+			// NeoForge from 26.2 holds the title screen back behind a screen of load warnings (Entity Model Features' and
+			// Entity Texture Features' metadata draws some); the test waits for the title screen.
+			def clientConfig = new File(smokeDir, "config/neoforge-client.toml")
+			clientConfig.parentFile.mkdirs()
+			clientConfig.text = clientConfig.exists() ? clientConfig.text.replace('showLoadWarnings = true', 'showLoadWarnings = false') : "showLoadWarnings = false\n"
+		}
 	}
 	task.doLast {
 		def log = new File(smokeDir, "logs/latest.log")
@@ -112,15 +149,15 @@ tasks.matching { it.name == "runSmoke" }.configureEach { task ->
 		def problems = lines.findAll { it =~ smokeProblem }
 		def corrections = lines.findAll { it =~ serverCorrection }
 		if (!lines.any { it.contains("Horsing Around smoke test passed") } || !problems.isEmpty()) {
-			throw new GradleException("Smoke test failed on ${mc}; see ${log}\n" + (problems + lines.findAll { it.contains("smoke test") }).take(30).join("\n"))
+			throw new GradleException("Smoke test failed on ${label}; see ${log}\n" + (problems + lines.findAll { it.contains("smoke test") }).take(30).join("\n"))
 		}
 		if (!corrections.isEmpty() && !withoutMod) {
-			throw new GradleException("Smoke test failed on ${mc}: the server corrected the rider's moves (rubber-banding); see ${log}\n" + corrections.take(10).join("\n"))
+			throw new GradleException("Smoke test failed on ${label}: the server corrected the rider's moves (rubber-banding); see ${log}\n" + corrections.take(10).join("\n"))
 		}
 		logger.lifecycle(lines.findAll { it.contains("smoke test passed") }.first().replaceFirst(/^.*?\) /, ""))
 		if (!corrections.isEmpty()) {
-			logger.warn("${corrections.size()} server corrections (rubber-banding) in the log of ${mc}, with the mod off")
+			logger.warn("${corrections.size()} server corrections (rubber-banding) in the log of ${label}, with the mod off")
 		}
-		logger.lifecycle("Smoke test passed on ${mc}; screenshots in ${smokeDir}/screenshots")
+		logger.lifecycle("Smoke test passed on ${label}; screenshots in ${smokeDir}/screenshots")
 	}
 }

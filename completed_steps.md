@@ -98,6 +98,8 @@ at most two lines, under the right area; details go in the PR, not here.
 - `./gradlew auditMixins` runs every version's jar on its own minimum Fabric Loader and a production client and server; older loaders supported per version (MixinExtras bundled below loader 0.16)
 - In-game smoke test on every version (`./gradlew :<version>:runSmoke`; `-PsmokeNoPack`, `-PsmokePlain`, `-PsmokeWithoutMod`), with a rough-ground course and an optional long ride over a real world (`-PsmokeWild`)
 - The server checks a ridden horse's moves with the same footing in the air the rider's client has (a gallop across a dip no longer rubber-bands for good on 1.21.1, Fabric and NeoForge with Connector)
+- NeoForge jars for 1.21.1, 26.1.2, 26.2 and 26.3 from the same `src/` (`build.neoforge.gradle`, loader calls behind
+  `Platform`), each with a NeoForge mixin audit and smoke ride; the client tests stay on Fabric
 - Riding camera crash before 26.1 fixed (a mixin field initialiser dropped by Mixin); the audit now checks patched constructors set every field with a starting value
 
 ## Release, store and publishing

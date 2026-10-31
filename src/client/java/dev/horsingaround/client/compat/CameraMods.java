@@ -12,7 +12,7 @@ import com.github.exopandora.shouldersurfing.api.client.Perspective;
 *///?} else {
 /*import com.github.exopandora.shouldersurfing.api.client.Perspective;
 *///?}
-import net.fabricmc.loader.api.FabricLoader;
+import dev.horsingaround.Platform;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import org.slf4j.LoggerFactory;
@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
  */
 public final class CameraMods {
 	/** Shoulder Surfing Reloaded is installed, and its API is one this build knows (off for good once a call doesn't fit). */
-	private static boolean shoulderSurfing = FabricLoader.getInstance().isModLoaded("shouldersurfing");
+	private static boolean shoulderSurfing = Platform.isModLoaded("shouldersurfing");
 
 	private CameraMods() {
 	}

@@ -8,6 +8,8 @@ stonecutter.active '26.3'
 
 // Class renames that only differ by name; real differences use //? conditionals (docs/porting.md).
 stonecutter.parameters {
+	// The loader this node builds for, for //? if neoforge (the NeoForge nodes are named <version>-neoforge).
+	constants.match(current.project.endsWith('-neoforge') ? 'neoforge' : 'fabric', 'fabric', 'neoforge')
 	// 26.2 split the HUD out of Gui (the HUD class was Gui) and dropped "Renderer" from the contextual bars.
 	replacements.regex(current.parsed.matches('<26.2')) {
 		replace '\\bHud\\b', 'Gui', '\\bGui\\b', 'Hud'
