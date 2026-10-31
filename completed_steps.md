@@ -138,4 +138,5 @@ at most two lines, under the right area; details go in the PR, not here.
 - Fabulously Optimized 1.20.1 ships Fabric Loader 0.14.23, older than MixinExtras' floor (0.14.25): out of reach
 - Hoof soles meeting a bank's top mid-heave still jump up to 0.34 in a frame (logged by `exits`)
 - "Walking down a staircase of stair blocks": hooves 90th percentile ~0.29-0.31 against a 0.300 limit (tight margin)
+- Galloping up a ragged hillside the head can dip about 0.2 blocks into a step for a moment (`hill` lane, limit 0.3)
 - Leads tied above the llama's and horse's heads on 26.x come from Fresh Animations, not this mod

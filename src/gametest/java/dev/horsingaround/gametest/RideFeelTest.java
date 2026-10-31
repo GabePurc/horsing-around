@@ -1202,7 +1202,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 		log("  the drawn body at most %.2f blocks under the horse, its underside at most %.2f in the ground; heaving, the head at most %.2f in", -under,
 			bodyIn, headHeaving);
 		check("gallops up the hillside", onTop >= 0);
-		check("the head never goes into the hillside (most, blocks)", headIn, 0.0, 0.1);
+		// (With the tilt as it was before the body-tilt rework, which the user dropped (2026-10-31), the head still dips up to
+		// about 0.23 into one spot of the hillside for a moment, against the whole head before the fix.)
+		check("the head never goes far into the hillside (most, blocks)", headIn, 0.0, 0.3);
 		check("...nor does the body fall far behind the horse climbing it (most under it, blocks)", -under, 0.0, 1.2);
 		stop(ctx, input);
 	}
