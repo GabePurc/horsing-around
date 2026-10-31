@@ -110,4 +110,6 @@ are vanilla's own and only warned about). Run it after touching version-specific
 ## Compatibility
 
 `./gradlew runCompat --continue` runs the tests in a production game with packs of popular mods (`compatPacks` in
-`build.gradle`); results in `build/run/compat/<pack>/`. Run it before a release and after touching mixins.
+`build.gradle`); results in `build/run/compat/<pack>/`. Run it before a release and after touching mixins. The `icys` pack (Icy's Better
+Horses, which turns vanilla horses into its breeds) runs only `MountsTest`, which then also rides a Friesian under both
+riding styles and checks Icy's gears and auto-ride stay off under this mod's.

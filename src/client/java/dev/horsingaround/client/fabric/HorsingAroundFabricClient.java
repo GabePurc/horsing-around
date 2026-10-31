@@ -7,6 +7,8 @@ import dev.horsingaround.client.cosmetic.HatModel;
 import dev.horsingaround.client.cosmetic.Hats;
 import dev.horsingaround.net.PlayerHatPayload;
 import dev.horsingaround.net.RulesPayload;
+import dev.horsingaround.net.ServerRules;
+import dev.horsingaround.net.StylePayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -30,9 +32,11 @@ public final class HorsingAroundFabricClient implements ClientModInitializer {
 		HorsingAroundClient.init();
 		//? if >=1.20.5 {
 		ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, context) -> HorsingAroundClient.acceptRules(rules));
+		ClientPlayNetworking.registerGlobalReceiver(StylePayload.TYPE, (style, context) -> ServerRules.accept(style));
 		ClientPlayNetworking.registerGlobalReceiver(PlayerHatPayload.TYPE, (hat, context) -> Hats.receive(hat));
 		//?} else {
 		/*ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, player, sender) -> HorsingAroundClient.acceptRules(rules));
+		ClientPlayNetworking.registerGlobalReceiver(StylePayload.TYPE, (style, player, sender) -> ServerRules.accept(style));
 		ClientPlayNetworking.registerGlobalReceiver(PlayerHatPayload.TYPE, (hat, player, sender) -> Hats.receive(hat));
 		*///?}
 		ClientPlayConnectionEvents.INIT.register((handler, minecraft) -> HorsingAroundClient.joining());

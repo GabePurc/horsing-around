@@ -107,6 +107,11 @@ whatever the speed; no stamina; no visual weight.
 - Other players see the horse's real heading, not the rider's camera. For servers with the mod (the user's family
   server); on a server without it the client rides vanilla. Every server move must be accepted (no rubber-banding).
 - Compatible with popular mods (no crashes, log errors or silently disabled features), checked by `runCompat`.
+- Icy's Better Horses (user request, 2026-10-31): it reworks horses too, so with both installed the server picks whose
+  riding horses use (user decision: the server, not each player). This mod's by default: it rides Icy's breeds as well,
+  and only Icy's riding that would fight it is turned off (gaits, double-tap auto-ride, swim boost); bond, tack, carts,
+  combat and its models stay. Icy's: this mod leaves horses alone. Icy's mod has no switch for its riding, so the
+  hooks reach into its code and miss quietly when it changes; the `icys` compat pack checks them.
 
 ## Ideas not built yet
 

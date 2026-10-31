@@ -75,7 +75,7 @@ at most two lines, under the right area; details go in the PR, not here.
 
 ## Settings and supporter hat
 
-- Settings are comfort and preference only (user decision, 2026-10-08; nothing that changes how horses ride): third person on mount, camera distance and height, speed zoom-out, first-person saddle and hand motion, extra horse sound volume; `HorseConfig` JSON, vanilla-style screen from Mod Menu (optional)
+- Settings are comfort and preference only (user decision, 2026-10-08; nothing that changes how horses ride, but for the riding style with Icy's Better Horses): third person on mount, camera distance and height, speed zoom-out, first-person saddle and hand motion, extra horse sound volume; `HorseConfig` JSON, vanilla-style screen from Mod Menu (optional)
 - Polished menus in both mods: icon, description, tooltips, plain values; Buy Me a Coffee link in READMEs and Mod Menu
 - Supporter cowboy hat (cosmetic only): UUIDs in `supporters.json` downloaded at startup and cached, colour relayed through the server (`HatRelay`, throttled to every half second); helmet hidden but worn (`HatTest`, `-Ptests=hat`); shape from the user's Blockbench model (`art/cowboy_hat.bbmodel`, rebuilt into `HatModel` and the texture by `scripts/hat-model.py`)
 
@@ -90,6 +90,7 @@ at most two lines, under the right area; details go in the PR, not here.
 - The horse family is chosen by the entity type tag `horsingaround:managed` (horse, donkey, mule, skeleton and zombie horse; other mods can opt in); every other mount keeps vanilla controls with no per-tick work; mob riders keep their horses' box (`MountsTest`, `-Ptests=mounts`)
 - Mixins: one per vanilla class, chainable result changes instead of cancelling injections, cosmetic hooks optional; an Entity Model Features API change logs a warning
 - Works with Fresh Animations, EMF and ETF (dev runs load them); steering wins over Horseman's free camera, rider pose applied after Not Enough Animations
+- Icy's Better Horses (user request, 2026-10-31): the server picks whose riding (`ridingStyle`; the screen in singleplayer/LAN). Ours by default rides Icy's breeds too, with Icy's gaits, auto-ride and swim boost off; Icy's leaves horses alone. `icys` compat pack
 - `./gradlew runCompat --continue` runs production games with packs of popular mods (`compatPacks`, pinned by Modrinth version id); run before a release and after touching mixins
 
 ## Multiple Minecraft versions
