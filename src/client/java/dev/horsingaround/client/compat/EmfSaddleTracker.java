@@ -145,10 +145,11 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		);
 		// (A step down is a short fall, not a jump: with the hooves finding their ground, no jump shape. Landing a jump,
 		// the jump's shape eases out, and any hoof it leaves in the ground comes up onto it.)
-		if (air <= 0.0F || footing && !ride.leapLegs()) {
+		final float shaped = air * AirLegs.shape(ride, footing && !ride.leapLegs());
+		if (shaped <= 0.0F) {
 			return;
 		}
-		AirLegs.pose(leftFront, rightFront, leftHind, rightHind, air, ride.airRise(partialTicks));
+		AirLegs.pose(leftFront, rightFront, leftHind, rightHind, shaped, ride.airRise(partialTicks));
 		GroundLegs.floor(leftFront, rightFront, leftHind, rightHind, 16.0F / root.yScale, ride, root);
 	}
 

@@ -574,6 +574,13 @@ public final class RideTuning {
 	static final float JUMP_PITCH_UP = 25.0F;
 	static final float JUMP_PITCH_DOWN = 15.0F;
 	static final float JUMP_PITCH_SMOOTHING = 0.5F;
+	/**
+	 * The legs take the jump's shape over AIR_SHAPE_IN_TIME seconds, and let it go as a hoof finds its ground over
+	 * AIR_SHAPE_OUT_TIME (see AirLegs.shape): slower in, so a step down (a short fall onto ground the hooves soon find)
+	 * barely shows it; quicker out, a hoof that has found its ground standing on it.
+	 */
+	public static final float AIR_SHAPE_IN_TIME = 0.1F;
+	public static final float AIR_SHAPE_OUT_TIME = 0.04F;
 	/** Taking off, the tilt it had on the ground eases out by at most this much a tick (degrees). */
 	static final float AIR_PITCH_RELEASE = 2.5F;
 	/** World-space follow rate for the body height afloat: turns climbing out of the water into a smooth rise. */

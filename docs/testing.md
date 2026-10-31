@@ -23,7 +23,10 @@ Picking what runs:
   - `legs`: close shots of the legs in a jump.
   - `slopes`, `face`: just the slope-and-stairs lanes, and the jump-at-a-wall lanes.
   - `drawn`: the legs exactly as drawn on slopes, stairs and steps, shot up close.
-  - `slowstep`: standing, stopping and single steps (walking, and running up one), frame by frame, for snaps.
+  - `slowstep`: standing, stopping and single steps (walking, and running up one), frame by frame, for snaps, on a world clock at tick
+    158 million (an old world).
+  - `hill`: a gallop up a steep, ragged hillside of 1-block steps, ridden across it (also in `stairs`): the head never goes
+    into the hillside and the drawn body never falls far behind the horse.
   - `exits`: out of water onto banks of a few heights, wading and swimming.
   - `strafe`: stopping after riding with A or D alone.
   - `hands`: the rider's arms with items, swings and a bow, with close shots.

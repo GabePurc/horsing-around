@@ -55,6 +55,8 @@ public final class LegProbe {
 	public static double bodyInside;
 	/** The same for the chest end of it alone (the rest is the hindquarters). */
 	public static double chestInside;
+	/** How far the neck and head are in the ground at their deepest corner (blocks, the shortest way out). */
+	public static double headInside;
 	/** How far the rest of the leg, above the sole, is in a block at its deepest (blocks, the shortest way out). */
 	public static final double[] legInside = new double[4];
 	/** How far the middle of the top of the leg is up inside the body (blocks; negative, a gap shows). */
@@ -134,13 +136,14 @@ public final class LegProbe {
 		Arrays.fill(legInside, 0.0);
 		level = horse.level();
 		bellyVolume = 0.0;
+		headInside = 0.0;
 		final boolean dumping = wantTree;
 		if (dumping) {
 			dump.setLength(0);
 		}
 		final PoseStack stack = new PoseStack();
 		stack.last().set(pose);
-		walk(model.root(), "root", stack, -1, false, cam, dumping, 0);
+		walk(model.root(), "root", stack, -1, false, false, cam, dumping, 0);
 		if (dumping) {
 			tree = dump.toString();
 			wantTree = false;
@@ -279,8 +282,8 @@ public final class LegProbe {
 	}
 
 	private static void walk(
-		final ModelPart part, final String name, final PoseStack stack, final int legOf, final boolean inBody, final Vec3 cam, final boolean dumping,
-		final int depth
+		final ModelPart part, final String name, final PoseStack stack, final int legOf, final boolean inBody, final boolean inHead, final Vec3 cam,
+		final boolean dumping, final int depth
 	) {
 		int leg = legOf;
 		if (leg < 0) {
@@ -291,6 +294,10 @@ public final class LegProbe {
 			}
 		}
 		final boolean body = inBody || "body".equals(name);
+		// (The neck and head: vanilla's head_parts, the neck with the head, mane and mouth on it; Fresh Animations' neck in the
+		// body, not the tack on it.)
+		final boolean head = inHead || "head_parts".equals(name) || "head".equals(name) || name.contains("neck") && !name.contains("headpiece")
+			|| name.startsWith("EMF_head") && !name.startsWith("EMF_headpiece");
 		final PartData access = (PartData) (Object) part;
 		if (dumping && (leg >= 0 || depth <= 1 || body && depth <= 2)) {
 			final PartPose initial = part.getInitialPose();
@@ -319,17 +326,23 @@ public final class LegProbe {
 		stack.pushPose();
 		part.translateAndRotate(stack);
 		final Matrix4f matrix = stack.last().pose();
-		if (!part.skipDraw && (leg >= 0 || body)) {
+		if (!part.skipDraw && (leg >= 0 || body || head)) {
 			for (final ModelPart.Cube cube : access.horsingaround$cubes()) {
 				if (leg >= 0) {
 					leg(cube, matrix, leg, cam);
+				} else if (head) {
+					for (int i = 0; i < 8; i++) {
+						matrix.transformPosition((i & 1) == 0 ? cube.minX / 16.0F : cube.maxX / 16.0F, (i & 2) == 0 ? cube.minY / 16.0F : cube.maxY / 16.0F,
+							(i & 4) == 0 ? cube.minZ / 16.0F : cube.maxZ / 16.0F, point);
+						headInside = Math.max(headInside, insideAt(level, point.x + cam.x, point.z + cam.z, point.y + cam.y));
+					}
 				} else {
 					belly(cube, matrix, cam);
 				}
 			}
 		}
 		for (final Map.Entry<String, ModelPart> child : access.horsingaround$children().entrySet()) {
-			walk(child.getValue(), child.getKey(), stack, leg, body, cam, dumping, depth + 1);
+			walk(child.getValue(), child.getKey(), stack, leg, body, head, cam, dumping, depth + 1);
 		}
 		stack.popPose();
 	}

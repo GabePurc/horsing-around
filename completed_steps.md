@@ -21,6 +21,7 @@ at most two lines, under the right area; details go in the PR, not here.
 - Riding camera: third person on mount (restored on dismount), pulls back with speed, speed FOV, pitch eases to a riding angle when the mouse is idle; height follows in two eased stages; passes through leaves
 - First person: eyes follow the smoothed saddle height and never pitch or roll with the horse; reduced bob, nod and hoof-strike shake with View Bobbing; hands and held items bob with the saddle
 - Over-the-shoulder riding camera (default right; left, or off for centred; O swaps), folded in from the retired add-on: centre crosshair with targeting and server rotation aimed at it, leans in to aim, walls pull it in and it eases out; on foot third person stays vanilla
+- Over the shoulder, the crosshair never targets the horse ridden (the line from the eyes can pass through its head)
 - Steps aside while Shoulder Surfing Reloaded drives the camera
 
 ## Jumping, ledges, 2-block climbs, hurdles
@@ -50,6 +51,9 @@ at most two lines, under the right area; details go in the PR, not here.
 - Ground probes go through leaves to the ground, so bushes aren't read as steps; the drawn horse never stands on leaves
 - Footing: in the air a hoof finds anything within a step, a shoulder caught on a corner slips past; snaps are measured in `slowstep` and `drawn` (legs as the renderer drew them, via `LegProbe`)
 - Idle horses' legs are reset before posing on versions before 1.21.2 (shared model)
+- Legs work in old worlds: they read the time as a float, stuck past 16.7 million ticks (hooves sank); `slowstep` runs at tick 158 million
+- In the air, legs ease into and out of the jump's shape (no flutter falling past a slope); a ragged hillside's 2-block face
+  under the middle but a step under a side reads as a slope (no head in the hill, `hill` lane); a touchdown carries only a fall
 
 ## Rider
 

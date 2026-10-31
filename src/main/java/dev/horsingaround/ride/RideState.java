@@ -338,6 +338,9 @@ public final class RideState {
 	public boolean legsFound;
 	/** When the legs were last posed (game time in ticks, with the partial tick; NaN, not yet), for how long since. */
 	public double legRiseAt = Double.NaN;
+	/** How much of the jump's shape the legs take (0..1, see AirLegs.shape), eased each frame, and when it last was (game time). */
+	public float airShape;
+	public double airShapeAt = Double.NaN;
 	/**
 	 * How far the drawn body is raised (blocks) because a leg would otherwise have to draw up further than it can, from
 	 * the ground under each hoof where the model is drawn (see GroundLegs); added to {@link #heightOffset(float)}. Client only.

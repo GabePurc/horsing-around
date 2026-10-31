@@ -91,7 +91,7 @@ public final class GroundLegs {
 		if (drawn) {
 			// Game time (ticks and the partial tick): how long since the legs were last posed, whatever the frame rate.
 			partial = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
-			final double now = level.getGameTime() + partial;
+			final double now = (double) level.getGameTime() + partial;
 			again = now == ride.legRiseAt;
 			dt = again || Double.isNaN(ride.legRiseAt) ? 0.0F : (float) Mth.clamp((now - ride.legRiseAt) / 20.0, 0.0, 0.1);
 			ride.legRiseAt = now;

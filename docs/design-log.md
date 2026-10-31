@@ -763,3 +763,15 @@ very fast to avoid clipping. Direction: avoid clipping in a smooth and realistic
   (it hovered).
 - Known: standing on stairs, a hoof can still read up to 0.45 in the ground for a moment (0.5 before); the tests that
   render a frame a tick count a hoof that now lifts over two ticks as two jumps.
+
+## Back to the ride after #65 (user direction, 2026-10-31)
+
+The user asked to go back to before the recent leg and animation work and keep the bug fixes. Removed: stepping legs near
+a single step and the rounded-off path there (#66), the body-tilt rework (turns as one weight, real-horse tilt limits,
+steady in-air rotation, the tilt curve), the medieval rider seat (#68), and the dev tools mod that came with them. Not
+merged and closed: procedural legs for the plain model (#67), legs on bones (#69), the always-seated rider (#70). Kept:
+everything in #65 (the 1.21.1 rubber-banding fix, smooth hooves, tests that don't grab the mouse), plus the fixes found
+along the way: legs in old worlds (time read as a float), the jump shape eased in and out (no flutter), a ragged
+hillside read as a slope, a touchdown carrying only a fall, and over the shoulder never targeting the horse ridden. The
+removed work stays on its branches (`stride-climb`, `rider-seat`, `gait-cycles`, `footfall-legs`, `no-standing`).
+
