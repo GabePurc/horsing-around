@@ -335,6 +335,7 @@ compatPacks.keySet().each { name ->
 		description = "Runs the client tests in a production game with the $name pack."
 		dependsOn "installFreshAnimations"
 		usesService(compatGame)
+		outputs.upToDateWhen { false } // Loom counts an unchanged run as up to date and would skip it.
 		finalizedBy "compatFindings${name.capitalize()}"
 		mods.from(tasks.named("jar"))
 		mods.from(gametestJar)
@@ -371,4 +372,24 @@ compatPacks.keySet().each { name ->
 		}
 	}
 	runCompat.configure { dependsOn task }
+	// To play-test with a pack: ./gradlew playCompatIcys (no tests; worlds and settings stay between runs).
+	def playDir = rootProject.layout.buildDirectory.dir("run/play/$name").get().asFile
+	tasks.register("playCompat${name.capitalize()}", clientProductionRunTask) {
+		group = "verification"
+		description = "Plays a production game with the $name pack, without the tests."
+		dependsOn "installFreshAnimations"
+		usesService(compatGame)
+		outputs.upToDateWhen { false } // (See runCompat.)
+		mods.from(tasks.named("jar"))
+		mods.from(configurations.named("compatBase"))
+		mods.from(configurations.named("compat${name.capitalize()}"))
+		getRunDir().set(playDir)
+		doFirst {
+			new File(playDir, "resourcepacks").mkdirs()
+			java.nio.file.Files.copy(freshAnimationsPack.toPath(), new File(playDir, "resourcepacks/" + freshAnimationsPack.name).toPath(),
+				java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+			def options = new File(playDir, "options.txt")
+			if (!options.exists()) options.text = 'resourcePacks:["vanilla","file/' + freshAnimationsPack.name + '"]\n'
+		}
+	}
 }
