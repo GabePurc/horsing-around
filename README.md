@@ -163,4 +163,4 @@ Horse perks and levelling, so the horse that's carried you across the map is bet
 
 ## License
 
-[MIT](https://github.com/GabePurc/horsing-around/blob/main/LICENSE)
+[LGPL-3.0](https://github.com/GabePurc/horsing-around/blob/main/COPYING.LESSER), which adds its permissions to the [GPL-3.0](https://github.com/GabePurc/horsing-around/blob/main/COPYING). Releases up to 0.5.2 were MIT.

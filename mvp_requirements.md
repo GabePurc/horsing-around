@@ -68,8 +68,9 @@ User direction (2026-10-06): the mods will be published on Modrinth for anyone t
 4. **Compatible with basically any mod**: no crashes, no log errors, and no silently disabled features (ours or
    theirs) alongside popular Fabric mods, checked by an automated run with a mod pack (see `development_plan.md`,
    Release). Doesn't have to hold in dev runs before then.
-5. **Store-ready metadata**: license (MIT, user's choice 2026-10-07), authors (GabePurc), links (source, issues: the
-   GitHub repos, which the user makes public before publishing), description, icon, screenshots.
+5. **Store-ready metadata**: license (MIT, user's choice 2026-10-07; LGPL-3.0-only from 2026-11-01, user decision),
+   authors (GabePurc), links (source, issues: the GitHub repos, which the user makes public before publishing),
+   description, icon, screenshots.
 6. **Every ridable mob works** (user request, 2026-10-07): the horse family gets the new riding; every other vanilla
    mount (camel, camel husk, llama, pig, strider, happy ghast, nautilus, zombie nautilus, boats, minecarts) rides
    exactly as in vanilla; mob riders (zombie and skeleton horsemen) and vanilla quirks (skeleton horses walking the

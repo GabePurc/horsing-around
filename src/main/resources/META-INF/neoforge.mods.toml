@@ -1,7 +1,7 @@
 # The NeoForge jars' mod metadata (fabric.mod.json is the Fabric jars'); filled in by build.neoforge.gradle.
 modLoader = "javafml"
 loaderVersion = "[1,)"
-license = "MIT"
+license = "LGPL-3.0-only"
 issueTrackerURL = "https://github.com/GabePurc/horsing-around/issues/new?template=bug_report.yml"
 
 [[mods]]
