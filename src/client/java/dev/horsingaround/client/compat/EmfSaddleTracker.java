@@ -12,11 +12,8 @@ import dev.horsingaround.ride.RideTuning;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import traben.entity_model_features.EMFAnimationApi;
@@ -32,12 +29,7 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 	private static final float SADDLE_X = 0.0F;
 	private static final float SADDLE_Y = 3.0F;
 	private static final float SADDLE_Z = -1.0F;
-	/** The rest-pose filter's time constant, seconds. */
-	private static final float BASELINE_SECONDS = 0.8F;
 
-	private final Quaternionf rotation = new Quaternionf();
-	private final Vector3f current = new Vector3f();
-	private final Vector3f rest = new Vector3f();
 	private final float[] phase = new float[1];
 
 	public static void register() {
@@ -243,42 +235,7 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		if (body == null) {
 			return;
 		}
-		final PartPose initial = body.getInitialPose();
-		final float lx = SADDLE_X - initial.x();
-		final float ly = SADDLE_Y - initial.y();
-		final float lz = SADDLE_Z - initial.z();
-		this.rotation.rotationZYX(body.zRot, body.yRot, body.xRot).transform(this.current.set(lx, ly, lz)).add(body.x, body.y, body.z);
-		this.rotation.rotationZYX(initial.zRot(), initial.yRot(), initial.xRot()).transform(this.rest.set(lx, ly, lz)).add(initial.x(), initial.y(), initial.z());
-
-		// Model space is Y-down with the head toward -Z, in pixels; the horse's left is +X.
-		final RideState s = holder.horsingaround$ride();
-		final long now = System.nanoTime();
-		final float lift = -(this.current.y - this.rest.y) / 16.0F;
-		final float forward = -(this.current.z - this.rest.z) / 16.0F;
-		final float side = -(this.current.x - this.rest.x) / 16.0F;
-		final float pitch = -(body.xRot - initial.xRot()) * Mth.RAD_TO_DEG;
-		final float roll = -(body.zRot - initial.zRot()) * Mth.RAD_TO_DEG;
-		if (now - s.animatedAt > 1_000_000_000L) {
-			s.animatedLiftBase = lift;
-			s.animatedForwardBase = forward;
-			s.animatedSideBase = side;
-			s.animatedPitchBase = pitch;
-			s.animatedRollBase = roll;
-		} else {
-			final float k = 1.0F - (float) Math.exp(-(now - s.animatedAt) * 1.0E-9 / BASELINE_SECONDS);
-			s.animatedLiftBase += (lift - s.animatedLiftBase) * k;
-			s.animatedForwardBase += (forward - s.animatedForwardBase) * k;
-			s.animatedSideBase += (side - s.animatedSideBase) * k;
-			s.animatedPitchBase += (pitch - s.animatedPitchBase) * k;
-			s.animatedRollBase += (roll - s.animatedRollBase) * k;
-		}
-		s.animatedLift = lift;
-		s.animatedForward = forward;
-		s.animatedSide = side;
-		s.animatedPitch = pitch;
-		s.animatedRoll = roll;
-		s.animatedAt = now;
-		s.animatedFrame = SaddleMotion.frame();
+		SaddleMotion.measure(ride, body, SADDLE_X, SADDLE_Y, SADDLE_Z);
 	}
 }
 //?}

@@ -110,8 +110,10 @@ whatever the speed; no stamina; no visual weight.
 - Icy's Better Horses (user request, 2026-10-31): it reworks horses too, so with both installed the server picks whose
   riding horses use (user decision: the server, not each player). This mod's by default: it rides Icy's breeds as well,
   and only Icy's riding that would fight it is turned off (gaits, double-tap auto-ride, swim boost); bond, tack, carts,
-  combat and its models stay. Icy's: this mod leaves horses alone. Icy's mod has no switch for its riding, so the
-  hooks reach into its code and miss quietly when it changes; the `icys` compat pack checks them.
+  combat and its models stay. Its models animate their own stride, so they're treated like an animation pack: the
+  rider rides Icy's measured body motion, none is generated over it, and only this mod's lean banks the horse (both
+  leaned twice as far, user play-test 2026-11-01). Icy's: this mod leaves horses alone. Icy's mod has no switch for its
+  riding, so the hooks reach into its code and miss quietly when it changes; the `icys` compat pack checks them.
 
 ## Ideas not built yet
 

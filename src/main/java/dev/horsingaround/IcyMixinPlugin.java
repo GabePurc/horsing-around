@@ -27,7 +27,7 @@ public final class IcyMixinPlugin implements IMixinConfigPlugin {
 		if (!mixinPackage.endsWith(".client.mixin.icy")) {
 			this.mixins = List.of("BhGearsMixin", "SwimBoostMixin");
 		} else if (MixinEnvironment.getCurrentEnvironment().getSide() != MixinEnvironment.Side.SERVER) {
-			this.mixins = List.of("HorseAutodriveControllerMixin", "HorseGearControllerMixin");
+			this.mixins = List.of("BhHorseModelMixin", "BhHorseRenderStateAccess", "HorseAutodriveControllerMixin", "HorseGearControllerMixin");
 		}
 	}
 

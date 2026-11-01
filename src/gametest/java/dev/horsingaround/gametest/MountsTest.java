@@ -2,6 +2,7 @@ package dev.horsingaround.gametest;
 
 import dev.horsingaround.HorsingAround;
 import dev.horsingaround.client.RideCamera;
+import dev.horsingaround.client.render.SaddleMotion;
 import dev.horsingaround.net.ServerRules;
 import dev.horsingaround.ride.HorseConfig;
 import dev.horsingaround.ride.IcyCompat;
@@ -9,6 +10,7 @@ import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
 import dev.horsingaround.ride.RideTuning;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -21,7 +23,11 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -426,6 +432,27 @@ public final class MountsTest implements FabricClientGameTest {
 		ctx.waitTicks(50);
 		check("gallops at its own top speed (blocks/tick)", averageSpeed(ctx, 10), gallop * 0.85, gallop * 1.15);
 		screenshot(ctx, "mount_icys_friesian_gallop");
+		// Through a turn at a gallop: this mod's lean alone (Icy's model banks too, which doubled it), and the stride's
+		// motion Icy's own, measured for the rider.
+		ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+		input.lookAt(240.0F, 10.0F);
+		float lean = 0.0F;
+		float icyBank = 0.0F;
+		boolean measured = true;
+		for (int i = 0; i < 12; i++) {
+			ctx.waitTick();
+			final float turnLean = ride(ctx, s -> s.lean(1.0F));
+			lean = Math.max(lean, Math.abs(turnLean));
+			icyBank = Math.max(icyBank, ctx.computeOnClient(mc -> icyModelBank(mc.player.getVehicle())));
+			measured &= ctx.computeOnClient(mc -> SaddleMotion.frame() - ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().animatedFrame <= 1);
+		}
+		check("leans into the turn (degrees)", lean, 2.0, 20.0);
+		check("Icy's model adds no lean of its own (degrees)", icyBank, 0.0, 0.5);
+		check("the rider rides Icy's own stride motion, none generated", measured);
+		screenshot(ctx, "mount_icys_friesian_turn");
+		input.lookAt(180.0F, 10.0F);
+		ctx.waitTicks(20);
+		firstPerson(ctx);
 		input.pressKey(o -> o.keyJump);
 		double highest = 0.0;
 		boolean reared = false;
@@ -461,6 +488,19 @@ public final class MountsTest implements FabricClientGameTest {
 			HorsingAround.styleChanged(server);
 		});
 		ctx.waitTicks(3);
+	}
+
+	/** How far Icy's model of this horse banks, degrees (its root part's roll, as last drawn). */
+	private static float icyModelBank(final Entity horse) {
+		final Object model = ((LivingEntityRenderer<?, ?, ?>) Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(horse)).getModel();
+		try {
+			final Field root = Class.forName("icy.betterhorses.net.client.render.BhHorseModel").getDeclaredField("rootPart");
+			root.setAccessible(true);
+			final ModelPart part = (ModelPart) root.get(model);
+			return Math.abs(part.zRot - part.getInitialPose().zRot()) * Mth.RAD_TO_DEG;
+		} catch (final ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
 	}
 
 	private static boolean managedOnServer(final TestSingleplayerContext world, final int id) {

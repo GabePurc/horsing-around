@@ -3,14 +3,18 @@ package dev.horsingaround.client.render;
 import static dev.horsingaround.ride.RideTuning.*;
 
 import dev.horsingaround.ride.RideState;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 /**
- * How the saddle is moving this frame relative to the horse's resting pose. When an animation pack moves the horse's
- * body (Fresh Animations through Entity Model Features), this is measured from the animated model so the rider rides
- * the real motion. Otherwise it is generated here from the leg cycle and applied to the horse as well, so both move
- * together. Reused per caller; render thread only.
+ * How the saddle is moving this frame relative to the horse's resting pose. When the horse's model animates its own
+ * body (Fresh Animations through Entity Model Features, or Icy's Better Horses' models), this is measured from the
+ * animated model so the rider rides the real motion. Otherwise it is generated here from the leg cycle and applied to
+ * the horse as well, so both move together. Reused per caller; render thread only.
  */
 public final class SaddleMotion {
 	/** Frames drawn (counted as each frame's camera is placed): motion measured in an earlier frame than the last is stale. */
@@ -18,6 +22,11 @@ public final class SaddleMotion {
 	/** Vanilla horse legs cycle once per 2pi of (limb swing x 0.6662). */
 	private static final float VANILLA_LEG_PHASE = 0.6662F;
 	private static final float VANILLA_WATER_LEG_PACE = 0.2F;
+	/** The measured rest pose's filter time constant, seconds. */
+	private static final float BASELINE_SECONDS = 0.8F;
+	private static final Quaternionf ROTATION = new Quaternionf();
+	private static final Vector3f CURRENT = new Vector3f();
+	private static final Vector3f REST = new Vector3f();
 
 	/** Saddle height change, blocks. */
 	public float lift;
@@ -87,5 +96,48 @@ public final class SaddleMotion {
 		this.side = 0.0F;
 		this.roll = 0.0F;
 		return this;
+	}
+
+	/**
+	 * Records how an animated model moved the saddle this frame, from its body part after the animation ran: then no
+	 * motion is generated for the horse, and the rider rides this one. The saddle sits at (saddleX, saddleY, saddleZ),
+	 * model pixels in the body's parent space at rest.
+	 */
+	public static void measure(final RideState s, final ModelPart body, final float saddleX, final float saddleY, final float saddleZ) {
+		final PartPose initial = body.getInitialPose();
+		final float lx = saddleX - initial.x();
+		final float ly = saddleY - initial.y();
+		final float lz = saddleZ - initial.z();
+		ROTATION.rotationZYX(body.zRot, body.yRot, body.xRot).transform(CURRENT.set(lx, ly, lz)).add(body.x, body.y, body.z);
+		ROTATION.rotationZYX(initial.zRot(), initial.yRot(), initial.xRot()).transform(REST.set(lx, ly, lz)).add(initial.x(), initial.y(), initial.z());
+
+		// Model space is Y-down with the head toward -Z, in pixels; the horse's left is +X.
+		final long now = System.nanoTime();
+		final float lift = -(CURRENT.y - REST.y) / 16.0F;
+		final float forward = -(CURRENT.z - REST.z) / 16.0F;
+		final float side = -(CURRENT.x - REST.x) / 16.0F;
+		final float pitch = -(body.xRot - initial.xRot()) * Mth.RAD_TO_DEG;
+		final float roll = -(body.zRot - initial.zRot()) * Mth.RAD_TO_DEG;
+		if (now - s.animatedAt > 1_000_000_000L) {
+			s.animatedLiftBase = lift;
+			s.animatedForwardBase = forward;
+			s.animatedSideBase = side;
+			s.animatedPitchBase = pitch;
+			s.animatedRollBase = roll;
+		} else {
+			final float k = 1.0F - (float) Math.exp(-(now - s.animatedAt) * 1.0E-9 / BASELINE_SECONDS);
+			s.animatedLiftBase += (lift - s.animatedLiftBase) * k;
+			s.animatedForwardBase += (forward - s.animatedForwardBase) * k;
+			s.animatedSideBase += (side - s.animatedSideBase) * k;
+			s.animatedPitchBase += (pitch - s.animatedPitchBase) * k;
+			s.animatedRollBase += (roll - s.animatedRollBase) * k;
+		}
+		s.animatedLift = lift;
+		s.animatedForward = forward;
+		s.animatedSide = side;
+		s.animatedPitch = pitch;
+		s.animatedRoll = roll;
+		s.animatedAt = now;
+		s.animatedFrame = frame;
 	}
 }
