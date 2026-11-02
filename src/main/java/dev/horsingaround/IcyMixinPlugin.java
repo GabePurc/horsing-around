@@ -25,7 +25,7 @@ public final class IcyMixinPlugin implements IMixinConfigPlugin {
 			return;
 		}
 		if (!mixinPackage.endsWith(".client.mixin.icy")) {
-			this.mixins = List.of("BhGearsMixin", "HorseCombatMixin", "SpeedAbilitiesMixin", "SwimBoostMixin");
+			this.mixins = List.of("ArchetypePerksMixin", "BhGearsMixin", "HorseCombatMixin", "SpeedAbilitiesMixin", "SwimBoostMixin");
 		} else if (MixinEnvironment.getCurrentEnvironment().getSide() != MixinEnvironment.Side.SERVER) {
 			this.mixins = List.of("BhHorseModelMixin", "BhHorseRenderStateAccess", "BhRiderMotionMixin", "HorseAutodriveControllerMixin", "HorseGearControllerMixin");
 		}

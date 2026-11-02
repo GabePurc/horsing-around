@@ -111,8 +111,8 @@ are vanilla's own and only warned about). Run it after touching version-specific
 
 `./gradlew runCompat --continue` runs the tests in a production game with packs of popular mods (`compatPacks` in
 `build.gradle`); results in `build/run/compat/<pack>/`. Run it before a release and after touching mixins. The `icys` pack (Icy's Better
-Horses) rides one of its breeds, a Quarter Horse (`-Dhorsingaround.horse`, see `TestHorse`), through every section of the
+Horses) rides one of its breeds, an American Paint (`-Dhorsingaround.horse`, see `TestHorse`), through every section of the
 ride test and the terrain, mounts and server tests, which must pass as on a vanilla horse; `MountsTest` also rides a
-Friesian under both riding styles. Other packs run the ride test's core and cuts sections (`-PcompatSections` for others). To play with a pack yourself,
+Friesian under both riding styles and checks the breeds' traits (`BreedTraits`) and the bash. Other packs run the ride test's core and cuts sections (`-PcompatSections` for others). To play with a pack yourself,
 `./gradlew playCompat<Pack>` (e.g. `playCompatIcys`) opens the same game without tests; its worlds stay in
 `build/run/play/<pack>/`.

@@ -115,6 +115,7 @@ public final class MountsTest implements FabricClientGameTest {
 			serverWithoutTheMod(ctx, input, world);
 			if (IcyCompat.LOADED) {
 				icysBreeds(ctx, input, world);
+				icyTraits(ctx, input, world);
 			}
 
 			section("Log");
@@ -481,6 +482,84 @@ public final class MountsTest implements FabricClientGameTest {
 		setRidingStyle(ctx, world, HorseConfig.RidingStyle.HORSING_AROUND);
 		check("switched back, this mod rides it again", ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$managed()));
 		dismount(ctx, input);
+	}
+
+	/**
+	 * Icy's breeds' speed abilities on this mod's riding (BreedTraits), each against a breed without one (an American
+	 * Paint): the Quarter Horse's burst from a standstill, the Thoroughbred's top end, the Arabian's endurance; and Icy's
+	 * charge, now the trample's, bashing a hostile mob too big to trample.
+	 */
+	private void icyTraits(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Icy's Better Horses: breed traits on this mod's riding");
+		firstPerson(ctx);
+		final String breed = IcyCompat.MOD_ID + ":%s_horse";
+		int x = nextLane();
+		mount(ctx, world, new Mount(String.format(Locale.ROOT, breed, "american_paint"), "Tame:1b," + SADDLE, null, Arena.GROUND), x);
+		world.getServer().runCommand(String.format(Locale.ROOT, "summon minecraft:husk %d.5 %d -40.5 {NoAI:1b,PersistenceRequired:1b,Tags:[\"bash\"]}", x, GROUND));
+		final int plainLaunch = ticksToGallop(ctx, input);
+		final float[] plain = gallopFor(ctx, input, 60);
+		check("a plain breed has no trait (gallop bonus, stamina scale)", plain[1] == 0.0F && plain[2] == 1.0F);
+		// (Bashed hard enough, it is gone.)
+		final boolean bashed = world.getServer().computeOnServer(server -> server.overworld().getEntities(
+			net.minecraft.world.level.entity.EntityTypeTest.forClass(LivingEntity.class), h -> h.entityTags().contains("bash")
+		).stream().noneMatch(h -> h.getHealth() >= h.getMaxHealth()));
+		check("galloping through a husk, Icy's breed bashes it (too big to trample)", bashed);
+		dismount(ctx, input);
+
+		mount(ctx, world, new Mount(String.format(Locale.ROOT, breed, "quarter"), "Tame:1b," + SADDLE, null, Arena.GROUND), nextLane());
+		ctx.waitTicks(30);
+		final int burstLaunch = ticksToGallop(ctx, input);
+		check("Quarter Horse: from a standstill it reaches its gallop in about half the time (ticks, / a plain breed's)",
+			burstLaunch / (double) plainLaunch, 0.35, 0.75);
+		dismount(ctx, input);
+
+		mount(ctx, world, new Mount(String.format(Locale.ROOT, breed, "thoroughbred"), "Tame:1b," + SADDLE, null, Arena.GROUND), nextLane());
+		ticksToGallop(ctx, input);
+		final float[] topEnd = gallopFor(ctx, input, 150);
+		check("Thoroughbred: flat out, its gallop comes on (bonus)", topEnd[1], 0.09, 0.11);
+		check("...and it goes faster (top speed / its gallop)", topEnd[3] / RideTuning.GAIT_SPEED[RideTuning.GALLOP], 1.05, 1.12);
+		check("...tiring faster meanwhile (stamina scale)", topEnd[2], 1.4, 1.5);
+		dismount(ctx, input);
+
+		mount(ctx, world, new Mount(String.format(Locale.ROOT, breed, "arabian"), "Tame:1b," + SADDLE, null, Arena.GROUND), nextLane());
+		ticksToGallop(ctx, input);
+		final float[] endurance = gallopFor(ctx, input, 60);
+		check("Arabian: galloping tires it slower (stamina used / a plain breed's)", endurance[0] / plain[0], 0.6, 0.8);
+		dismount(ctx, input);
+	}
+
+	/** From where the horse is, W and three spurs: the ticks until it is at 95% of its gallop (the keys stay held). */
+	private int ticksToGallop(final ClientGameTestContext ctx, final TestInput input) {
+		input.lookAt(180.0F, 10.0F);
+		input.holdKey(o -> o.keyUp);
+		int ticks = 0;
+		while (ticks < 300 && ride(ctx, s -> s.speed) < RideTuning.GAIT_SPEED[RideTuning.GALLOP] * 0.95F) {
+			// (A spur before W is held, or a tick after another, doesn't count: four, six ticks apart once W is down.)
+			if (ticks >= 2 && ticks < 26 && ticks % 6 == 2) {
+				input.pressKey(o -> o.keySprint);
+			}
+			ctx.waitTick();
+			ticks++;
+		}
+		final int took = ticks;
+		log("  to a gallop: %d ticks; gait %d, speed %.3f, stamina %.2f, exhausted %s, accel x%.1f", took, ride(ctx, s -> s.gait), ride(ctx, s -> s.speed),
+			ride(ctx, s -> s.stamina), ride(ctx, s -> s.exhausted), ride(ctx, s -> s.accelScale));
+		return ticks;
+	}
+
+	/** Gallops on for {@code ticks}, then stops: the stamina it used, its gallop bonus and stamina scale at the end, and its top speed. */
+	private static float[] gallopFor(final ClientGameTestContext ctx, final TestInput input, final int ticks) {
+		final float before = ride(ctx, s -> s.stamina);
+		float top = 0.0F;
+		for (int i = 0; i < ticks; i++) {
+			ctx.waitTick();
+			top = Math.max(top, ride(ctx, s -> s.speed));
+		}
+		final float[] out = {before - ride(ctx, s -> s.stamina), ride(ctx, s -> s.gallopBonus), ride(ctx, s -> s.drainScale), top};
+		input.releaseKey(o -> o.keyUp);
+		input.pressKey(o -> o.keyDown);
+		ctx.waitTicks(60);
+		return out;
 	}
 
 	/** The host picks a riding style (as from the settings screen in singleplayer). */

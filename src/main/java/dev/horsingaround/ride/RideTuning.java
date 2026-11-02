@@ -181,6 +181,36 @@ public final class RideTuning {
 	/** Cutting hard (past halfway) from a trot or faster scuffs the ground: the block's step sound at this volume and a spray of it. */
 	static float CUT_SOUND_VOLUME = CUT_SOUND_VOLUME_BASE;
 
+	// ---- Breed traits (Icy's Better Horses' breeds; user decision, 2026-11-01) ----
+
+	/**
+	 * Quarter Horse, a burst from a standstill: having stood BURST_STAND_TICKS, for BURST_TICKS after it moves off it
+	 * gathers speed BURST_ACCEL times as fast (BURST_ACCEL_BONDED from bond tier 1), then not again for BURST_COOLDOWN
+	 * ticks (BURST_COOLDOWN_BONDED from tier 2). Its top speed doesn't change.
+	 */
+	static final int BURST_STAND_TICKS = 20;
+	static final int BURST_TICKS = 60;
+	static final float BURST_ACCEL = 2.0F;
+	static final float BURST_ACCEL_BONDED = 2.3F;
+	static final int BURST_COOLDOWN = 200;
+	static final int BURST_COOLDOWN_BONDED = 160;
+	/**
+	 * Thoroughbred, a top end: after TOP_END_TICKS of flat-out gallop on level ground (pitch under TOP_END_LEVEL degrees)
+	 * its gallop eases up by TOP_END_BONUS (TOP_END_BONUS_BONDED from bond tier 1), at TOP_END_EASE of the way a tick, and
+	 * eases off as fast once it slows, climbs or tires; meanwhile it tires TOP_END_DRAIN times as fast.
+	 */
+	static final int TOP_END_TICKS = 100;
+	static final float TOP_END_LEVEL = 6.0F;
+	static final float TOP_END_BONUS = 0.10F;
+	static final float TOP_END_BONUS_BONDED = 0.15F;
+	static final float TOP_END_EASE = 1.0F / 40;
+	static final float TOP_END_DRAIN = 1.5F;
+	/** Arabian, endurance: galloping tires it ENDURANCE_DRAIN as fast and it gets its wind back ENDURANCE_REGEN as fast (BONDED from bond tier 1). */
+	static final float ENDURANCE_DRAIN = 0.7F;
+	static final float ENDURANCE_DRAIN_BONDED = 0.6F;
+	static final float ENDURANCE_REGEN = 1.3F;
+	static final float ENDURANCE_REGEN_BONDED = 1.5F;
+
 	// ---- Stamina ----
 
 	/** Full stamina lasts ~28s of galloping. */
@@ -471,7 +501,6 @@ public final class RideTuning {
 	 * the hooves), and sits on the lower end. The legs stand upright (they counter LEG_UPRIGHT of the body's tilt) on top
 	 * of whatever animates them (vanilla or Fresh Animations), so the stride stays.
 	 */
-	static final float HOOF_SPAN = FORE_HOOVES + HIND_HOOVES;
 	static final float SLOPE_SHARE = 0.95F;
 	static final float SLOPE_PITCH_MAX = 40.0F;
 	/**

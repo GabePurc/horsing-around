@@ -108,12 +108,16 @@ whatever the speed; no stamina; no visual weight.
   server); on a server without it the client rides vanilla. Every server move must be accepted (no rubber-banding).
 - Compatible with popular mods (no crashes, log errors or silently disabled features), checked by `runCompat`.
 - Icy's Better Horses (user request, 2026-10-31): it reworks horses too, so with both installed the server picks whose
-  riding horses use (user decision: the server, not each player). This mod's by default: an Icy breed rides exactly as
-  a vanilla horse of its stats (user direction 2026-11-01: pass the same tests), so Icy's riding that would change that
-  is off (gaits, double-tap auto-ride, swim boost, the speed abilities: Quarter Horse burst, Thoroughbred top end,
-  Arabian endurance); bond, tack, carts, combat and its models stay. Its models animate their own stride, so they're
-  treated like an animation pack: the rider rides Icy's measured body motion (not Icy's own rider motion on top), only
-  this mod's lean banks the horse, and the ride's legs, neck, tail and stirrups go on them as on Fresh Animations'.
+  riding horses use (user decision: the server, not each player). This mod's by default: an Icy breed rides as a
+  vanilla horse of its stats (user direction 2026-11-01: pass the same tests), so Icy's riding that would change that
+  is off (gaits, double-tap auto-ride, swim boost, mid-ride speed swings); bond, tack, carts and its models stay. Its
+  speed abilities come back on this mod's own gaits and stamina (user decision 2026-11-01, `BreedTraits`): the Quarter
+  Horse's burst (quicker off a standstill), the Thoroughbred's top end (a faster gallop after 5 s flat out, tiring
+  faster), the Arabian's endurance (tires slower); its charge is the trample, bashing hostile mobs as hard as Icy's.
+  Its models animate their own stride, so they're treated like an animation pack: the rider rides Icy's measured body
+  motion (not Icy's own rider motion on top), only this mod's lean banks the horse, the ride's legs, neck, tail and
+  stirrups go on them as on Fresh Animations', and the ride tilts on its own legs (hoof positions and leg length
+  measured from the model, so a draft or a pony tilts and plants right on slopes).
   Icy's: this mod leaves horses alone. Icy's mod has no switch for its riding, so the hooks reach into its code and
   miss quietly when it changes; the `icys` compat pack rides a Quarter Horse through the horse tests to catch that.
 

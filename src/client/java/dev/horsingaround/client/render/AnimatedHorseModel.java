@@ -15,6 +15,10 @@ import org.jspecify.annotations.Nullable;
  */
 public final class AnimatedHorseModel {
 	private static final float[] PHASE = new float[1];
+	/** The vanilla horse model's legs, pixels: its front hooves ahead of its centre, its hind hooves behind it, a leg's length. */
+	private static final float VANILLA_FORE = 9.9F;
+	private static final float VANILLA_HIND = 8.0F;
+	private static final float VANILLA_LEG = 11.0F;
 	/** Frames the stirrups were held (for tests). */
 	public static int stirrupFrames;
 
@@ -45,6 +49,23 @@ public final class AnimatedHorseModel {
 		}
 		AirLegs.pose(leftFront, rightFront, leftHind, rightHind, shaped, ride.airRise(partialTicks));
 		GroundLegs.floor(leftFront, rightFront, leftHind, rightHind, pixels, ride, root);
+	}
+
+	/**
+	 * Fits the ride to a model built unlike a vanilla horse (another mod's breeds): where its hooves stand and how long its
+	 * legs are, the vanilla horse's (RideTuning) scaled by how its legs compare, so the body tilts on steps and slopes
+	 * about its own legs. False if the parts have no leg boxes (a tack layer's).
+	 */
+	public static boolean fitLegs(final ModelPart frontLeft, final ModelPart hindLeft, final RideState ride) {
+		final Legs.Leg front = Legs.of(frontLeft);
+		final Legs.Leg hind = Legs.of(hindLeft);
+		if (front == null || hind == null) {
+			return false;
+		}
+		ride.foreHooves = RideTuning.FORE_HOOVES * -(frontLeft.getInitialPose().z() + front.z) / VANILLA_FORE;
+		ride.hindHooves = RideTuning.HIND_HOOVES * (hindLeft.getInitialPose().z() + hind.z) / VANILLA_HIND;
+		ride.legLength = RideTuning.LEG_LENGTH * (front.length + hind.length) * 0.5F / VANILLA_LEG;
+		return true;
 	}
 
 	/** The tail swings with the horse's motion, on top of the model's own tail animation. */

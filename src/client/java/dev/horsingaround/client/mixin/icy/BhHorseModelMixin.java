@@ -22,8 +22,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Icy's horse models animate their own gaits: the body bobs and pitches with the stride, and banks into turns. On a
  * horse this mod rides they are treated as an animation pack's are: the horse banks with this mod's lean alone (Icy's on
  * top of it leaned nearly twice as far), the stride's motion is Icy's alone (measured here, so the rider rides it and no
- * vanilla-timed motion is laid over it), and the ride adds what it adds to any self-animated model (AnimatedHorseModel:
- * hooves on the ground, jumps, neck, tail, stirrups). Runs for each layer Icy draws (its tack layers animate their own
+ * vanilla-timed motion is laid over it), the ride fits its legs (where the hooves stand, how long the legs are), and adds
+ * what it adds to any self-animated model (AnimatedHorseModel: hooves on the ground, jumps, neck, tail, stirrups). Runs for each layer Icy draws (its tack layers animate their own
  * copy of the model), so they stay together.
  */
 @Pseudo
@@ -82,6 +82,7 @@ public abstract class BhHorseModelMixin {
 		}
 		final PartPose initial = this.body.getInitialPose();
 		SaddleMotion.measure(ride, this.body, initial.x(), initial.y() - SADDLE_UP, initial.z());
+		AnimatedHorseModel.fitLegs(this.frontLeftLeg, this.backLeftLeg, ride);
 		//? if >=1.21.2 {
 		final float partialTicks = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
 		AnimatedHorseModel.legs(

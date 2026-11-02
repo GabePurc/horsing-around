@@ -77,9 +77,9 @@ public final class RidePoser {
 		final float bodyPitch = tilt + jump;
 		// The ground tilt pivots at the leg joints, so the hooves stay under them; the jump tilt pivots on the hooves: the
 		// hind ones as it lifts its front to take off, the front ones as it lands. Then the bank, about the ground.
-		final float pivot = jump > 0.0F ? -HIND_HOOVES : FORE_HOOVES;
-		final float jointForward = LEG_LENGTH * Mth.sin(tilt) - pivot;
-		final float jointUp = LEG_LENGTH * (1.0F - Mth.cos(tilt));
+		final float pivot = jump > 0.0F ? -s.hindHooves : s.foreHooves;
+		final float jointForward = s.legLength * Mth.sin(tilt) - pivot;
+		final float jointUp = s.legLength * (1.0F - Mth.cos(tilt));
 		final float cosJump = Mth.cos(jump);
 		final float sinJump = Mth.sin(jump);
 		final float moveForward = jointForward * cosJump - jointUp * sinJump + pivot;
