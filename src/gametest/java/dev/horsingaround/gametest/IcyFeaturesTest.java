@@ -143,8 +143,7 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 		check("gallops at its own top speed, the drag included (blocks/tick)", averageSpeed(ctx, 10), gallop * 0.85, gallop * 1.15);
 		screenshot(ctx, "icy_cart_gallop");
 		sideScreenshot(ctx, "icy_cart_gallop_side");
-		// (Icy's cart swings up to 8 degrees behind the body yaw it last saw, which may be a tick old.)
-		check("...swinging round with it (degrees behind the horse's body, most)", followThroughTurn(ctx, input, "icy_cart"), 0.0, 20.0);
+		followThroughTurn(ctx, input, "icy_cart");
 		check("the same cart all along (never dropped and put back)", cartId.equals(world.getServer().computeOnServer(server -> cartUuid(horse(server, id)))));
 		stop(ctx, input);
 		dismount(ctx, input);
@@ -197,46 +196,54 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 		galloping(ctx, input);
 		check("gallops at its own top speed (blocks/tick)", averageSpeed(ctx, 10), gallop * 0.85, gallop * 1.15);
 		screenshot(ctx, "icy_wagon_gallop");
-		check("...swinging round with it as on a cart (degrees behind the horse's body, most)", followThroughTurn(ctx, input, "icy_wagon"), 0.0, 20.0);
+		followThroughTurn(ctx, input, "icy_wagon");
 		stop(ctx, input);
 		dismount(ctx, input);
 	}
 
-	/** Gallops through a quarter turn with a jump in it: how far the client's cart swings behind the horse's body, most (degrees). */
-	private double followThroughTurn(final ClientGameTestContext ctx, final TestInput input, final String shot) {
-		double turn = 0.0;
-		double lag = 0.0;
+	/**
+	 * Gallops round a gentle bend, then a hard quarter turn with a jump in it, then on straight, watching the cart as it
+	 * is drawn (Icy's mod draws it by its own heading, not the entity's, which follows the server's): round the bend it
+	 * angles off the horse into the turn, in the hard turn the shafts hold it, and it lines up behind the horse again.
+	 */
+	private void followThroughTurn(final ClientGameTestContext ctx, final TestInput input, final String shot) {
+		double bendAngle = 0.0;
+		double hardAngle = 0.0;
+		double last = Double.NaN;
 		boolean present = true;
-		for (int i = 0; i < 40; i++) {
-			input.lookAt(180.0F + Math.min(i, 20) * 4.5F, 10.0F);
-			if (i == 25) {
+		float view = 180.0F;
+		for (int i = 0; i < 110; i++) {
+			// 30 ticks of a gentle bend (1.5 degrees a tick), 20 of a hard turn (4.5), then straight on.
+			view += i < 30 ? 1.5F : i < 50 ? 4.5F : 0.0F;
+			input.lookAt(view, 10.0F);
+			if (i == 40) {
 				input.pressKey(o -> o.keyJump);
 			}
 			ctx.waitTick();
-			final double[] follow = ctx.computeOnClient(mc -> {
+			final Double angle = ctx.computeOnClient(mc -> {
 				final Entity horse = mc.player.getVehicle();
 				final Object cart = horse == null ? null : call(horse, "bh_getCartEntity");
-				if (!(cart instanceof Entity c)) {
-					return null;
-				}
-				final LivingEntity h = (LivingEntity) horse;
-				// (The cart takes the horse's body yaw on its own tick, before or after the horse's: Icy's slack is behind one of them.)
-				return new double[] {Math.abs(Mth.wrapDegrees(h.yBodyRot - h.yBodyRotO)),
-					Math.min(Math.abs(Mth.wrapDegrees(c.getYRot() - h.yBodyRot)), Math.abs(Mth.wrapDegrees(c.getYRot() - h.yBodyRotO)))};
+				return cart == null ? null : (double) Math.abs(Mth.wrapDegrees((float) call(cart, "gluedRenderYaw", 1.0F) - ((LivingEntity) horse).yBodyRot));
 			});
-			if (follow == null) {
+			if (angle == null) {
 				present = false;
 				continue;
 			}
-			turn = Math.max(turn, follow[0]);
-			lag = Math.max(lag, follow[1]);
-			if (i == 12) {
-				sideScreenshot(ctx, shot + "_turn");
+			last = angle;
+			if (i < 30) {
+				bendAngle = Math.max(bendAngle, angle);
+			} else if (i < 50) {
+				hardAngle = Math.max(hardAngle, angle);
+			}
+			if (i == 20 || i == 42) {
+				sideScreenshot(ctx, shot + (i == 20 ? "_bend" : "_turn"));
 			}
 		}
-		check("the cart is there all through the turn and the jump", present);
-		log("  (the cart swung up to %.1f degrees behind the horse's body, which turned up to %.1f degrees a tick)", lag, turn);
-		return lag;
+		check("the cart is there all through the turns and the jump", present);
+		// (The cart takes the horse's heading on its own tick, which may come before the horse's: give or take a tick's turn.)
+		check("round a bend it angles off the horse into the turn (degrees, most)", bendAngle, 3.0, 24.0);
+		check("in a hard turn the shafts hold it (degrees off the horse, most)", hardAngle, 10.0, 27.0);
+		check("galloping on straight, it lines up behind the horse again (degrees)", last, 0.0, 2.0);
 	}
 
 	// ---- A second rider ----
@@ -336,6 +343,10 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 				openTicks++;
 				if (openTicks > 10) {
 					fastestOpen = Math.max(fastestOpen, now[1]);
+				}
+				if (openTicks == 30 || openTicks == 33 || openTicks == 36) {
+					// (Still legs look the same in all three.)
+					sideScreenshot(ctx, "icy_glider_legs_" + openTicks);
 				}
 				if (openTicks == 15) {
 					headingBefore = Math.atan2(-now[2], now[3]) * Mth.RAD_TO_DEG;
@@ -726,7 +737,18 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 	}
 
 	private void screenshot(final ClientGameTestContext ctx, final String name) {
+		// (No HUD: the hotbar would hide the horse's legs.)
+		ctx.runOnClient(mc -> {
+			if (!mc.gui.hud.isHidden()) {
+				mc.gui.hud.toggle();
+			}
+		});
 		log("  screenshot %s -> %s", name, ctx.takeScreenshot("horsingaround_" + name));
+		ctx.runOnClient(mc -> {
+			if (mc.gui.hud.isHidden()) {
+				mc.gui.hud.toggle();
+			}
+		});
 	}
 
 	/** Swings the view 90 degrees for one rendered frame to see the horse broadside (no tick passes). */

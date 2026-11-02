@@ -4,10 +4,19 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-/** How far Icy's horse model banks into a turn (0..1), see BhHorseModelMixin. */
+/**
+ * What Icy's horse model draws from, see BhHorseModelMixin: how far it banks into a turn (0..1), and how much its legs
+ * flail in the air (in a glide, and in a long fall).
+ */
 @Pseudo
 @Mixin(targets = "icy.betterhorses.net.client.render.BhHorseRenderState", remap = false)
 public interface BhHorseRenderStateAccess {
 	@Accessor(value = "bankWeight", remap = false)
 	void horsingaround$setBankWeight(float bank);
+
+	@Accessor(value = "panicWeight", remap = false)
+	void horsingaround$setPanicWeight(float panic);
+
+	@Accessor(value = "jumpFlail", remap = false)
+	void horsingaround$setJumpFlail(float flail);
 }

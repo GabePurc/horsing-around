@@ -920,6 +920,11 @@ public final class RideTuning {
 	/** "Small" means no wider or taller than this, blocks (chickens, rabbits, cats, foxes, frogs, baby animals...). */
 	static final float TRAMPLE_MAX_WIDTH = 0.8F;
 	static final float TRAMPLE_MAX_HEIGHT = 1.0F;
+	/**
+	 * The furthest one of Icy's Better Horses' carts angles off the horse pulling it, degrees (see CartTrail): the shafts
+	 * hold it, and past this the horse drags it round.
+	 */
+	static final float CART_SWING_MAX = 20.0F;
 
 	private RideTuning() {
 	}

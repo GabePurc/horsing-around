@@ -138,6 +138,18 @@ public final class IcyCompat {
 		}
 	}
 
+	/** How far behind the horse's middle one of Icy's carts has its axle, blocks (the small cart's if it can't be read). */
+	public static double cartLength(final Entity cart) {
+		if (Gear.AXLE != null) {
+			try {
+				return (double) Gear.AXLE.invokeExact(cart);
+			} catch (final Throwable e) {
+				// (The small cart's, below.)
+			}
+		}
+		return 2.375;
+	}
+
 	/**
 	 * Whether the horse wears Icy's horseshoes, switched on: they let it walk on powder snow. Read from the gear flags
 	 * Icy's mod sends clients, so it holds on the rider's client too (the shoes themselves are only on the server).
@@ -155,19 +167,21 @@ public final class IcyCompat {
 
 	/**
 	 * Icy's gear, looked up the first time it's needed: (Entity) boolean, a cart in the harness slot; a working harness;
-	 * shoes in the hoof slot; and () boolean, the shoes' switch.
+	 * shoes in the hoof slot; () boolean, the shoes' switch; and (Entity) double, a cart's axle behind the horse.
 	 */
 	private static final class Gear {
 		static final @Nullable MethodHandle CART;
 		static final @Nullable MethodHandle GLIDES;
 		static final @Nullable MethodHandle SHOD;
 		static final @Nullable MethodHandle HOOVES_ON;
+		static final @Nullable MethodHandle AXLE;
 
 		static {
 			MethodHandle cart = null;
 			MethodHandle glides = null;
 			MethodHandle shod = null;
 			MethodHandle hoovesOn = null;
+			MethodHandle axle = null;
 			try {
 				final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
 				final Class<?> horseData = Class.forName("icy.betterhorses.net.IHorseData");
@@ -179,16 +193,23 @@ public final class IcyCompat {
 				shod = MethodHandles.insertArguments(lookup.findVirtual(horseData, "bh_hasGear", MethodType.methodType(boolean.class, slot)), 1, slot.getField("HOOVES").get(null))
 					.asType(MethodType.methodType(boolean.class, Entity.class));
 				hoovesOn = lookup.findStatic(Class.forName("icy.betterhorses.net.BhConfig"), "hoovesEnabled", MethodType.methodType(boolean.class));
+				final Class<?> type = Class.forName("icy.betterhorses.net.entity.CartType");
+				axle = MethodHandles.filterReturnValue(
+					lookup.findVirtual(Class.forName("icy.betterhorses.net.entity.HorseCartEntity"), "type", MethodType.methodType(type)),
+					lookup.findVirtual(type, "axleBehind", MethodType.methodType(double.class))
+				).asType(MethodType.methodType(double.class, Entity.class));
 			} catch (final ReflectiveOperationException e) {
 				cart = null;
 				glides = null;
 				shod = null;
 				hoovesOn = null;
+				axle = null;
 			}
 			CART = cart;
 			GLIDES = glides;
 			SHOD = shod;
 			HOOVES_ON = hoovesOn;
+			AXLE = axle;
 		}
 	}
 

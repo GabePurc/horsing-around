@@ -119,7 +119,9 @@ whatever the speed; no stamina; no visual weight.
   stirrups go on them as on Fresh Animations', and the ride tilts on its own legs (hoof positions and leg length
   measured from the model, so a draft or a pony tilts and plants right on slopes).
   Its gear works on this mod's riding (user request 2026-11-02): a cart's riders sit on its bench, posed and rocked by
-  Icy's mod, not in the saddle; in a working Glidewing Harness no drop is one the horse won't take; in horseshoes powder
+  Icy's mod, not in the saddle; a cart turns as a real one does (user, 2026-11-02, `CartTrail`): its wheels don't slide
+  sideways, so it turns only as it's pulled, cutting inside a bend, up to 20 degrees off the horse; in the air Icy's
+  model keeps its legs still (no panicked paddling in a glide, no flailing in a long fall); in a working Glidewing Harness no drop is one the horse won't take; in horseshoes powder
   snow is ground, not a hazard (Icy's mod only knows the shoes on the server, so a ridden horse sank on its rider's
   client; the ride reads the gear flags it sends clients). Its free-look key shares Left Ctrl with sprint, the ride's
   spur, so it does nothing here: the horse heads where the rider looks, and standing still is free look.
