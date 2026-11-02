@@ -149,6 +149,12 @@ public final class GroundLegs {
 			// (How high the pack has the hoof, before it is turned upright: lifted mid-stride, it isn't standing.)
 			final float packLift = (groundY - (part.y + leg.soleY * Mth.cos(part.xRot) - leg.z * Mth.sin(part.xRot))) / pixels;
 			PACK_LIFTS[i] = packLift;
+			// (A model that lifts a hoof by raising the whole leg rather than swinging it, as Icy's Better Horses' do, has that
+			// lift shortened on steep ground as well.)
+			final float raised = part.getInitialPose().y() - part.y;
+			if (raised > 0.0F && stride < 1.0F) {
+				part.y += raised * (1.0F - stride);
+			}
 			// On steep ground the stride is shorter (a horse picks its way up and down stairs): the pack's swing, turned
 			// about the top of the leg, is scaled down; then the leg stands upright against the tilt, its top's corner drawn
 			// up into the body by that swing so no gap shows there (the body is lowered to match).

@@ -90,7 +90,7 @@ at most two lines, under the right area; details go in the PR, not here.
 - The horse family is chosen by the entity type tag `horsingaround:managed` (horse, donkey, mule, skeleton and zombie horse; other mods can opt in); every other mount keeps vanilla controls with no per-tick work; mob riders keep their horses' box (`MountsTest`, `-Ptests=mounts`)
 - Mixins: one per vanilla class, chainable result changes instead of cancelling injections, cosmetic hooks optional; an Entity Model Features API change logs a warning
 - Works with Fresh Animations, EMF and ETF (dev runs load them); steering wins over Horseman's free camera, rider pose applied after Not Enough Animations
-- Icy's Better Horses (user request, 2026-10-31): the server picks whose riding (`ridingStyle`; the screen in singleplayer/LAN). Ours by default rides Icy's breeds too, with Icy's gaits, auto-ride, swim boost and model bank off (the rider rides its models' own stride); Icy's leaves horses alone. `icys` compat pack
+- Icy's Better Horses (user request, 2026-10-31): the server picks whose riding (`ridingStyle`; the screen in singleplayer/LAN). Ours by default rides Icy's breeds as vanilla horses of their stats (Icy's gaits, auto-ride, swim boost, speed abilities, model bank and rider motion off; its models get the ride's legs, neck, tail and stirrups); Icy's leaves horses alone. `icys` compat pack
 - `./gradlew runCompat --continue` runs production games with packs of popular mods (`compatPacks`, pinned by Modrinth version id); run before a release and after touching mixins
 
 ## Multiple Minecraft versions

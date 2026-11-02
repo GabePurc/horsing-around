@@ -4,6 +4,7 @@
 	"compatibilityLevel": "JAVA_${mixinJava}",
 	"mixins": [
 		"AbstractHorseMixin",
+		"AbstractHorseSpeedMixin",
 		"BlockBehaviourMixin",
 		"EntityMixin",
 		"LivingEntityMixin"

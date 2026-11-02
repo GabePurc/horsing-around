@@ -155,7 +155,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 		world.getConnection().waitForChunksRender();
 		server.runCommand("effect give @p minecraft:instant_health 1 10 true");
 		server.runCommand("effect give @p minecraft:saturation infinite 0 true");
-		server.runCommand("execute at @p run summon minecraft:horse ~ ~ ~ {Tame:1b,Variant:2,Health:20f,"
+		server.runCommand("execute at @p run summon " + TestHorse.TYPE + " ~ ~ ~ {Tame:1b,Variant:2,Health:20f,"
 			+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
 			+ "attributes:[{id:\"minecraft:movement_speed\",base:" + SPEED_ATTRIBUTE + "d},{id:\"minecraft:jump_strength\",base:0.7d},"
 			+ "{id:\"minecraft:max_health\",base:20d}],Tags:[\"" + TAG + "\"]}");

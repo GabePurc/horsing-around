@@ -31,6 +31,8 @@ import org.joml.Vector3f;
 public final class LegProbe {
 	/** Front left, front right, hind left, hind right (vanilla's part names, which animation packs keep). */
 	public static final String[] LEGS = {"left_front_leg", "right_front_leg", "left_hind_leg", "right_hind_leg"};
+	/** The same legs on Icy's Better Horses' models. */
+	private static final String[] ICY_LEGS = {"front_left_leg", "front_right_leg", "back_left_leg", "back_right_leg"};
 
 	private static volatile boolean armed;
 	private static volatile boolean wantTree;
@@ -288,7 +290,7 @@ public final class LegProbe {
 		int leg = legOf;
 		if (leg < 0) {
 			for (int i = 0; i < LEGS.length; i++) {
-				if (LEGS[i].equals(name)) {
+				if (LEGS[i].equals(name) || ICY_LEGS[i].equals(name)) {
 					leg = i;
 				}
 			}

@@ -293,9 +293,13 @@ def compatPacks = [
 
 def compatTests = project.findProperty("compatTests")
 // (The horses pack skips the server test: Horseman's server config isn't loaded in the test's second, in-process server.)
-// (Icy's pack only rides the mounts: its breeds roll their own stats, so the ride test's numbers would not hold.)
-def compatPackTests = [horses: "ride,mounts", icys: "mounts"]
-def compatSections = project.findProperty("compatSections") ?: "core,cuts"
+// (Icy's pack rides one of its breeds through the horse tests, a Quarter Horse: a vanilla horse's size, summoned with the
+// tests' own stats, and its standstill burst is one of the abilities this mod's riding turns off.)
+def compatPackTests = [horses: "ride,mounts", icys: "ride,terrain,mounts,server"]
+def compatPackHorse = [icys: "icys-better-horses:quarter_horse"]
+// (Most packs run the ride test's core and cuts sections; Icy's runs every section, its breed standing in for the horse.)
+def compatPackSections = [icys: ""]
+def compatSections = project.findProperty("compatSections")
 
 configurations.register("compatBase") { transitive = false }
 compatPacks.each { name, mods ->
@@ -343,7 +347,10 @@ compatPacks.keySet().each { name ->
 		mods.from(configurations.named("compat${name.capitalize()}"))
 		jvmArgs.add("-Dfabric.client.gametest")
 		jvmArgs.add("-Dhorsingaround.tests=" + (compatTests ?: compatPackTests[name] ?: "mounts,server,ride"))
-		jvmArgs.add("-Dhorsingaround.sections=$compatSections")
+		jvmArgs.add("-Dhorsingaround.sections=" + (compatSections ?: compatPackSections.getOrDefault(name, "core,cuts")))
+		if (compatPackHorse[name]) {
+			jvmArgs.add("-Dhorsingaround.horse=" + compatPackHorse[name])
+		}
 		jvmArgs.add("-Dhorsingaround.scenario=")
 		getRunDir().set(runDir)
 		doFirst {

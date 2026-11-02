@@ -148,11 +148,6 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 		return s.speed > MOVING ? FORWARD : s.speed < -MOVING ? BACKWARD : Vec3.ZERO;
 	}
 
-	@ModifyReturnValue(method = "getRiddenSpeed", at = @At("RETURN"))
-	private float horsingaround$riddenSpeed(final float attributeSpeed) {
-		return this.horsingaround$managed() && this.isLocalInstanceAuthoritative() ? attributeSpeed * Math.abs(this.horsingaround$ride.speed) : attributeSpeed;
-	}
-
 	/**
 	 * The simulating side steers by the ride heading and keeps the head level instead of nodding with the camera.
 	 * Everyone else keeps the rotation the rider's client reported, instead of vanilla's snap to the rider's camera.

@@ -380,7 +380,9 @@ public final class MountsTest implements FabricClientGameTest {
 		ctx.waitTicks(2);
 		check("without them, the horse has vanilla controls", !ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$managed()));
 		check("and the riding camera lets go", !ctx.computeOnClient(mc -> RideCamera.isRiding()));
-		check("and the box is vanilla", ctx.computeOnClient(mc -> (double) mc.player.getVehicle().getBbWidth()), 1.3, 1.5);
+		// (Its own type's width, unnarrowed: with Icy's Better Horses the vanilla horse has become one of its breeds.)
+		check("and the box is the horse's own (width over its type's)",
+			ctx.computeOnClient(mc -> (double) (mc.player.getVehicle().getBbWidth() / mc.player.getVehicle().getType().getDimensions().width())), 0.99, 1.01);
 		input.lookAt(180.0F, 10.0F);
 		input.holdKey(o -> o.keyUp);
 		ctx.waitTicks(40);

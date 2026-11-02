@@ -90,10 +90,22 @@ public final class Legs {
 			}
 		}
 		if (best != null) {
-			final float middleZ = (extent(best, true, 2) + extent(best, false, 2)) * 0.5F;
+			// (A leg built of boxes stacked one on another, as Icy's Better Horses' hind legs are: it reaches from the top of the
+			// highest to the sole of the lowest, the hoof.)
+			ModelPart.Cube hoof = best;
+			float hipY = extent(best, true, 1);
+			for (final ModelPart.Cube cube : cubes) {
+				if (cube != best && sixSided(cube) && extent(cube, true, 0) < extent(best, false, 0) && extent(cube, false, 0) > extent(best, true, 0)) {
+					hipY = Math.min(hipY, extent(cube, true, 1));
+					if (extent(cube, false, 1) > extent(hoof, false, 1)) {
+						hoof = cube;
+					}
+				}
+			}
+			final float middleZ = (extent(hoof, true, 2) + extent(hoof, false, 2)) * 0.5F;
 			return new Leg(
-				dx + (extent(best, true, 0) + extent(best, false, 0)) * 0.5F, (extent(best, false, 2) - extent(best, true, 2)) * 0.5F, dy + extent(best, true, 1),
-				dy + extent(best, false, 1), dz + middleZ
+				dx + (extent(hoof, true, 0) + extent(hoof, false, 0)) * 0.5F, (extent(hoof, false, 2) - extent(hoof, true, 2)) * 0.5F, dy + hipY,
+				dy + extent(hoof, false, 1), dz + middleZ
 			);
 		}
 		if (depth < 2) {

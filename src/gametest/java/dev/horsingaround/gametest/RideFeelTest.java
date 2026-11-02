@@ -78,13 +78,13 @@ public final class RideFeelTest implements FabricClientGameTest {
 			this.server = server;
 			server.runCommand("time set noon");
 			server.runCommand("tp @a 0.5 -60 0.5 180 10");
-			server.runCommand("summon minecraft:horse 0.5 -60 0.5 {Tame:1b,Variant:0,Rotation:[180f,0f],"
+			server.runCommand("summon " + TestHorse.TYPE + " 0.5 -60 0.5 {Tame:1b,Variant:0,Rotation:[180f,0f],"
 				+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
 				+ "attributes:[{id:\"minecraft:movement_speed\",base:" + SPEED_ATTRIBUTE + "d},{id:\"minecraft:jump_strength\",base:" + JUMP_ATTRIBUTE + "d}],"
 				+ "Tags:[\"ride_test\"]}");
 			// (Another camera mod may already have the view in third person: dismounting should restore whatever it was.)
 			this.cameraBeforeMounting = ctx.computeOnClient(mc -> mc.options.getCameraType());
-			server.runCommand("ride @p mount @e[type=minecraft:horse,tag=ride_test,limit=1]");
+			server.runCommand("ride @p mount @e[type=" + TestHorse.TYPE + ",tag=ride_test,limit=1]");
 			ctx.waitFor(mc -> mc.player != null && mc.player.getVehicle() instanceof AbstractHorse);
 			world.getConnection().waitForChunksRender();
 			final TestInput input = ctx.getInput();
@@ -308,18 +308,20 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("gait is walk", sample(ctx).gait == RideTuning.WALK);
 		check("walk leg-animation speed (Fresh Animations walk < 0.4)", sample(ctx).limbSpeed, 0.25, 0.39);
 		if (FabricLoader.getInstance().isModLoaded("entity_model_features")) {
+			// (Fresh Animations' walk sways the body side to side; another mod's horse model may only bob it, as Icy's does.)
+			final boolean sways = TestHorse.TYPE.equals("minecraft:horse");
 			float low = Float.MAX_VALUE;
 			float high = -Float.MAX_VALUE;
 			for (int i = 0; i < 30; i++) {
 				ctx.waitTick();
-				final float side = ctx.computeOnClient(mc -> {
+				final float motion = ctx.computeOnClient(mc -> {
 					final RideState s = ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride();
-					return s.animatedSide - s.animatedSideBase;
+					return sways ? s.animatedSide - s.animatedSideBase : s.animatedLift - s.animatedLiftBase;
 				});
-				low = Math.min(low, side);
-				high = Math.max(high, side);
+				low = Math.min(low, motion);
+				high = Math.max(high, motion);
 			}
-			check("rider follows the saddle's side-to-side sway at a walk (blocks peak to peak)", high - low, 0.003, 0.2);
+			check("rider follows the saddle's " + (sways ? "side-to-side sway" : "bob") + " at a walk (blocks peak to peak)", high - low, 0.003, 0.2);
 		}
 		sideScreenshot(ctx, "02b_walk_side");
 	}
@@ -912,7 +914,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			fresh &= lift[1] == 1.0F;
 		}
 		check("rider reads the horse's animated body every frame (Fresh Animations)", fresh);
-		check("Fresh Animations stirrups are held for the feet", dev.horsingaround.client.compat.EmfSaddleTracker.stirrupFrames > 0);
+		check("the saddle's stirrups are held for the feet", dev.horsingaround.client.render.AnimatedHorseModel.stirrupFrames > 0);
 		check("animated saddle motion at a gallop (blocks peak to peak)", high - low, 0.02, 0.4);
 	}
 
@@ -987,13 +989,13 @@ public final class RideFeelTest implements FabricClientGameTest {
 		}
 		server.runCommand("fill 97 -60 -30 104 -57 -16 minecraft:stone");
 		server.runCommand("tp @p 100.5 -60 0.5 180 10");
-		server.runCommand("summon minecraft:horse 100.5 -60 0.5 {Tame:1b,Variant:2,Rotation:[180f,0f],"
+		server.runCommand("summon " + TestHorse.TYPE + " 100.5 -60 0.5 {Tame:1b,Variant:2,Rotation:[180f,0f],"
 			+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
 			+ "attributes:[{id:\"minecraft:movement_speed\",base:" + SPEED_ATTRIBUTE + "d}],Tags:[\"stairs_test\"]}");
 		// The horse spawns in a chunk the player only just reached; give it a moment before mounting.
 		for (int attempt = 0; attempt < 10 && !ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse); attempt++) {
 			ctx.waitTicks(5);
-			server.runCommand("ride @p mount @e[type=minecraft:horse,tag=stairs_test,limit=1]");
+			server.runCommand("ride @p mount @e[type=" + TestHorse.TYPE + ",tag=stairs_test,limit=1]");
 		}
 		ctx.waitFor(mc -> mc.player.getVehicle() instanceof AbstractHorse);
 		input.lookAt(180.0F, 10.0F);
@@ -4467,12 +4469,12 @@ public final class RideFeelTest implements FabricClientGameTest {
 		ctx.waitTicks(2);
 		world.getConnection().waitForChunksRender();
 		server.runCommand(String.format(Locale.ROOT, "tp @p %.2f %.2f 0.5 180 10", x, y));
-		server.runCommand(String.format(Locale.ROOT, "summon minecraft:horse %.2f %.2f 0.5 {Tame:1b,Variant:1,Rotation:[180f,0f],"
+		server.runCommand(String.format(Locale.ROOT, "summon " + TestHorse.TYPE + " %.2f %.2f 0.5 {Tame:1b,Variant:1,Rotation:[180f,0f],"
 			+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
 			+ "attributes:[{id:\"minecraft:movement_speed\",base:%sd}],Tags:[\"%s\"]}", x, y, SPEED_ATTRIBUTE, tag));
 		for (int attempt = 0; attempt < 10 && !ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse); attempt++) {
 			ctx.waitTicks(5);
-			server.runCommand("ride @p mount @e[type=minecraft:horse,tag=" + tag + ",limit=1]");
+			server.runCommand("ride @p mount @e[type=" + TestHorse.TYPE + ",tag=" + tag + ",limit=1]");
 		}
 		ctx.waitFor(mc -> mc.player.getVehicle() instanceof AbstractHorse);
 		input.lookAt(180.0F, 10.0F);
