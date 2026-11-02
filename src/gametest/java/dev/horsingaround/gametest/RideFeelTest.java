@@ -1152,7 +1152,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 	 */
 	private void gallopUpHill(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
 		section("Galloping up a steep hillside of steps");
-		final int x = 9600;
+		// (Clear of the diagonal terraces' lanes, 9000 on: the climbs section left one where this hill was.)
+		final int x = 12600;
 		final java.util.Random random = new java.util.Random(4421L);
 		final List<String> build = new ArrayList<>();
 		int z = -14;
@@ -4212,6 +4213,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		double maxFore = 0.0;
 		double maxHind = 0.0;
 		double forehandFirst = Double.NaN;
+		double lastFore = 0.0;
+		double lastHind = 0.0;
 		double maxVisualStep = 0.0;
 		double maxTiltRate = 0.0;
 		int shots = 0;
@@ -4235,8 +4238,12 @@ public final class RideFeelTest implements FabricClientGameTest {
 				hindHalf = tick;
 			}
 			if (Double.isNaN(forehandFirst) && fore >= 0.75) {
-				forehandFirst = hind;
+				// (Where the back was as the front made three quarters, between this sample and the last.)
+				final double along = fore > lastFore ? Mth.clamp((0.75 - lastFore) / (fore - lastFore), 0.0, 1.0) : 1.0;
+				forehandFirst = lastHind + (hind - lastHind) * along;
 			}
+			lastFore = fore;
+			lastHind = hind;
 			if (fore > 0.02 && (hindHalf < 0 || tick <= hindHalf + 8)) {
 				log("    tick %d: physics %.2f body %.3f front %.3f back %.3f tilt %.1f legs %.2f / %.2f",
 					tick, (s.y - low) / step, (s.visualY - low) / step, fore, hind, s.pitch, legs[2], legs[3]);
