@@ -47,7 +47,8 @@ whatever the speed; no stamina; no visual weight.
 - Press to jump (RDR2), no charge; how far it carries comes from speed; ground speed carries through the air.
   Vanilla's charge-and-release jump no longer runs on managed horses.
 - Jumps look like jumps (user): front up and legs folded on takeoff, a sweep through the flight, front legs reaching
-  for the landing; the rider folds forward in the air and sits up to land; the tail reacts to the motion.
+  for the landing; the rider folds forward in the air and sits up to land; the tail reacts to the motion. Not leaning
+  back too far (user, 2026-11-02): about 13 degrees nose up at takeoff, and only the ride tilts Icy's models.
 - 2-block ledges (user): ridden straight at, the horse heaves up in its stride (gather, push, slow toward the top),
   slowing to a trot first from a canter or gallop; any approach angle and neighbourhood climbs (`-Psections=climbs`).
   Never fences, walls or leaves; a ledge that only catches the flank is gone round.

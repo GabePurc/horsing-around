@@ -668,8 +668,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 		}
 		check("jump fires instantly (airborne ticks)", airborne, 8, 30);
 		check("running jump height (blocks)", peak - startY, 1.5, 2.4);
-		check("takes off front first: nose up (deg)", noseUp, 12.0, 26.0);
-		check("lands front first: nose down (deg)", -noseDown, 6.0, 16.0);
+		check("takes off front first: nose up (deg)", noseUp, 10.0, 22.0);
+		check("lands front first: nose down (deg)", -noseDown, 5.0, 16.0);
 		check("rider's head clear of the horse's in the jump (closest, centre to centre, blocks)", headGap, 0.45, 10.0);
 		check("speed kept in the air (fraction)", slowest / before, 0.85, 1.3);
 		check("in the air the legs take the jump's shape (0..1)", airLegs, 0.95, 1.0);

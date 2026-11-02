@@ -599,7 +599,7 @@ public final class RideTuning {
 	 * front legs lift and the hind legs push (pivoting on the hind hooves), level over the top, nose down to land front
 	 * feet first (pivoting on the front hooves). Degrees per degree of flight path, limits up and down, and response.
 	 */
-	static final float JUMP_PITCH_SCALE = 0.55F;
+	static final float JUMP_PITCH_SCALE = 0.45F;
 	static final float JUMP_PITCH_UP = 25.0F;
 	static final float JUMP_PITCH_DOWN = 15.0F;
 	static final float JUMP_PITCH_SMOOTHING = 0.5F;

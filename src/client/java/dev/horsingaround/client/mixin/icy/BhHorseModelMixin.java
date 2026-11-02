@@ -67,15 +67,17 @@ public abstract class BhHorseModelMixin {
 	private boolean horsingaround$stirrupsLooked;
 
 	/**
-	 * Only the ride's lean banks the horse. And in the air its legs keep still (user, 2026-11-02): Icy's model paddles
-	 * them in a panic all through a glide in its Glidewing Harness, and flails them in a long fall; they hold the jump's
-	 * shape instead, as on any horse this mod rides.
+	 * Only the ride's lean banks the horse, and only the ride's jump tilt (nose up taking off, down to land) tilts it in a
+	 * jump: Icy's jumps tilt its body too, which leant it back twice as far (user, 2026-11-02). Its jumps' legs, neck and
+	 * head stay. And in the air its legs keep still: Icy's model paddles them in a panic all through a glide in its
+	 * Glidewing Harness, and flails them in a long fall; they hold the jump's shape instead, as on any horse this mod rides.
 	 */
 	@Inject(method = "setupAnim(Licy/betterhorses/net/client/render/BhHorseRenderState;)V", at = @At("HEAD"))
 	private void horsingaround$ourBank(@Coerce final Object state, final CallbackInfo ci) {
 		if (((RidePoseState) state).horsingaround$rideState() != null) {
 			final BhHorseRenderStateAccess icy = (BhHorseRenderStateAccess) state;
 			icy.horsingaround$setBankWeight(0.0F);
+			icy.horsingaround$setJumpPitchScale(0.0F);
 			icy.horsingaround$setPanicWeight(0.0F);
 			icy.horsingaround$setJumpFlail(0.0F);
 		}
