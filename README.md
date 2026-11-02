@@ -100,7 +100,7 @@ Making a horse mod? Add your horse to the entity type tag `horsingaround:managed
 
 ## Servers
 
-I made this for my family's server. Put it (and Fabric API) on the server and in each player's game. Players without
+I made this for my family's server. Put it (and Fabric API, on Fabric) on the server and in each player's game. Players without
 it can still join and ride as normal. On a server that doesn't have it, your horse rides like vanilla and the mod tells
 you so the first time you get on.
 
@@ -109,7 +109,7 @@ you so the first time you get on.
 Horses ride the same for everyone. What you can change is how it looks and sounds to you: whether getting on switches to
 third person, which shoulder the camera sits over (or centred), how far back and how high it sits, how much the view widens at speed, how much the first-person view sways, and how
 loud the horse's breathing and snorting are. If motion bothers you, all of it turns down. Open the settings from
-[Mod Menu](https://modrinth.com/mod/modmenu) or with the "Open horse settings" key.
+[Mod Menu](https://modrinth.com/mod/modmenu) (on NeoForge, the Mods screen) or with the "Open horse settings" key.
 
 <img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/settings.webp" alt="Moving the camera from the horse settings while the world carries on behind" width="100%">
 
@@ -120,13 +120,18 @@ Texture Features), so that's what I test against first, and the rider follows th
 changes how horses ride (Horseman's free camera) or how riders sit (Not Enough Animations), Horsing Around handles its
 own horses and leaves the rest of that mod alone. Shoulder Surfing takes over the camera whenever it's on.
 
+With [Icy's Better Horses](https://modrinth.com/mod/icys-better-horses), pick whose riding horses use under **Riding** in
+the settings (on a server, the server picks). With Horsing Around's, Icy's breeds ride this way too, each on its own legs
+and with its own strengths, and Icy's bond, tack, carts, gliders, horseshoes and rearing all still work. With Icy's,
+Horsing Around leaves horses alone.
+
 <details>
 <summary><b>Every mod it's tested with</b></summary>
 
 Automated test rides run alongside Sodium, Iris, Lithium, C2ME, FerriteCore, ImmediatelyFast, Entity Culling, More
 Culling, Not Enough Animations, Emotecraft, Better Combat, First-person Model, Shoulder Surfing Reloaded, Camera
 Overhaul, Freecam, Do a Barrel Roll, AppleSkin, Raised, Better Mount HUD, Jade, Xaero's Minimap, Horse Expert, Horseman,
-Bareback Horse Riding and Mounts Stay Still.
+Bareback Horse Riding, Mounts Stay Still and Icy's Better Horses.
 
 </details>
 
@@ -136,6 +141,8 @@ Something not getting along? [Open an issue](https://github.com/GabePurc/horsing
 
 Minecraft 1.20.1 to 26.3 (pick the file for your version), Fabric Loader 0.14.25 or newer (or whatever your Fabric API
 needs), and Fabric API. Mod Menu is optional.
+
+On NeoForge: Minecraft 1.21.1, 26.1.2, 26.2 or 26.3, with NeoForge for that version.
 
 ## Buy me a coffee, get a hat
 
