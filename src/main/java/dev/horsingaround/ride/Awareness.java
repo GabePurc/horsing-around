@@ -1599,6 +1599,8 @@ public final class Awareness {
 	 * {@link #hurdleUnsafe} set when it was only the landing that ruled it out).
 	 */
 	static double hurdle(final AbstractHorse horse, final float yaw, final float reach) {
+		// (A jump from a standstill comes here without a look ahead first: what this horse can land on is its own now.)
+		body(horse);
 		return hurdle(horse, horse.getBoundingBox(), yaw, reach);
 	}
 

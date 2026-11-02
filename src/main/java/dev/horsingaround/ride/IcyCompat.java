@@ -34,6 +34,7 @@ public final class IcyCompat {
 	public static final boolean LOADED = Platform.isModLoaded(MOD_ID);
 	/** The horses Icy's mod rides: vanilla's horse, donkey, mule and undead horses, and its breeds. */
 	private static final TagKey<net.minecraft.world.entity.EntityType<?>> ICY_HORSES = TagKey.create(Registries.ENTITY_TYPE, Identifier.fromNamespaceAndPath(MOD_ID, "horses"));
+	private static final MethodHandles.Lookup LOOKUP = MethodHandles.publicLookup();
 
 	private IcyCompat() {
 	}
@@ -58,7 +59,7 @@ public final class IcyCompat {
 
 	/** Icy's bond tier for the horse (0, 1, 2...; 0 if its mod changed and the bond can't be read). */
 	public static int bondTier(final Entity horse) {
-		if (Api.BOND == null) {
+		if (Api.BOND == null || Api.BOND_TIER == null) {
 			return 0;
 		}
 		try {
@@ -86,7 +87,8 @@ public final class IcyCompat {
 	 * Charge key): the trample then also bashes hostile mobs, as the charge did.
 	 */
 	public static boolean bashes(final Entity horse, final Entity rider) {
-		if (!LOADED || Api.BREED_KEY == null || Api.CHARGE_ON == null) {
+		if (!LOADED || Api.BREED_KEY == null || Api.CHARGE_ON == null || Api.BREED_DATA == null || Api.ARCHETYPE == null
+			|| Api.BASH_DAMAGE == null || Api.BASH_KNOCKBACK == null) {
 			return false;
 		}
 		try {
@@ -143,7 +145,7 @@ public final class IcyCompat {
 	 * the ride steers by (CartTrail turns it).
 	 */
 	public static float cartYaw(final Entity horse) {
-		if (!LOADED || Gear.CART_ENTITY == null || !pullsCart(horse)) {
+		if (!LOADED || Gear.CART_ENTITY == null || Gear.CART_YAW == null || !pullsCart(horse)) {
 			return Float.NaN;
 		}
 		try {
@@ -175,7 +177,8 @@ public final class IcyCompat {
 			return false;
 		}
 		try {
-			return (boolean) Gear.HOOVES_ON.invokeExact() && (boolean) Gear.SHOD.invokeExact(horse);
+			// (The switch on if it can't be read.)
+			return (Gear.HOOVES_ON == null || (boolean) Gear.HOOVES_ON.invokeExact()) && (boolean) Gear.SHOD.invokeExact(horse);
 		} catch (final Throwable e) {
 			return false;
 		}
@@ -187,133 +190,82 @@ public final class IcyCompat {
 	 * (Entity) Object, the horse's cart, and (Object) float, its heading as drawn.
 	 */
 	private static final class Gear {
-		static final @Nullable MethodHandle CART;
-		static final @Nullable MethodHandle GLIDES;
-		static final @Nullable MethodHandle SHOD;
-		static final @Nullable MethodHandle HOOVES_ON;
-		static final @Nullable MethodHandle AXLE;
-		static final @Nullable MethodHandle CART_ENTITY;
-		static final @Nullable MethodHandle CART_YAW;
-
-		static {
-			MethodHandle cart = null;
-			MethodHandle glides = null;
-			MethodHandle shod = null;
-			MethodHandle hoovesOn = null;
-			MethodHandle axle = null;
-			MethodHandle cartEntity = null;
-			MethodHandle cartYaw = null;
-			try {
-				final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
-				final Class<?> horseData = Class.forName("icy.betterhorses.net.IHorseData");
-				cart = lookup.findVirtual(horseData, "bh_hasCartGear", MethodType.methodType(boolean.class))
-					.asType(MethodType.methodType(boolean.class, Entity.class));
-				glides = lookup.findStatic(Class.forName("icy.betterhorses.net.feature.Stabilizer"), "hasStabilizerGear", MethodType.methodType(boolean.class, horseData))
-					.asType(MethodType.methodType(boolean.class, Entity.class));
-				final Class<?> slot = Class.forName("icy.betterhorses.net.inventory.GearSlot");
-				shod = MethodHandles.insertArguments(lookup.findVirtual(horseData, "bh_hasGear", MethodType.methodType(boolean.class, slot)), 1, slot.getField("HOOVES").get(null))
-					.asType(MethodType.methodType(boolean.class, Entity.class));
-				hoovesOn = lookup.findStatic(Class.forName("icy.betterhorses.net.BhConfig"), "hoovesEnabled", MethodType.methodType(boolean.class));
-				final Class<?> type = Class.forName("icy.betterhorses.net.entity.CartType");
-				axle = MethodHandles.filterReturnValue(
-					lookup.findVirtual(Class.forName("icy.betterhorses.net.entity.HorseCartEntity"), "type", MethodType.methodType(type)),
-					lookup.findVirtual(type, "axleBehind", MethodType.methodType(double.class))
-				).asType(MethodType.methodType(double.class, Entity.class));
-				final Class<?> cartClass = Class.forName("icy.betterhorses.net.entity.HorseCartEntity");
-				cartEntity = lookup.findVirtual(horseData, "bh_getCartEntity", MethodType.methodType(cartClass))
-					.asType(MethodType.methodType(Object.class, Entity.class));
-				cartYaw = MethodHandles.insertArguments(lookup.findVirtual(cartClass, "gluedRenderYaw", MethodType.methodType(float.class, float.class)), 1, 1.0F)
-					.asType(MethodType.methodType(float.class, Object.class));
-			} catch (final ReflectiveOperationException e) {
-				cart = null;
-				glides = null;
-				shod = null;
-				hoovesOn = null;
-				axle = null;
-				cartEntity = null;
-				cartYaw = null;
-			}
-			CART = cart;
-			GLIDES = glides;
-			SHOD = shod;
-			HOOVES_ON = hoovesOn;
-			AXLE = axle;
-			CART_ENTITY = cartEntity;
-			CART_YAW = cartYaw;
-		}
+		private static final @Nullable Class<?> HORSE_DATA = find(() -> Class.forName("icy.betterhorses.net.IHorseData"));
+		private static final @Nullable Class<?> CART_CLASS = find(() -> Class.forName("icy.betterhorses.net.entity.HorseCartEntity"));
+		static final @Nullable MethodHandle CART = find(() -> LOOKUP.findVirtual(HORSE_DATA, "bh_hasCartGear", MethodType.methodType(boolean.class))
+			.asType(MethodType.methodType(boolean.class, Entity.class)));
+		static final @Nullable MethodHandle GLIDES = find(() -> LOOKUP.findStatic(Class.forName("icy.betterhorses.net.feature.Stabilizer"), "hasStabilizerGear", MethodType.methodType(boolean.class, HORSE_DATA))
+			.asType(MethodType.methodType(boolean.class, Entity.class)));
+		static final @Nullable MethodHandle SHOD = find(() -> {
+			final Class<?> slot = Class.forName("icy.betterhorses.net.inventory.GearSlot");
+			return MethodHandles.insertArguments(LOOKUP.findVirtual(HORSE_DATA, "bh_hasGear", MethodType.methodType(boolean.class, slot)), 1, slot.getField("HOOVES").get(null))
+				.asType(MethodType.methodType(boolean.class, Entity.class));
+		});
+		static final @Nullable MethodHandle HOOVES_ON = find(() -> LOOKUP.findStatic(Class.forName("icy.betterhorses.net.BhConfig"), "hoovesEnabled", MethodType.methodType(boolean.class)));
+		static final @Nullable MethodHandle AXLE = find(() -> {
+			final Class<?> type = Class.forName("icy.betterhorses.net.entity.CartType");
+			return MethodHandles.filterReturnValue(
+				LOOKUP.findVirtual(CART_CLASS, "type", MethodType.methodType(type)),
+				LOOKUP.findVirtual(type, "axleBehind", MethodType.methodType(double.class))
+			).asType(MethodType.methodType(double.class, Entity.class));
+		});
+		static final @Nullable MethodHandle CART_ENTITY = find(() -> LOOKUP.findVirtual(HORSE_DATA, "bh_getCartEntity", MethodType.methodType(CART_CLASS))
+			.asType(MethodType.methodType(Object.class, Entity.class)));
+		static final @Nullable MethodHandle CART_YAW = find(() -> MethodHandles.insertArguments(LOOKUP.findVirtual(CART_CLASS, "gluedRenderYaw", MethodType.methodType(float.class, float.class)), 1, 1.0F)
+			.asType(MethodType.methodType(float.class, Object.class)));
 	}
 
 	/** Icy's API, looked up the first time it's needed (only ever with Icy's mod installed). */
 	private static final class Api {
+		private static final @Nullable Class<?> HORSE_DATA = find(() -> Class.forName("icy.betterhorses.net.IHorseData"));
 		/** (Entity) int: the horse's bond, and (int) int: its tier. */
-		static final @Nullable MethodHandle BOND;
-		static final @Nullable MethodHandle BOND_TIER;
+		static final @Nullable MethodHandle BOND = find(() -> LOOKUP.findVirtual(HORSE_DATA, "bh_getBond", MethodType.methodType(int.class))
+			.asType(MethodType.methodType(int.class, Entity.class)));
+		static final @Nullable MethodHandle BOND_TIER = find(() -> LOOKUP.findStatic(Class.forName("icy.betterhorses.net.BhHorseTraits"), "bondTier", MethodType.methodType(int.class, int.class)));
 		/** () boolean, by BreedTraits' trait: the switches for the Quarter Horse's burst, the Thoroughbred's top end, the Arabian's endurance. */
-		static final @Nullable MethodHandle[] ABILITY_ON = new MethodHandle[4];
+		static final @Nullable MethodHandle[] ABILITY_ON = {null, ability("QUARTER_BURST"), ability("THOROUGHBRED_TOP_END"), ability("ARABIAN_ENDURANCE")};
 		/** (Entity) Object: the breed key; Object: its data, that's archetype, and its bash damage and knockback; () boolean: the charge's switch. */
-		static final @Nullable MethodHandle BREED_KEY;
-		static final @Nullable MethodHandle BREED_DATA;
-		static final @Nullable MethodHandle ARCHETYPE;
-		static final @Nullable MethodHandle BASH_DAMAGE;
-		static final @Nullable MethodHandle BASH_KNOCKBACK;
-		static final @Nullable MethodHandle CHARGE_ON;
+		static final @Nullable MethodHandle BREED_KEY = find(() -> LOOKUP.findVirtual(HORSE_DATA, "bh_getBreedKey", MethodType.methodType(net.minecraft.resources.ResourceKey.class))
+			.asType(MethodType.methodType(Object.class, Entity.class)));
+		private static final @Nullable Class<?> BREED_DATA_CLASS = find(() -> Class.forName("icy.betterhorses.net.BhBreedData"));
+		private static final @Nullable Class<?> ARCHETYPE_CLASS = find(() -> Class.forName("icy.betterhorses.net.registry.ArchetypeType"));
+		static final @Nullable MethodHandle BREED_DATA = find(() -> LOOKUP.findStatic(BREED_DATA_CLASS, "of", MethodType.methodType(BREED_DATA_CLASS, net.minecraft.resources.ResourceKey.class)));
+		static final @Nullable MethodHandle ARCHETYPE = find(() -> LOOKUP.findVirtual(BREED_DATA_CLASS, "archetype", MethodType.methodType(ARCHETYPE_CLASS)));
+		static final @Nullable MethodHandle BASH_DAMAGE = find(() -> LOOKUP.findVirtual(ARCHETYPE_CLASS, "bashDamage", MethodType.methodType(double.class)));
+		static final @Nullable MethodHandle BASH_KNOCKBACK = find(() -> LOOKUP.findVirtual(ARCHETYPE_CLASS, "bashKnockback", MethodType.methodType(double.class)));
+		static final @Nullable MethodHandle CHARGE_ON = find(() -> {
+			final Class<?> feature = Class.forName("icy.betterhorses.net.BhFeature");
+			return LOOKUP.findVirtual(feature, "on", MethodType.methodType(boolean.class)).bindTo(feature.getField("HORSE_CHARGE").get(null));
+		});
 		/** The riders who switched the charge off. */
-		static final @Nullable Set<?> CHARGE_OFF;
+		static final @Nullable Set<?> CHARGE_OFF = find(() -> {
+			final Field off = Class.forName("icy.betterhorses.net.feature.HorseCombat").getDeclaredField("chargeOff");
+			off.setAccessible(true);
+			return (Set<?>) off.get(null);
+		});
 
-		static {
-			MethodHandle bond = null;
-			MethodHandle tier = null;
-			MethodHandle breedKey = null;
-			MethodHandle breedData = null;
-			MethodHandle archetype = null;
-			MethodHandle bashDamage = null;
-			MethodHandle bashKnockback = null;
-			MethodHandle chargeOn = null;
-			try {
-				final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
-				bond = lookup.findVirtual(Class.forName("icy.betterhorses.net.IHorseData"), "bh_getBond", MethodType.methodType(int.class))
-					.asType(MethodType.methodType(int.class, Entity.class));
-				tier = lookup.findStatic(Class.forName("icy.betterhorses.net.BhHorseTraits"), "bondTier", MethodType.methodType(int.class, int.class));
+		private static @Nullable MethodHandle ability(final String name) {
+			return find(() -> {
 				final Class<?> ability = Class.forName("icy.betterhorses.net.BhAbility");
-				final MethodHandle on = lookup.findVirtual(ability, "on", MethodType.methodType(boolean.class));
-				final String[] names = {null, "QUARTER_BURST", "THOROUGHBRED_TOP_END", "ARABIAN_ENDURANCE"};
-				for (int i = 1; i < names.length; i++) {
-					ABILITY_ON[i] = on.bindTo(ability.getField(names[i]).get(null));
-				}
-				final Class<?> horseData = Class.forName("icy.betterhorses.net.IHorseData");
-				breedKey = lookup.findVirtual(horseData, "bh_getBreedKey", MethodType.methodType(net.minecraft.resources.ResourceKey.class))
-					.asType(MethodType.methodType(Object.class, Entity.class));
-				final Class<?> data = Class.forName("icy.betterhorses.net.BhBreedData");
-				final Class<?> type = Class.forName("icy.betterhorses.net.registry.ArchetypeType");
-				breedData = lookup.findStatic(data, "of", MethodType.methodType(data, net.minecraft.resources.ResourceKey.class));
-				archetype = lookup.findVirtual(data, "archetype", MethodType.methodType(type));
-				bashDamage = lookup.findVirtual(type, "bashDamage", MethodType.methodType(double.class));
-				bashKnockback = lookup.findVirtual(type, "bashKnockback", MethodType.methodType(double.class));
-				final Class<?> feature = Class.forName("icy.betterhorses.net.BhFeature");
-				chargeOn = lookup.findVirtual(feature, "on", MethodType.methodType(boolean.class)).bindTo(feature.getField("HORSE_CHARGE").get(null));
-			} catch (final ReflectiveOperationException | ClassCastException e) {
-				bond = null;
-				tier = null;
-				breedKey = null;
-				chargeOn = null;
-			}
-			BOND = bond;
-			BOND_TIER = tier;
-			BREED_KEY = breedKey;
-			BREED_DATA = breedData;
-			ARCHETYPE = archetype;
-			BASH_DAMAGE = bashDamage;
-			BASH_KNOCKBACK = bashKnockback;
-			CHARGE_ON = chargeOn;
-			Set<?> chargeOff = null;
-			try {
-				final Field off = Class.forName("icy.betterhorses.net.feature.HorseCombat").getDeclaredField("chargeOff");
-				off.setAccessible(true);
-				chargeOff = (Set<?>) off.get(null);
-			} catch (final ReflectiveOperationException | RuntimeException e) {
-				chargeOff = null;
-			}
-			CHARGE_OFF = chargeOff;
+				return LOOKUP.findVirtual(ability, "on", MethodType.methodType(boolean.class)).bindTo(ability.getField(name).get(null));
+			});
+		}
+	}
+
+	/** A lookup into Icy's mod, which may throw if that mod changed. */
+	private interface Find<T> {
+		T find() throws ReflectiveOperationException;
+	}
+
+	/**
+	 * What {@code lookup} finds, or null if Icy's mod doesn't have it (any more). Each is looked up on its own, so a change
+	 * in that mod turns off only the part of the compat that uses what changed.
+	 */
+	private static <T> @Nullable T find(final Find<T> lookup) {
+		try {
+			return lookup.find();
+		} catch (final ReflectiveOperationException | RuntimeException e) {
+			return null;
 		}
 	}
 }

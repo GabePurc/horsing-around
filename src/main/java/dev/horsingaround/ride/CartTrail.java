@@ -62,9 +62,6 @@ public final class CartTrail {
 			}
 		}
 		final float rad = yaw * Mth.DEG_TO_RAD;
-		if (!axle.placed) {
-			axle.y = Double.NaN;
-		}
 		axle.x = hitchX + Mth.sin(rad) * length;
 		axle.z = hitchZ - Mth.cos(rad) * length;
 		axle.placed = true;
