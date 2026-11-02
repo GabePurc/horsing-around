@@ -5,6 +5,8 @@ import dev.horsingaround.net.ServerRules;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Field;
+import java.util.Set;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
@@ -79,13 +81,17 @@ public final class IcyCompat {
 		}
 	}
 
-	/** Whether this is one of Icy's breeds with its charge switched on: the trample then also bashes hostile mobs, as the charge did. */
-	public static boolean bashes(final Entity horse) {
+	/**
+	 * Whether this is one of Icy's breeds with its charge switched on, by the server and by the rider (Icy's Toggle Horse
+	 * Charge key): the trample then also bashes hostile mobs, as the charge did.
+	 */
+	public static boolean bashes(final Entity horse, final Entity rider) {
 		if (!LOADED || Api.BREED_KEY == null || Api.CHARGE_ON == null) {
 			return false;
 		}
 		try {
-			return (boolean) Api.CHARGE_ON.invokeExact() && (Object) Api.BREED_KEY.invokeExact(horse) != null;
+			return (boolean) Api.CHARGE_ON.invokeExact() && (Object) Api.BREED_KEY.invokeExact(horse) != null
+				&& (Api.CHARGE_OFF == null || !Api.CHARGE_OFF.contains(rider.getUUID()));
 		} catch (final Throwable e) {
 			return false;
 		}
@@ -108,6 +114,84 @@ public final class IcyCompat {
 		}
 	}
 
+	/** Whether the horse pulls one of Icy's carts: its riders sit on the cart's bench, which Icy's mod seats and rocks. */
+	public static boolean pullsCart(final Entity horse) {
+		if (!LOADED || Gear.CART == null) {
+			return false;
+		}
+		try {
+			return (boolean) Gear.CART.invokeExact(horse);
+		} catch (final Throwable e) {
+			return false;
+		}
+	}
+
+	/** Whether the horse wears Icy's Glidewing Harness, switched on and charged: it glides down any drop and lands unhurt. */
+	public static boolean glides(final Entity horse) {
+		if (!LOADED || Gear.GLIDES == null) {
+			return false;
+		}
+		try {
+			return (boolean) Gear.GLIDES.invokeExact(horse);
+		} catch (final Throwable e) {
+			return false;
+		}
+	}
+
+	/**
+	 * Whether the horse wears Icy's horseshoes, switched on: they let it walk on powder snow. Read from the gear flags
+	 * Icy's mod sends clients, so it holds on the rider's client too (the shoes themselves are only on the server).
+	 */
+	public static boolean shod(final Entity horse) {
+		if (!LOADED || Gear.SHOD == null || !(horse instanceof AbstractHorse)) {
+			return false;
+		}
+		try {
+			return (boolean) Gear.HOOVES_ON.invokeExact() && (boolean) Gear.SHOD.invokeExact(horse);
+		} catch (final Throwable e) {
+			return false;
+		}
+	}
+
+	/**
+	 * Icy's gear, looked up the first time it's needed: (Entity) boolean, a cart in the harness slot; a working harness;
+	 * shoes in the hoof slot; and () boolean, the shoes' switch.
+	 */
+	private static final class Gear {
+		static final @Nullable MethodHandle CART;
+		static final @Nullable MethodHandle GLIDES;
+		static final @Nullable MethodHandle SHOD;
+		static final @Nullable MethodHandle HOOVES_ON;
+
+		static {
+			MethodHandle cart = null;
+			MethodHandle glides = null;
+			MethodHandle shod = null;
+			MethodHandle hoovesOn = null;
+			try {
+				final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
+				final Class<?> horseData = Class.forName("icy.betterhorses.net.IHorseData");
+				cart = lookup.findVirtual(horseData, "bh_hasCartGear", MethodType.methodType(boolean.class))
+					.asType(MethodType.methodType(boolean.class, Entity.class));
+				glides = lookup.findStatic(Class.forName("icy.betterhorses.net.feature.Stabilizer"), "hasStabilizerGear", MethodType.methodType(boolean.class, horseData))
+					.asType(MethodType.methodType(boolean.class, Entity.class));
+				final Class<?> slot = Class.forName("icy.betterhorses.net.inventory.GearSlot");
+				shod = MethodHandles.insertArguments(lookup.findVirtual(horseData, "bh_hasGear", MethodType.methodType(boolean.class, slot)), 1, slot.getField("HOOVES").get(null))
+					.asType(MethodType.methodType(boolean.class, Entity.class));
+				hoovesOn = lookup.findStatic(Class.forName("icy.betterhorses.net.BhConfig"), "hoovesEnabled", MethodType.methodType(boolean.class));
+			} catch (final ReflectiveOperationException e) {
+				cart = null;
+				glides = null;
+				shod = null;
+				hoovesOn = null;
+			}
+			CART = cart;
+			GLIDES = glides;
+			SHOD = shod;
+			HOOVES_ON = hoovesOn;
+		}
+	}
+
 	/** Icy's API, looked up the first time it's needed (only ever with Icy's mod installed). */
 	private static final class Api {
 		/** (Entity) int: the horse's bond, and (int) int: its tier. */
@@ -122,6 +206,8 @@ public final class IcyCompat {
 		static final @Nullable MethodHandle BASH_DAMAGE;
 		static final @Nullable MethodHandle BASH_KNOCKBACK;
 		static final @Nullable MethodHandle CHARGE_ON;
+		/** The riders who switched the charge off. */
+		static final @Nullable Set<?> CHARGE_OFF;
 
 		static {
 			MethodHandle bond = null;
@@ -168,6 +254,15 @@ public final class IcyCompat {
 			BASH_DAMAGE = bashDamage;
 			BASH_KNOCKBACK = bashKnockback;
 			CHARGE_ON = chargeOn;
+			Set<?> chargeOff = null;
+			try {
+				final Field off = Class.forName("icy.betterhorses.net.feature.HorseCombat").getDeclaredField("chargeOff");
+				off.setAccessible(true);
+				chargeOff = (Set<?>) off.get(null);
+			} catch (final ReflectiveOperationException | RuntimeException e) {
+				chargeOff = null;
+			}
+			CHARGE_OFF = chargeOff;
 		}
 	}
 }

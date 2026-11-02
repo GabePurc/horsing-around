@@ -2,12 +2,14 @@ package dev.horsingaround.client.render;
 
 import static dev.horsingaround.ride.RideTuning.*;
 
+import dev.horsingaround.ride.IcyCompat;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.util.Mth;
 //? if <1.21.11
 /*import net.minecraft.world.entity.HumanoidArm;*/
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemUseAnimation;
 import org.joml.Quaternionf;
@@ -37,10 +39,15 @@ public final class RidePoser {
 	private static final SaddleMotion SADDLE = new SaddleMotion();
 	private static final float[] SHAKE_PHASE = new float[1];
 
-	/** The ride a ridden horse or its rider is on, or null (no ride of this mod is on: nothing is posed). */
+	/**
+	 * The ride a ridden horse or its rider is on, or null (no ride of this mod is on: nothing is posed). A horse pulling
+	 * one of Icy's Better Horses' carts is posed, but not its riders: they sit on the cart's bench, seated and rocked by
+	 * that mod, not in the saddle.
+	 */
 	public static @Nullable RideStateHolder holder(final LivingEntity entity) {
-		final Object ridden = entity instanceof RideStateHolder ? entity : entity.getVehicle();
-		return ridden instanceof RideStateHolder holder && holder.horsingaround$managed() ? holder : null;
+		final boolean isHorse = entity instanceof RideStateHolder;
+		final Object ridden = isHorse ? entity : entity.getVehicle();
+		return ridden instanceof RideStateHolder holder && holder.horsingaround$managed() && (isHorse || !IcyCompat.pullsCart((Entity) ridden)) ? holder : null;
 	}
 
 	public static void extract(final LivingEntity entity, final LivingEntityRenderState state, final float partialTicks) {

@@ -66,7 +66,7 @@ public final class Trample {
 		}
 		final AABB box = horse.getBoundingBox().expandTowards(dx, 0.0, dz).inflate(0.1, 0.0, 0.1);
 		trampler = rider;
-		bashing = IcyCompat.bashes(horse);
+		bashing = IcyCompat.bashes(horse, rider);
 		final List<Entity> victims = level.getEntities(horse, box, TRAMPLEABLE);
 		trampler = null;
 		if (victims.isEmpty()) {

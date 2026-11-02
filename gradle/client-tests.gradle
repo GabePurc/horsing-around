@@ -295,7 +295,7 @@ def compatTests = project.findProperty("compatTests")
 // (The horses pack skips the server test: Horseman's server config isn't loaded in the test's second, in-process server.)
 // (Icy's pack rides one of its breeds through the horse tests, an American Paint: a vanilla horse's size, summoned with
 // the tests' own stats, and none of its abilities changes how it rides. MountsTest checks the breeds' traits.)
-def compatPackTests = [horses: "ride,mounts", icys: "ride,terrain,mounts,server"]
+def compatPackTests = [horses: "ride,mounts", icys: "ride,terrain,mounts,server,icy"]
 def compatPackHorse = [icys: "icys-better-horses:american_paint_horse"]
 // (Most packs run the ride test's core and cuts sections; Icy's runs every section, its breed standing in for the horse.)
 def compatPackSections = [icys: ""]

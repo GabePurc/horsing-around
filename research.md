@@ -118,6 +118,11 @@ whatever the speed; no stamina; no visual weight.
   motion (not Icy's own rider motion on top), only this mod's lean banks the horse, the ride's legs, neck, tail and
   stirrups go on them as on Fresh Animations', and the ride tilts on its own legs (hoof positions and leg length
   measured from the model, so a draft or a pony tilts and plants right on slopes).
+  Its gear works on this mod's riding (user request 2026-11-02): a cart's riders sit on its bench, posed and rocked by
+  Icy's mod, not in the saddle; in a working Glidewing Harness no drop is one the horse won't take; in horseshoes powder
+  snow is ground, not a hazard (Icy's mod only knows the shoes on the server, so a ridden horse sank on its rider's
+  client; the ride reads the gear flags it sends clients). Its free-look key shares Left Ctrl with sprint, the ride's
+  spur, so it does nothing here: the horse heads where the rider looks, and standing still is free look.
   Icy's: this mod leaves horses alone. Icy's mod has no switch for its riding, so the hooks reach into its code and
   miss quietly when it changes; the `icys` compat pack rides a Quarter Horse through the horse tests to catch that.
 

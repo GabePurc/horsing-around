@@ -91,6 +91,7 @@ at most two lines, under the right area; details go in the PR, not here.
 - Mixins: one per vanilla class, chainable result changes instead of cancelling injections, cosmetic hooks optional; an Entity Model Features API change logs a warning
 - Works with Fresh Animations, EMF and ETF (dev runs load them); steering wins over Horseman's free camera, rider pose applied after Not Enough Animations
 - Icy's Better Horses (user request, 2026-10-31): the server picks whose riding (`ridingStyle`; the screen in singleplayer/LAN). Ours by default rides Icy's breeds as vanilla horses of their stats (Icy's gaits, auto-ride, swim boost, speed swings, charge, model bank and rider motion off; its models get the ride's legs, neck, tail, stirrups and their own leg geometry); its speed abilities and charge come back on our gaits, stamina and trample (`BreedTraits`); Icy's leaves horses alone. `icys` compat pack
+- Icy's gear on our riding (user request, 2026-11-02), checked by `IcyFeaturesTest`: carts, plough, wagon, a second rider, rearing, medkit, mining and dismount work as they are; a cart's riders are left to Icy's bench pose; the horse rides off any drop in a working Glidewing Harness and onto powder snow in horseshoes (the shoes now hold on the rider's client)
 - `./gradlew runCompat --continue` runs production games with packs of popular mods (`compatPacks`, pinned by Modrinth version id); run before a release and after touching mixins
 
 ## Multiple Minecraft versions

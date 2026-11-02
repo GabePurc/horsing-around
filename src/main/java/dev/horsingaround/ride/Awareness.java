@@ -19,6 +19,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CampfireBlock;
+import net.minecraft.world.level.block.PowderSnowBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.AABB;
@@ -69,6 +70,12 @@ public final class Awareness {
 	private static final int HAZARD = 3;
 
 	private static final BlockPos.MutableBlockPos POS = new BlockPos.MutableBlockPos();
+	/**
+	 * The horse being read: it walks on powder snow (Icy's Better Horses' horseshoes), so that's no hazard to it; it wears
+	 * Icy's Glidewing Harness, which glides it down any drop and lands it unhurt, so no drop is one it won't take.
+	 */
+	private static boolean snowFooting;
+	private static boolean gliding;
 	/** What the last probe found (CLEAR, WALL or DANGER), and the first jumpable gap it passed (MAX_VALUE if none). */
 	private static int kind;
 	private static float gapAt;
@@ -127,6 +134,8 @@ public final class Awareness {
 		inMaxZ = Mth.floor(box.maxZ - 1.0E-7);
 		inMinY = Mth.floor(box.minY);
 		inMaxY = Mth.floor(box.maxY);
+		snowFooting = PowderSnowBlock.canEntityWalkOnPowderSnow(horse);
+		gliding = IcyCompat.glides(horse);
 	}
 
 	/** Block cells the body is in now: a hazard already there is behind it, not ahead (it can walk back out). */
@@ -858,6 +867,9 @@ public final class Awareness {
 	 * and returns the speed that brakes to that in time. A slope is taken at a pace, never at a cost. Quiet: no snort.
 	 */
 	private static float descent(final AbstractHorse horse, final RideState s, final double fall, final float decel, final float blocksPerUnit) {
+		if (gliding) {
+			return Float.MAX_VALUE;
+		}
 		final double gravity = Vanilla.gravity(horse);
 		final float speed = Math.max(s.speed, 0.0F) * blocksPerUnit;
 		float limit = Float.MAX_VALUE;
@@ -1088,13 +1100,14 @@ public final class Awareness {
 				}
 				return HAZARD;
 			}
-			if (by <= bodyTop && isHazard(state) && !occupied(bx, by, bz)) {
+			if (by <= bodyTop && hazard(state) && !occupied(bx, by, bz)) {
 				if (whole) {
 					spans(state.getCollisionShape(level, POS));
 				}
 				return HAZARD;
 			}
-			final VoxelShape shape = Foliage.leavesOpen(level) && Foliage.isLeaves(state) ? Shapes.empty() : state.getCollisionShape(level, POS);
+			final VoxelShape shape = Foliage.leavesOpen(level) && Foliage.isLeaves(state) ? Shapes.empty()
+				: snowFooting && state.is(Blocks.POWDER_SNOW) ? Shapes.block() : state.getCollisionShape(level, POS);
 			if (shape.isEmpty() || shape != Shapes.block() && !whole && !covers(shape, inX, inZ)) {
 				if (!fluid.isEmpty() && fluid.is(FluidTags.WATER)) {
 					// Swimming is fine, and water breaks any fall.
@@ -1105,7 +1118,7 @@ public final class Awareness {
 			}
 			final double surface = by + shape.max(Direction.Axis.Y);
 			if (surface <= ground + STEP_UP + 0.01 && ceiling - surface >= BODY_HEIGHT) {
-				if (ground - surface > fall) {
+				if (ground - surface > fall && !gliding) {
 					return DROP;
 				}
 				columnGround = surface;
@@ -1120,6 +1133,11 @@ public final class Awareness {
 			if (whole) {
 				spans(shape);
 			}
+		}
+		if (ceiling == Double.MAX_VALUE && gliding) {
+			// Nothing to land on in reach: the harness glides it down to whatever is there.
+			columnGround = bottom;
+			return GROUND;
 		}
 		return ceiling == Double.MAX_VALUE ? DROP : BLOCKED;
 	}
@@ -1153,6 +1171,11 @@ public final class Awareness {
 	/** Fences, walls and fence gates: jumped as hurdles, never climbed as ledges. */
 	private static boolean isFence(final BlockState state) {
 		return state.is(BlockTags.FENCES) || state.is(BlockTags.WALLS) || state.is(BlockTags.FENCE_GATES);
+	}
+
+	/** {@link #isHazard} for the horse being read. */
+	private static boolean hazard(final BlockState state) {
+		return isHazard(state) && !(snowFooting && state.is(Blocks.POWDER_SNOW));
 	}
 
 	/** Blocks that hurt or trap a horse walking into or onto them (lava is checked as a fluid). */
@@ -1218,7 +1241,7 @@ public final class Awareness {
 		final double dx = movement.x + (sideways * cos - sin) * push;
 		final double dz = movement.z + (cos + sideways * sin) * push;
 		final boolean intoHazard = entersHazard(horse, dx, dz);
-		final boolean overEdge = !intoHazard && horse.onGround() && (s.speed < 0.0F || s.dangerAhead <= GUARD_RANGE || s.gapAhead <= GUARD_RANGE)
+		final boolean overEdge = !intoHazard && !gliding && horse.onGround() && (s.speed < 0.0F || s.dangerAhead <= GUARD_RANGE || s.gapAhead <= GUARD_RANGE)
 			&& fallsOff(horse, dx, dz, acceptableFall(horse));
 		if (!intoHazard && !overEdge) {
 			return;
@@ -1256,7 +1279,7 @@ public final class Awareness {
 		final int feet = Mth.floor(box.minY);
 		// Standing on a hazard (a magma block), it walks on off it rather than being held there: the ground under the
 		// hooves doesn't count then (lava still does).
-		final boolean onHazard = isHazard(level.getBlockState(POS.set(Mth.floor((box.minX + box.maxX) * 0.5), Mth.floor(box.minY - 1.0E-3), Mth.floor((box.minZ + box.maxZ) * 0.5))));
+		final boolean onHazard = hazard(level.getBlockState(POS.set(Mth.floor((box.minX + box.maxX) * 0.5), Mth.floor(box.minY - 1.0E-3), Mth.floor((box.minZ + box.maxZ) * 0.5))));
 		for (int x = x0; x <= x1; x++) {
 			for (int z = z0; z <= z1; z++) {
 				final boolean overNow = x >= Mth.floor(box.minX) && x <= Mth.floor(box.maxX - 1.0E-7) && z >= Mth.floor(box.minZ) && z <= Mth.floor(box.maxZ - 1.0E-7);
@@ -1271,7 +1294,7 @@ public final class Awareness {
 						continue;
 					}
 					final BlockState state = level.getBlockState(POS.set(x, y, z));
-					if (!state.isAir() && (isHazard(state) && !(onHazard && y < feet) || !state.getFluidState().isEmpty() && state.getFluidState().is(FluidTags.LAVA))) {
+					if (!state.isAir() && (hazard(state) && !(onHazard && y < feet) || !state.getFluidState().isEmpty() && state.getFluidState().is(FluidTags.LAVA))) {
 						return true;
 					}
 				}
@@ -1626,7 +1649,7 @@ public final class Awareness {
 		// Ground to land on beyond, no further down than it falls.
 		final AABB beyond = box.move(fx * clear, 0.0, fz * clear);
 		final double fall = acceptableFall(horse);
-		if (level.noBlockCollision(horse, beyond.expandTowards(0.0, -fall, 0.0)) || entersHazard(level, box, fx * clear, fz * clear)) {
+		if (!gliding && level.noBlockCollision(horse, beyond.expandTowards(0.0, -fall, 0.0)) || entersHazard(level, box, fx * clear, fz * clear)) {
 			hurdleUnsafe = true;
 			return Double.NaN;
 		}
@@ -1776,7 +1799,7 @@ public final class Awareness {
 		probe(horse, horse.getX(), horse.getY(), horse.getZ(), horse.getYRot(), LOOK_AHEAD_MAX, fall, side);
 		final float forward = speed > 0.0F ? speed + JUMP_FORWARD_BOOST * power : 0.0F;
 		final double launch = Math.max(horse.getAttributeValue(Attributes.JUMP_STRENGTH) * power, JUMP_MIN_VELOCITY);
-		return flight(0.0, horse.getY(), forward, launch, Vanilla.gravity(horse)) > fall;
+		return !gliding && flight(0.0, horse.getY(), forward, launch, Vanilla.gravity(horse)) > fall;
 	}
 
 	/** The horse plants its feet: a snort and a toss of the head, not too often. */

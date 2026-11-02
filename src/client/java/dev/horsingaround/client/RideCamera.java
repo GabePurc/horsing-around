@@ -4,6 +4,7 @@ import static dev.horsingaround.ride.RideTuning.*;
 
 import dev.horsingaround.client.compat.CameraMods;
 import dev.horsingaround.client.render.SaddleMotion;
+import dev.horsingaround.ride.IcyCompat;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
 import net.minecraft.client.CameraType;
@@ -158,7 +159,8 @@ public final class RideCamera {
 		float lift = 0.0F;
 		float pitch = 0.0F;
 		float limbSpeed = 0.0F;
-		if (ride != null && minecraft.options.bobView().get() && minecraft.player.getVehicle() instanceof LivingEntity horse) {
+		// (Not on the bench of one of Icy's Better Horses' carts: that rocks with the cart, not with the horse's back.)
+		if (ride != null && minecraft.options.bobView().get() && minecraft.player.getVehicle() instanceof LivingEntity horse && !IcyCompat.pullsCart(horse)) {
 			final SaddleMotion saddle = SADDLE.compute(horse, ride, partialTicks);
 			lift = saddle.lift;
 			pitch = saddle.pitch;

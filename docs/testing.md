@@ -113,6 +113,23 @@ are vanilla's own and only warned about). Run it after touching version-specific
 `build.gradle`); results in `build/run/compat/<pack>/`. Run it before a release and after touching mixins. The `icys` pack (Icy's Better
 Horses) rides one of its breeds, an American Paint (`-Dhorsingaround.horse`, see `TestHorse`), through every section of the
 ride test and the terrain, mounts and server tests, which must pass as on a vanilla horse; `MountsTest` also rides a
-Friesian under both riding styles and checks the breeds' traits (`BreedTraits`) and the bash. Other packs run the ride test's core and cuts sections (`-PcompatSections` for others). To play with a pack yourself,
+Friesian under both riding styles and checks the breeds' traits (`BreedTraits`) and the bash. `IcyFeaturesTest`
+(`-PcompatTests=icy`, `horsingaround-icy-report.txt`) rides Icy's gear on this mod's riding: cart, plough, wagon, a second
+rider (a server-only player), Glidewing Harness off a cliff, rear key, horseshoes on powder snow and water, medkit, the
+charge toggle, mounted mining and the dismount side. Other packs run the ride test's core and cuts sections (`-PcompatSections` for others). To play with a pack yourself,
 `./gradlew playCompat<Pack>` (e.g. `playCompatIcys`) opens the same game without tests; its worlds stay in
 `build/run/play/<pack>/`.
+
+Icy's features with only screens or keys to them aren't tested; check them by hand in `playCompatIcys`, riding on this
+mod's riding (default keys on 26.3):
+
+- Command wheel (R): each command on the horse you look at, and on the one you ride.
+- Whistle (P): calls your active horse; pressed while riding, opens its info screen.
+- Roster (G): lists your horses; Set Active, Whistle, Send Home; a dead horse comes back with Summon (revival) and
+  rides as before.
+- Trust: `/horse trust <player>` lets them ride and drive your horses; `/horse untrust` bucks them off.
+- Upgraded saddle held while looking at a horse: the stats panel above the hotbar.
+- Stable Handbook opens and pages turn; Icy's settings screen from Mod Menu opens and saves.
+- Cart menu (Left Alt) while driving: switch model, Riders tab, Unload all.
+- Breeding: golden carrots on a male and a female give a foal; two of one gender refuse.
+- Free look (Left Ctrl, also sprint) does nothing on this mod's riding, by design (see research.md).
