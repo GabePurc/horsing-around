@@ -2,10 +2,10 @@
 
 <img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/banner.png" alt="Horsing Around" width="100%">
 
-<a href="https://buymeacoffee.com/blintzbug"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-coffee.png" alt="Buy me a coffee" width="188"></a>
-<a href="https://modrinth.com/mod/fabric-api"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-fabric-api.png" alt="Requires Fabric API" width="223"></a>
-<a href="https://github.com/GabePurc/horsing-around"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-source.png" alt="Source on GitHub" width="201"></a>
-<a href="https://github.com/GabePurc/horsing-around/issues/new?template=bug_report.yml"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-bug.png" alt="Report a bug" width="162"></a>
+<a href="https://buymeacoffee.com/blintzbug"><img src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/donate/buymeacoffee-singular_vector.svg" alt="Buy me a coffee" width="209"></a>
+<a href="https://modrinth.com/mod/fabric-api"><img src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/requires/fabric-api_vector.svg" alt="Requires Fabric API" width="158"></a>
+<a href="https://github.com/GabePurc/horsing-around"><img src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/available/github_vector.svg" alt="Source on GitHub" width="164"></a>
+<a href="https://github.com/GabePurc/horsing-around/issues/new?template=bug_report.yml"><img src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/documentation/issues_vector.svg" alt="Report a bug" width="182"></a>
 
 </div>
 
@@ -148,7 +148,7 @@ your server who has the mod sees it. It's only cosmetic: your helmet is hidden u
 
 <img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/hat.webp" alt="A rider in the supporters' cowboy hat at a canter" width="100%">
 
-<a href="https://buymeacoffee.com/blintzbug"><img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/button-coffee.png" alt="Buy me a coffee" width="188"></a>
+<a href="https://buymeacoffee.com/blintzbug"><img src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/donate/buymeacoffee-singular_vector.svg" alt="Buy me a coffee" width="209"></a>
 
 </div>
 

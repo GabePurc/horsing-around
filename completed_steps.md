@@ -104,7 +104,7 @@ at most two lines, under the right area; details go in the PR, not here.
 
 ## Release, store and publishing
 
-- LGPL-3.0-only licence (`COPYING.LESSER` with the GPL text in `COPYING`, both in every jar; MIT up to 0.5.2), README doubling as the Modrinth page (banner, buttons, looping clips and stills in `docs/media/`), gallery shots (`-Ptests=gallery`), store filming (`-Ptests=store`, `StoreMediaTest`, `scripts/store-media.sh`)
+- LGPL-3.0-only licence (`COPYING.LESSER` with the GPL text in `COPYING`, both in every jar; MIT up to 0.5.2), README doubling as the Modrinth page (banner, badges, looping clips and stills in `docs/media/`), gallery shots (`-Ptests=gallery`), store filming (`-Ptests=store`, `StoreMediaTest`, `scripts/store-media.sh`)
 - Store clips re-shot for 0.4.0 like a film (30 fps, slow motion, moving camera set-ups, golden-hour sky); every frame drawn at
   its own moment on the game's timer, read back before the next and encoded as a keyframe, so legs and pace stay smooth
 - Modrinth description plays the clips as MP4 video, GitHub's README and CurseForge as WebP (`scripts/store-descriptions.sh`);
