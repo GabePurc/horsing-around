@@ -52,3 +52,10 @@ Still open:
   failure shows what the horse did. Also once (2026-10-31, full parallel run with the machine at load 27): "galloping
   straight at a narrow 2-block ledge with a way round" ended 0.95 blocks off the line (target 0.3), having started the
   lane 0.6 off; 3 of 3 passed at 0.00 on their own.
+- Borderline checks (0.6.0 release runs, 2026-11-02): "walking down a staircase of stair blocks", hooves' 90th
+  percentile, measured 0.232-0.315 against 0.3 (failed 2 of 5, only in runs with other tests); Icy's "trotting up a slope
+  of full blocks" median, 0.116-0.135 against 0.12 (Icy's trot lifts the hooves higher). Each needs a look: a real
+  float, or a limit to set from what the stride itself does. The horses pack's nautilus once rode 0.54 blocks (target 1;
+  3.9 rerun).
+- Under `build auditMixins` two audit servers can both want port 25565 ("FAILED TO BIND TO PORT", a NeoForge server
+  audit most runs); it passes rerun alone. Give each audit server its own port.

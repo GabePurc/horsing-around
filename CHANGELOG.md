@@ -2,6 +2,33 @@
 
 Each version's notes are written to paste straight into the Modrinth version page.
 
+## 0.6.0
+
+### New
+- **NeoForge.** Horsing Around now runs on NeoForge too, for Minecraft 1.21.1, 26.1.2, 26.2 and 26.3.
+- **Works with Icy's Better Horses.** With both installed, choose whose riding horses use under **Riding** in the settings. On a server, the server picks (`ridingStyle` in its `config/horsingaround.json`).
+  - **Horsing Around** (the default): every breed rides with this mod's weight, gaits and stamina, and stands on its own legs on slopes. Icy's bond, tack, carts, combat and rearing all still work; its own gaits, auto-ride and swim boost step aside.
+  - **Icy's Better Horses**: Icy's own riding, and this mod leaves horses alone.
+- With Horsing Around's riding on Icy's breeds:
+  - The Quarter Horse picks up speed twice as fast from a standstill, the Thoroughbred finds an extra turn of speed after a few seconds flat out on level ground (and tires faster while it lasts), and the Arabian tires more slowly and recovers faster. A strong bond makes each stronger.
+  - Trampling bashes hostile mobs of any size as hard as Icy's charge would, and the Toggle Horse Charge key turns it off.
+  - A Glidewing Harness makes any drop safe: your horse gallops off cliffs and jumps gaps it would otherwise refuse.
+  - Horseshoes carry a horse over powder snow instead of sinking in it.
+  - Carts roll like real carts: they follow behind, cut inside bends and stay put while the horse turns on the spot. The horse in the shafts feels the cart's weight, turns wide, and draws it smoothly up and down slopes.
+
+### Changed
+- Jumps lean back a little less on takeoff.
+- Hooves lift ahead of higher ground and set down softly, so walking up and down steps looks smooth.
+
+### Fixed
+- On Minecraft 1.21.1, galloping across a short dip no longer rubber-bands your horse back on a server.
+- Your rider rises with a rearing horse instead of its back coming up through them (with Fresh Animations or Icy's Better Horses).
+- Legs keep moving in worlds that have been running for a very long time.
+- Legs no longer flutter when your horse drops past a slope.
+- Galloping up a ragged hillside, your horse rides it as one slope instead of nodding into each step.
+- Your horse's body no longer jumps up after climbing two blocks.
+- Over the shoulder, the crosshair never targets the horse you're riding.
+
 ## 0.5.2
 
 ### Changed
