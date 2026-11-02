@@ -689,6 +689,11 @@ public final class RideTuning {
 	public static final float RIDER_JUMP_FOLLOW = 0.6F;
 	/** The hips ride the saddle exactly; the torso takes this share of the saddle's rocking. */
 	public static final float RIDER_SADDLE_PITCH_FOLLOW = 0.5F;
+	/**
+	 * A rearing horse (a pack's or Icy's Better Horses' model, measured) tilts its back far up: the rider goes with it, the
+	 * torso taking this share of the tilt (leaning forward over the neck a little) and the legs all of it, along its sides.
+	 */
+	public static final float RIDER_REAR_FOLLOW = 0.85F;
 	/** Seat height above the rider's origin; the rider pivots here. */
 	public static final float RIDER_SEAT_HEIGHT = 0.6F;
 	/** The rider sinks this far into the saddle (vanilla seats them for a legs-out pose), blocks. */

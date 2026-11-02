@@ -69,6 +69,7 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 	private static final double TROT = RideTuning.TERMINAL_VELOCITY_FACTOR * RideTuning.GAIT_SPEED[RideTuning.TROT];
 
 	private static ServerPlayer pillion;
+	private int rearShots;
 	private final List<String> report = new ArrayList<>();
 	private int failures;
 	private int lane;
@@ -411,7 +412,7 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 	}
 
 	/** Sends Icy's rear request for the ridden horse: the ticks it then stood, or 0 if it never did. */
-	private static int rearOnce(final ClientGameTestContext ctx, final int id) {
+	private int rearOnce(final ClientGameTestContext ctx, final int id) {
 		ctx.runOnClient(mc -> {
 			try {
 				ClientPlayNetworking.send((CustomPacketPayload) Class.forName("icy.betterhorses.net.network.BhRearPayload").getConstructor(int.class).newInstance(id));
@@ -424,6 +425,9 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 			ctx.waitTick();
 			if (ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse h && h.isStanding())) {
 				up++;
+				if (this.rearShots < 2 && (up == 6 || up == 14)) {
+					sideScreenshot(ctx, "icy_rear_" + this.rearShots++ + "_" + up);
+				}
 			} else if (up > 0) {
 				break;
 			}

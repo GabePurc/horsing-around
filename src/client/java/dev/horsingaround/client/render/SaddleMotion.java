@@ -124,7 +124,8 @@ public final class SaddleMotion {
 			s.animatedSideBase = side;
 			s.animatedPitchBase = pitch;
 			s.animatedRollBase = roll;
-		} else {
+		} else if (s.rear <= 0.0F) {
+			// (Not while it rears: that is a pose, not the gait's motion, and the rider has to go all the way up with it.)
 			final float k = 1.0F - (float) Math.exp(-(now - s.animatedAt) * 1.0E-9 / BASELINE_SECONDS);
 			s.animatedLiftBase += (lift - s.animatedLiftBase) * k;
 			s.animatedForwardBase += (forward - s.animatedForwardBase) * k;

@@ -11,6 +11,7 @@ import net.minecraft.util.Mth;
 /*import net.minecraft.world.entity.HumanoidArm;*/
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.item.ItemUseAnimation;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -99,6 +100,7 @@ public final class RidePoser {
 
 		pose.horsingaround$setRide(isHorse ? s : null);
 		if (isHorse) {
+			s.rear = horse instanceof AbstractHorse rearing ? rearing.getStandAnim(partialTicks) : 0.0F;
 			// A pack-animated model gets its neck pose in the Entity Model Features hook, after the pack has run.
 			final boolean packAnimated = !saddle.synthetic;
 			final float shake = packAnimated ? 0.0F : s.headShake(horse.tickCount + partialTicks, SHAKE_PHASE);
@@ -154,8 +156,10 @@ public final class RidePoser {
 		final float riderBank = bank * RIDER_BANK_FOLLOW + saddle.roll * RIDER_BANK_FOLLOW * Mth.DEG_TO_RAD;
 		// Jumping, they fold forward over the neck with the horse's rise, and sit up again coming down.
 		final float jumpFold = s.airLegs(partialTicks) * RIDER_JUMP_FOLD * Mth.DEG_TO_RAD + Math.max(jump, 0.0F) * (RIDER_JUMP_FOLLOW - RIDER_UPHILL_LEAN);
+		// Rearing (measured), it goes up with the horse's back: see RIDER_REAR_FOLLOW.
+		final float rear = !saddle.synthetic && horse instanceof AbstractHorse rearing ? rearing.getStandAnim(partialTicks) : 0.0F;
 		final float riderPitch = -Math.max(pitch, 0.0F) * RIDER_UPHILL_LEAN - jumpFold
-			+ (saddle.pitch * RIDER_SADDLE_PITCH_FOLLOW - forwardLean + s.inertia(partialTicks) + s.leafPush(partialTicks)) * Mth.DEG_TO_RAD;
+			+ (saddle.pitch * Mth.lerp(rear, RIDER_SADDLE_PITCH_FOLLOW, RIDER_REAR_FOLLOW) - forwardLean + s.inertia(partialTicks) + s.leafPush(partialTicks)) * Mth.DEG_TO_RAD;
 		// Room between the horse's head and the rider (a jump, a steep climb): too close, the horse stretches its neck
 		// forward, as a jumping horse does, and if that isn't enough the rider folds less over the neck.
 		ROOM_HORSE.set(hx + shiftX, hy + bodyLift, hz + shiftZ);
@@ -189,7 +193,7 @@ public final class RidePoser {
 		pose.horsingaround$setPose(tx, ty, tz, RIDER_ROTATION.x, RIDER_ROTATION.y, RIDER_ROTATION.z, RIDER_ROTATION.w, 0.0F, RIDER_SEAT_HEIGHT, 0.0F);
 
 		// The legs hold still against the horse (where the stirrups are held) whatever the torso does.
-		final float legPitch = seatedPitch - bodyPitch;
+		final float legPitch = seatedPitch - bodyPitch - rear * saddle.pitch * Mth.DEG_TO_RAD;
 		// The stirrups roll with the saddle's sway, so the legs do too.
 		final float legRoll = riderBank - bank - (saddle.synthetic ? 0.0F : saddle.roll * Mth.DEG_TO_RAD);
 		// At a canter the pelvis rocks a little with the stride while the shoulders stay put; less in a gallop's half seat.

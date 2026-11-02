@@ -88,7 +88,8 @@ whatever the speed; no stamina; no visual weight.
 ## Rider
 
 - Never looks detached (user): hips ride the animated body, feet in stirrups, hands on reins; resists the horse's
-  lean and stays upright; bounces with the gait; a small pelvis rock at a canter, a half seat at a gallop (not a hump).
+  lean and stays upright, but goes up with a rearing horse's back (user, 2026-11-02: it clipped through Icy's horse);
+  bounces with the gait; a small pelvis rock at a canter, a half seat at a gallop (not a hump).
 - Tools and weapons are held low and ready in the main hand, the other on the reins; swings start and end there.
 - The bow is drawn like an archer's (side-on, bow arm to the target, string hand to the cheek); crossbow square to
   the aim; first person and on-foot left to vanilla.

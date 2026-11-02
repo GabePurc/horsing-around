@@ -329,6 +329,8 @@ public final class RideState {
 	public long animatedAt;
 	/** The frame (see the saddle motion) it was last measured in. */
 	public int animatedFrame = -10;
+	/** How far up the horse is rearing (0..1), as of its last drawing: the measured motion's baseline holds meanwhile. */
+	public float rear;
 	/** Frames the head toss was applied through the animation pack (for tests). */
 	public int animatedShakeFrames;
 	/**
