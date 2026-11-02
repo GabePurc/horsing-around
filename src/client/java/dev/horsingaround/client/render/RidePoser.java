@@ -58,6 +58,11 @@ public final class RidePoser {
 		if (holder == null) {
 			// Render states are reused between entities, so nothing of a ridden horse's pose may carry over.
 			pose.horsingaround$clearPose();
+			// On the bench of one of Icy's Better Horses' carts, posed by that mod: over steps the rider rises with the horse
+			// as drawn (the cart's hitch does), not a block at a time.
+			if (!isHorse && entity.getVehicle() instanceof RideStateHolder carting && carting.horsingaround$managed()) {
+				pose.horsingaround$setPose(0.0F, carting.horsingaround$ride().heightOffset(partialTicks), 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F);
+			}
 			pose.horsingaround$setNeck(0.0F);
 			pose.horsingaround$setHeadShake(0.0F, 0.0F);
 			pose.horsingaround$setLegs(false, 0.0F, 0.0F, 0.0F);

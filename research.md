@@ -122,7 +122,9 @@ whatever the speed; no stamina; no visual weight.
   Its gear works on this mod's riding (user request 2026-11-02): a cart's riders sit on its bench, posed and rocked by
   Icy's mod, not in the saddle; a cart turns as a real one does and the horse pulls it (user, 2026-11-02, `CartTrail`): its
   wheels don't slide sideways, so it turns only as it's pulled, cutting inside a bend, and the shafts hold the horse
-  within 20 degrees of it, so the horse turns wide (no hard cuts) and is slower to get going and to slow down; in the air Icy's
+  within 20 degrees of it, so the horse turns wide (no hard cuts) and is slower to get going and to slow down; over
+  steps it rises with the horse as drawn and its wheels roll up them, tilting smoothly (user: "slopes should feel a lot
+  smoother", a little rumble is fine); in the air Icy's
   model keeps its legs still (no panicked paddling in a glide, no flailing in a long fall); in a working Glidewing Harness no drop is one the horse won't take; in horseshoes powder
   snow is ground, not a hazard (Icy's mod only knows the shoes on the server, so a ridden horse sank on its rider's
   client; the ride reads the gear flags it sends clients). Its free-look key shares Left Ctrl with sprint, the ride's

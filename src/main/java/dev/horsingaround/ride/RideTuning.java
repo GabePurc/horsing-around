@@ -936,6 +936,16 @@ public final class RideTuning {
 	 */
 	static final float CART_ACCEL = 0.55F;
 	static final float CART_DECEL = 0.6F;
+	/**
+	 * A cart's wheels roll up and down steps instead of jumping a block: its axle eases this share of the way to the
+	 * ground under it each tick, at most CART_AXLE_RISE blocks; its tilt (from the hitch, as the horse is drawn, down to
+	 * the axle) eases CART_TILT_EASE of the way, at most CART_TILT_RATE degrees a tick, up to CART_TILT_MAX.
+	 */
+	static final float CART_AXLE_EASE = 0.5F;
+	static final float CART_AXLE_RISE = 0.2F;
+	static final float CART_TILT_EASE = 0.25F;
+	static final float CART_TILT_RATE = 2.5F;
+	static final float CART_TILT_MAX = 25.0F;
 
 	private RideTuning() {
 	}

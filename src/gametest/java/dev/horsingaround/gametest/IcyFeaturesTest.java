@@ -97,6 +97,7 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 			});
 
 			cart(ctx, input, world);
+			cartHill(ctx, input, world);
 			plough(ctx, input, world);
 			wagon(ctx, input, world);
 			secondRider(ctx, input, world);
@@ -148,6 +149,77 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 		// (Alone it turns as tight as about 6 blocks at a gallop; in the shafts it can bend 20 degrees before the cart holds it.)
 		followThroughTurn(ctx, input, "icy_cart", 6.5);
 		check("the same cart all along (never dropped and put back)", cartId.equals(world.getServer().computeOnServer(server -> cartUuid(horse(server, id)))));
+		stop(ctx, input);
+		dismount(ctx, input);
+	}
+
+	/**
+	 * Up and down a hill of 1-block steps at a canter, then on along the flat at a gallop, watching the cart as drawn: it
+	 * rises and tilts smoothly, not a block at a time, and at a gallop on the flat it hardly bounces.
+	 */
+	private void cartHill(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Icy's cart up and down a hill");
+		final int x = nextLane();
+		// Steps up every 3 blocks for 5 blocks, a flat top, and down again the same way (the ride heads north, -z).
+		for (int step = 0; step < 5; step++) {
+			world.getServer().runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:grass_block", x - 3, GROUND + step, -12 - 3 * step, x + 3, GROUND + step, -60 + 3 * step));
+		}
+		final int id = summon(ctx, world, "american_paint_horse", UPGRADED, x, GROUND);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x);
+		input.lookAt(180.0F, 10.0F);
+		input.holdKey(o -> o.keyUp);
+		spurs(ctx, input, 2);
+		double riseJump = 0.0;
+		double tiltJump = 0.0;
+		double slopeTilt = 0.0;
+		int slopeTicks = 0;
+		double flatLow = Double.MAX_VALUE;
+		double flatHigh = -Double.MAX_VALUE;
+		double[] was = null;
+		for (int i = 0; i < 200; i++) {
+			if (i == 120) {
+				input.pressKey(o -> o.keySprint);
+			}
+			ctx.waitTick();
+			// The cart as drawn: its height and tilt, and where the horse is.
+			final double[] now = ctx.computeOnClient(mc -> {
+				final Entity horse = mc.player.getVehicle();
+				final Object cart = horse == null ? null : call(horse, "bh_getCartEntity");
+				if (cart == null) {
+					return null;
+				}
+				return new double[] {((net.minecraft.world.phys.Vec3) call(cart, "gluedRenderPosition", 1.0F)).y, (float) call(cart, "renderTilt", 1.0F), horse.getZ(), horse.getY()};
+			});
+			if (now == null) {
+				continue;
+			}
+			// (Halfway up the slope, steps of 1 in 3: about 18 degrees.)
+			if (now[2] < -15.0 && now[2] > -21.0) {
+				slopeTilt += now[1];
+				slopeTicks++;
+			}
+			if (was != null) {
+				riseJump = Math.max(riseJump, Math.abs(now[0] - was[0]));
+				tiltJump = Math.max(tiltJump, Math.abs(now[1] - was[1]));
+			}
+			if (now[2] < -66.0 && i > 140) {
+				flatLow = Math.min(flatLow, now[0]);
+				flatHigh = Math.max(flatHigh, now[0]);
+			}
+			was = now;
+			if (i == 45 || i == 95) {
+				sideScreenshot(ctx, "icy_cart_hill_" + i);
+				// (A shot can take a tick of its own: the next change isn't one tick's.)
+				was = null;
+			}
+		}
+		check("up and down the hill it rises smoothly (blocks a tick, most)", riseJump, 0.0, 0.3);
+		check("...and tilts smoothly (degrees a tick, most)", tiltJump, 0.0, 3.0);
+		// (A little steeper than the slope: the horse's feet climb each step before its middle, where the hitch is, is over it.)
+		check("...going up with the slope (degrees, on average; a slope of 1 in 3 is 18)", slopeTilt / Math.max(slopeTicks, 1), 14.0, 25.0);
+		check("galloping on the flat it hardly bounces (blocks, top to bottom)", flatHigh - flatLow, 0.0, 0.08);
 		stop(ctx, input);
 		dismount(ctx, input);
 	}

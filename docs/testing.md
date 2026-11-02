@@ -114,7 +114,7 @@ are vanilla's own and only warned about). Run it after touching version-specific
 Horses) rides one of its breeds, an American Paint (`-Dhorsingaround.horse`, see `TestHorse`), through every section of the
 ride test and the terrain, mounts and server tests, which must pass as on a vanilla horse; `MountsTest` also rides a
 Friesian under both riding styles and checks the breeds' traits (`BreedTraits`) and the bash. `IcyFeaturesTest`
-(`-PcompatTests=icy`, `horsingaround-icy-report.txt`) rides Icy's gear on this mod's riding: cart and wagon (how they trail round a bend and a hard turn), plough, a second
+(`-PcompatTests=icy`, `horsingaround-icy-report.txt`) rides Icy's gear on this mod's riding: cart and wagon (how they trail round a bend and a hard turn, and up and down a hill), plough, a second
 rider (a server-only player), Glidewing Harness off a cliff, rear key, horseshoes on powder snow and water, medkit, the
 charge toggle, mounted mining and the dismount side. Other packs run the ride test's core and cuts sections (`-PcompatSections` for others). To play with a pack yourself,
 `./gradlew playCompat<Pack>` (e.g. `playCompatIcys`) opens the same game without tests; its worlds stay in
