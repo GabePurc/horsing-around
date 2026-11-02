@@ -9,6 +9,8 @@ import dev.horsingaround.client.cosmetic.HatModel;
 import dev.horsingaround.client.cosmetic.Hats;
 import dev.horsingaround.net.PlayerHatPayload;
 import dev.horsingaround.net.RulesPayload;
+import dev.horsingaround.net.ServerRules;
+import dev.horsingaround.net.StylePayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.EntityModelSet;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
@@ -42,10 +44,12 @@ public final class HorsingAroundNeoForgeClient {
 		//? if >1.21.1 {
 		modBus.addListener(RegisterClientPayloadHandlersEvent.class, event -> {
 			event.register(RulesPayload.TYPE, (rules, context) -> HorsingAroundClient.acceptRules(rules));
+			event.register(StylePayload.TYPE, (style, context) -> ServerRules.accept(style));
 			event.register(PlayerHatPayload.TYPE, (hat, context) -> Hats.receive(hat));
 		});
 		//?} else {
 		/*HorsingAroundNeoForge.clientRules = (rules, context) -> HorsingAroundClient.acceptRules(rules);
+		HorsingAroundNeoForge.clientStyle = (style, context) -> ServerRules.accept(style);
 		HorsingAroundNeoForge.clientHats = (hat, context) -> Hats.receive(hat);
 		*///?}
 		modBus.addListener(RegisterKeyMappingsEvent.class, event -> {

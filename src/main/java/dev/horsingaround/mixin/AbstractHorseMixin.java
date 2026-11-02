@@ -6,6 +6,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.sugar.Local;
 import dev.horsingaround.HorsingAround;
 import dev.horsingaround.RiderBridge;
+import dev.horsingaround.ride.IcyCompat;
 import dev.horsingaround.ride.Mounts;
 import dev.horsingaround.ride.RideController;
 import dev.horsingaround.ride.RideState;
@@ -147,11 +148,6 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 		return s.speed > MOVING ? FORWARD : s.speed < -MOVING ? BACKWARD : Vec3.ZERO;
 	}
 
-	@ModifyReturnValue(method = "getRiddenSpeed", at = @At("RETURN"))
-	private float horsingaround$riddenSpeed(final float attributeSpeed) {
-		return this.horsingaround$managed() && this.isLocalInstanceAuthoritative() ? attributeSpeed * Math.abs(this.horsingaround$ride.speed) : attributeSpeed;
-	}
-
 	/**
 	 * The simulating side steers by the ride heading and keeps the head level instead of nodding with the camera.
 	 * Everyone else keeps the rotation the rider's client reported, instead of vanilla's snap to the rider's camera.
@@ -187,6 +183,10 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 			return;
 		}
 		final Vec3 movement = this.getDeltaMovement();
+		if (IcyCompat.icyHorse(this)) {
+			// Icy's Better Horses cues its jump animation at the end of vanilla's jump; the ride's push replaces vanilla's.
+			original.call(amount, input);
+		}
 		double x = movement.x;
 		double z = movement.z;
 		final RideState s = this.horsingaround$ride;
@@ -227,13 +227,16 @@ public abstract class AbstractHorseMixin extends Animal implements RideStateHold
 		}
 	}
 
-	/** Vanilla rears the horse when a jump starts. Just play the sound. */
+	/**
+	 * Vanilla rears the horse when a jump starts. Just play the sound. On Icy's Better Horses' horses vanilla's runs: that
+	 * mod already keeps them from rearing here, and grows the bond and shows the jump to other players after it.
+	 */
 	@WrapMethod(method = "handleStartJump")
 	private void horsingaround$startJump(final int jumpScale, final Operation<Void> original) {
-		if (this.horsingaround$managed()) {
-			this.playJumpSound();
-		} else {
+		if (!this.horsingaround$managed() || IcyCompat.icyHorse(this)) {
 			original.call(jumpScale);
+		} else {
+			this.playJumpSound();
 		}
 	}
 

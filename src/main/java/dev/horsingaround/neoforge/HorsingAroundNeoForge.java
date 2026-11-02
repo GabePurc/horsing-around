@@ -6,6 +6,7 @@ import dev.horsingaround.net.HatPayload;
 import dev.horsingaround.net.HatRelay;
 import dev.horsingaround.net.PlayerHatPayload;
 import dev.horsingaround.net.RulesPayload;
+import dev.horsingaround.net.StylePayload;
 import dev.horsingaround.ride.Mounts;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.IEventBus;
@@ -26,6 +27,7 @@ public final class HorsingAroundNeoForge {
 	//? if <=1.21.1 {
 	/*// The client entry point's handlers for the payloads to the client (NeoForge for 1.21.1 takes them with the types).
 	public static IPayloadHandler<RulesPayload> clientRules = (rules, context) -> {};
+	public static IPayloadHandler<StylePayload> clientStyle = (style, context) -> {};
 	public static IPayloadHandler<PlayerHatPayload> clientHats = (hat, context) -> {};
 	*///?}
 
@@ -48,9 +50,11 @@ public final class HorsingAroundNeoForge {
 		event.registrar("1").optional()
 			//? if >1.21.1 {
 			.playToClient(RulesPayload.TYPE, RulesPayload.CODEC)
+			.playToClient(StylePayload.TYPE, StylePayload.CODEC)
 			.playToClient(PlayerHatPayload.TYPE, PlayerHatPayload.CODEC)
 			//?} else {
 			/*.playToClient(RulesPayload.TYPE, RulesPayload.CODEC, (rules, context) -> clientRules.handle(rules, context))
+			.playToClient(StylePayload.TYPE, StylePayload.CODEC, (style, context) -> clientStyle.handle(style, context))
 			.playToClient(PlayerHatPayload.TYPE, PlayerHatPayload.CODEC, (hat, context) -> clientHats.handle(hat, context))
 			*///?}
 			.playToServer(HatPayload.TYPE, HatPayload.CODEC, (hat, context) -> HatRelay.receive((ServerPlayer) context.player(), hat));

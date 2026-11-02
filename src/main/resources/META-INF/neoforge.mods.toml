@@ -21,6 +21,12 @@ config = "horsingaround.mixins.json"
 [[mixins]]
 config = "horsingaround.client.mixins.json"
 
+[[mixins]]
+config = "horsingaround.icy.mixins.json"
+
+[[mixins]]
+config = "horsingaround.icy.client.mixins.json"
+
 [[dependencies.horsingaround]]
 modId = "neoforge"
 type = "required"

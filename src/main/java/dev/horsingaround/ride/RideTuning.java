@@ -181,6 +181,36 @@ public final class RideTuning {
 	/** Cutting hard (past halfway) from a trot or faster scuffs the ground: the block's step sound at this volume and a spray of it. */
 	static float CUT_SOUND_VOLUME = CUT_SOUND_VOLUME_BASE;
 
+	// ---- Breed traits (Icy's Better Horses' breeds; user decision, 2026-11-01) ----
+
+	/**
+	 * Quarter Horse, a burst from a standstill: having stood BURST_STAND_TICKS, for BURST_TICKS after it moves off it
+	 * gathers speed BURST_ACCEL times as fast (BURST_ACCEL_BONDED from bond tier 1), then not again for BURST_COOLDOWN
+	 * ticks (BURST_COOLDOWN_BONDED from tier 2). Its top speed doesn't change.
+	 */
+	static final int BURST_STAND_TICKS = 20;
+	static final int BURST_TICKS = 60;
+	static final float BURST_ACCEL = 2.0F;
+	static final float BURST_ACCEL_BONDED = 2.3F;
+	static final int BURST_COOLDOWN = 200;
+	static final int BURST_COOLDOWN_BONDED = 160;
+	/**
+	 * Thoroughbred, a top end: after TOP_END_TICKS of flat-out gallop on level ground (pitch under TOP_END_LEVEL degrees)
+	 * its gallop eases up by TOP_END_BONUS (TOP_END_BONUS_BONDED from bond tier 1), at TOP_END_EASE of the way a tick, and
+	 * eases off as fast once it slows, climbs or tires; meanwhile it tires TOP_END_DRAIN times as fast.
+	 */
+	static final int TOP_END_TICKS = 100;
+	static final float TOP_END_LEVEL = 6.0F;
+	static final float TOP_END_BONUS = 0.10F;
+	static final float TOP_END_BONUS_BONDED = 0.15F;
+	static final float TOP_END_EASE = 1.0F / 40;
+	static final float TOP_END_DRAIN = 1.5F;
+	/** Arabian, endurance: galloping tires it ENDURANCE_DRAIN as fast and it gets its wind back ENDURANCE_REGEN as fast (BONDED from bond tier 1). */
+	static final float ENDURANCE_DRAIN = 0.7F;
+	static final float ENDURANCE_DRAIN_BONDED = 0.6F;
+	static final float ENDURANCE_REGEN = 1.3F;
+	static final float ENDURANCE_REGEN_BONDED = 1.5F;
+
 	// ---- Stamina ----
 
 	/** Full stamina lasts ~28s of galloping. */
@@ -471,7 +501,6 @@ public final class RideTuning {
 	 * the hooves), and sits on the lower end. The legs stand upright (they counter LEG_UPRIGHT of the body's tilt) on top
 	 * of whatever animates them (vanilla or Fresh Animations), so the stride stays.
 	 */
-	static final float HOOF_SPAN = FORE_HOOVES + HIND_HOOVES;
 	static final float SLOPE_SHARE = 0.95F;
 	static final float SLOPE_PITCH_MAX = 40.0F;
 	/**
@@ -570,7 +599,7 @@ public final class RideTuning {
 	 * front legs lift and the hind legs push (pivoting on the hind hooves), level over the top, nose down to land front
 	 * feet first (pivoting on the front hooves). Degrees per degree of flight path, limits up and down, and response.
 	 */
-	static final float JUMP_PITCH_SCALE = 0.55F;
+	static final float JUMP_PITCH_SCALE = 0.45F;
 	static final float JUMP_PITCH_UP = 25.0F;
 	static final float JUMP_PITCH_DOWN = 15.0F;
 	static final float JUMP_PITCH_SMOOTHING = 0.5F;
@@ -660,6 +689,11 @@ public final class RideTuning {
 	public static final float RIDER_JUMP_FOLLOW = 0.6F;
 	/** The hips ride the saddle exactly; the torso takes this share of the saddle's rocking. */
 	public static final float RIDER_SADDLE_PITCH_FOLLOW = 0.5F;
+	/**
+	 * A rearing horse (a pack's or Icy's Better Horses' model, measured) tilts its back far up: the rider goes with it, the
+	 * torso taking this share of the tilt (leaning forward over the neck a little) and the legs all of it, along its sides.
+	 */
+	public static final float RIDER_REAR_FOLLOW = 0.85F;
 	/** Seat height above the rider's origin; the rider pivots here. */
 	public static final float RIDER_SEAT_HEIGHT = 0.6F;
 	/** The rider sinks this far into the saddle (vanilla seats them for a legs-out pose), blocks. */
@@ -891,6 +925,27 @@ public final class RideTuning {
 	/** "Small" means no wider or taller than this, blocks (chickens, rabbits, cats, foxes, frogs, baby animals...). */
 	static final float TRAMPLE_MAX_WIDTH = 0.8F;
 	static final float TRAMPLE_MAX_HEIGHT = 1.0F;
+	/**
+	 * The furthest one of Icy's Better Horses' carts angles off the horse pulling it, degrees (see CartTrail): the shafts
+	 * hold it, and past this the horse drags it round.
+	 */
+	static final float CART_SWING_MAX = 20.0F;
+	/**
+	 * Pulling one of those carts, the horse gets going this much slower (its acceleration scale), and slows this much
+	 * more gently letting go or reined back, the cart rolling on behind it (braking for danger stays as hard).
+	 */
+	static final float CART_ACCEL = 0.55F;
+	static final float CART_DECEL = 0.6F;
+	/**
+	 * A cart's wheels roll up and down steps instead of jumping a block: its axle eases this share of the way to the
+	 * ground under it each tick, at most CART_AXLE_RISE blocks; its tilt (from the hitch, as the horse is drawn, down to
+	 * the axle) eases CART_TILT_EASE of the way, at most CART_TILT_RATE degrees a tick, up to CART_TILT_MAX.
+	 */
+	static final float CART_AXLE_EASE = 0.5F;
+	static final float CART_AXLE_RISE = 0.2F;
+	static final float CART_TILT_EASE = 0.25F;
+	static final float CART_TILT_RATE = 2.5F;
+	static final float CART_TILT_MAX = 25.0F;
 
 	private RideTuning() {
 	}

@@ -14,7 +14,8 @@ import net.minecraft.world.entity.Entity;
 /**
  * Which mounts get the new controls: horse types in the {@code horsingaround:managed} entity type tag (horse, donkey,
  * mule, skeleton and zombie horse by default; datapacks and other mods can add their own horses), and on a client only
- * while connected to a server that runs this mod. Camels and llamas keep their vanilla controls.
+ * while connected to a server that runs this mod. Camels and llamas keep their vanilla controls. With Icy's Better
+ * Horses installed too and the server set to its riding, none (see {@link IcyCompat}).
  */
 public final class Mounts {
 	public static final TagKey<net.minecraft.world.entity.EntityType<?>> MANAGED = TagKey.create(Registries.ENTITY_TYPE, Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "managed"));
@@ -38,9 +39,9 @@ public final class Mounts {
 
 	public static boolean manages(final Entity horse) {
 		//? if >=26.1 {
-		return horse.is(MANAGED) && (!horse.level().isClientSide() || ServerRules.present);
+		return horse.is(MANAGED) && (!horse.level().isClientSide() || ServerRules.present) && !IcyCompat.icyRides(horse.level());
 		//?} else
-		/*return horse.getType().is(MANAGED) && (!horse.level().isClientSide() || ServerRules.present);*/
+		/*return horse.getType().is(MANAGED) && (!horse.level().isClientSide() || ServerRules.present) && !IcyCompat.icyRides(horse.level());*/
 	}
 
 	/**

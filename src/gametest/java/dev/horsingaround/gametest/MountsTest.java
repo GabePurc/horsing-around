@@ -2,11 +2,15 @@ package dev.horsingaround.gametest;
 
 import dev.horsingaround.HorsingAround;
 import dev.horsingaround.client.RideCamera;
+import dev.horsingaround.client.render.SaddleMotion;
 import dev.horsingaround.net.ServerRules;
+import dev.horsingaround.ride.HorseConfig;
+import dev.horsingaround.ride.IcyCompat;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
 import dev.horsingaround.ride.RideTuning;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -19,10 +23,15 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -104,6 +113,10 @@ public final class MountsTest implements FabricClientGameTest {
 			vehicles(ctx, input, world);
 			mobRiders(ctx, world);
 			serverWithoutTheMod(ctx, input, world);
+			if (IcyCompat.LOADED) {
+				icysBreeds(ctx, input, world);
+				icyTraits(ctx, input, world);
+			}
 
 			section("Log");
 			final List<String> problems = watch.matching("horsingaround", "Exception", "moved wrongly", "moved too quickly", "was expected to be controlling");
@@ -368,7 +381,9 @@ public final class MountsTest implements FabricClientGameTest {
 		ctx.waitTicks(2);
 		check("without them, the horse has vanilla controls", !ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$managed()));
 		check("and the riding camera lets go", !ctx.computeOnClient(mc -> RideCamera.isRiding()));
-		check("and the box is vanilla", ctx.computeOnClient(mc -> (double) mc.player.getVehicle().getBbWidth()), 1.3, 1.5);
+		// (Its own type's width, unnarrowed: with Icy's Better Horses the vanilla horse has become one of its breeds.)
+		check("and the box is the horse's own (width over its type's)",
+			ctx.computeOnClient(mc -> (double) (mc.player.getVehicle().getBbWidth() / mc.player.getVehicle().getType().getDimensions().width())), 0.99, 1.01);
 		input.lookAt(180.0F, 10.0F);
 		input.holdKey(o -> o.keyUp);
 		ctx.waitTicks(40);
@@ -381,6 +396,226 @@ public final class MountsTest implements FabricClientGameTest {
 		ctx.waitTicks(3);
 		check("the server's rules switch it back on", ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$managed()));
 		dismount(ctx, input);
+	}
+
+	// ---- Icy's Better Horses (installed in the icys compat pack) ----
+
+	/**
+	 * With Icy's Better Horses installed the world's riding style picks whose riding horses use. This mod's (the default):
+	 * it rides Icy's breeds too, at its own gaits, and Icy's gear keys and auto-ride do nothing. Icy's: this mod leaves
+	 * the horse alone on both sides, and Icy's gears hold it to their paces again.
+	 */
+	private void icysBreeds(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Icy's Better Horses: a breed horse, this mod's riding");
+		firstPerson(ctx);
+		final Entity horse = mount(ctx, world, new Mount(IcyCompat.MOD_ID + ":friesian_horse", "Tame:1b," + SADDLE, null, Arena.GROUND), nextLane());
+		check("the client heard the riding style is this mod's", !ctx.computeOnClient(mc -> ServerRules.icyRides));
+		final boolean managed = horse instanceof RideStateHolder holder && holder.horsingaround$managed();
+		check("the breed horse gets the new controls", managed);
+		if (!managed) {
+			dismount(ctx, input);
+			return;
+		}
+		check("on the server too", managedOnServer(world, horse.getId()));
+		check("Icy's gear keys pick no gear", ctx.computeOnClient(mc -> icyShift(mc.player.getVehicle(), 1)) == 0);
+		check("Icy's gears cap no speed", icyGearSpeed(ctx, 1), 0.99, 1.01);
+		final double attribute = ctx.computeOnClient(mc -> ((LivingEntity) mc.player.getVehicle()).getAttributeValue(Attributes.MOVEMENT_SPEED));
+		final double gallop = attribute * RideTuning.TERMINAL_VELOCITY_FACTOR * RideTuning.GAIT_SPEED[RideTuning.GALLOP];
+		input.lookAt(180.0F, 10.0F);
+		input.pressKey(o -> o.keyUp);
+		ctx.waitTicks(2);
+		input.pressKey(o -> o.keyUp);
+		ctx.waitTicks(5);
+		check("a double tap of W leaves Icy's auto-ride off", !ctx.computeOnClient(mc -> icyAutoRide()));
+		input.holdKey(o -> o.keyUp);
+		for (int i = 0; i < 3; i++) {
+			input.pressKey(o -> o.keySprint);
+			ctx.waitTicks(6);
+		}
+		ctx.waitTicks(50);
+		check("gallops at its own top speed (blocks/tick)", averageSpeed(ctx, 10), gallop * 0.85, gallop * 1.15);
+		screenshot(ctx, "mount_icys_friesian_gallop");
+		// Through a turn at a gallop: this mod's lean alone (Icy's model banks too, which doubled it), and the stride's
+		// motion Icy's own, measured for the rider.
+		ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+		input.lookAt(240.0F, 10.0F);
+		float lean = 0.0F;
+		float icyBank = 0.0F;
+		boolean measured = true;
+		for (int i = 0; i < 12; i++) {
+			ctx.waitTick();
+			final float turnLean = ride(ctx, s -> s.lean(1.0F));
+			lean = Math.max(lean, Math.abs(turnLean));
+			icyBank = Math.max(icyBank, ctx.computeOnClient(mc -> icyModelBank(mc.player.getVehicle())));
+			measured &= ctx.computeOnClient(mc -> SaddleMotion.frame() - ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().animatedFrame <= 1);
+		}
+		check("leans into the turn (degrees)", lean, 2.0, 20.0);
+		check("Icy's model adds no lean of its own (degrees)", icyBank, 0.0, 0.5);
+		check("the rider rides Icy's own stride motion, none generated", measured);
+		screenshot(ctx, "mount_icys_friesian_turn");
+		input.lookAt(180.0F, 10.0F);
+		ctx.waitTicks(20);
+		firstPerson(ctx);
+		input.pressKey(o -> o.keyJump);
+		double highest = 0.0;
+		boolean reared = false;
+		final double groundY = ctx.computeOnClient(mc -> mc.player.getVehicle().getY());
+		for (int i = 0; i < 15; i++) {
+			ctx.waitTick();
+			highest = Math.max(highest, ctx.computeOnClient(mc -> mc.player.getVehicle().getY()) - groundY);
+			reared |= ctx.computeOnClient(mc -> ((AbstractHorse) mc.player.getVehicle()).isStanding());
+		}
+		check("jumps on a press (height, blocks)", highest, 0.8, 3.0);
+		check("without rearing", !reared);
+		input.releaseKey(o -> o.keyUp);
+		input.pressKey(o -> o.keyDown);
+		ctx.waitTicks(60);
+
+		section("Icy's Better Horses: switched to Icy's riding");
+		setRidingStyle(ctx, world, HorseConfig.RidingStyle.ICYS);
+		check("the client hears the switch", ctx.computeOnClient(mc -> ServerRules.icyRides));
+		check("the horse has Icy's controls, not this mod's", !ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$managed()));
+		check("on the server too", !managedOnServer(world, horse.getId()));
+		check("Icy's gear keys pick a gear again", ctx.computeOnClient(mc -> icyShift(mc.player.getVehicle(), 1)) == 1);
+		check("Icy's walking gear caps the speed again", icyGearSpeed(ctx, 1), 0.0, 0.1);
+		ctx.computeOnClient(mc -> icyShift(mc.player.getVehicle(), -1));
+		setRidingStyle(ctx, world, HorseConfig.RidingStyle.HORSING_AROUND);
+		check("switched back, this mod rides it again", ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$managed()));
+		dismount(ctx, input);
+	}
+
+	/**
+	 * Icy's breeds' speed abilities on this mod's riding (BreedTraits), each against a breed without one (an American
+	 * Paint): the Quarter Horse's burst from a standstill, the Thoroughbred's top end, the Arabian's endurance; and Icy's
+	 * charge, now the trample's, bashing a hostile mob too big to trample.
+	 */
+	private void icyTraits(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Icy's Better Horses: breed traits on this mod's riding");
+		firstPerson(ctx);
+		final String breed = IcyCompat.MOD_ID + ":%s_horse";
+		int x = nextLane();
+		mount(ctx, world, new Mount(String.format(Locale.ROOT, breed, "american_paint"), "Tame:1b," + SADDLE, null, Arena.GROUND), x);
+		world.getServer().runCommand(String.format(Locale.ROOT, "summon minecraft:husk %d.5 %d -40.5 {NoAI:1b,PersistenceRequired:1b,Tags:[\"bash\"]}", x, GROUND));
+		final int plainLaunch = ticksToGallop(ctx, input);
+		final float[] plain = gallopFor(ctx, input, 60);
+		check("a plain breed has no trait (gallop bonus, stamina scale)", plain[1] == 0.0F && plain[2] == 1.0F);
+		// (Bashed hard enough, it is gone.)
+		final boolean bashed = world.getServer().computeOnServer(server -> server.overworld().getEntities(
+			net.minecraft.world.level.entity.EntityTypeTest.forClass(LivingEntity.class), h -> h.entityTags().contains("bash")
+		).stream().noneMatch(h -> h.getHealth() >= h.getMaxHealth()));
+		check("galloping through a husk, Icy's breed bashes it (too big to trample)", bashed);
+		dismount(ctx, input);
+
+		mount(ctx, world, new Mount(String.format(Locale.ROOT, breed, "quarter"), "Tame:1b," + SADDLE, null, Arena.GROUND), nextLane());
+		ctx.waitTicks(30);
+		final int burstLaunch = ticksToGallop(ctx, input);
+		check("Quarter Horse: from a standstill it reaches its gallop in about half the time (ticks, / a plain breed's)",
+			burstLaunch / (double) plainLaunch, 0.35, 0.75);
+		dismount(ctx, input);
+
+		mount(ctx, world, new Mount(String.format(Locale.ROOT, breed, "thoroughbred"), "Tame:1b," + SADDLE, null, Arena.GROUND), nextLane());
+		ticksToGallop(ctx, input);
+		final float[] topEnd = gallopFor(ctx, input, 150);
+		check("Thoroughbred: flat out, its gallop comes on (bonus)", topEnd[1], 0.09, 0.11);
+		check("...and it goes faster (top speed / its gallop)", topEnd[3] / RideTuning.GAIT_SPEED[RideTuning.GALLOP], 1.05, 1.12);
+		check("...tiring faster meanwhile (stamina scale)", topEnd[2], 1.4, 1.5);
+		dismount(ctx, input);
+
+		mount(ctx, world, new Mount(String.format(Locale.ROOT, breed, "arabian"), "Tame:1b," + SADDLE, null, Arena.GROUND), nextLane());
+		ticksToGallop(ctx, input);
+		final float[] endurance = gallopFor(ctx, input, 60);
+		check("Arabian: galloping tires it slower (stamina used / a plain breed's)", endurance[0] / plain[0], 0.6, 0.8);
+		dismount(ctx, input);
+	}
+
+	/** From where the horse is, W and three spurs: the ticks until it is at 95% of its gallop (the keys stay held). */
+	private int ticksToGallop(final ClientGameTestContext ctx, final TestInput input) {
+		input.lookAt(180.0F, 10.0F);
+		input.holdKey(o -> o.keyUp);
+		int ticks = 0;
+		while (ticks < 300 && ride(ctx, s -> s.speed) < RideTuning.GAIT_SPEED[RideTuning.GALLOP] * 0.95F) {
+			// (A spur before W is held, or a tick after another, doesn't count: four, six ticks apart once W is down.)
+			if (ticks >= 2 && ticks < 26 && ticks % 6 == 2) {
+				input.pressKey(o -> o.keySprint);
+			}
+			ctx.waitTick();
+			ticks++;
+		}
+		final int took = ticks;
+		log("  to a gallop: %d ticks; gait %d, speed %.3f, stamina %.2f, exhausted %s, accel x%.1f", took, ride(ctx, s -> s.gait), ride(ctx, s -> s.speed),
+			ride(ctx, s -> s.stamina), ride(ctx, s -> s.exhausted), ride(ctx, s -> s.accelScale));
+		return ticks;
+	}
+
+	/** Gallops on for {@code ticks}, then stops: the stamina it used, its gallop bonus and stamina scale at the end, and its top speed. */
+	private static float[] gallopFor(final ClientGameTestContext ctx, final TestInput input, final int ticks) {
+		final float before = ride(ctx, s -> s.stamina);
+		float top = 0.0F;
+		for (int i = 0; i < ticks; i++) {
+			ctx.waitTick();
+			top = Math.max(top, ride(ctx, s -> s.speed));
+		}
+		final float[] out = {before - ride(ctx, s -> s.stamina), ride(ctx, s -> s.gallopBonus), ride(ctx, s -> s.drainScale), top};
+		input.releaseKey(o -> o.keyUp);
+		input.pressKey(o -> o.keyDown);
+		ctx.waitTicks(60);
+		return out;
+	}
+
+	/** The host picks a riding style (as from the settings screen in singleplayer). */
+	private static void setRidingStyle(final ClientGameTestContext ctx, final TestSingleplayerContext world, final HorseConfig.RidingStyle style) {
+		world.getServer().runOnServer(server -> {
+			HorseConfig.get().ridingStyle = style;
+			HorsingAround.styleChanged(server);
+		});
+		ctx.waitTicks(3);
+	}
+
+	/** How far Icy's model of this horse banks, degrees (its root part's roll, as last drawn). */
+	private static float icyModelBank(final Entity horse) {
+		final Object model = ((LivingEntityRenderer<?, ?, ?>) Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(horse)).getModel();
+		try {
+			final Field root = Class.forName("icy.betterhorses.net.client.render.BhHorseModel").getDeclaredField("rootPart");
+			root.setAccessible(true);
+			final ModelPart part = (ModelPart) root.get(model);
+			return Math.abs(part.zRot - part.getInitialPose().zRot()) * Mth.RAD_TO_DEG;
+		} catch (final ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	private static boolean managedOnServer(final TestSingleplayerContext world, final int id) {
+		return world.getServer().computeOnServer(server -> server.overworld().getEntity(id) instanceof RideStateHolder holder && holder.horsingaround$managed());
+	}
+
+	/** Presses Icy's gear key (up by one gear, or down) for this horse; the gear it lands in. */
+	private static int icyShift(final Entity horse, final int by) {
+		try {
+			final Class<?> gears = Class.forName("icy.betterhorses.net.client.HorseGearController");
+			return (int) gears.getMethod("shift", AbstractHorse.class, int.class).invoke(gears.getField("INSTANCE").get(null), horse, by);
+		} catch (final ReflectiveOperationException e) {
+			throw new IllegalStateException("Icy's gear controller changed", e);
+		}
+	}
+
+	private static boolean icyAutoRide() {
+		try {
+			final Class<?> autoRide = Class.forName("icy.betterhorses.net.client.HorseAutodriveController");
+			return (boolean) autoRide.getMethod("isActive").invoke(autoRide.getField("INSTANCE").get(null));
+		} catch (final ReflectiveOperationException e) {
+			throw new IllegalStateException("Icy's auto-ride changed", e);
+		}
+	}
+
+	/** The share of full speed Icy's gaits let a horse in this gear go, as the rider's client sees it. */
+	private static double icyGearSpeed(final ClientGameTestContext ctx, final int gear) {
+		return ctx.computeOnClient(mc -> {
+			try {
+				return (double) (float) Class.forName("icy.betterhorses.net.BhGears").getMethod("riddenSpeed", int.class, float.class).invoke(null, gear, 1.0F);
+			} catch (final ReflectiveOperationException e) {
+				throw new IllegalStateException("Icy's gaits changed", e);
+			}
+		});
 	}
 
 	// ---- helpers ----
@@ -398,7 +633,8 @@ public final class MountsTest implements FabricClientGameTest {
 		world.getConnection().waitForChunksRender();
 		final String tag = "mount_" + x;
 		final String data = mount.data.isEmpty() ? "" : mount.data + ",";
-		server.runCommand(String.format(Locale.ROOT, "summon minecraft:%s %d.5 %.1f 0.5 {%sRotation:[180f,0f],Tags:[\"%s\"]}", mount.id, x, y, data, tag));
+		final String id = mount.id.contains(":") ? mount.id : "minecraft:" + mount.id;
+		server.runCommand(String.format(Locale.ROOT, "summon %s %d.5 %.1f 0.5 {%sRotation:[180f,0f],Tags:[\"%s\"]}", id, x, y, data, tag));
 		for (int attempt = 0; attempt < 10 && !ctx.computeOnClient(mc -> mc.player.getVehicle() != null); attempt++) {
 			ctx.waitTicks(5);
 			server.runCommand("ride @p mount @e[tag=" + tag + ",limit=1]");

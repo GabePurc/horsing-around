@@ -52,6 +52,9 @@ public final class GroundLegs {
 	/** Per leg, the last frame: the ground its hoof stands on (world x, y, z), the pixels it was drawn up and its swing back (for tests). */
 	public static final double[] TARGETS = new double[20];
 
+	/** A leg reaching this far above its pivot (pixels, Y down) is built on a pivot at its hoof. */
+	private static final float HOOF_PIVOTED = -4.0F;
+
 	private GroundLegs() {
 	}
 
@@ -149,6 +152,13 @@ public final class GroundLegs {
 			// (How high the pack has the hoof, before it is turned upright: lifted mid-stride, it isn't standing.)
 			final float packLift = (groundY - (part.y + leg.soleY * Mth.cos(part.xRot) - leg.z * Mth.sin(part.xRot))) / pixels;
 			PACK_LIFTS[i] = packLift;
+			// (A leg built on a pivot at its hoof, as Icy's Better Horses' are, is lifted by raising the whole leg rather than
+			// swinging it: that lift is shortened on steep ground as well. Legs hung from the hip, vanilla's and animation
+			// packs', are left as they are.)
+			final float raised = part.getInitialPose().y() - part.y;
+			if (raised > 0.0F && stride < 1.0F && leg.hipY < HOOF_PIVOTED) {
+				part.y += raised * (1.0F - stride);
+			}
 			// On steep ground the stride is shorter (a horse picks its way up and down stairs): the pack's swing, turned
 			// about the top of the leg, is scaled down; then the leg stands upright against the tilt, its top's corner drawn
 			// up into the body by that swing so no gap shows there (the body is lowered to match).

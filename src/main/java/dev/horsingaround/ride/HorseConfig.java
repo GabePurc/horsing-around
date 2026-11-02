@@ -44,6 +44,14 @@ public final class HorseConfig {
 		}
 	}
 
+	/** Whose riding horses use when Icy's Better Horses is installed too (see {@link IcyCompat}). */
+	public enum RidingStyle {
+		HORSING_AROUND, ICYS
+	}
+
+	// Riding style with Icy's Better Horses: the server's choice (user decision, 2026-10-31), read where the world runs,
+	// so the host's in singleplayer and on LAN, and this file on a dedicated server. The one setting that changes riding.
+	public RidingStyle ridingStyle = RidingStyle.HORSING_AROUND;
 	// Camera.
 	public boolean thirdPersonOnMount = true;
 	public Shoulder shoulder = Shoulder.RIGHT;
@@ -113,8 +121,11 @@ public final class HorseConfig {
 		}
 	}
 
+	/** Every comfort setting back to its default; the riding style is the world's, so it stays. */
 	public static void reset() {
+		final RidingStyle style = instance.ridingStyle;
 		instance = new HorseConfig();
+		instance.ridingStyle = style;
 		apply();
 	}
 
@@ -137,6 +148,9 @@ public final class HorseConfig {
 		if (c.shoulder == null) {
 			// (Missing, or a value this version doesn't know.)
 			c.shoulder = DEFAULTS.shoulder;
+		}
+		if (c.ridingStyle == null) {
+			c.ridingStyle = DEFAULTS.ridingStyle;
 		}
 		AUTO_THIRD_PERSON = c.thirdPersonOnMount;
 		CAMERA_DISTANCE_SCALE = c.cameraDistance;

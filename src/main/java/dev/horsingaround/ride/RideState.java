@@ -207,6 +207,31 @@ public final class RideState {
 	public double ledgeTakeoffX;
 	public double ledgeTakeoffZ;
 	public int ledgeTakeoffTick;
+	/**
+	 * Where this horse's front and hind hooves stand (blocks ahead of and behind its centre) and how far its leg joints
+	 * are above them: a vanilla horse's (RideTuning) unless its model is built otherwise (another mod's breeds, measured
+	 * on the rider's client as they are drawn).
+	 */
+	public float foreHooves = RideTuning.FORE_HOOVES;
+	public float hindHooves = RideTuning.HIND_HOOVES;
+	public float legLength = RideTuning.LEG_LENGTH;
+	/** The heading of the cart the horse is pulling (one of Icy's Better Horses'), degrees; NaN when it pulls none. */
+	public float cartYaw = Float.NaN;
+	/**
+	 * A breed's trait on this ride (BreedTraits), and its scales this tick: how fast it gathers speed, how much faster its
+	 * gallop is, how fast galloping tires it and how fast it gets its wind back. Neutral for every other horse.
+	 */
+	int trait = BreedTraits.UNKNOWN;
+	public float accelScale = 1.0F;
+	public float gallopBonus;
+	public float drainScale = 1.0F;
+	public float regenScale = 1.0F;
+	/** The burst: ticks stood, left, and until the next. The top end: ticks flat out, and how far it has come on (0..1). */
+	int standTicks;
+	int burstTicks;
+	int burstCooldown;
+	int topEndTicks;
+	float topEnd;
 
 	// Visual body pose, computed on every client for every horse.
 	float lean;
@@ -304,6 +329,8 @@ public final class RideState {
 	public long animatedAt;
 	/** The frame (see the saddle motion) it was last measured in. */
 	public int animatedFrame = -10;
+	/** How far up the horse is rearing (0..1), as of its last drawing: the measured motion's baseline holds meanwhile. */
+	public float rear;
 	/** Frames the head toss was applied through the animation pack (for tests). */
 	public int animatedShakeFrames;
 	/**

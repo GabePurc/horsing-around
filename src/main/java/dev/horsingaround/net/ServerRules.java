@@ -16,8 +16,15 @@ public final class ServerRules {
 	public static boolean rideThroughLeaves;
 	/** The server's mod version when it runs a different protocol (for the notice), else null. */
 	public static String mismatchedVersion;
+	/** The server has Icy's Better Horses and rides horses with it rather than with this mod (see IcyCompat). */
+	public static boolean icyRides;
 
 	private ServerRules() {
+	}
+
+	public static void accept(final StylePayload style) {
+		icyRides = style.icyRides();
+		Mounts.invalidate();
 	}
 
 	public static void accept(final RulesPayload rules) {
@@ -31,6 +38,7 @@ public final class ServerRules {
 		present = false;
 		rideThroughLeaves = false;
 		mismatchedVersion = null;
+		icyRides = false;
 		Mounts.invalidate();
 	}
 }

@@ -29,6 +29,11 @@
 		{
 			"config": "horsingaround.client.mixins.json",
 			"environment": "client"
+		},
+		"horsingaround.icy.mixins.json",
+		{
+			"config": "horsingaround.icy.client.mixins.json",
+			"environment": "client"
 		}
 	],
 	"depends": {

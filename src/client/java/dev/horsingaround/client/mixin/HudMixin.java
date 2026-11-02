@@ -21,9 +21,11 @@ import org.spongepowered.asm.mixin.injection.At;
 /**
  * The centre crosshair shows while the riding camera is over the shoulder (aiming goes where it points). The stamina
  * bar (in the jump bar's slot) shows whenever stamina is not full, whatever else wants the slot; before 1.21.6 the slot
- * was the jump bar's alone (no locator bar), so there is nothing to patch.
+ * was the jump bar's alone (no locator bar), so there is nothing to patch. Applied after other mods' HUD hooks
+ * (priority), so the stamina bar's claim on the slot wraps theirs (Icy's Better Horses hands the slot to the experience
+ * bar while riding in survival).
  */
-@Mixin(Hud.class)
+@Mixin(value = Hud.class, priority = 1500)
 public abstract class HudMixin {
 	@Shadow
 	@Final

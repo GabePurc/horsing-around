@@ -6,6 +6,8 @@ import dev.horsingaround.net.HatPayload;
 import dev.horsingaround.net.HatRelay;
 import dev.horsingaround.net.PlayerHatPayload;
 import dev.horsingaround.net.RulesPayload;
+//? if >=1.20.5
+import dev.horsingaround.net.StylePayload;
 import dev.horsingaround.ride.Mounts;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.CommonLifecycleEvents;
@@ -23,6 +25,7 @@ public final class HorsingAroundFabric implements ModInitializer {
 		HorsingAround.init();
 		//? if >=1.20.5 {
 		PayloadTypeRegistry.clientboundPlay().register(RulesPayload.TYPE, RulesPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(StylePayload.TYPE, StylePayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(PlayerHatPayload.TYPE, PlayerHatPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(HatPayload.TYPE, HatPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(HatPayload.TYPE, (hat, context) -> HatRelay.receive(context.player(), hat));

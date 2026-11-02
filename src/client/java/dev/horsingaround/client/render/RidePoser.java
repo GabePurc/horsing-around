@@ -2,13 +2,16 @@ package dev.horsingaround.client.render;
 
 import static dev.horsingaround.ride.RideTuning.*;
 
+import dev.horsingaround.ride.IcyCompat;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.util.Mth;
 //? if <1.21.11
 /*import net.minecraft.world.entity.HumanoidArm;*/
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.item.ItemUseAnimation;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -37,10 +40,15 @@ public final class RidePoser {
 	private static final SaddleMotion SADDLE = new SaddleMotion();
 	private static final float[] SHAKE_PHASE = new float[1];
 
-	/** The ride a ridden horse or its rider is on, or null (no ride of this mod is on: nothing is posed). */
+	/**
+	 * The ride a ridden horse or its rider is on, or null (no ride of this mod is on: nothing is posed). A horse pulling
+	 * one of Icy's Better Horses' carts is posed, but not its riders: they sit on the cart's bench, seated and rocked by
+	 * that mod, not in the saddle.
+	 */
 	public static @Nullable RideStateHolder holder(final LivingEntity entity) {
-		final Object ridden = entity instanceof RideStateHolder ? entity : entity.getVehicle();
-		return ridden instanceof RideStateHolder holder && holder.horsingaround$managed() ? holder : null;
+		final boolean isHorse = entity instanceof RideStateHolder;
+		final Object ridden = isHorse ? entity : entity.getVehicle();
+		return ridden instanceof RideStateHolder holder && holder.horsingaround$managed() && (isHorse || !IcyCompat.pullsCart((Entity) ridden)) ? holder : null;
 	}
 
 	public static void extract(final LivingEntity entity, final LivingEntityRenderState state, final float partialTicks) {
@@ -50,6 +58,11 @@ public final class RidePoser {
 		if (holder == null) {
 			// Render states are reused between entities, so nothing of a ridden horse's pose may carry over.
 			pose.horsingaround$clearPose();
+			// On the bench of one of Icy's Better Horses' carts, posed by that mod: over steps the rider rises with the horse
+			// as drawn (the cart's hitch does), not a block at a time.
+			if (!isHorse && entity.getVehicle() instanceof RideStateHolder carting && carting.horsingaround$managed()) {
+				pose.horsingaround$setPose(0.0F, carting.horsingaround$ride().heightOffset(partialTicks), 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F);
+			}
 			pose.horsingaround$setNeck(0.0F);
 			pose.horsingaround$setHeadShake(0.0F, 0.0F);
 			pose.horsingaround$setLegs(false, 0.0F, 0.0F, 0.0F);
@@ -77,9 +90,9 @@ public final class RidePoser {
 		final float bodyPitch = tilt + jump;
 		// The ground tilt pivots at the leg joints, so the hooves stay under them; the jump tilt pivots on the hooves: the
 		// hind ones as it lifts its front to take off, the front ones as it lands. Then the bank, about the ground.
-		final float pivot = jump > 0.0F ? -HIND_HOOVES : FORE_HOOVES;
-		final float jointForward = LEG_LENGTH * Mth.sin(tilt) - pivot;
-		final float jointUp = LEG_LENGTH * (1.0F - Mth.cos(tilt));
+		final float pivot = jump > 0.0F ? -s.hindHooves : s.foreHooves;
+		final float jointForward = s.legLength * Mth.sin(tilt) - pivot;
+		final float jointUp = s.legLength * (1.0F - Mth.cos(tilt));
 		final float cosJump = Mth.cos(jump);
 		final float sinJump = Mth.sin(jump);
 		final float moveForward = jointForward * cosJump - jointUp * sinJump + pivot;
@@ -92,6 +105,7 @@ public final class RidePoser {
 
 		pose.horsingaround$setRide(isHorse ? s : null);
 		if (isHorse) {
+			s.rear = horse instanceof AbstractHorse rearing ? rearing.getStandAnim(partialTicks) : 0.0F;
 			// A pack-animated model gets its neck pose in the Entity Model Features hook, after the pack has run.
 			final boolean packAnimated = !saddle.synthetic;
 			final float shake = packAnimated ? 0.0F : s.headShake(horse.tickCount + partialTicks, SHAKE_PHASE);
@@ -147,8 +161,10 @@ public final class RidePoser {
 		final float riderBank = bank * RIDER_BANK_FOLLOW + saddle.roll * RIDER_BANK_FOLLOW * Mth.DEG_TO_RAD;
 		// Jumping, they fold forward over the neck with the horse's rise, and sit up again coming down.
 		final float jumpFold = s.airLegs(partialTicks) * RIDER_JUMP_FOLD * Mth.DEG_TO_RAD + Math.max(jump, 0.0F) * (RIDER_JUMP_FOLLOW - RIDER_UPHILL_LEAN);
+		// Rearing (measured), it goes up with the horse's back: see RIDER_REAR_FOLLOW.
+		final float rear = !saddle.synthetic && horse instanceof AbstractHorse rearing ? rearing.getStandAnim(partialTicks) : 0.0F;
 		final float riderPitch = -Math.max(pitch, 0.0F) * RIDER_UPHILL_LEAN - jumpFold
-			+ (saddle.pitch * RIDER_SADDLE_PITCH_FOLLOW - forwardLean + s.inertia(partialTicks) + s.leafPush(partialTicks)) * Mth.DEG_TO_RAD;
+			+ (saddle.pitch * Mth.lerp(rear, RIDER_SADDLE_PITCH_FOLLOW, RIDER_REAR_FOLLOW) - forwardLean + s.inertia(partialTicks) + s.leafPush(partialTicks)) * Mth.DEG_TO_RAD;
 		// Room between the horse's head and the rider (a jump, a steep climb): too close, the horse stretches its neck
 		// forward, as a jumping horse does, and if that isn't enough the rider folds less over the neck.
 		ROOM_HORSE.set(hx + shiftX, hy + bodyLift, hz + shiftZ);
@@ -182,7 +198,7 @@ public final class RidePoser {
 		pose.horsingaround$setPose(tx, ty, tz, RIDER_ROTATION.x, RIDER_ROTATION.y, RIDER_ROTATION.z, RIDER_ROTATION.w, 0.0F, RIDER_SEAT_HEIGHT, 0.0F);
 
 		// The legs hold still against the horse (where the stirrups are held) whatever the torso does.
-		final float legPitch = seatedPitch - bodyPitch;
+		final float legPitch = seatedPitch - bodyPitch - rear * saddle.pitch * Mth.DEG_TO_RAD;
 		// The stirrups roll with the saddle's sway, so the legs do too.
 		final float legRoll = riderBank - bank - (saddle.synthetic ? 0.0F : saddle.roll * Mth.DEG_TO_RAD);
 		// At a canter the pelvis rocks a little with the stride while the shoulders stay put; less in a gallop's half seat.

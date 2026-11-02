@@ -10,8 +10,11 @@ import java.util.function.IntConsumer;
 import com.mojang.serialization.Codec;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.ConfirmLinkScreen;
+import dev.horsingaround.net.ServerRules;
 import dev.horsingaround.ride.HorseConfig;
+import dev.horsingaround.ride.IcyCompat;
 import java.util.function.Consumer;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
@@ -179,7 +182,44 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		this.addHeader(section("sound"));
 		this.list.addBig(percent("horse_sounds", 0, 100, c.horseSounds, v -> c.horseSounds = v));
 
+		if (IcyCompat.LOADED) {
+			this.addRidingStyle(c);
+		}
 		this.addHatOptions(c);
+	}
+
+	/**
+	 * Whose riding horses use with Icy's Better Horses installed too. The host's choice: set here for one's own worlds
+	 * (singleplayer and LAN, live in the open one); on someone else's server it shows that server's, greyed out.
+	 */
+	private void addRidingStyle(final HorseConfig c) {
+		this.addHeader(section("riding"));
+		final Component caption = Component.translatable(KEY + "riding_style");
+		if (this.minecraft.level != null && !this.minecraft.hasSingleplayerServer()) {
+			final HorseConfig.RidingStyle style = ServerRules.icyRides ? HorseConfig.RidingStyle.ICYS : HorseConfig.RidingStyle.HORSING_AROUND;
+			final Button shown = Button.builder(Options.genericValueLabel(caption, ridingStyle(style)), button -> {})
+				.tooltip(Tooltip.create(Component.translatable(KEY + "riding_style.server.tooltip"))).build();
+			shown.active = false;
+			this.addWide(shown);
+			return;
+		}
+		this.list.addBig(new OptionInstance<>(
+			KEY + "riding_style", tooltip("riding_style"),
+			(label, style) -> Options.genericValueLabel(label, ridingStyle(style)),
+			new OptionInstance.Enum<>(Arrays.asList(HorseConfig.RidingStyle.values()), Codec.STRING.xmap(HorseConfig.RidingStyle::valueOf, HorseConfig.RidingStyle::name)),
+			c.ridingStyle,
+			style -> {
+				c.ridingStyle = style;
+				final MinecraftServer server = this.minecraft.getSingleplayerServer();
+				if (server != null) {
+					server.execute(() -> HorsingAround.styleChanged(server));
+				}
+			}
+		));
+	}
+
+	private static Component ridingStyle(final HorseConfig.RidingStyle style) {
+		return Component.translatable(KEY + "riding_style." + style.name().toLowerCase(Locale.ROOT));
 	}
 
 	/** Supporters wear a cowboy hat and pick its colour; everyone else hears how to get one. */

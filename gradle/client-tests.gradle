@@ -283,12 +283,23 @@ def compatPacks = [
 		"collective:S1V3Trc7",            // 8.42
 		"mounts-stay-still:oeEmUoJn",     // 1.3.2
 	],
+	icys: [
+		"icys-better-horses:AvgqdGip", // 2.1.8 (turns vanilla horses into its breeds: a pack of its own)
+		"geckolib:kSxHvs99",           // 5.5.7
+		"modonomicon:DwjrSwcC",        // 26.3-2.20.0
+		"cloth-config:fg2uyxOW",       // 26.3.159 (its settings screen needs it)
+	],
 ]
 
 def compatTests = project.findProperty("compatTests")
 // (The horses pack skips the server test: Horseman's server config isn't loaded in the test's second, in-process server.)
-def compatPackTests = [horses: "ride,mounts"]
-def compatSections = project.findProperty("compatSections") ?: "core,cuts"
+// (Icy's pack rides one of its breeds through the horse tests, an American Paint: a vanilla horse's size, summoned with
+// the tests' own stats, and none of its abilities changes how it rides. MountsTest checks the breeds' traits.)
+def compatPackTests = [horses: "ride,mounts", icys: "ride,terrain,mounts,server,icy"]
+def compatPackHorse = [icys: "icys-better-horses:american_paint_horse"]
+// (Most packs run the ride test's core and cuts sections; Icy's runs every section, its breed standing in for the horse.)
+def compatPackSections = [icys: ""]
+def compatSections = project.findProperty("compatSections")
 
 configurations.register("compatBase") { transitive = false }
 compatPacks.each { name, mods ->
@@ -328,6 +339,7 @@ compatPacks.keySet().each { name ->
 		description = "Runs the client tests in a production game with the $name pack."
 		dependsOn "installFreshAnimations"
 		usesService(compatGame)
+		outputs.upToDateWhen { false } // Loom counts an unchanged run as up to date and would skip it.
 		finalizedBy "compatFindings${name.capitalize()}"
 		mods.from(tasks.named("jar"))
 		mods.from(gametestJar)
@@ -335,7 +347,10 @@ compatPacks.keySet().each { name ->
 		mods.from(configurations.named("compat${name.capitalize()}"))
 		jvmArgs.add("-Dfabric.client.gametest")
 		jvmArgs.add("-Dhorsingaround.tests=" + (compatTests ?: compatPackTests[name] ?: "mounts,server,ride"))
-		jvmArgs.add("-Dhorsingaround.sections=$compatSections")
+		jvmArgs.add("-Dhorsingaround.sections=" + (compatSections ?: compatPackSections.getOrDefault(name, "core,cuts")))
+		if (compatPackHorse[name]) {
+			jvmArgs.add("-Dhorsingaround.horse=" + compatPackHorse[name])
+		}
 		jvmArgs.add("-Dhorsingaround.scenario=")
 		getRunDir().set(runDir)
 		doFirst {
@@ -364,4 +379,24 @@ compatPacks.keySet().each { name ->
 		}
 	}
 	runCompat.configure { dependsOn task }
+	// To play-test with a pack: ./gradlew playCompatIcys (no tests; worlds and settings stay between runs).
+	def playDir = rootProject.layout.buildDirectory.dir("run/play/$name").get().asFile
+	tasks.register("playCompat${name.capitalize()}", clientProductionRunTask) {
+		group = "verification"
+		description = "Plays a production game with the $name pack, without the tests."
+		dependsOn "installFreshAnimations"
+		usesService(compatGame)
+		outputs.upToDateWhen { false } // (See runCompat.)
+		mods.from(tasks.named("jar"))
+		mods.from(configurations.named("compatBase"))
+		mods.from(configurations.named("compat${name.capitalize()}"))
+		getRunDir().set(playDir)
+		doFirst {
+			new File(playDir, "resourcepacks").mkdirs()
+			java.nio.file.Files.copy(freshAnimationsPack.toPath(), new File(playDir, "resourcepacks/" + freshAnimationsPack.name).toPath(),
+				java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+			def options = new File(playDir, "options.txt")
+			if (!options.exists()) options.text = 'resourcePacks:["vanilla","file/' + freshAnimationsPack.name + '"]\n'
+		}
+	}
 }

@@ -3,7 +3,10 @@ package dev.horsingaround;
 import dev.horsingaround.net.HatRelay;
 import dev.horsingaround.net.RulesPayload;
 import dev.horsingaround.net.ServerRules;
+import dev.horsingaround.net.StylePayload;
 import dev.horsingaround.ride.HorseConfig;
+import dev.horsingaround.ride.IcyCompat;
+import dev.horsingaround.ride.Mounts;
 import dev.horsingaround.ride.RideTuning;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -24,8 +27,10 @@ public final class HorsingAround {
 		HorseConfig.load();
 	}
 
-	/** A player joined: a client that runs the mod hears the rules, and everyone's hats. */
+	/** A player joined: a client that runs the mod hears the riding style and the rules, and everyone's hats. */
 	public static void joined(final ServerPlayer player) {
+		// (The style first: the rules switch the ride on, and by then it has to be the right one.)
+		sendStyle(player);
 		if (Platform.canSend(player, RulesPayload.TYPE)) {
 			Platform.send(player, rules());
 		}
@@ -46,6 +51,23 @@ public final class HorsingAround {
 			if (Platform.canSend(player, RulesPayload.TYPE)) {
 				Platform.send(player, rules());
 			}
+		}
+	}
+
+	/**
+	 * The host changed the riding style (singleplayer or LAN; a dedicated server reads it at start): horses ride the new
+	 * way from now, and everyone connected hears it. Server thread.
+	 */
+	public static void styleChanged(final MinecraftServer server) {
+		Mounts.invalidate();
+		for (final ServerPlayer player : server.getPlayerList().getPlayers()) {
+			sendStyle(player);
+		}
+	}
+
+	private static void sendStyle(final ServerPlayer player) {
+		if (IcyCompat.LOADED && Platform.canSend(player, StylePayload.TYPE)) {
+			Platform.send(player, new StylePayload(HorseConfig.get().ridingStyle == HorseConfig.RidingStyle.ICYS));
 		}
 	}
 }

@@ -5,6 +5,7 @@ import dev.horsingaround.client.cosmetic.Hats;
 import dev.horsingaround.client.cosmetic.Supporters;
 import dev.horsingaround.net.RulesPayload;
 import dev.horsingaround.ride.HorseConfig;
+import dev.horsingaround.ride.IcyCompat;
 import dev.horsingaround.net.ServerRules;
 import dev.horsingaround.ride.RideStateHolder;
 import dev.horsingaround.ride.RideTuning;
@@ -144,6 +145,8 @@ public final class ServerRideTest implements FabricClientGameTest {
 		final double past = -ctx.computeOnClient(mc -> mc.player.getVehicle().getZ());
 		if (modded) {
 			check("rides through a leafy hedge (blocks past the start)", past, 34.0, 200.0);
+		} else if (IcyCompat.LOADED) {
+			check("without the mod, Icy's Better Horses lets the horse through leaves itself (blocks past the start)", past, 34.0, 200.0);
 		} else {
 			check("without the mod, the hedge stops the horse (blocks past the start)", past, 0.0, 30.0);
 		}
@@ -266,15 +269,15 @@ public final class ServerRideTest implements FabricClientGameTest {
 		final TestInput input = ctx.getInput();
 		input.releaseKey(o -> o.keyUp);
 		server.runCommand("ride @p dismount");
-		server.runCommand("kill @e[type=minecraft:horse]");
+		server.runCommand("kill @e[type=" + TestHorse.TYPE + "]");
 		server.runCommand(String.format(Locale.ROOT, "tp @a %d %d 6 180 10", x, GROUND));
 		ctx.waitTicks(10);
 		connection.waitForChunksRender();
-		server.runCommand(String.format(Locale.ROOT, "summon minecraft:horse %d.5 %d 0.5 {Tame:1b,Rotation:[180f,0f],"
+		server.runCommand(String.format(Locale.ROOT, "summon " + TestHorse.TYPE + " %d.5 %d 0.5 {Tame:1b,Rotation:[180f,0f],"
 			+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},attributes:[{id:\"minecraft:movement_speed\",base:0.225d}],Tags:[\"server_test\"]}", x, GROUND));
 		for (int attempt = 0; attempt < 10 && !ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse); attempt++) {
 			ctx.waitTicks(5);
-			server.runCommand("ride @p mount @e[type=minecraft:horse,tag=server_test,limit=1]");
+			server.runCommand("ride @p mount @e[type=" + TestHorse.TYPE + ",tag=server_test,limit=1]");
 		}
 		ctx.waitFor(mc -> mc.player.getVehicle() instanceof AbstractHorse);
 		input.lookAt(180.0F, 10.0F);

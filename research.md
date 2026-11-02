@@ -47,7 +47,8 @@ whatever the speed; no stamina; no visual weight.
 - Press to jump (RDR2), no charge; how far it carries comes from speed; ground speed carries through the air.
   Vanilla's charge-and-release jump no longer runs on managed horses.
 - Jumps look like jumps (user): front up and legs folded on takeoff, a sweep through the flight, front legs reaching
-  for the landing; the rider folds forward in the air and sits up to land; the tail reacts to the motion.
+  for the landing; the rider folds forward in the air and sits up to land; the tail reacts to the motion. Not leaning
+  back too far (user, 2026-11-02): about 13 degrees nose up at takeoff, and only the ride tilts Icy's models.
 - 2-block ledges (user): ridden straight at, the horse heaves up in its stride (gather, push, slow toward the top),
   slowing to a trot first from a canter or gallop; any approach angle and neighbourhood climbs (`-Psections=climbs`).
   Never fences, walls or leaves; a ledge that only catches the flank is gone round.
@@ -88,7 +89,8 @@ whatever the speed; no stamina; no visual weight.
 ## Rider
 
 - Never looks detached (user): hips ride the animated body, feet in stirrups, hands on reins; resists the horse's
-  lean and stays upright; bounces with the gait; a small pelvis rock at a canter, a half seat at a gallop (not a hump).
+  lean and stays upright, but goes up with a rearing horse's back (user, 2026-11-02: it clipped through Icy's horse);
+  bounces with the gait; a small pelvis rock at a canter, a half seat at a gallop (not a hump).
 - Tools and weapons are held low and ready in the main hand, the other on the reins; swings start and end there.
 - The bow is drawn like an archer's (side-on, bow arm to the target, string hand to the cheek); crossbow square to
   the aim; first person and on-foot left to vanilla.
@@ -107,6 +109,29 @@ whatever the speed; no stamina; no visual weight.
 - Other players see the horse's real heading, not the rider's camera. For servers with the mod (the user's family
   server); on a server without it the client rides vanilla. Every server move must be accepted (no rubber-banding).
 - Compatible with popular mods (no crashes, log errors or silently disabled features), checked by `runCompat`.
+- Icy's Better Horses (user request, 2026-10-31): it reworks horses too, so with both installed the server picks whose
+  riding horses use (user decision: the server, not each player). This mod's by default: an Icy breed rides as a
+  vanilla horse of its stats (user direction 2026-11-01: pass the same tests), so Icy's riding that would change that
+  is off (gaits, double-tap auto-ride, swim boost, mid-ride speed swings); bond, tack, carts and its models stay. Its
+  speed abilities come back on this mod's own gaits and stamina (user decision 2026-11-01, `BreedTraits`): the Quarter
+  Horse's burst (quicker off a standstill), the Thoroughbred's top end (a faster gallop after 5 s flat out, tiring
+  faster), the Arabian's endurance (tires slower); its charge is the trample, bashing hostile mobs as hard as Icy's.
+  Its models animate their own stride, so they're treated like an animation pack: the rider rides Icy's measured body
+  motion (not Icy's own rider motion on top), only this mod's lean banks the horse, the ride's legs, neck, tail and
+  stirrups go on them as on Fresh Animations', and the ride tilts on its own legs (hoof positions and leg length
+  measured from the model, so a draft or a pony tilts and plants right on slopes).
+  Its gear works on this mod's riding (user request 2026-11-02): a cart's riders sit on its bench, posed and rocked by
+  Icy's mod, not in the saddle; a cart turns as a real one does and the horse pulls it (user, 2026-11-02, `CartTrail`): its
+  wheels don't slide sideways, so it turns only as it's pulled, cutting inside a bend, and the shafts hold the horse
+  within 20 degrees of it, so the horse turns wide (no hard cuts) and is slower to get going and to slow down; over
+  steps it rises with the horse as drawn and its wheels roll up them, tilting smoothly (user: "slopes should feel a lot
+  smoother", a little rumble is fine); in the air Icy's
+  model keeps its legs still (no panicked paddling in a glide, no flailing in a long fall); in a working Glidewing Harness no drop is one the horse won't take; in horseshoes powder
+  snow is ground, not a hazard (Icy's mod only knows the shoes on the server, so a ridden horse sank on its rider's
+  client; the ride reads the gear flags it sends clients). Its free-look key shares Left Ctrl with sprint, the ride's
+  spur, so it does nothing here: the horse heads where the rider looks, and standing still is free look.
+  Icy's: this mod leaves horses alone. Icy's mod has no switch for its riding, so the hooks reach into its code and
+  miss quietly when it changes; the `icys` compat pack rides a Quarter Horse through the horse tests to catch that.
 
 ## Ideas not built yet
 

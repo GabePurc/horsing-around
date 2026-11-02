@@ -60,9 +60,9 @@ public final class SteeringOverlay {
 		final double fore = s.debugFore();
 		final double hind = s.debugHind();
 		if (!Double.isNaN(fore)) {
-			Gizmos.point(new Vec3(horse.getX() + forward.x * RideTuning.FORE_HOOVES, fore, horse.getZ() + forward.z * RideTuning.FORE_HOOVES), 0xFFFF40FF, 6.0F)
+			Gizmos.point(new Vec3(horse.getX() + forward.x * s.foreHooves, fore, horse.getZ() + forward.z * s.foreHooves), 0xFFFF40FF, 6.0F)
 				.setAlwaysOnTop();
-			Gizmos.point(new Vec3(horse.getX() - forward.x * RideTuning.HIND_HOOVES, hind, horse.getZ() - forward.z * RideTuning.HIND_HOOVES), 0xFFFF40FF, 6.0F)
+			Gizmos.point(new Vec3(horse.getX() - forward.x * s.hindHooves, hind, horse.getZ() - forward.z * s.hindHooves), 0xFFFF40FF, 6.0F)
 				.setAlwaysOnTop();
 		}
 		Gizmos.billboardTextOverMob(horse, 0, String.format(Locale.ROOT, "%s %.2f  blocked %.2f%s", GAITS[s.gait], s.speed, s.blocked,
