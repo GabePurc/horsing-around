@@ -139,11 +139,13 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 		check("the rider sits on the cart's bench (blocks behind the horse's middle)", -ctx.computeOnClient(mc -> forwardOf(mc.player.getVehicle(), mc.player)), 1.0, 2.0);
 		sideScreenshot(ctx, "icy_cart_standing");
 		final double gallop = gallopFor(ctx);
-		galloping(ctx, input);
+		check("pulling the cart, it's slower to get going (ticks to a gallop; about 47 alone)", ticksToGallop(ctx, input), 65.0, 130.0);
+		ctx.waitTicks(20);
 		check("gallops at its own top speed, the drag included (blocks/tick)", averageSpeed(ctx, 10), gallop * 0.85, gallop * 1.15);
 		screenshot(ctx, "icy_cart_gallop");
 		sideScreenshot(ctx, "icy_cart_gallop_side");
-		followThroughTurn(ctx, input, "icy_cart");
+		// (Alone it turns as tight as about 6 blocks at a gallop; in the shafts it can bend 20 degrees before the cart holds it.)
+		followThroughTurn(ctx, input, "icy_cart", 6.5);
 		check("the same cart all along (never dropped and put back)", cartId.equals(world.getServer().computeOnServer(server -> cartUuid(horse(server, id)))));
 		stop(ctx, input);
 		dismount(ctx, input);
@@ -193,10 +195,11 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 		board(ctx, world, x);
 		check("this mod rides it", managed(ctx));
 		final double gallop = gallopFor(ctx);
-		galloping(ctx, input);
+		ticksToGallop(ctx, input);
+		ctx.waitTicks(20);
 		check("gallops at its own top speed (blocks/tick)", averageSpeed(ctx, 10), gallop * 0.85, gallop * 1.15);
 		screenshot(ctx, "icy_wagon_gallop");
-		followThroughTurn(ctx, input, "icy_wagon");
+		followThroughTurn(ctx, input, "icy_wagon", 8.0);
 		stop(ctx, input);
 		dismount(ctx, input);
 	}
@@ -206,9 +209,11 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 	 * is drawn (Icy's mod draws it by its own heading, not the entity's, which follows the server's): round the bend it
 	 * angles off the horse into the turn, in the hard turn the shafts hold it, and it lines up behind the horse again.
 	 */
-	private void followThroughTurn(final ClientGameTestContext ctx, final TestInput input, final String shot) {
+	private void followThroughTurn(final ClientGameTestContext ctx, final TestInput input, final String shot, final double widest) {
 		double bendAngle = 0.0;
 		double hardAngle = 0.0;
+		double circle = Double.MAX_VALUE;
+		double[] was = null;
 		double last = Double.NaN;
 		boolean present = true;
 		float view = 180.0F;
@@ -225,6 +230,15 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 				final Object cart = horse == null ? null : call(horse, "bh_getCartEntity");
 				return cart == null ? null : (double) Math.abs(Mth.wrapDegrees((float) call(cart, "gluedRenderYaw", 1.0F) - ((LivingEntity) horse).yBodyRot));
 			});
+			// The horse's turning circle: the radius of this tick's arc.
+			final double[] at = ctx.computeOnClient(mc -> new double[] {mc.player.getVehicle().getX(), mc.player.getVehicle().getZ(), mc.player.getVehicle().getYRot(), mc.player.getVehicle().onGround() ? 1 : 0});
+			if (was != null && i >= 30 && i < 50 && at[3] > 0) {
+				final double turned = Math.abs(Mth.wrapDegrees((float) (at[2] - was[2]))) * Mth.DEG_TO_RAD;
+				if (turned > 0.005) {
+					circle = Math.min(circle, Math.hypot(at[0] - was[0], at[1] - was[1]) / turned);
+				}
+			}
+			was = at;
 			if (angle == null) {
 				present = false;
 				continue;
@@ -240,9 +254,9 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 			}
 		}
 		check("the cart is there all through the turns and the jump", present);
-		// (The cart takes the horse's heading on its own tick, which may come before the horse's: give or take a tick's turn.)
-		check("round a bend it angles off the horse into the turn (degrees, most)", bendAngle, 3.0, 24.0);
-		check("in a hard turn the shafts hold it (degrees off the horse, most)", hardAngle, 10.0, 27.0);
+		check("round a bend it angles off the horse into the turn (degrees, most)", bendAngle, 3.0, 20.5);
+		check("in a hard turn the shafts hold it (degrees off the horse, most)", hardAngle, 10.0, 20.5);
+		check("...and the horse, pulling it round, turns wide (turning radius, blocks, tightest)", circle, widest, 100.0);
 		check("galloping on straight, it lines up behind the horse again (degrees)", last, 0.0, 2.0);
 	}
 
@@ -696,6 +710,21 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 		input.holdKey(o -> o.keyUp);
 		spurs(ctx, input, 3);
 		ctx.waitTicks(50);
+	}
+
+	/** From a standstill, W and three spurs: the ticks until it is at 95% of its gallop (W stays held). */
+	private static int ticksToGallop(final ClientGameTestContext ctx, final TestInput input) {
+		input.lookAt(180.0F, 10.0F);
+		input.holdKey(o -> o.keyUp);
+		int ticks = 0;
+		while (ticks < 300 && ride(ctx, s -> s.speed) < RideTuning.GAIT_SPEED[RideTuning.GALLOP] * 0.95F) {
+			if (ticks >= 2 && ticks < 26 && ticks % 6 == 2) {
+				input.pressKey(o -> o.keySprint);
+			}
+			ctx.waitTick();
+			ticks++;
+		}
+		return ticks;
 	}
 
 	/** Spurs on by {@code steps} gaits once W is held (a spur with W not yet down, or a tick after another, doesn't count). */

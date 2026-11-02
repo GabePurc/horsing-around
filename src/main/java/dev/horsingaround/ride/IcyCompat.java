@@ -138,6 +138,22 @@ public final class IcyCompat {
 		}
 	}
 
+	/**
+	 * The heading of the cart the horse pulls, as drawn (degrees; NaN if it pulls none): on the rider's client, the one
+	 * the ride steers by (CartTrail turns it).
+	 */
+	public static float cartYaw(final Entity horse) {
+		if (!LOADED || Gear.CART_ENTITY == null || !pullsCart(horse)) {
+			return Float.NaN;
+		}
+		try {
+			final Object cart = (Object) Gear.CART_ENTITY.invokeExact(horse);
+			return cart == null ? Float.NaN : (float) Gear.CART_YAW.invokeExact(cart);
+		} catch (final Throwable e) {
+			return Float.NaN;
+		}
+	}
+
 	/** How far behind the horse's middle one of Icy's carts has its axle, blocks (the small cart's if it can't be read). */
 	public static double cartLength(final Entity cart) {
 		if (Gear.AXLE != null) {
@@ -167,7 +183,8 @@ public final class IcyCompat {
 
 	/**
 	 * Icy's gear, looked up the first time it's needed: (Entity) boolean, a cart in the harness slot; a working harness;
-	 * shoes in the hoof slot; () boolean, the shoes' switch; and (Entity) double, a cart's axle behind the horse.
+	 * shoes in the hoof slot; () boolean, the shoes' switch; (Entity) double, a cart's axle behind the horse; and
+	 * (Entity) Object, the horse's cart, and (Object) float, its heading as drawn.
 	 */
 	private static final class Gear {
 		static final @Nullable MethodHandle CART;
@@ -175,6 +192,8 @@ public final class IcyCompat {
 		static final @Nullable MethodHandle SHOD;
 		static final @Nullable MethodHandle HOOVES_ON;
 		static final @Nullable MethodHandle AXLE;
+		static final @Nullable MethodHandle CART_ENTITY;
+		static final @Nullable MethodHandle CART_YAW;
 
 		static {
 			MethodHandle cart = null;
@@ -182,6 +201,8 @@ public final class IcyCompat {
 			MethodHandle shod = null;
 			MethodHandle hoovesOn = null;
 			MethodHandle axle = null;
+			MethodHandle cartEntity = null;
+			MethodHandle cartYaw = null;
 			try {
 				final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
 				final Class<?> horseData = Class.forName("icy.betterhorses.net.IHorseData");
@@ -198,18 +219,27 @@ public final class IcyCompat {
 					lookup.findVirtual(Class.forName("icy.betterhorses.net.entity.HorseCartEntity"), "type", MethodType.methodType(type)),
 					lookup.findVirtual(type, "axleBehind", MethodType.methodType(double.class))
 				).asType(MethodType.methodType(double.class, Entity.class));
+				final Class<?> cartClass = Class.forName("icy.betterhorses.net.entity.HorseCartEntity");
+				cartEntity = lookup.findVirtual(horseData, "bh_getCartEntity", MethodType.methodType(cartClass))
+					.asType(MethodType.methodType(Object.class, Entity.class));
+				cartYaw = MethodHandles.insertArguments(lookup.findVirtual(cartClass, "gluedRenderYaw", MethodType.methodType(float.class, float.class)), 1, 1.0F)
+					.asType(MethodType.methodType(float.class, Object.class));
 			} catch (final ReflectiveOperationException e) {
 				cart = null;
 				glides = null;
 				shod = null;
 				hoovesOn = null;
 				axle = null;
+				cartEntity = null;
+				cartYaw = null;
 			}
 			CART = cart;
 			GLIDES = glides;
 			SHOD = shod;
 			HOOVES_ON = hoovesOn;
 			AXLE = axle;
+			CART_ENTITY = cartEntity;
+			CART_YAW = cartYaw;
 		}
 	}
 

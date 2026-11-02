@@ -67,8 +67,10 @@ public final class RideController {
 		final boolean back = in.backward();
 		keepSpeedThroughDrops(horse, s);
 
-		// Gait and speed (and a breed's trait on them).
+		// Gait and speed (and a breed's trait on them, and a cart's weight).
 		BreedTraits.tick(horse, s);
+		s.cartYaw = IcyCompat.cartYaw(horse);
+		final boolean pulling = !Float.isNaN(s.cartYaw);
 		float target;
 		float rate;
 		if (forward) {
@@ -93,6 +95,10 @@ public final class RideController {
 				target = 0.0F;
 				rate = back ? DECEL_BRAKE : s.speed < 0.0F ? REVERSE_ACCEL : DECEL_COAST;
 			}
+		}
+		if (pulling) {
+			// The cart's weight: slower to get going, and it rolls on behind as the horse eases off or is reined back.
+			rate *= s.speed < target ? CART_ACCEL : CART_DECEL;
 		}
 
 		// Water: wade while the hooves reach the bottom (slower the deeper it is), swim once they don't. A horse that
@@ -137,7 +143,8 @@ public final class RideController {
 		// (Going round something is the horse's own doing, planned at a pace it can turn at: heading off the rider's line
 		// for it doesn't sit it back into a cut, only the rider looking away does.)
 		final float cutTurn = Math.min(turn, Math.abs(Mth.wrapDegrees(s.riderYaw - horse.getYRot())));
-		final float ask = HARD_CUT && footing ? smoothstep((cutTurn - CUT_START) / (CUT_FULL - CUT_START)) : 0.0F;
+		// (Not in a cart's shafts: they hold it, see below.)
+		final float ask = HARD_CUT && footing && !pulling ? smoothstep((cutTurn - CUT_START) / (CUT_FULL - CUT_START)) : 0.0F;
 		s.cut = ask >= s.cut ? ask : Math.max(ask, s.cut - CUT_RELEASE);
 		if (s.cut > 0.0F && s.speed > 0.0F) {
 			// The speed at which its grip, cutting this hard, brings it round in about CUT_TURN_TICKS.
@@ -306,6 +313,16 @@ public final class RideController {
 		s.yawVelocity += Mth.clamp(maxTurn * s.turnIntent * Math.abs(s.turnIntent) - s.yawVelocity, -accel, accel);
 		s.heading = horse.getYRot() + s.yawVelocity;
 		s.bankRate = s.turnIntent * maxTurn;
+		if (pulling) {
+			// In a cart's shafts the horse turns only as far as the rolling cart comes round behind it (CartTrail): wide,
+			// and not at all standing. So the cart is pulled round, never dragged sideways.
+			final float off = Mth.wrapDegrees(s.heading - s.cartYaw);
+			if (Math.abs(off) > CART_SWING_MAX) {
+				s.heading = s.cartYaw + Math.copySign(CART_SWING_MAX, off);
+				s.yawVelocity = Mth.wrapDegrees(s.heading - horse.getYRot());
+				s.bankRate = s.yawVelocity;
+			}
+		}
 		// Weight committed ahead of the rotation pushes the horse a little sideways into the turn.
 		s.sidestep = (s.turnIntent - s.yawVelocity / maxTurn) * SIDESTEP * (1.0F - Math.min(speedFraction * SIDESTEP_FADE, 1.0F));
 

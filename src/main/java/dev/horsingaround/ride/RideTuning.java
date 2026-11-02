@@ -925,6 +925,12 @@ public final class RideTuning {
 	 * hold it, and past this the horse drags it round.
 	 */
 	static final float CART_SWING_MAX = 20.0F;
+	/**
+	 * Pulling one of those carts, the horse gets going this much slower (its acceleration scale), and slows this much
+	 * more gently letting go or reined back, the cart rolling on behind it (braking for danger stays as hard).
+	 */
+	static final float CART_ACCEL = 0.55F;
+	static final float CART_DECEL = 0.6F;
 
 	private RideTuning() {
 	}

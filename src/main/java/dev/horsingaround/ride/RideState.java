@@ -215,6 +215,8 @@ public final class RideState {
 	public float foreHooves = RideTuning.FORE_HOOVES;
 	public float hindHooves = RideTuning.HIND_HOOVES;
 	public float legLength = RideTuning.LEG_LENGTH;
+	/** The heading of the cart the horse is pulling (one of Icy's Better Horses'), degrees; NaN when it pulls none. */
+	public float cartYaw = Float.NaN;
 	/**
 	 * A breed's trait on this ride (BreedTraits), and its scales this tick: how fast it gathers speed, how much faster its
 	 * gallop is, how fast galloping tires it and how fast it gets its wind back. Neutral for every other horse.
