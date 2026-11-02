@@ -197,7 +197,7 @@ if (sc.current.parsed.matches('<1.21')) {
 }
 
 jar {
-	from(repoDir.file("LICENSE")) {
+	from(repoDir.files("COPYING", "COPYING.LESSER")) {
 		rename { "${it}_horsingaround" }
 	}
 }

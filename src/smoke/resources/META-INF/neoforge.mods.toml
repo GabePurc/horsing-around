@@ -1,7 +1,7 @@
 # The smoke test's mod metadata on NeoForge (fabric.mod.json is Fabric's). Test only, never shipped.
 modLoader = "javafml"
 loaderVersion = "[1,)"
-license = "MIT"
+license = "LGPL-3.0-only"
 
 [[mods]]
 modId = "horsingaround_smoke"
