@@ -969,9 +969,9 @@ public final class RideController {
 			// step, and keeps up on a slope. Going down, each end stays up on the ground under its hooves until they step off
 			// (then it falls).
 			final double lead = Math.min(groundSpeed * (2.0 / w + 1.0 + ramp), STEP_LEAD_MAX);
-			s.foreGround = Math.max(Math.max(support(horse, fx, fz, s.foreHooves + lead, y), support(horse, fx, fz, s.foreHooves, y)),
-				support(horse, fx, fz, chestAhead + lead, y) - chestAbove);
-			s.hindGround = Math.max(support(horse, fx, fz, lead - s.hindHooves, y), support(horse, fx, fz, -s.hindHooves, y));
+			s.foreGround = Math.max(Math.max(support(horse, s, fx, fz, s.foreHooves + lead, y), support(horse, s, fx, fz, s.foreHooves, y)),
+				support(horse, s, fx, fz, chestAhead + lead, y) - chestAbove);
+			s.hindGround = Math.max(support(horse, s, fx, fz, lead - s.hindHooves, y), support(horse, s, fx, fz, -s.hindHooves, y));
 		}
 		if (landing >= 0.0F) {
 			// Touchdown: the body is where the horse landed, still coming down as fast as it fell; the legs take it up. (Only
@@ -1035,7 +1035,7 @@ public final class RideController {
 			- s.cutSquat * CUT_SQUAT;
 		s.heightOffset = (float) offset;
 		if (probe) {
-			s.chestRoom = (float) (y + offset + tuck + s.foreHooves * sin - (support(horse, fx, fz, chestAhead, y) - chestAbove));
+			s.chestRoom = (float) (y + offset + tuck + s.foreHooves * sin - (support(horse, s, fx, fz, chestAhead, y) - chestAbove));
 		}
 		// Where the model isn't drawn yet (so no hoof can find its own ground), the pair over higher ground draws up onto it.
 		s.foreLeg = drawUp(s.foreLeg, s.foreFoot - y - s.foreHooves * sin, offset + tuck);
@@ -1081,9 +1081,9 @@ public final class RideController {
 	 * over STEP_FOOTPRINT so a step comes in over a stretch rather than at a point. Ahead of the body the ground may rise
 	 * a step for every block (a slope it will climb); over anything deeper than a step the hooves stay level with it.
 	 */
-	private static double support(final AbstractHorse horse, final double fx, final double fz, final double reach, final double y) {
+	private static double support(final AbstractHorse horse, final RideState s, final double fx, final double fz, final double reach, final double y) {
 		final double half = STEP_FOOTPRINT * 0.5;
-		final double climb = Math.max(reach - ((RideStateHolder) horse).horsingaround$ride().foreHooves, 0.0);
+		final double climb = Math.max(reach - s.foreHooves, 0.0);
 		return (supportAt(horse, fx, fz, reach - half, y, climb) + supportAt(horse, fx, fz, reach + half, y, climb)) * 0.5;
 	}
 
