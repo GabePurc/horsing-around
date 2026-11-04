@@ -38,9 +38,9 @@ How to check a release candidate:
 
 Still open:
 
-- Publishing: Horsing Around is out (0.1.0 to 0.5.2 through CI, Modrinth project `Lc7S9t3K`; CurseForge
-  project 1758139 from 0.5.2, awaiting approval on 2026-10-21); the gallery
-  (`build/run/clientGameTest/gallery/`) may still need doing, so check with the user.
+- Publishing: CurseForge (project 1758139) is the main store. Modrinth (project `Lc7S9t3K`) won't accept the mod and
+  its page isn't public (user, 2026-11-03). The gallery (`build/run/clientGameTest/gallery/`) may still need doing, so
+  check with the user.
 - When a pack mod updates or a new popular mod appears, add it to `compatPacks` in `build.gradle` (pin the Modrinth
   version id, not the version number: some mods reuse numbers across Minecraft versions).
 - Known outside our control: Horseman crashes the second in-process server of the client test (its server config

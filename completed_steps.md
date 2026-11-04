@@ -121,6 +121,7 @@ at most two lines, under the right area; details go in the PR, not here.
 - Code review fixes (2026-10-14): hat throttle, trampling speed window, supporters cache written safely and only on change
 - Whole-codebase review (2026-10-14, PR #42): falls follow each version's vanilla rules, dismount and hurdle state resets, NaN guards, config and
   supporters hardening, shared helpers (`RidePoser`, one ground probe), release dry run on PRs; smoke and ride tests fail on server corrections
+- Store description cut down: the pitch comes first, the AI note last, a Discord badge up top; summary in the mod metadata
 
 ## Tests and tooling
 

@@ -12,7 +12,7 @@ authors = "GabePurc"
 displayURL = "https://github.com/GabePurc/horsing-around"
 ${logo} = "assets/horsingaround/icon.png"
 description = '''
-Weighty, momentum-based horse riding kept close to vanilla: gaits and stamina, turning inertia, a riding camera, and horses that pick their way.
+Horses finally ride like real animals: gaits, momentum, stamina, sure footing and an over-the-shoulder camera, on the vanilla horse with the keys you already know.
 '''
 
 [[mixins]]
