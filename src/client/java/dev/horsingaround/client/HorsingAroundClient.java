@@ -5,6 +5,8 @@ import dev.horsingaround.Platform;
 import com.mojang.blaze3d.platform.InputConstants;
 //? if >=1.21
 import dev.horsingaround.client.compat.EmfSaddleTracker;
+//? if =1.20.1
+/*import dev.horsingaround.client.compat.EmfNeckHook;*/
 import dev.horsingaround.client.config.HorseSettingsScreen;
 import dev.horsingaround.client.debug.SteeringOverlay;
 import dev.horsingaround.client.cosmetic.Hats;
@@ -51,6 +53,16 @@ public final class HorsingAroundClient {
 			}
 		}
 		//?}
+		//? if =1.20.1 {
+		/*if (Platform.isModLoaded("entity_model_features")) {
+			try {
+				EmfNeckHook.register();
+			} catch (final LinkageError | RuntimeException e) {
+				// A version of Entity Model Features without the hook: the neck stays as the pack sets it.
+				LOGGER.warn("Could not hook Entity Model Features animations; the neck on an animation pack's horse stays as the pack sets it", e);
+			}
+		}
+		*///?}
 		// The supporters' cowboy hat.
 		Supporters.load();
 	}

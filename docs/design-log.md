@@ -382,6 +382,7 @@ kinematics, still driven by Fresh Animations' animation.
   the body. The armour came from the neck reach going only on the body layer's neck; Fresh Animations gives the armour
   and the bridle their own copy of the neck, animated the same way, so it goes on every layer now.
   (Before 1.21.5 the bridle's copy, "headpiece_neck", is in the body's own model, so it needs the reach as well: added 2026-11-03.)
+  (On 1.20.x the reach went on vanilla's empty neck, for want of a hook, so the pack's never moved; it gets it after the pack runs now: 2026-11-04.)
 - Knees: the first time a leg is posed its box is cut into the upper leg (left on the leg part the model or the pack
   swings), the cannon (from 41% of the way down, on a child part that bends at the knee) and the hoof (its last 2
   pixels, as the horse texture paints it, bending at the fetlock), the texture cut with it, each piece capped and
