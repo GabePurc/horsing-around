@@ -72,8 +72,14 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		private static final int BODY = 6;
 		private static final int LEFT_STIRRUP = 7;
 		private static final int RIGHT_STIRRUP = 8;
+		/**
+		 * The bridle's copy of the neck, where the model draws the bridle and reins itself: Fresh Animations before 1.21.5
+		 * keeps them in the body's model on "headpiece_neck", which it sets from "neck2" (later they're in a saddle model, on
+		 * a "neck2" of its own, and this is left empty in the body's).
+		 */
+		private static final int BRIDLE_NECK = 9;
 
-		private final ModelPart[] parts = new ModelPart[9];
+		private final ModelPart[] parts = new ModelPart[10];
 
 		Parts(final EMFModelPartRoot root) {
 			final Map<String, ? extends ModelPart> vanilla = root.getAllVanillaPartsByNameEMF();
@@ -90,6 +96,7 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 			this.set(BODY, vanilla.get("body"));
 			this.set(LEFT_STIRRUP, AnimatedHorseModel.find(root, "left_saddle"));
 			this.set(RIGHT_STIRRUP, AnimatedHorseModel.find(root, "right_saddle"));
+			this.set(BRIDLE_NECK, AnimatedHorseModel.find(root, "headpiece_neck"));
 		}
 
 		private void set(final int index, final ModelPart part) {
@@ -134,8 +141,16 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 		AnimatedHorseModel.tail(parts.get(Parts.TAIL), ride, partialTicks);
 		// (Applied after the pack so its own neck logic isn't disturbed, and on every layer: each has its own neck, and
 		// armour and bridle follow the head.)
-		if (AnimatedHorseModel.neck(parts.get(Parts.NECK), ride, ((Entity) holder).tickCount + partialTicks, partialTicks) && root.isMainModel) {
+		final ModelPart neck = parts.get(Parts.NECK);
+		if (AnimatedHorseModel.neck(neck, ride, ((Entity) holder).tickCount + partialTicks, partialTicks) && root.isMainModel) {
 			ride.animatedShakeFrames++;
+		}
+		// (The pack has already copied the neck to the bridle's, before the neck got what the ride adds.)
+		final ModelPart bridleNeck = parts.get(Parts.BRIDLE_NECK);
+		if (bridleNeck != null && neck != null) {
+			bridleNeck.xRot = neck.xRot;
+			bridleNeck.yRot = neck.yRot;
+			bridleNeck.zRot = neck.zRot;
 		}
 		if (!root.isMainModel) {
 			// (Stirrups meet a seated rider's feet; a saddled horse no one rides keeps the pack's own.)
