@@ -58,7 +58,7 @@ at most two lines, under the right area; details go in the PR, not here.
 
 ## Rider
 
-- Seated pose pinned to the saddle through bank, pitch, steps, gait motion and Fresh Animations' sway; feet in the stirrups, hands on the reins; torso twists toward the look; seat bounce and a calm canter rock per gait
+- Seated pose pinned to the saddle through bank, pitch, steps, gait motion and Fresh Animations' sway; feet in the stirrups, hands on the reins; torso twists toward the look; seat bounce and a calm canter rock per gait (Fresh Animations' stirrups held on whichever of its models has them: the body's before 1.21.5, the saddle's after)
 - Rider rides the horse's real animated body (Entity Model Features hook, or the same generated motion without it); inertia sways the rider back on surges and forward on braking
 - Hands: a tool or weapon is held ready at the side, swings play from there; drawing a bow turns the rider side-on with the string hand to the cheek; crossbow held on the aim (`-Psections=hands`)
 - Leaves at chest or face: the rider leans back and shields their face; the horse's neck stretches (and the rider folds less) so head and rider never clip
@@ -136,6 +136,7 @@ at most two lines, under the right area; details go in the PR, not here.
 
 - Performance pass (user request, 2026-10-20): `-Ptests=perf -Pprofile` measures the mod under a 57-horse load (about
   70 us a client frame, next to nothing on the server); weak-map lookups per horse model part replaced by fields on the part
+- Audit servers take any free port (`server-port=0`), so a Fabric and a NeoForge audit server can overlap, and nothing else holding 25565 fails an audit
 
 ## Open / known limits
 

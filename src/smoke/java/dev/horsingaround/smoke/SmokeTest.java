@@ -76,7 +76,7 @@ public final class SmokeTest {
 	 */
 	private static final String CLOSE_UP = System.getProperty("horsingaround.smoke.closeUp");
 	private static final float SIDE_TURN = CLOSE_UP == null || CLOSE_UP.isEmpty() ? 90.0F : Float.parseFloat(CLOSE_UP);
-	private static final int CLOSE_UP_FOV = 36;
+	private static final int CLOSE_UP_FOV = 50;
 
 	private static final int FOV = 70;
 	/**
