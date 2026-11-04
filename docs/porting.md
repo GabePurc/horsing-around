@@ -118,7 +118,7 @@ nothing is registered beforehand.
 - `./gradlew :<version>:build`: compiles and builds that version's jar (`./gradlew build` builds them all).
 - `./gradlew :<version>:auditMixins`: the built jar in a production client and on a dedicated server of that version;
   both load every class the mixins patch (any injection that finds nothing fails) and quit. About 20 seconds; one game
-  at a time. Logs in `build/run/audit/<version>/`.
+  at a time per loader, and audit servers take any free port. Logs in `build/run/audit/<version>/`.
 - `./gradlew :<version>:runClient`: play that version (its game folder is `run/versions/<version>/`; plain
   `runClient` is the main version).
 - NeoForge: `./gradlew :<version>-neoforge:auditMixins` does the same in a NeoForge client and dedicated server (dev

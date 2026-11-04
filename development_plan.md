@@ -57,5 +57,3 @@ Still open:
   of full blocks" median, 0.116-0.135 against 0.12 (Icy's trot lifts the hooves higher). Each needs a look: a real
   float, or a limit to set from what the stride itself does. The horses pack's nautilus once rode 0.54 blocks (target 1;
   3.9 rerun).
-- Under `build auditMixins` two audit servers can both want port 25565 ("FAILED TO BIND TO PORT", a NeoForge server
-  audit most runs); it passes rerun alone. Give each audit server its own port.

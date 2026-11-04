@@ -145,6 +145,10 @@ auditTasks.each { side, type ->
 			new File(auditDir, "logs").deleteDir()
 			auditDir.mkdirs()
 			new File(auditDir, "eula.txt").text = "eula=true\n"
+			// Any free port: a NeoForge audit server (its own one-at-a-time limit) or anything else may hold the default.
+			if (side == "Server") {
+				new File(auditDir, "server.properties").text = "server-port=0\n"
+			}
 		}
 		doLast {
 			def log = new File(auditDir, "logs/latest.log")
