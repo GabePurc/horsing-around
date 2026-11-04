@@ -20,6 +20,8 @@ final class HatPaletteWidget extends AbstractWidget {
 	private static final int SWATCH = 18;
 	/** Outline of the swatch the keys are on. */
 	private static final int CURSOR_OUTLINE = 0xFFFFFF55;
+	/** Outline of the hat's colour now: polished brass. */
+	private static final int SELECTED_OUTLINE = 0xFFE7B463;
 
 	private final int selected;
 	private final IntConsumer pick;
@@ -50,7 +52,7 @@ final class HatPaletteWidget extends AbstractWidget {
 			final int color = HatColors.PALETTE[i];
 			final boolean hovered = mouseX >= x && mouseX < x + SWATCH && mouseY >= y && mouseY < y + SWATCH;
 			final int outline = this.isFocused() && i == this.cursor ? CURSOR_OUTLINE
-				: color == this.selected ? 0xFFFFFFFF : hovered ? 0xFFA0A0A0 : 0xFF000000;
+				: color == this.selected ? SELECTED_OUTLINE : hovered ? 0xFFA0A0A0 : 0xFF120A07;
 			graphics.fill(x - 1, y - 1, x + SWATCH + 1, y + SWATCH + 1, outline);
 			graphics.fill(x, y, x + SWATCH, y + SWATCH, 0xFF000000 | color);
 		}

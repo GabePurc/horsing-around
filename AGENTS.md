@@ -41,7 +41,7 @@ the code they describe existed.
 Firm rules, because the user asked for them or because breaking them breaks players:
 
 - Nothing that changes how horses ride is a setting (user direction, 2026-10-08). Player settings (`HorseConfig`, JSON
-  in the config folder, vanilla-style screen from Mod Menu, an optional dependency) are only comfort and preference:
+  in the config folder, a tabbed tack-room screen from Mod Menu, an optional dependency) are only comfort and preference:
   camera, first-person motion, sound volume. The one exception (user decision, 2026-10-31): with Icy's Better Horses
   installed too, the server picks whose riding horses use (`ride/IcyCompat`).
 - Per-tick paths must not allocate beyond what vanilla already does, and must not do work for horses that are not
@@ -60,7 +60,7 @@ Stonecutter; `src/` reads as 26.3 code (Java 25), older versions' code sits in `
 must still build (`./gradlew build`) and pass `./gradlew auditMixins` (every version's jar in a production client and
 server). Jars land in `versions/<version>/build/libs/`. Gradle picks JDK 25 through `gradle/gradle-daemon-jvm.properties`.
 
-Play-test: `./gradlew runClient` (26.3; `./gradlew :<version>:runClient` for another). Dev runs load Mod Menu, Entity
+Play-test: `./gradlew :26.3:runClient` (another version: `:<version>:runClient`; plain `runClient` fails Gradle validation). Dev runs load Mod Menu, Entity
 Model Features, Entity Texture Features and the Fresh Animations pack (the user's target setup).
 
 ## Testing

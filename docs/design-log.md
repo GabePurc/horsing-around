@@ -775,3 +775,13 @@ along the way: legs in old worlds (time read as a float), the jump shape eased i
 hillside read as a slope, a touchdown carrying only a fall, and over the shoulder never targeting the horse ridden. The
 removed work stays on its branches (`stride-climb`, `rider-seat`, `gait-cycles`, `footfall-legs`, `no-standing`).
 
+## Settings in tabs, a tack room at sunset (user direction, 2026-11-03)
+
+Requests: settings easy to find, in tabs rather than labelled sections on one list, and no longer bland: colours and feel
+from the logo, calm like the mod, looking like Minecraft, and naturalistic rather than simple. A flat dusk palette read as
+too plain and not Minecraft; wood boards, stitched saddle leather, strap sliders and brass buckles are what stuck.
+
+- Tabs by what a player comes for. Speed zoom-out moved to Comfort: its tooltip is about fast motion bothering you. Riding
+  with Icy's became the Compatibility tab, shown only with a mod it has settings for.
+- The controls subclass the vanilla ones and only redraw them, so clicks, keys and narration stay the game's own.
+- The hat tab says how to get the hat in plain words for players who aren't supporters, rather than only in a tooltip.

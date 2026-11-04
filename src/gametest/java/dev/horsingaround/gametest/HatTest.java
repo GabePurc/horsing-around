@@ -71,7 +71,7 @@ public final class HatTest implements FabricClientGameTest {
 			Drawn drawn = drawn(ctx);
 			check("no hat drawn", drawn.hat == HatPayload.NONE);
 			check("helmet drawn", drawn.helmetDrawn);
-			ctx.setScreen(() -> new HorseSettingsScreen(null));
+			ctx.setScreen(() -> new HorseSettingsScreen(null, HorseSettingsScreen.Tab.HAT));
 			ctx.waitTicks(3);
 			scrollSettingsToBottom(ctx);
 			screenshot(ctx, "hat_settings_not_supporter");
@@ -157,7 +157,7 @@ public final class HatTest implements FabricClientGameTest {
 			});
 			server.runCommand("kill @e[tag=hat_camera]");
 			server.runCommand("tp @p 0.5 -60 0.5 180 0");
-			ctx.setScreen(() -> new HorseSettingsScreen(null));
+			ctx.setScreen(() -> new HorseSettingsScreen(null, HorseSettingsScreen.Tab.HAT));
 			ctx.waitTicks(3);
 			scrollSettingsToBottom(ctx);
 			screenshot(ctx, "hat_settings_supporter");

@@ -4,53 +4,66 @@ import dev.horsingaround.HorsingAround;
 import dev.horsingaround.client.cosmetic.HatColors;
 import dev.horsingaround.client.cosmetic.Hats;
 import java.net.URI;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.function.IntConsumer;
-import com.mojang.serialization.Codec;
-import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+//? if >=1.20.5
+import net.minecraft.client.gui.components.OptionsList;
 import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import dev.horsingaround.net.ServerRules;
 import dev.horsingaround.ride.HorseConfig;
 import dev.horsingaround.ride.IcyCompat;
 import java.util.function.Consumer;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 //? if >=1.20.5
-import net.minecraft.client.gui.components.ImageWidget;
-import net.minecraft.client.gui.components.StringWidget;
-//? if >=1.20.5
 import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.OptionsSubScreen;
-//? if <1.20.5 {
-/*import net.minecraft.client.gui.GuiGraphics;
-*///?} elif <1.21 {
-/*import net.minecraft.client.gui.components.OptionsList;
-*///?}
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
-//? if <1.20.3
-/*import net.minecraft.network.chat.Style;*/
 import net.minecraft.resources.Identifier;
 
 /**
- * Horsing Around settings: only how riding looks and sounds to you (how horses ride is the same for everyone). In the
- * style of the vanilla options screens, with the mod's icon in the title, a tooltip on every option, and changes applied
- * live.
+ * Horsing Around settings: only how riding looks and sounds to you (how horses ride is the same for everyone), a tack
+ * room at sunset, in tabs by what a player comes looking for. A tooltip on every option, and changes applied live.
  */
 public final class HorseSettingsScreen extends OptionsSubScreen {
+	/** What a player comes for. The compatibility tab only shows with a mod it has settings for. */
+	public enum Tab {
+		CAMERA, COMFORT, HAT, COMPATIBILITY;
+
+		private boolean shown() {
+			return this != COMPATIBILITY || IcyCompat.LOADED;
+		}
+
+		private Component label() {
+			return Component.translatable(KEY + "tab." + this.name().toLowerCase(Locale.ROOT));
+		}
+	}
+
 	private static final String KEY = "options.horsingaround.";
 	private static final Identifier ICON = Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "icon.png");
-	/** Section headings: saddle-leather tan. */
-	private static final int SECTION_COLOR = 0xE3B778;
 	private static final URI SUPPORT = URI.create("https://buymeacoffee.com/blintzbug");
+	private static final int WIDE = 310;
+	private static final int SMALL = 150;
+	/** The whole of the wooden frame, and most of it the tabs may take. */
+	private static final int PANEL_WIDTH = 350;
+	private static final int TABS_WIDTH = 330;
+	private static final int TAB_GAP = 4;
+	private static final int FRAME_MARGIN = 4;
+	/** The title beam, then the tabs, which end where the options' panel starts. */
+	private static final int BEAM_BOTTOM = 30;
+	private static final int HEADER_HEIGHT = 56;
+	private static final int FOOTER_HEIGHT = 33;
 
+	private final List<Tack.TabTag> tabTags = new ArrayList<>();
+	private Tab tab;
 	/**
 	 * The hat colour as the sliders show it: hue (degrees), richness and brightness (0-1). Kept here and only turned into
 	 * the colour (never back), so a slider at its end (grey has no hue) doesn't lose the others, and rounding to 8-bit
@@ -59,24 +72,60 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	private float[] hsv;
 
 	public HorseSettingsScreen(final Screen parent) {
+		this(parent, Tab.CAMERA);
+	}
+
+	public HorseSettingsScreen(final Screen parent, final Tab tab) {
 		super(parent, Minecraft.getInstance().options, Component.translatable(KEY + "title"));
+		this.tab = tab;
 		this.hsv = HatColors.toHsv(HorseConfig.get().hatColor);
 	}
 
 	/** Opens the settings over whatever is showing now (the key binding). */
 	public static void open(final Minecraft minecraft) {
-		//? if >=26.2 {
-		show(minecraft, minecraft.gui.screen());
-		//?} else
-		/*show(minecraft, minecraft.screen);*/
+		open(minecraft, Tab.CAMERA);
 	}
 
-	private static void show(final Minecraft minecraft, final Screen parent) {
+	public static void open(final Minecraft minecraft, final Tab tab) {
 		//? if >=26.2 {
-		minecraft.gui.setScreen(new HorseSettingsScreen(parent));
+		show(minecraft, minecraft.gui.screen(), tab);
 		//?} else
-		/*minecraft.setScreen(new HorseSettingsScreen(parent));*/
+		/*show(minecraft, minecraft.screen, tab);*/
 	}
+
+	private static void show(final Minecraft minecraft, final Screen parent, final Tab tab) {
+		//? if >=26.2 {
+		minecraft.gui.setScreen(new HorseSettingsScreen(parent, tab));
+		//?} else
+		/*minecraft.setScreen(new HorseSettingsScreen(parent, tab));*/
+	}
+
+	//? if >=1.20.5 {
+	/** The options list, on the frame's boards rather than the game's own list background and separators. */
+	private static final class TackList extends OptionsList {
+		//? if >=1.21 {
+		TackList(final Minecraft minecraft, final int width, final OptionsSubScreen screen) {
+			super(minecraft, width, screen);
+		}
+		//?} else {
+		/*TackList(final Minecraft minecraft, final int width, final int height, final OptionsSubScreen screen) {
+			super(minecraft, width, height, screen);
+		}
+		*///?}
+
+		void clear() {
+			this.clearEntries();
+		}
+
+		@Override
+		protected void extractListBackground(final GuiGraphicsExtractor graphics) {
+		}
+
+		@Override
+		protected void extractListSeparators(final GuiGraphicsExtractor graphics) {
+		}
+	}
+	//?}
 
 	//? if <1.20.5 {
 	/*// Before 1.20.5 the options screens make their own list and place everything by hand (the base class has neither a
@@ -85,35 +134,19 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 
 	@Override
 	protected void init() {
-		this.list = this.addRenderableWidget(new LegacyOptionsList(this.minecraft, this.width, this.height));
+		this.addTabs();
+		this.list = this.addRenderableWidget(new LegacyOptionsList(this.minecraft, this.width, this.height - HEADER_HEIGHT - FOOTER_HEIGHT, HEADER_HEIGHT));
 		this.addOptions();
 		this.addFooter();
-	}
-
-	private void drawTitle(final GuiGraphics graphics) {
-		final int left = (this.width - 22 - this.font.width(this.title)) / 2;
-		graphics.blit(ICON, left, 14, 0.0F, 0.0F, 16, 16, 16, 16);
-		graphics.drawString(this.font, this.title, left + 22, 20, 0xFFFFFF);
+		this.placeTabs();
 	}
 	*///?}
 	//? if <1.20.2 {
 	/*@Override
-	public void render(final GuiGraphics graphics, final int mouseX, final int mouseY, final float partialTick) {
-		this.renderBackground(graphics);
+	public void render(final GuiGraphicsExtractor graphics, final int mouseX, final int mouseY, final float partialTick) {
+		this.extractBackground(graphics);
+		this.drawFrame(graphics);
 		super.render(graphics, mouseX, mouseY, partialTick);
-		this.drawTitle(graphics);
-	}
-	*///?} elif <1.20.5 {
-	/*@Override
-	public void render(final GuiGraphics graphics, final int mouseX, final int mouseY, final float partialTick) {
-		super.render(graphics, mouseX, mouseY, partialTick);
-		this.drawTitle(graphics);
-	}
-	*///?}
-	//? if >=1.20.3 && <1.20.5 {
-	/*@Override
-	public void renderBackground(final GuiGraphics graphics, final int mouseX, final int mouseY, final float partialTick) {
-		this.renderDirtBackground(graphics);
 	}
 	*///?}
 	//? if >=1.20.5 && <1.21 {
@@ -122,100 +155,170 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 
 	@Override
 	protected void init() {
-		this.list = this.addRenderableWidget(new OptionsList(this.minecraft, this.width, this.height, this));
+		this.list = this.addRenderableWidget(new TackList(this.minecraft, this.width, this.height, this));
 		this.addOptions();
 		super.init();
-	}
-
-	@Override
-	protected void repositionElements() {
-		super.repositionElements();
-		this.list.updateSize(this.width, this.layout);
 	}
 	*///?}
 
 	//? if >=1.20.5 {
 	@Override
 	protected void addTitle() {
-		final LinearLayout title = LinearLayout.horizontal().spacing(6);
-		title.defaultCellSetting().alignVerticallyMiddle();
-		title.addChild(ImageWidget.texture(16, 16, ICON, 16, 16));
-		title.addChild(new StringWidget(this.title, this.font));
-		this.layout.addToHeader(title);
+		// (The title itself goes on the beam, with the frame.)
+		this.layout.setHeaderHeight(HEADER_HEIGHT);
+		this.addTabs();
+	}
+
+	@Override
+	protected void repositionElements() {
+		super.repositionElements();
+		//? if >=1.20.5 && <1.21
+		/*this.list.updateSize(this.width, this.layout);*/
+		this.placeTabs();
 	}
 	//?}
+
+	//? if >=1.21 {
+	@Override
+	protected void addContents() {
+		this.list = this.layout.addToContents(new TackList(this.minecraft, this.width, this));
+		this.addOptions();
+	}
+	//?}
+
+	private void addTabs() {
+		this.tabTags.clear();
+		for (final Tab each : Tab.values()) {
+			if (each.shown()) {
+				this.tabTags.add(this.addRenderableWidget(new Tack.TabTag(each.label(), each == this.tab, () -> this.select(each))));
+			}
+		}
+	}
+
+	private void placeTabs() {
+		final int total = Math.min(TABS_WIDTH, this.width - 2 * FRAME_MARGIN);
+		final int each = (total - (this.tabTags.size() - 1) * TAB_GAP) / this.tabTags.size();
+		int x = (this.width - total) / 2;
+		for (final Tack.TabTag tag : this.tabTags) {
+			tag.setWidth(each);
+			tag.setX(x);
+			tag.setY(HEADER_HEIGHT - tag.getHeight());
+			x += each + TAB_GAP;
+		}
+	}
+
+	/** Shows another tab: its options replace the list's, and the tabs and footer stay as they are. */
+	private void select(final Tab chosen) {
+		this.tab = chosen;
+		for (int i = 0; i < this.tabTags.size(); i++) {
+			this.tabTags.get(i).selected = Tab.values()[i] == chosen;
+		}
+		this.refill();
+		this.list.setScrollAmount(0.0);
+	}
+
+	private void refill() {
+		//? if >=1.20.5 {
+		((TackList) this.list).clear();
+		//?} else
+		/*this.list.clear();*/
+		this.addOptions();
+	}
+
+	//? if >=1.20.2 {
+	@Override
+	public void extractBackground(final GuiGraphicsExtractor graphics, final int mouseX, final int mouseY, final float a) {
+		super.extractBackground(graphics, mouseX, mouseY, a);
+		this.drawFrame(graphics);
+	}
+	//?}
+
+	/** The wooden frame: a beam with the title, boards behind the tabs and options, a board for the footer. */
+	private void drawFrame(final GuiGraphicsExtractor graphics) {
+		final int width = Math.min(PANEL_WIDTH, this.width);
+		final int left = (this.width - width) / 2;
+		final int footer = this.height - FOOTER_HEIGHT;
+		final int bottom = this.height - FRAME_MARGIN;
+		graphics.fill(left - 1, FRAME_MARGIN - 1, left + width + 1, bottom + 1, Tack.EDGE);
+		Tack.boards(graphics, Tack.DEEP, left, BEAM_BOTTOM, width, footer - BEAM_BOTTOM);
+		Tack.boards(graphics, Tack.WOOD, left, FRAME_MARGIN, width, BEAM_BOTTOM - FRAME_MARGIN);
+		graphics.fill(left, FRAME_MARGIN, left + width, FRAME_MARGIN + 1, Tack.LIGHT_WOOD_EDGE);
+		graphics.fill(left, BEAM_BOTTOM - 1, left + width, BEAM_BOTTOM, Tack.EDGE);
+		Tack.boards(graphics, Tack.WOOD, left, footer, width, bottom - footer);
+		graphics.fill(left, footer, left + width, footer + 1, Tack.EDGE);
+		graphics.fill(left, footer + 1, left + width, footer + 2, Tack.LIGHT_WOOD_EDGE);
+		graphics.fill(left, HEADER_HEIGHT, left + width, HEADER_HEIGHT + 1, Tack.EDGE);
+		final int rivet = (FRAME_MARGIN + BEAM_BOTTOM) / 2 - 2;
+		Tack.stud(graphics, left + 5, rivet, 4);
+		Tack.stud(graphics, left + width - 9, rivet, 4);
+		final int titleLeft = (this.width - 21 - this.font.width(this.title)) / 2;
+		Tack.image(graphics, ICON, titleLeft, FRAME_MARGIN + 5, 0.0F, 0.0F, 16, 16, 16, 16);
+		Tack.text(graphics, this.font, this.title, titleLeft + 21, FRAME_MARGIN + 9, 0xFFFFF6E6);
+	}
 
 	//? if >=1.21 {
 	@Override
 	//?}
 	protected void addOptions() {
 		final HorseConfig c = HorseConfig.get();
-		this.addHeader(Component.translatable(KEY + "subtitle").withStyle(ChatFormatting.GRAY));
+		switch (this.tab) {
+			case CAMERA -> this.addCamera(c);
+			case COMFORT -> this.addComfort(c);
+			case HAT -> this.addHat(c);
+			case COMPATIBILITY -> this.addCompatibility(c);
+		}
+	}
 
-		this.addHeader(section("camera"));
-		this.list.addBig(OptionInstance.createBoolean(KEY + "third_person", tooltip("third_person"), c.thirdPersonOnMount, v -> {
+	private void addCamera(final HorseConfig c) {
+		this.addHeading("mounting");
+		this.addWide(toggle("third_person", () -> c.thirdPersonOnMount, v -> {
 			c.thirdPersonOnMount = v;
 			HorseConfig.apply();
 		}));
-		this.list.addBig(new OptionInstance<>(
-			KEY + "shoulder", tooltip("shoulder"),
-			(caption, shoulder) -> Options.genericValueLabel(caption, Component.translatable(KEY + "shoulder." + shoulder.name().toLowerCase(Locale.ROOT))),
-			new OptionInstance.Enum<>(Arrays.asList(HorseConfig.Shoulder.values()), Codec.STRING.xmap(HorseConfig.Shoulder::valueOf, HorseConfig.Shoulder::name)),
-			c.shoulder,
-			shoulder -> {
-				c.shoulder = shoulder;
-				HorseConfig.apply();
-			}
-		));
+		this.addHeading("camera_position");
+		this.addWide(new Tack.Patch(WIDE, () -> value("shoulder", Component.translatable(KEY + "shoulder." + c.shoulder.name().toLowerCase(Locale.ROOT))), tooltip("shoulder"), false, () -> {
+			final HorseConfig.Shoulder[] all = HorseConfig.Shoulder.values();
+			c.shoulder = all[(c.shoulder.ordinal() + 1) % all.length];
+			HorseConfig.apply();
+		}));
 		this.list.addSmall(
-			percent("camera_distance", 50, 150, c.cameraDistance, v -> c.cameraDistance = v),
-			blocks("camera_height", HorseConfig.CAMERA_HEIGHT_MIN, HorseConfig.CAMERA_HEIGHT_MAX, c.cameraHeight, v -> c.cameraHeight = v)
+			percent("camera_distance", SMALL, 50, 150, c.cameraDistance, v -> c.cameraDistance = v),
+			blocks("camera_height", SMALL, HorseConfig.CAMERA_HEIGHT_MIN, HorseConfig.CAMERA_HEIGHT_MAX, c.cameraHeight, v -> c.cameraHeight = v)
 		);
-		this.list.addBig(percent("speed_zoom", 0, 100, c.speedZoom, v -> c.speedZoom = v));
+	}
 
-		this.addHeader(section("comfort"));
+	private void addComfort(final HorseConfig c) {
+		this.addHeading("motion");
+		this.addWide(percent("speed_zoom", WIDE, 0, 100, c.speedZoom, v -> c.speedZoom = v));
 		this.list.addSmall(
-			percent("view_bob", 0, 100, c.viewBob, v -> c.viewBob = v),
-			percent("hand_bob", 0, 100, c.handBob, v -> c.handBob = v)
+			percent("view_bob", SMALL, 0, 100, c.viewBob, v -> c.viewBob = v),
+			percent("hand_bob", SMALL, 0, 100, c.handBob, v -> c.handBob = v)
 		);
-
-		this.addHeader(section("sound"));
-		this.list.addBig(percent("horse_sounds", 0, 100, c.horseSounds, v -> c.horseSounds = v));
-
-		if (IcyCompat.LOADED) {
-			this.addRidingStyle(c);
-		}
-		this.addHatOptions(c);
+		this.addHeading("sound");
+		this.addWide(percent("horse_sounds", WIDE, 0, 100, c.horseSounds, v -> c.horseSounds = v));
 	}
 
 	/**
 	 * Whose riding horses use with Icy's Better Horses installed too. The host's choice: set here for one's own worlds
 	 * (singleplayer and LAN, live in the open one); on someone else's server it shows that server's, greyed out.
 	 */
-	private void addRidingStyle(final HorseConfig c) {
-		this.addHeader(section("riding"));
-		final Component caption = Component.translatable(KEY + "riding_style");
+	private void addCompatibility(final HorseConfig c) {
+		this.addHeading("icys");
 		if (this.minecraft.level != null && !this.minecraft.hasSingleplayerServer()) {
 			final HorseConfig.RidingStyle style = ServerRules.icyRides ? HorseConfig.RidingStyle.ICYS : HorseConfig.RidingStyle.HORSING_AROUND;
-			final Button shown = Button.builder(Options.genericValueLabel(caption, ridingStyle(style)), button -> {})
-				.tooltip(Tooltip.create(Component.translatable(KEY + "riding_style.server.tooltip"))).build();
+			final Tack.Patch shown = new Tack.Patch(WIDE, () -> value("riding_style", ridingStyle(style)), Component.translatable(KEY + "riding_style.server.tooltip"), false, () -> {});
 			shown.active = false;
 			this.addWide(shown);
 			return;
 		}
-		this.list.addBig(new OptionInstance<>(
-			KEY + "riding_style", tooltip("riding_style"),
-			(label, style) -> Options.genericValueLabel(label, ridingStyle(style)),
-			new OptionInstance.Enum<>(Arrays.asList(HorseConfig.RidingStyle.values()), Codec.STRING.xmap(HorseConfig.RidingStyle::valueOf, HorseConfig.RidingStyle::name)),
-			c.ridingStyle,
-			style -> {
-				c.ridingStyle = style;
-				final MinecraftServer server = this.minecraft.getSingleplayerServer();
-				if (server != null) {
-					server.execute(() -> HorsingAround.styleChanged(server));
-				}
+		this.addWide(new Tack.Patch(WIDE, () -> value("riding_style", ridingStyle(c.ridingStyle)), tooltip("riding_style"), false, () -> {
+			final HorseConfig.RidingStyle[] all = HorseConfig.RidingStyle.values();
+			c.ridingStyle = all[(c.ridingStyle.ordinal() + 1) % all.length];
+			final MinecraftServer server = this.minecraft.getSingleplayerServer();
+			if (server != null) {
+				server.execute(() -> HorsingAround.styleChanged(server));
 			}
-		));
+		}));
 	}
 
 	private static Component ridingStyle(final HorseConfig.RidingStyle style) {
@@ -223,38 +326,37 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	}
 
 	/** Supporters wear a cowboy hat and pick its colour; everyone else hears how to get one. */
-	private void addHatOptions(final HorseConfig c) {
+	private void addHat(final HorseConfig c) {
 		if (!Hats.canWear()) {
-			this.addHeader(section("hat"));
+			this.addHeading("hat");
+			this.addNote(Component.translatable(KEY + "hat.support.note"));
 			//? if >=1.21 {
 			final Button.OnPress open = ConfirmLinkScreen.confirmLink(this, SUPPORT, true);
 			//?} elif >=1.20.3 {
 			/*final Button.OnPress open = ConfirmLinkScreen.confirmLink(this, SUPPORT.toString());
 			*///?} else
 			/*final Button.OnPress open = ConfirmLinkScreen.confirmLink(SUPPORT.toString(), this, true);*/
-			this.addWide(Button.builder(Component.translatable(KEY + "hat.support"), open)
-				.tooltip(Tooltip.create(Component.translatable(KEY + "hat.support.tooltip"))).build());
+			// (The game's handler never looks at which button was pressed.)
+			this.addWide(new Tack.Patch(WIDE, () -> Component.translatable(KEY + "hat.support"), Component.translatable(KEY + "hat.support.tooltip"), true, () -> open.onPress(null)));
 			return;
 		}
-		this.addHeader(section("hat_supporter"));
-		this.list.addBig(OptionInstance.createBoolean(KEY + "hat", tooltip("hat"), c.hat, v -> {
+		this.addHeading("hat_supporter");
+		this.addWide(toggle("hat", () -> c.hat, v -> {
 			c.hat = v;
 			Hats.sendOwn();
 		}));
-		this.addWide(new HatPaletteWidget(310, c.hatColor, color -> {
+		this.addWide(new HatPaletteWidget(WIDE, c.hatColor, color -> {
 			c.hatColor = color;
 			this.hsv = HatColors.toHsv(color);
 			Hats.sendOwn();
-			// The sliders have to show the new colour, so the widgets are made again, but the list stays where it is.
-			this.rebuildKeepingScroll();
+			// The sliders have to show the new colour, so the rows are made again, but the list stays where it is.
+			this.refillKeepingScroll();
 		}));
 		this.list.addSmall(
-			slider("hat_hue", 0, 359, Math.min(Math.round(this.hsv[0]), 359), "degrees", hue -> this.setHsv(c, 0, hue)),
-			slider("hat_richness", 0, 100, Math.round(this.hsv[1] * 100.0F), "percent", rich -> this.setHsv(c, 1, rich / 100.0F))
+			slider("hat_hue", SMALL, 0, 359, Math.min(Math.round(this.hsv[0]), 359), "degrees", hue -> this.setHsv(c, 0, hue)),
+			slider("hat_richness", SMALL, 0, 100, Math.round(this.hsv[1] * 100.0F), "percent", rich -> this.setHsv(c, 1, rich / 100.0F))
 		);
-		this.list.addBig(
-			slider("hat_brightness", 5, 100, Math.max(Math.round(this.hsv[2] * 100.0F), 5), "percent", bright -> this.setHsv(c, 2, bright / 100.0F))
-		);
+		this.addWide(slider("hat_brightness", WIDE, 5, 100, Math.max(Math.round(this.hsv[2] * 100.0F), 5), "percent", bright -> this.setHsv(c, 2, bright / 100.0F)));
 	}
 
 	/** A hat slider moved: one of hue, richness and brightness changes and the colour follows. */
@@ -263,23 +365,26 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		c.hatColor = HatColors.fromHsv(this.hsv[0], this.hsv[1], this.hsv[2]);
 	}
 
-	/** Makes the widgets again, with the list scrolled where it was (a plain rebuild jumps back to the top). */
-	private void rebuildKeepingScroll() {
+	private void refillKeepingScroll() {
 		//? if >=1.21.4 {
 		final double scroll = this.list.scrollAmount();
 		//?} else
 		/*final double scroll = this.list.getScrollAmount();*/
-		this.rebuildWidgets();
+		this.refill();
 		this.list.setScrollAmount(scroll);
 	}
 
-	/** A heading row (before 1.21.11 the list has no headings; the text goes in a row of its own). */
-	private void addHeader(final Component text) {
-		//? if >=1.21.11 {
-		this.list.addHeader(text);
-		//?} else {
-		/*this.list.addSmall(new StringWidget(310, 20, text, this.font), null);
-		*///?}
+	private void addHeading(final String section) {
+		this.addWide(new Tack.Heading(WIDE, Component.translatable(KEY + "section." + section)));
+	}
+
+	/** A few lines of words, with empty rows after them for the lines that run past the first row. */
+	private void addNote(final Component text) {
+		final Tack.Note note = new Tack.Note(WIDE, text);
+		this.addWide(note);
+		for (int row = 1; row < note.rows(); row++) {
+			this.addWide(new Tack.Note(WIDE, CommonComponents.EMPTY));
+		}
 	}
 
 	/** A full-width widget in its own row (before 26.2 the list only took options as big rows, so it is a lone small one). */
@@ -287,40 +392,40 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		//? if >=26.2 {
 		this.list.addBig(widget);
 		//?} else {
-		/*widget.setWidth(310);
+		/*widget.setWidth(WIDE);
 		this.list.addSmall(widget, null);
 		*///?}
 	}
 
 	/** A hat colour slider: changes the colour live (sent to the server when the screen closes). */
-	private static OptionInstance<Integer> slider(final String id, final int min, final int max, final int value, final String unit, final IntConsumer set) {
-		return new OptionInstance<>(
-			KEY + id, tooltip(id),
-			(caption, amount) -> Options.genericValueLabel(caption, Component.translatable(KEY + unit, amount)),
-			new OptionInstance.IntRange(min, max),
-			value,
-			set::accept
-		);
+	private static Tack.Strap slider(final String id, final int width, final int min, final int max, final int value, final String unit, final IntConsumer set) {
+		return new Tack.Strap(width, min, max, value, amount -> value(id, Component.translatable(KEY + unit, amount)), tooltip(id), set);
 	}
 
 	//? if >=1.20.5 {
 	@Override
 	protected void addFooter() {
 		final LinearLayout footer = this.layout.addToFooter(LinearLayout.horizontal().spacing(8));
-		footer.addChild(Button.builder(Component.translatable(KEY + "reset"), button -> this.reset()).width(150).build());
-		footer.addChild(Button.builder(CommonComponents.GUI_DONE, button -> this.onClose()).width(150).build());
+		footer.addChild(new Tack.Patch(SMALL, () -> Component.translatable(KEY + "reset"), null, false, this::reset));
+		footer.addChild(new Tack.Patch(SMALL, () -> CommonComponents.GUI_DONE, null, true, this::onClose));
 	}
 	//?} else {
 	/*private void addFooter() {
 		final int top = this.height - 27;
-		this.addRenderableWidget(Button.builder(Component.translatable(KEY + "reset"), button -> this.reset()).bounds(this.width / 2 - 154, top, 150, 20).build());
-		this.addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, button -> this.onClose()).bounds(this.width / 2 + 4, top, 150, 20).build());
+		final Tack.Patch reset = new Tack.Patch(SMALL, () -> Component.translatable(KEY + "reset"), null, false, this::reset);
+		reset.setX(this.width / 2 - 154);
+		reset.setY(top);
+		this.addRenderableWidget(reset);
+		final Tack.Patch done = new Tack.Patch(SMALL, () -> CommonComponents.GUI_DONE, null, true, this::onClose);
+		done.setX(this.width / 2 + 4);
+		done.setY(top);
+		this.addRenderableWidget(done);
 	}
 	*///?}
 
 	private void reset() {
 		HorseConfig.reset();
-		show(this.minecraft, this.lastScreen);
+		show(this.minecraft, this.lastScreen, this.tab);
 	}
 
 	@Override
@@ -330,29 +435,26 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		Hats.sendOwn();
 	}
 
-	private static Component section(final String id) {
-		//? if >=1.20.3 {
-		return Component.translatable(KEY + "section." + id).withColor(SECTION_COLOR);
-		//?} else
-		/*return Component.translatable(KEY + "section." + id).withStyle(Style.EMPTY.withColor(SECTION_COLOR));*/
+	private static Component tooltip(final String id) {
+		return Component.translatable(KEY + id + ".tooltip");
 	}
 
-	private static <T> OptionInstance.TooltipSupplier<T> tooltip(final String id) {
-		return OptionInstance.cachedConstantTooltip(Component.translatable(KEY + id + ".tooltip"));
+	/** "Caption: value", as the game's own options read. */
+	private static Component value(final String id, final Component value) {
+		return Options.genericValueLabel(Component.translatable(KEY + id), value);
+	}
+
+	private static Tack.Patch toggle(final String id, final java.util.function.BooleanSupplier get, final Consumer<Boolean> set) {
+		return new Tack.Patch(WIDE, () -> value(id, get.getAsBoolean() ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF), tooltip(id), false, () -> set.accept(!get.getAsBoolean()));
 	}
 
 	/** Slider in hundredths of a block, shown as "0.2 blocks". */
-	private static OptionInstance<Integer> blocks(final String id, final float min, final float max, final float value, final Consumer<Float> set) {
-		return new OptionInstance<>(
-			KEY + id, tooltip(id),
-			(caption, hundredths) -> Options.genericValueLabel(caption, Component.translatable(KEY + "blocks", trim(hundredths / 100.0F))),
-			new OptionInstance.IntRange(Math.round(min * 100.0F), Math.round(max * 100.0F)),
-			Math.round(value * 100.0F),
-			hundredths -> {
+	private static Tack.Strap blocks(final String id, final int width, final float min, final float max, final float value, final Consumer<Float> set) {
+		return new Tack.Strap(width, Math.round(min * 100.0F), Math.round(max * 100.0F), Math.round(value * 100.0F),
+			hundredths -> value(id, Component.translatable(KEY + "blocks", trim(hundredths / 100.0F))), tooltip(id), hundredths -> {
 				set.accept(hundredths / 100.0F);
 				HorseConfig.apply();
-			}
-		);
+			});
 	}
 
 	/** 0.20 -> "0.2", -0.25 -> "-0.25", 1.00 -> "1". */
@@ -365,18 +467,11 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	}
 
 	/** Slider in whole percent of the designed effect; 0 reads "Off". */
-	private static OptionInstance<Integer> percent(final String id, final int min, final int max, final float value, final Consumer<Float> set) {
-		return new OptionInstance<>(
-			KEY + id, tooltip(id),
-			(caption, percent) -> percent == 0
-				? Options.genericValueLabel(caption, CommonComponents.OPTION_OFF)
-				: Options.genericValueLabel(caption, Component.translatable(KEY + "percent", percent)),
-			new OptionInstance.IntRange(min, max),
-			Math.round(value * 100.0F),
-			percent -> {
+	private static Tack.Strap percent(final String id, final int width, final int min, final int max, final float value, final Consumer<Float> set) {
+		return new Tack.Strap(width, min, max, Math.round(value * 100.0F),
+			percent -> value(id, percent == 0 ? CommonComponents.OPTION_OFF : Component.translatable(KEY + "percent", percent)), tooltip(id), percent -> {
 				set.accept(percent / 100.0F);
 				HorseConfig.apply();
-			}
-		);
+			});
 	}
 }

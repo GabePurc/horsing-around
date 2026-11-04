@@ -76,6 +76,7 @@ at most two lines, under the right area; details go in the PR, not here.
 ## Settings and supporter hat
 
 - Settings are comfort and preference only (user decision, 2026-10-08; nothing that changes how horses ride, but for the riding style with Icy's Better Horses): third person on mount, camera distance and height, speed zoom-out, first-person saddle and hand motion, extra horse sound volume; `HorseConfig` JSON, vanilla-style screen from Mod Menu (optional)
+- Settings screen in tabs (Camera, Comfort, Cowboy hat; Compatibility with Icy's installed), a tack room at sunset: wood, stitched leather, strap sliders with brass buckles (`client/config/Tack`, `SettingsTest`, every version's smoke test photographs it)
 - Polished menus in both mods: icon, description, tooltips, plain values; Buy Me a Coffee link in READMEs and Mod Menu
 - Supporter cowboy hat (cosmetic only): UUIDs in `supporters.json` downloaded at startup and cached, colour relayed through the server (`HatRelay`, throttled to every half second); helmet hidden but worn (`HatTest`, `-Ptests=hat`); shape from the user's Blockbench model (`art/cowboy_hat.bbmodel`, rebuilt into `HatModel` and the texture by `scripts/hat-model.py`)
 

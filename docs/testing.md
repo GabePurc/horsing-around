@@ -65,6 +65,7 @@ gallery always gets them). Leg and body easing runs on game time, so results don
 ## Other runs
 
 - `./gradlew runGameTest`: loads the mod on a bare dedicated server (no client code) and rides there.
+- `-Ptests=settings`: the settings screen, each tab clicked and photographed (with Icy's: `runCompatIcys -PcompatTests=settings`).
 - `-Ptests=gallery`: clean store screenshots.
 - `-Ptests=perf`: load, not pass/fail (`PerfTest`, not in full runs): 56 horses of every kind in a pen, the player
   galloping circles round them for 90 s; logs server tick time, frame rate and plan times to

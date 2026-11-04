@@ -77,7 +77,7 @@ the ride's render-side code is written around render states, so it keeps them:
   cowboy hat layer reads the player directly, and two extra mixins (`CustomHeadLayerMixin`, `HumanoidArmorLayerMixin`,
   listed in the mixin config only for these versions, see `hatMixins` in `build.gradle`) keep a helmet off a hatted head.
 - Before 1.21 also: data pack tag folders are plural (`processResources` renames them in `build.gradle`), resource
-  locations are made with a constructor, the options screens keep their own list (`HorseSettingsScreen`), the camera
+  locations are made with a constructor, the options screens keep their own list (`HorseSettingsScreen`; `Tack` draws the controls on every version), the camera
   moves in doubles, and model colours are floats.
 - Smaller differences: the player model's clothing layers and hat are parts of their own (copied from the body parts
   right after `setupAnim`, so the rider pose re-copies them), a horse model has no root part and a foal is the model drawn
