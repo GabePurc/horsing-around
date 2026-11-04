@@ -1,6 +1,9 @@
 package dev.horsingaround.smoke;
 
 import com.mojang.logging.LogUtils;
+import dev.horsingaround.ride.RideState;
+import dev.horsingaround.ride.RideStateHolder;
+import dev.horsingaround.ride.RideTuning;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -26,6 +29,7 @@ import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Marker;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
@@ -64,6 +68,14 @@ public final class SmokeTest {
 	 */
 	private static final String WILD = System.getProperty("horsingaround.smoke.wild");
 	private static final int WILD_TICKS = 2400;
+	/**
+	 * -PsmokeCloseUp (=degrees: how far the view turns, 90 from the side by default, 150 nearly from the front): the same
+	 * run on a large window at a narrow view, with a shot every tick of the moments the head and bridle work hardest
+	 * (screenshots/closeup-*.png; the head is off centre, crop to it) and the neck's numbers in the log.
+	 */
+	private static final String CLOSE_UP = System.getProperty("horsingaround.smoke.closeUp");
+	private static final float SIDE_TURN = CLOSE_UP == null || CLOSE_UP.isEmpty() ? 90.0F : Float.parseFloat(CLOSE_UP);
+	private static final int CLOSE_UP_FOV = 36;
 
 	private static final int FOV = 70;
 	/**
@@ -112,6 +124,7 @@ public final class SmokeTest {
 	private int airTicks;
 	private int stillTicks;
 	private int roughStage;
+	private int closeUpFrame;
 	// A job running on the server thread.
 	private volatile boolean jobDone;
 	private volatile Throwable jobError;
@@ -175,8 +188,12 @@ public final class SmokeTest {
 				this.realView[3] = player.yHeadRotO;
 				this.realView[4] = player.getXRot();
 				this.realView[5] = player.xRotO;
-				this.setView(player, this.realView[0] + 90.0F, this.realView[0] + 90.0F, this.realView[2] + 90.0F, this.realView[2] + 90.0F, SIDE_PITCH, SIDE_PITCH);
+				this.setView(player, this.realView[0] + SIDE_TURN, this.realView[0] + SIDE_TURN, this.realView[2] + SIDE_TURN, this.realView[2] + SIDE_TURN, SIDE_PITCH, SIDE_PITCH);
 				this.viewTurned = true;
+				if (CLOSE_UP != null) {
+					minecraft.options.fov().set(CLOSE_UP_FOV);
+					this.closeUp(minecraft);
+				}
 			}
 		} catch (final Throwable error) {
 			this.fail(minecraft, error);
@@ -347,6 +364,30 @@ public final class SmokeTest {
 				} else if (t >= 200) {
 					throw new IllegalStateException(missing + " screenshots were not written");
 				}
+			}
+		}
+	}
+
+	/** -PsmokeCloseUp: this tick's shot, in the last of the gallop, the jump, and on the rough course's stairs and steps. */
+	private void closeUp(final Minecraft minecraft) {
+		final boolean now = switch (this.phase) {
+			case GALLOP -> this.t > 60;
+			case JUMP -> true;
+			case STOP -> this.t <= 10;
+			case ROUGH -> this.roughStage == 2 || this.roughStage == 7 || this.roughStage == 8;
+			default -> false;
+		};
+		if (now) {
+			final int frame = this.closeUpFrame++;
+			this.shoot(minecraft, String.format(Locale.ROOT, "closeup-%04d-%s.png", frame, this.phase.name().toLowerCase(Locale.ROOT)));
+			if (!WITHOUT_MOD) {
+				final RideState ride = ((RideStateHolder) this.horse).horsingaround$ride();
+				final float pitch = ride.pitch(0.0F);
+				final float jump = ride.jumpPitch(0.0F);
+				LOGGER.info(
+					"smoke closeup {}: {} slope {} jump {} neck added {} reach {}", frame, this.phase, fmt(pitch), fmt(jump),
+					fmt(RideTuning.neckCounter((pitch + jump) * Mth.DEG_TO_RAD) + ride.neckReach), fmt(ride.neckReach)
+				);
 			}
 		}
 	}

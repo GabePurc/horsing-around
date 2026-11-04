@@ -11,6 +11,8 @@
 //   only reported (they are vanilla's own then, which is what the comparison is for).
 // -PsmokePlain: no Entity Model Features, Entity Texture Features or Fresh Animations at all (build.gradle leaves the
 //   two mods off the runtime classpath), to tell this mod's problems from the animation stack's.
+// -PsmokeCloseUp (=degrees the side view turns): a shot every tick of the head and bridle at a gallop, a jump and on the
+//   rough course, on a large window (see SmokeTest).
 //
 // The NeoForge nodes (build.neoforge.gradle) run the same test natively: ./gradlew :<version>-neoforge:runSmoke
 // (not -PsmokeWithoutMod, which needs Fabric Loader).
@@ -51,6 +53,9 @@ if (neoforge) {
 				gameDirectory = smokeDir
 				systemProperty 'horsingaround.smoke', 'true'
 				jvmArgument '-Xmx2G'
+				if (project.hasProperty("smokeCloseUp")) {
+					systemProperty 'horsingaround.smoke.closeUp', project.property('smokeCloseUp').toString()
+				}
 				if (project.hasProperty("smokeWild")) {
 					systemProperty 'horsingaround.smoke.wild', project.property('smokeWild').toString()
 					if (project.hasProperty("smokeWildAt")) {
@@ -73,6 +78,9 @@ if (neoforge) {
 			runDir "../../build/run/smoke/${mc}"
 			vmArg "-Dhorsingaround.smoke=true"
 			vmArg "-Xmx2G"
+			if (project.hasProperty("smokeCloseUp")) {
+				vmArg "-Dhorsingaround.smoke.closeUp=${project.property('smokeCloseUp')}"
+			}
 			if (project.hasProperty("smokeWild")) {
 				vmArg "-Dhorsingaround.smoke.wild=${project.property('smokeWild')}"
 				if (project.hasProperty("smokeWildAt")) {
@@ -112,7 +120,7 @@ def optionsText = [
 	'joinedFirstServer:true',
 	'chatVisibility:0',
 	'touchscreen:false',
-].join("\n") + "\n"
+].plus(project.hasProperty("smokeCloseUp") ? ['overrideWidth:1920', 'overrideHeight:1080'] : []).join("\n") + "\n"
 
 // Problems that name this mod, or a mixin that could not be applied.
 def smokeProblem = ~/(?i)(Mixin apply failed|Injection validation failed|could not find any targets|InvalidInjectionException|InvalidMixinException|MixinApplyError|MixinTransformerError|Critical injection failure|smoke test failed|\/(ERROR|FATAL)\].*horsing.?around|^\s+at dev\.horsingaround\.)/
@@ -142,6 +150,11 @@ tasks.matching { it.name == "runSmoke" }.configureEach { task ->
 			def clientConfig = new File(smokeDir, "config/neoforge-client.toml")
 			clientConfig.parentFile.mkdirs()
 			clientConfig.text = clientConfig.exists() ? clientConfig.text.replace('showLoadWarnings = true', 'showLoadWarnings = false') : "showLoadWarnings = false\n"
+			// (The early loading window can't hand itself over to a window of another size: "trouble handing off the window".)
+			if (project.hasProperty("smokeCloseUp")) {
+				def fmlConfig = new File(smokeDir, "config/fml.toml")
+				fmlConfig.text = fmlConfig.exists() ? fmlConfig.text.replace('earlyWindowControl = true', 'earlyWindowControl = false') : "earlyWindowControl = false\n"
+			}
 		}
 	}
 	task.doLast {
