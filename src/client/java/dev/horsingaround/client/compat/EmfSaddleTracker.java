@@ -152,15 +152,13 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 			bridleNeck.yRot = neck.yRot;
 			bridleNeck.zRot = neck.zRot;
 		}
-		if (!root.isMainModel) {
-			// (Stirrups meet a seated rider's feet; a saddled horse no one rides keeps the pack's own.)
-			if (((Entity) holder).isVehicle()) {
-				AnimatedHorseModel.stirrups(parts.get(Parts.LEFT_STIRRUP), parts.get(Parts.RIGHT_STIRRUP), parts.get(Parts.BODY));
-			}
-			return;
-		}
 		final ModelPart body = parts.get(Parts.BODY);
-		if (body == null) {
+		// (Stirrups meet a seated rider's feet; a saddled horse no one rides keeps the pack's own. On whichever model has
+		// them: Fresh Animations before 1.21.5 keeps them in the body's, later in a saddle model, leaving the body's empty.)
+		if (((Entity) holder).isVehicle()) {
+			AnimatedHorseModel.stirrups(parts.get(Parts.LEFT_STIRRUP), parts.get(Parts.RIGHT_STIRRUP), body);
+		}
+		if (!root.isMainModel || body == null) {
 			return;
 		}
 		SaddleMotion.measure(ride, body, SADDLE_X, SADDLE_Y, SADDLE_Z);
