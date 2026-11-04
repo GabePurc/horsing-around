@@ -100,6 +100,10 @@ are vanilla's own and only warned about). Run it after touching version-specific
 - `-PsmokeNoPack`: no Fresh Animations pack. `-PsmokePlain`: no Entity Model Features, Entity Texture Features or pack.
   These tell this mod's problems from the animation stack's.
 - `-PsmokeWithoutMod`: the same scene with this mod turned off.
+- `-PsmokeCloseUp` (`=150` nearly from the front; the default 90 is from the side): the same run on a 1920x1080 window at a
+  narrow view, with a shot every tick (`closeup-*.png`, crop to the head) of the gallop, the jump, the stairs and the steps,
+  and the neck's numbers in the log, for anything between the stills that should stay attached. With `-PsmokeWithoutMod`
+  the course stops where a vanilla horse gets stuck, so the task reports a failure after the gallop, jump and stairs are shot.
 - `-PsmokeWild=<seed>` (and `-PsmokeWildAt=x,z` for a fixed start; spawn is spread at random): instead, a two-minute
   gallop with turns and jumps over a normal world of that seed, failing on any server correction. Natural ground brings
   out corrections the course doesn't (seed 2145202720632702597 at 7,41 crosses a dip that once rubber-banded for good).
