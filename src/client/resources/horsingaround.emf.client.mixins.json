@@ -1,0 +1,10 @@
+{
+	"required": false,
+	"package": "dev.horsingaround.client.mixin.emf",
+	"plugin": "dev.horsingaround.client.compat.EmfMixinPlugin",
+	"compatibilityLevel": "JAVA_${mixinJava}",
+	"mixins": [],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}

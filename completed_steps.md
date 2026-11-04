@@ -49,6 +49,7 @@ at most two lines, under the right area; details go in the PR, not here.
 - Leg animation speed tracks the gait so Fresh Animations shows the right cycle; legs take the shape of steps and jumps (vanilla model and Fresh Animations, every layer)
 - Neck reaches with the tilt (Fresh Animations' "neck2"); armour and bridle follow the head (before 1.21.5 the pack's bridle
   and reins hang on "headpiece_neck" in the body's model, which the reach missed: they lifted off the head on climbs and jumps)
+- The same on 1.20.x with Fresh Animations, where the neck got nothing and the head rose into the rider on stairs (`EmfNeck`; see `docs/porting.md`)
 - Ground probes go through leaves to the ground, so bushes aren't read as steps; the drawn horse never stands on leaves
 - Footing: in the air a hoof finds anything within a step, a shoulder caught on a corner slips past; snaps are measured in `slowstep` and `drawn` (legs as the renderer drew them, via `LegProbe`)
 - Idle horses' legs are reset before posing on versions before 1.21.2 (shared model)

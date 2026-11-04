@@ -155,9 +155,10 @@ Building and passing their audit: 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1
 
 - 1.21.10 and older: no spears, so there is no spear stab pose for the rider (every swing is the plain one).
 - 1.21.10 and older: the settings screen has no section headings in the vanilla style; each heading sits in a row of its own.
-- 1.20.6 and older: Entity Model Features has no animation hook there (`EmfSaddleTracker` is not built), so on a horse that
-  an animation pack animates the rider follows the generated gait motion, and the pack's neck and legs are not adjusted for
-  the ride.
+- 1.20.6 and older: `EmfSaddleTracker` is not built, so on a horse that an animation pack animates the rider follows the
+  generated gait motion, and the pack's legs and tail are not adjusted for the ride. Its neck is (`EmfNeck`, after the pack
+  has run): through Entity Model Features' animation hook on 1.20.1 (3.3 has it, `EmfNeckHook`); by wrapping the model's
+  animation on 1.20.2 to 1.20.6 (3.0, the last for those, has none: `EmfNeckAfterPack`, `client/mixin/emf/`).
 - 1.21.1 and older: a horse's leg box is found by its size alone (the faces of a box are private there; vanilla's and the
   animation packs' leg boxes are whole boxes anyway).
 - 1.21.10 and older: the steering overlay for play-testing (F3+B) draws nothing (gizmos came in 1.21.11); not for players.
