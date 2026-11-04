@@ -135,6 +135,7 @@ at most two lines, under the right area; details go in the PR, not here.
 
 - Performance pass (user request, 2026-10-20): `-Ptests=perf -Pprofile` measures the mod under a 57-horse load (about
   70 us a client frame, next to nothing on the server); weak-map lookups per horse model part replaced by fields on the part
+- Audit servers take any free port (`server-port=0`), so a Fabric and a NeoForge audit server can overlap, and nothing else holding 25565 fails an audit
 
 ## Open / known limits
 
