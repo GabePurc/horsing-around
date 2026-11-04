@@ -17,7 +17,7 @@ def isAlpha = versionTag.contains('-alpha')
 def isBeta = project.hasProperty('publishBeta') || versionTag.contains('-beta') || versionTag.contains('-rc')
 def dry = project.hasProperty('publishDryRun') || ['MODRINTH_TOKEN', 'CURSEFORGE_TOKEN'].every { providers.environmentVariable(it).getOrNull() == null }
 
-// The release notes: CHANGELOG.md's top entry, which must be this version's (written for players, see AGENTS.md).
+// The release notes: CHANGELOG.md's top entry, which must be this version's (written for players, see docs/releasing.md).
 def changelogLines = rootProject.layout.projectDirectory.file('CHANGELOG.md').asFile.readLines()
 def notesStart = changelogLines.findIndexOf { it.startsWith('## ') }
 def notesVersion = notesStart < 0 ? '' : changelogLines[notesStart].substring(3).trim()

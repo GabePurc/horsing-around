@@ -1,6 +1,6 @@
 # Changelog
 
-Each version's notes are written to paste straight into the Modrinth version page.
+Each version's notes are written to paste straight into the store version pages.
 
 ## 0.6.0
 
