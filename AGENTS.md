@@ -1,83 +1,82 @@
 # Horsing Around
 
-Fabric mod for Minecraft 1.20.1 to 26.3 (Mojang names) that makes horse riding feel weighty and alive, inspired by
-Red Dead Redemption 2 while staying close to vanilla.
+A Minecraft mod (Fabric and NeoForge, 1.20.1 to 26.3, Mojang names) that makes horse riding feel weighty and alive. Red
+Dead Redemption 2 is the feel target; vanilla is the style boundary. The user guides the feel; Claude is the sole developer.
 
-The user guides the *feel*; Claude is the sole developer. Feel numbers live in
-`src/main/java/dev/horsingaround/ride/RideTuning.java` so tuning passes stay in one file.
+## How to decide
 
-## Docs, and reading them cheaply
+What counts, in order: the user's latest direction; what the game actually does (play it, test it, measure it); the docs.
 
-Read only what the task needs, and only the relevant section (`grep -n '^## ' <file>`, then `offset`/`limit`):
+The docs record what the user asked for and why, not how it must be done. Intent ("the horse must never become an
+annoyance", "stay close to vanilla") is the target. Numbers, mechanisms, test targets and known limits are snapshots:
+the code is the truth, and a better way is welcome.
 
-- `research.md`: the design in short (what each part should feel like, and how it works now). Read it before
-  design-sensitive work.
-- `docs/design-log.md`: the full history behind it, per request. Only the section you need, never whole.
-- `completed_steps.md`: a short list of what exists, by area. Add one bullet (two lines at most) when work is finished.
-- `development_plan.md`: open work, ideas not built yet, the release checklist.
-- `mvp_requirements.md`: the original MVP scope (shipped; a record).
-- `docs/testing.md`: every test, flag and how to read results. `docs/porting.md`: before version-specific code.
-  `docs/releasing.md`: before a release.
+- Something wrong (a bug, a bad feel, a fragile or slow approach, a test checking the wrong thing)? Fix it, even if a doc
+  calls it intended, then correct the doc.
+- Innovate without asking. Ask first only if a change would reverse an explicit user decision (marked "user" in the
+  docs), noticeably change the feel, or widen scope (a new feature or system). Say what you'd change and why.
 
-Keep them short as they grow: a doc entry says what and why in a few lines; measurements, causes and step-by-step
-detail go in the PR (the record of each change) or a code comment. Don't copy the same detail into several docs.
+## Firm rules
 
-## How to use these docs (user direction, 2026-10-14)
+Everything else here is guidance; these hold because the user asked for them or because breaking them breaks players.
 
-They record what the user asked for and why, and how it was built at the time, not a cage. Most were written before
-the code they describe existed.
+- Nothing that changes how horses ride is a setting (user, 2026-10-08). Settings (`HorseConfig`) are comfort and
+  preference only: camera, first-person motion, sound volume. One exception (user, 2026-10-31): with Icy's Better Horses
+  installed, the server picks whose riding horses use (`ride/IcyCompat`).
+- Per-tick paths allocate nothing beyond what vanilla does, and do no work for horses nobody is riding.
+- Every version keeps building and passing its audit, on any machine: no machine-specific paths in the repo (a local JDK
+  goes in `~/.gradle/gradle.properties`).
+- The supporter hat (user, 2026-10-08) stays cosmetic: never an item or a gameplay advantage. Mojang's usage guidelines
+  allow cosmetics, not capes. Add a supporter to `supporters.json` by PR when the user asks.
+- Public text (README, changelog, store descriptions) follows `docs/releasing.md`.
 
-- What counts, in order: the user's latest direction; what the game actually does (play it, run the tests, measure);
-  then the docs. The user's stated intent ("the horse must never become an annoyance", "stay close to vanilla") is the
-  design target. Numbers, mechanisms, test targets and "known limits" are snapshots of one way it was done: the code
-  (`RideTuning` for numbers) is the source of truth, and a better way is welcome.
-- If something in the mod is wrong (a bug, a bad feel, a fragile or slow approach, a test that checks the wrong
-  thing), fix it, even when a doc describes the current behaviour as intended, then update the doc. A doc that
-  contradicts the code or a later direction is stale: correct it, don't follow it.
-- Innovate: a new approach that serves the user's intent better is fine without asking. Ask the user only when a change
-  would reverse something they explicitly decided (marked "user direction" or "user decision"), would change the feel
-  noticeably, or widens scope (a new feature or system). Say what you'd change and why.
+## Docs
 
-Firm rules, because the user asked for them or because breaking them breaks players:
+Read only what the task needs, and only the relevant section (`grep -n '^## ' <file>`).
 
-- Nothing that changes how horses ride is a setting (user direction, 2026-10-08). Player settings (`HorseConfig`, JSON
-  in the config folder, vanilla-style screen from Mod Menu, an optional dependency) are only comfort and preference:
-  camera, first-person motion, sound volume. The one exception (user decision, 2026-10-31): with Icy's Better Horses
-  installed too, the server picks whose riding horses use (`ride/IcyCompat`).
-- Per-tick paths must not allocate beyond what vanilla already does, and must not do work for horses that are not
-  being ridden. Prefer one mixin per vanilla class; keep logic in plain classes under `ride/`.
-- Every version keeps building and passing its audit (below). Builds work on any machine: never commit
-  machine-specific paths (local JDK locations go in `~/.gradle/gradle.properties`).
-- The supporter hat stays cosmetic (below). Public text (README, changelog, mod descriptions) follows
-  `docs/releasing.md`.
+| File | What it is | When |
+| --- | --- | --- |
+| `docs/design.md` | What each part should feel like, and how it works now | Before design-sensitive work |
+| `docs/design-log.md` | Why: requests, references, what was tried and dropped | Before reworking an area |
+| `docs/plan.md` | Open work, ideas, known issues | Picking up work; add or remove items as they change |
+| `docs/testing.md` | Every test, flag and how to read results | Running or changing tests |
+| `docs/porting.md` | Version-specific code | Before touching it |
+| `docs/releasing.md` | Release steps, rules for public text | Before a release or public text |
 
-Everything else is guidance.
+## Keeping docs cheap (user, 2026-11-04)
 
-## Build and versions
+Docs exist to save time and credits. A line that costs more to read than it saves gets cut, and this is part of finishing
+any change.
 
-Every supported Minecraft version (1.20.1 to 26.3, one jar per group of versions) builds from the one `src/` with
-Stonecutter; `src/` reads as 26.3 code (Java 25), older versions' code sits in `//?` comments. A change to shared code
-must still build (`./gradlew build`) and pass `./gradlew auditMixins` (every version's jar in a production client and
-server). Jars land in `versions/<version>/build/libs/`. Gradle picks JDK 25 through `gradle/gradle-daemon-jvm.properties`.
+- Change a doc only if something in it stopped being true, the user gave a new direction, or a lesson would otherwise be
+  learned twice. Prefer replacing or deleting to adding. No logs of what was done: that's git and the PR.
+- Say a thing once, in one doc, and point to it. Leave out what the code, tests or git answer in one search.
+- Hit something stale, wrong or bloated in a doc while working? Fix it in the same change.
+- `scripts/check-docs.sh` (also in CI) enforces the file list, size budgets and dead references. Over budget means cut.
 
-Play-test: `./gradlew runClient` (26.3; `./gradlew :<version>:runClient` for another). Dev runs load Mod Menu, Entity
-Model Features, Entity Texture Features and the Fresh Animations pack (the user's target setup).
+## Code
 
-## Testing
+Feel numbers: `ride/RideTuning`, so tuning stays in one file. Prefer one mixin per vanilla class, with the logic in plain
+classes. Don't read the big files whole (`RideFeelTest`, `Awareness`, `RideController`, `RideTuning`): search for the name,
+then read that range.
 
-Verify every gameplay change with the client tests (26.3): `./gradlew runClientGameTest`, narrowed with
-`-Ptests=...`/`-Psections=...` while iterating, and `./gradlew runClientGameTestParallel --continue` for full runs (don't
-start a second test game yourself). Touching version-specific code: `./gradlew :<version>:runSmoke`. Touching mixins or
-before a release: `./gradlew runCompat --continue`. Every flag and how to read results: `docs/testing.md`. Read
-reports' failures and summaries rather than whole logs, and view only the screenshots that matter.
+- `src/main/.../ride/`: the ride itself (`RideController`, `Awareness` for the horse's look-ahead and planning, `Footing`, `Mounts`).
+- `src/main/.../net/`: payloads. `src/client/.../render/`: legs, rider and body posing. `src/client/.../cosmetic/`: the hat.
+- `RideCamera`, `RideAim`, `RiderKeys` in `src/client/.../client/`. `src/gametest/`, `src/smoke/`: tests.
 
-The mod is meant for servers that have it installed; on a server without it the client rides vanilla.
+## Build and test
 
-## Supporter cowboy hat (user request, 2026-10-08)
+All versions build from the one `src/` with Stonecutter. `src/` reads as 26.3 code (Java 25); older versions' code sits in
+`//?` comments. Gradle picks the JDK. Jars land in `versions/<version>/build/libs/`.
 
-A cosmetic for people who buy the user a coffee (https://buymeacoffee.com/blintzbug), never an item and never a
-gameplay advantage (Mojang's usage guidelines allow cosmetics, not capes). Supporters are listed by Minecraft UUID in
-`supporters.json` at the repo root, which every client downloads at startup (disclosed in the README); add one through a
-PR when the user asks. The hat colour goes through the server (`HatRelay`); clients only draw hats for players on their
-own copy of the list. While the hat is on, the player's helmet and head items aren't drawn (still worn). Code:
-`client/cosmetic/`, `net/HatPayload`, `HatTest`.
+- Shared code changed: `./gradlew build` and `./gradlew auditMixins` (every jar in a production client and server).
+- Gameplay changed: `./gradlew runClientGameTest` narrowed with `-Ptests=`/`-Psections=` while iterating, and
+  `./gradlew runClientGameTestParallel --continue` for full runs. Don't start a second test game yourself: two games at
+  once make ride checks flaky.
+- Version-specific code changed: `./gradlew :<version>:runSmoke`.
+- Mixins changed, or a release: `./gradlew runCompat --continue`.
+- Play: `./gradlew :26.3:runClient` (plain `runClient` matches every version and fails Gradle validation). Dev runs load Mod
+  Menu, Entity Model Features, Entity Texture Features and Fresh Animations, the user's target setup.
+
+Keep test output out of the conversation: send a run to a file, read its tail, then the failures (`docs/testing.md`). View only
+the screenshots that matter.
