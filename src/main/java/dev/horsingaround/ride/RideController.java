@@ -739,6 +739,8 @@ public final class RideController {
 	 * hindquarters) with the body pitched to the ground under the hooves. Purely visual; physics is untouched.
 	 */
 	public static void tickVisual(final AbstractHorse horse, final RideState s) {
+		s.rearSeatO = s.rearSeat;
+		s.rearSeat = horse.getStandAnim(0.0F);
 		final double dx = horse.getX() - horse.xo;
 		final double dy = horse.getY() - horse.yo;
 		final double dz = horse.getZ() - horse.zo;

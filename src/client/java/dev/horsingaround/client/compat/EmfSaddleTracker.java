@@ -162,6 +162,7 @@ public final class EmfSaddleTracker extends EMFAnimationApi.EMFAnimationHook {
 			return;
 		}
 		SaddleMotion.measure(ride, body, SADDLE_X, SADDLE_Y, SADDLE_Z);
+		ride.animatedWholeRear = true;
 	}
 }
 //?}

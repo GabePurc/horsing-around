@@ -92,6 +92,7 @@ public abstract class BhHorseModelMixin {
 		}
 		final PartPose initial = this.body.getInitialPose();
 		SaddleMotion.measure(ride, this.body, initial.x(), initial.y() - SADDLE_UP, initial.z());
+		ride.animatedWholeRear = false;
 		AnimatedHorseModel.fitLegs(this.frontLeftLeg, this.backLeftLeg, ride);
 		//? if >=1.21.2 {
 		final float partialTicks = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);

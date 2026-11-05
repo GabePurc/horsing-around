@@ -143,16 +143,38 @@ public final class RidePoser {
 		// Rider: the seat is pinned to the saddle. Take the seat point (where vanilla attaches the rider), carry it
 		// through the horse's pose (bank, slope pitch, step smoothing, gait motion), and move the rider so it lands
 		// there; every lean below pivots around that same point, so the pelvis never slides on the saddle.
-		final float hx = (float) (Mth.lerp(partialTicks, horse.xOld, horse.getX()) - state.x);
-		final float hy = (float) (Mth.lerp(partialTicks, horse.yOld, horse.getY()) - state.y);
-		final float hz = (float) (Mth.lerp(partialTicks, horse.zOld, horse.getZ()) - state.z);
+		final double horseX = Mth.lerp(partialTicks, horse.xOld, horse.getX());
+		final double horseY = Mth.lerp(partialTicks, horse.yOld, horse.getY());
+		final double horseZ = Mth.lerp(partialTicks, horse.zOld, horse.getZ());
+		final float hx = (float) (horseX - state.x);
+		final float hy = (float) (horseY - state.y);
+		final float hz = (float) (horseZ - state.z);
 		HORSE_ROTATION.transform(OFFSET.set(-hx, RIDER_SEAT_HEIGHT - hy, -hz));
-		final float measuredLift = saddle.synthetic ? 0.0F : saddle.lift;
-		final float measuredForward = saddle.synthetic ? 0.0F : saddle.forward;
+		float measuredLift = saddle.synthetic ? 0.0F : saddle.lift;
+		float measuredForward = saddle.synthetic ? 0.0F : saddle.forward;
+		// The game already moves riders up and back with a rear, and a pack's measured saddle has the whole rear in it, so what
+		// they were moved comes off it. Read from where the first rider really is (every rider gets the same shift), which
+		// runs a tick behind the horse's stand. Not on Icy's Better Horses' model: the point measured there sits ahead of its
+		// real seat in a rear, and it takes the part of the shift Icy's keeps to land on the saddle (without, the rider is in
+		// the neck).
+		if (!saddle.synthetic && s.animatedWholeRear) {
+			final Entity first = horse.getFirstPassenger() != null ? horse.getFirstPassenger() : entity;
+			final float placedForward = (float) (Mth.lerp(partialTicks, first.xOld, first.getX()) - horseX) * fx
+				+ (float) (Mth.lerp(partialTicks, first.zOld, first.getZ()) - horseZ) * fz;
+			final float placedUp = (float) (Mth.lerp(partialTicks, first.yOld, first.getY()) - horseY);
+			if (s.rearSeat(partialTicks) <= 0.0F || Float.isNaN(s.restSeatForward)) {
+				s.restSeatForward = placedForward;
+				s.restSeatUp = placedUp;
+			}
+			measuredLift -= placedUp - s.restSeatUp;
+			measuredForward -= placedForward - s.restSeatForward;
+		}
 		final float measuredSide = saddle.synthetic ? 0.0F : saddle.side;
 		final float tx = hx + OFFSET.x + fx * measuredForward + rx * measuredSide + shiftX;
 		final float ty = hy + OFFSET.y - RIDER_SEAT_HEIGHT + bodyLift + measuredLift - RIDER_SEAT_DROP;
 		final float tz = hz + OFFSET.z + fz * measuredForward + rz * measuredSide + shiftZ;
+		s.seatForward = (tx - hx) * fx + (tz - hz) * fz;
+		s.seatUp = ty - hy;
 		// The torso stays closer to upright: resists the bank, leans forward uphill, stays vertical downhill, takes
 		// part of the saddle's rocking, sways against the horse's surges and the push of leaves, and folds forward with
 		// speed and in jumps.
