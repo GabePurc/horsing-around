@@ -33,9 +33,9 @@ installDebugPack.configure { mustRunAfter "deleteGameTestRunDir" }
 def clientTests = project.findProperty("tests") ?: "ride,terrain,mounts,server,hat"
 def terrainScenario = project.findProperty("scenario") ?: ""
 def rideSections = project.findProperty("sections") ?: ""
-// Test games run light, to keep the load on the machine down: the lowest settings, no sound, one frame per game tick
-// (LowSettings in the tests), a 2 GB heap, and performance mods (-PplainGame runs without them, -PfullGraphics with
-// normal settings; the gallery and store shots always get normal settings).
+// Test games run light, to keep the load on the machine down: the lowest settings, no sound (LowSettings in the tests),
+// a 2 GB heap, and performance mods (-PplainGame runs without them, -PfullGraphics with normal settings; the gallery and
+// store shots always get normal settings). They also run as fast as they can draw (TestClock; -PrealTime for normal speed).
 def lowSettings = !project.hasProperty("fullGraphics") && !clientTests.contains("gallery") && !clientTests.contains("store")
 configurations.register("testPerformanceMods") { transitive = false }
 dependencies {
@@ -58,6 +58,7 @@ def storeLook = clientTests.contains("store") && !project.hasProperty("shaderPac
 def gameTestEula = rootProject.layout.buildDirectory.file("run/clientGameTest/eula.txt").get().asFile
 def lightTestGame = { task ->
 	task.systemProperty "horsingaround.lowSettings", lowSettings
+	task.systemProperty "horsingaround.frameClock", lowSettings && !clientTests.contains("perf") && !project.hasProperty("realTime")
 	task.maxHeapSize = "2G"
 	if (project.hasProperty("profile")) {
 		// A Java Flight Recorder recording of the whole run, for finding what the mod costs (docs/testing.md).
@@ -352,6 +353,7 @@ compatPacks.keySet().each { name ->
 			jvmArgs.add("-Dhorsingaround.horse=" + compatPackHorse[name])
 		}
 		jvmArgs.add("-Dhorsingaround.scenario=")
+		jvmArgs.add("-Dhorsingaround.frameClock=" + !project.hasProperty("realTime"))
 		getRunDir().set(runDir)
 		doFirst {
 			new File(runDir, "logs").deleteDir()

@@ -6,16 +6,19 @@ import net.minecraft.server.level.ParticleStatus;
 import net.minecraft.sounds.SoundSource;
 
 /**
- * Test games run light: the lowest graphics settings and no sound. The frame rate is left at the game's default: the
- * checks that sample what is drawn frame by frame (legs, body tilt, screenshots between ticks) are tuned at it, and at
- * one frame a tick several of them read the wrong moment. Applied as the game starts, before anything loads, when the
- * run asks for it ({@code horsingaround.lowSettings}; off for the gallery's store screenshots).
+ * Test games run light: the lowest graphics settings and no sound. Frames are left to {@code TestClock}. Applied as the
+ * game starts, before anything loads, when the run asks for it ({@code horsingaround.lowSettings}; off for the gallery's
+ * store screenshots).
  */
 public final class LowSettings {
 	private LowSettings() {
 	}
 
 	public static void apply(final Options options) {
+		if (TestClock.ON) {
+			// (This limiter is on the real clock, and would only hold the frames back.)
+			options.framerateLimit().set(260);
+		}
 		if (!Boolean.getBoolean("horsingaround.lowSettings")) {
 			return;
 		}
