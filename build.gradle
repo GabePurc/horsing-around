@@ -190,6 +190,39 @@ tasks.matching { it.name in ["processResources", "processClientResources"] }.con
 	}
 }
 
+// Before 26 every mixin config has to name its refmap, or the jar crashes on launch. Loom adds the name, but when a
+// configuration cache entry is stored before the resources exist (always, on a clean machine) it finds no configs and
+// silently adds nothing. That shipped in the release jars, so the configs get the name here, and the finished jar is checked.
+if (sc.current.parsed.matches('<26')) {
+	def refmaps = [processResources: "${base.archivesName.get()}-refmap.json", processClientResources: "client-${base.archivesName.get()}-refmap.json"]
+	refmaps.each { taskName, refmap ->
+		tasks.named(taskName) {
+			inputs.property "refmap", refmap
+			filesMatching("*.mixins.json") {
+				filter { line -> line.contains('"package"') ? "\t\"refmap\": \"${refmap}\",\n${line}" : line }
+			}
+		}
+	}
+
+	def modJarFile = loomx.modJar.flatMap { it.archiveFile }
+	def checkRefmaps = tasks.register("checkRefmaps") {
+		inputs.file(modJarFile)
+		doLast {
+			new java.util.zip.ZipFile(modJarFile.get().asFile).withCloseable { zip ->
+				def configs = zip.entries().collect { it.name }.findAll { it.endsWith(".mixins.json") }
+				if (configs.isEmpty()) throw new GradleException("No mixin configs in ${zip.name}")
+				configs.each { config ->
+					def refmap = new groovy.json.JsonSlurper().parse(zip.getInputStream(zip.getEntry(config))).refmap
+					if (!refmap || zip.getEntry(refmap) == null) {
+						throw new GradleException("${config} in ${zip.name} names no refmap in the jar (it says: ${refmap}), so it would crash on launch")
+					}
+				}
+			}
+		}
+	}
+	loomx.modJar.configure { finalizedBy checkRefmaps }
+}
+
 // Data pack folders got singular names in 1.21 (tags/block); before, the tags are in plural ones (tags/blocks).
 if (sc.current.parsed.matches('<1.21')) {
 	tasks.named("processResources") {

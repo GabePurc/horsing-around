@@ -7,8 +7,9 @@ main version: `src/` reads as 26.3 code, and the client tests and compat runs ex
 
 - `settings.gradle` lists the versions; each is a project `:<version>` with its numbers in `versions/<version>/gradle.properties`.
 - `build.gradle` runs per version. `loom-back-compat` picks Fabric Loom: plain for 26.x (unobfuscated), remapping with Mojang names before,
-  so dependencies use `modImplementation` and friends. Before 26 the mixin annotation processor makes refmaps (`loom.mixin.useLegacyMixinAp`);
-  without one the audit fails with intermediary names in "could not find any targets".
+  so dependencies use `modImplementation` and friends. Before 26 the mixin annotation processor makes refmaps (`loom.mixin.useLegacyMixinAp`)
+  and `build.gradle` names them in the mixin configs, because Loom's own step adds nothing on a clean configuration-cached build, which is
+  every GitHub build. `checkRefmaps` fails a jar without them. Without one the game crashes with intermediary names in "could not find any targets".
 - Java: 25 for 26.x, 21 from 1.20.5, 17 before. `src/` must compile at Java 17 (no `switch` patterns, `_`, `getFirst()`/`getLast()`, `Math.clamp`).
 - `fabric.mod.json` and the mixin configs get `${minecraft}` and `${java}` per version. Below loader 0.16, MixinExtras is bundled.
 - NeoForge: `<version>-neoforge` projects (26.3, 26.2, 26.1.2, 1.21.1) build the same `src/` with `build.neoforge.gradle`. Code for one loader
