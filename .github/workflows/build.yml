@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Docs stay short and their references real
+        run: bash scripts/check-docs.sh
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

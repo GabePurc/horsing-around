@@ -1,140 +1,102 @@
 # Testing
 
-Read the part you need. The flags here may lag behind the build: `gradle/client-tests.gradle`, `build.gradle` and the
-tests themselves are the truth.
+Flags can lag behind the build: `gradle/client-tests.gradle`, `build.gradle` and the tests themselves are the truth. If a
+check enforces something wrong, fix the check and say so in the PR. When feel numbers change on purpose, update the targets.
 
 ## Client tests (26.3)
 
-`./gradlew runClientGameTest` runs four client tests. All of them fail on server corrections ("moved wrongly" =
-rubber-banding) and log warnings.
+`./gradlew runClientGameTest` runs these; all fail on server corrections ("moved wrongly", meaning rubber-banding) and log warnings.
 
-- `RideFeelTest` rides a horse with simulated keys through every mechanic in hand-built lanes and writes
-  `build/run/clientGameTest/horsingaround-ride-report.txt`.
-- `TerrainRideTest` rides procedurally built natural terrain (forests, mountains, hills, hazards, river, badlands) like a
-  player would and writes `horsingaround-terrain-report.txt` with traces of any crash, hurt or dead end.
-- `MountsTest` rides every vanilla mount (only the horse family gets the new riding) and mob riders.
-- `ServerRideTest` starts a real dedicated server with the mod (the target setup: a family server) and checks the server
-  accepts every move.
+- `RideFeelTest` (`ride`): every mechanic in hand-built lanes, with simulated keys. Report: `build/run/clientGameTest/horsingaround-ride-report.txt`.
+- `TerrainRideTest` (`terrain`): built natural terrain ridden like a player would, with traces of any crash, hurt or dead end.
+- `MountsTest` (`mounts`): every vanilla mount and mob riders.
+- `ServerRideTest` (`server`): a real dedicated server accepts every move.
+- `HatTest` (`hat`): the supporter hat.
+- `SettingsTest` (`settings`): the settings screen, each tab clicked and photographed (with Icy's: `runCompatIcys -PcompatTests=settings`).
 
-Picking what runs:
+Full runs: `./gradlew runClientGameTestParallel --continue` splits them into shards (`testShards` in `gradle/client-tests.gradle`,
+one alone with `runClientGameTest<Shard>`), runs two games at a time (`-PtestGames=N`) to leave the machine room, merges reports
+into `build/run/clientGameTest/` and lists failed checks. While iterating, run only the section that covers the change.
 
-- `-Ptests=ride,terrain,mounts,server`; `-Pscenario=<part of its name>` for one terrain scenario.
-- `-Psections=core,cuts,stairs,picking,steps` for ride sections. Also:
-  - `legs`: close shots of the legs in a jump.
-  - `slopes`, `face`: just the slope-and-stairs lanes, and the jump-at-a-wall lanes.
-  - `drawn`: the legs exactly as drawn on slopes, stairs and steps, shot up close.
-  - `slowstep`: standing, stopping and single steps (walking, and running up one), frame by frame, for snaps, on a world clock at tick
-    158 million (an old world).
-  - `hill`: a gallop up a steep, ragged hillside of 1-block steps, ridden across it (also in `stairs`): the head never goes
-    into the hillside and the drawn body never falls far behind the horse.
-  - `exits`: out of water onto banks of a few heights, wading and swimming.
-  - `strafe`: stopping after riding with A or D alone.
-  - `hands`: the rider's arms with items, swings and a bow, with close shots.
-  - `climbs`: 2-block climbs by angle, speed, start and what is round them, plus noisy mountain staircases and diagonal
-    terraces (`-Pscenario=<part of a lane name>` for some).
-  - `ways`: the going-round lanes and seeded forests with every plan logged
-    (`-Pscenario=tree|wall|long|alongside|pillar|row|forest|streets|ledge` for one).
+### Choosing what runs
 
-Full runs: prefer `./gradlew runClientGameTestParallel --continue` (user request, 2026-10-08). It splits the client tests
-into five shards (`testShards` in `build.gradle`; folders `build/run/clientGameTest-<shard>/`), runs two games at a time
-so the user's other work keeps room (`-PtestGames=N`; the machine has 11 cores and 18 GB), merges the reports into
-`build/run/clientGameTest/` and lists any failed check. One shard: `./gradlew runClientGameTest<Shard>`. Apart from that
-runner, don't start a second test game yourself (two separate games, even from different repos, made ride checks flaky).
+- `-Ptests=ride,terrain,...`; also `gallery`, `perf`, `store` (below), which default runs leave out.
+- `-Pscenario=<part of a name>`: one terrain scenario, or some lanes of `climbs` or `ways`
+  (`tree|wall|long|alongside|pillar|row|forest|streets|ledge`).
+- `-Psections=<names>` for the ride test:
 
-While iterating, run only the section that covers the change; full runs at checkpoints.
+| Section | What |
+| --- | --- |
+| `core`, `cuts`, `stairs`, `picking`, `steps`, `ledges` | The main groups |
+| `climbs` | 2-block climbs by angle, speed, start and surroundings; noisy mountain staircases, diagonal terraces |
+| `ways` | Going-round lanes and seeded forests, with every plan logged |
+| `hurdles`, `straight`, `face`, `spam` | Fences; ledges met straight on; jumps at a wall; jump pressed repeatedly |
+| `slopes`, `hill` | Slope and stair lanes; a gallop up a ragged hillside (also in `stairs`) |
+| `slowstep` | Standing, stopping and single steps frame by frame, for snaps, at world tick 158 million |
+| `drawn`, `legs` | Close shots: legs as drawn on slopes and steps; legs in a jump |
+| `exits`, `strafe` | Out of water onto banks; stopping after A or D alone |
+| `hands`, `icons` | Rider's arms with items; shulker boxes with Entity Model Features |
 
-Reading results:
+### Reading results
 
-- Read the report's failures and summary, not the whole report.
-- Screenshots land in `build/run/clientGameTest/screenshots/`. With hitboxes on (F3+B) the ridden horse also draws its
-  steering and step state. View only the shots that matter.
-- Horses wear colour-coded test textures (`src/gametest/debugpack`: upper leg blue, a white band, cannon orange, hoof
-  black, sole magenta; `-PplainTextures` for real ones). `LegProbe` measures the legs as the renderer drew them: judge
-  leg work by those numbers and close shots, not by formulas.
-- Don't test only perfect cases: generated worlds are messy. When feel numbers change on purpose, update the test
-  targets too. If a check enforces something wrong, fix the check (and say so in the PR).
-- `TestInput.pressKey` runs a game tick of its own after the press (screenshots can run a few too). In a loop that
-  samples or films every tick, press with `holdKey` then `releaseKey` instead, or trace every tick with `HorseTrace`;
-  otherwise the press tick goes missing and looks like the horse moved two ticks in one.
-
-Test games run light (lowest settings, no sound, the default frame rate the frame-sampled checks are tuned at (20
-fps broke some), a 2 GB heap, and Sodium, Lithium, FerriteCore and
-ImmediatelyFast loaded only into test games). `-PplainGame` drops the mods; `-PfullGraphics` keeps normal settings (the
-gallery always gets them). Leg and body easing runs on game time, so results don't depend on frame rate.
+- A run's console output includes the game log, so send it to a file outside the repo and read only the tail. Failures, across
+  all reports: `grep -E 'FAIL|INCOMPLETE' build/run/clientGameTest/horsingaround-*-report.txt`. Open a report only for a failure's
+  context. Screenshots are in `build/run/clientGameTest/screenshots/`.
+- F3+B draws the ridden horse's box, line, heading, plan and look-ahead findings (1.21.11 and newer).
+- Test horses wear colour-coded legs (`src/gametest/debugpack`: upper leg blue, a white band, cannon orange, hoof black, sole
+  magenta). `-PplainTextures` for real ones; `-PvanillaModel` for the plain model with no pack. `LegProbe` measures the legs as
+  drawn: judge leg work by those numbers and close shots, not formulas.
+- `TestInput.pressKey` runs a game tick of its own. In a loop sampling every tick, use `holdKey` then `releaseKey`, or trace with
+  `HorseTrace`; otherwise a tick goes missing and looks like the horse moved two in one.
+- Test games run light: lowest settings, no sound, a 2 GB heap, the default frame rate (some frame-sampled checks broke at 20 fps) and
+  performance mods. `-PplainGame` drops the mods; `-PfullGraphics` keeps normal settings. Leg and body easing runs on game time.
 
 ## Other runs
 
-- `./gradlew runGameTest`: loads the mod on a bare dedicated server (no client code) and rides there.
-- `-Ptests=settings`: the settings screen, each tab clicked and photographed (with Icy's: `runCompatIcys -PcompatTests=settings`).
+- `./gradlew runGameTest`: the mod on a bare dedicated server (no client code), riding there.
 - `-Ptests=gallery`: clean store screenshots.
-- `-Ptests=perf`: load, not pass/fail (`PerfTest`, not in full runs): 56 horses of every kind in a pen, the player
-  galloping circles round them for 90 s; logs server tick time, frame rate and plan times to
-  `horsingaround-perf-report.txt`. With `-Pprofile` any run records a Java Flight Recording (1 ms CPU samples) to
-  `build/run/clientGameTest/horsingaround-profile.jfr`: count the samples with a `dev.horsingaround` frame (the
-  mod's share) and see which of its methods they go through. Last measured (2026-10-20):
-  about 3% of the client thread's Java samples (~70 us a frame) and 0.1-0.3% of the server's.
-- `-Ptests=store`: films the README's clips and stills in a generated world (`StoreMediaTest`; `-Pscenario=gaits,river`
-  for some), with ATMOSPHERICS loaded for the sky. Clips are widescreen at 30 frames a second, slowed down where a shot
-  asks; the ones shown as you play (the stamina bar, the riding camera, the settings) are 16:9 with the HUD, and while a
-  clip records a menu doesn't pause the game and draws a pointer. Each frame is drawn at its own moment on the game's own timer (the mod's legs and Fresh Animations read the
-  partial tick from it), and while a clip records only its frames draw the world, so frame-to-frame animation moves with
-  them alone. `FilmCamera` moves the camera between set-ups on a smooth path, never below the ground or grass, craning up
-  when something would block the horse. The log gives each clip's sharpest camera change of speed and how its legs moved
-  (`<clip>-legs.csv`: the soles against the body, a line a frame). Every client test run clears `build/run/clientGameTest`, so encode the frames before
-  the next run. `-PshaderPack=<path to a shader pack zip>` shoots with Iris and that pack, stills only (the user wants clips
-  without shaders, which are easier to see). `scripts/store-media.sh` turns them into `docs/media/`: each clip as MP4 and as
-  animated WebP, framed in the logo's orange. The README (on GitHub) shows the WebPs; the Modrinth description is the
-  README with the clips as video, because large animated images stutter in a browser where video doesn't; CurseForge
-  drops video, so its description keeps the WebPs (`scripts/store-descriptions.sh` writes both to `build/` for pasting). Both load from
-  `raw.githubusercontent.com/.../main/docs/media/`, so they show only once merged to main.
+- `-Ptests=perf`: load, not pass/fail: horses of every kind in a pen, a gallop round them for 90 s; server tick time, frame rate and
+  plan times in `horsingaround-perf-report.txt`.
+- `-Pprofile`, on any run: a Java Flight Recording at `build/run/clientGameTest/horsingaround-profile.jfr`. Count samples with a
+  `dev.horsingaround` frame for the mod's share. Measured 2026-10-20: about 3% of the client thread, 0.1-0.3% of the server.
+- `-Ptests=store`: films the README's clips and stills in a generated world (`StoreMediaTest`, `FilmCamera`; `-Pscenario=gaits,river`
+  for some), with ATMOSPHERICS for the sky. `scripts/store-media.sh` turns them into `docs/media/`, as MP4 and animated WebP. Every
+  client test run clears `build/run/clientGameTest`, so encode before the next run. `-PshaderPack=<zip>` shoots stills with Iris; the
+  user wants clips without shaders, which are easier to see. Modrinth uses the MP4s; GitHub and CurseForge the WebPs.
 
 ## Smoke test (every version)
 
-`./gradlew :<version>:runSmoke` (`src/smoke`, test only; plain `runSmoke` runs every version, one at a time): a flat
-world, a saddled horse ridden through a stand, walk, gallop, jump and stop, then over a rough course (steps, stairs,
-leaves, uneven ground, single steps at a gallop) with simulated keys, screenshots in
-`build/run/smoke/<version>/screenshots/` (side views of the rider, first and third person, leashed mobs and a lead), and a
-pass/fail in the log; it also fails if the server corrected any of the rider's moves (with `-PsmokeWithoutMod` those
-are vanilla's own and only warned about). Run it after touching version-specific code; see `docs/porting.md`.
+`./gradlew :<version>:runSmoke` (`src/smoke`; plain `runSmoke` runs each in turn, about a minute each). A flat world, a saddled horse
+through a stand, walk, gallop, jump and stop, then a rough course. It fails unless the log reports a pass, nothing names this mod in an
+error, and the server corrected no move. Screenshots: `build/run/smoke/<version>/screenshots/`. Look at them with and without the pack:
+most players run the plain model, and some bugs only show there.
 
-- `-PsmokeNoPack`: no Fresh Animations pack. `-PsmokePlain`: no Entity Model Features, Entity Texture Features or pack.
-  These tell this mod's problems from the animation stack's.
-- `-PsmokeWithoutMod`: the same scene with this mod turned off.
-- `-PsmokeCloseUp` (`=150` nearly from the front; the default 90 is from the side): the same run on a 1920x1080 window at a
-  narrow view, with a shot every tick (`closeup-*.png`, crop to the head) of the gallop, the jump, the stairs and the steps,
-  and the neck's numbers in the log, for anything between the stills that should stay attached. With `-PsmokeWithoutMod`
-  the course stops where a vanilla horse gets stuck, so the task reports a failure after the gallop, jump and stairs are shot.
-- `-PsmokeWild=<seed>` (and `-PsmokeWildAt=x,z` for a fixed start; spawn is spread at random): instead, a two-minute
-  gallop with turns and jumps over a normal world of that seed, failing on any server correction. Natural ground brings
-  out corrections the course doesn't (seed 2145202720632702597 at 7,41 crosses a dip that once rubber-banded for good).
-- NeoForge: `./gradlew :<version>-neoforge:runSmoke` (26.3, 26.2, 26.1.2, 1.21.1) runs the same test natively, results
-  in `build/run/smoke/<version>-neoforge/`. `-PsmokeWithoutMod` is Fabric's only.
-- Look at the screenshots both with and without the pack: most players run the plain horse model, and a bug there
-  (idle horses' legs adrift before 1.21.2) only showed without it.
+- `-PsmokeNoPack`: no Fresh Animations. `-PsmokePlain`: no EMF, ETF or pack. These tell this mod's problems from the animation stack's.
+- `-PsmokeWithoutMod`: the same scene with this mod off (Fabric only); corrections are vanilla's own and only warned about.
+- `-PsmokeWild=<seed>` (`-PsmokeWildAt=x,z` for a fixed start): a two-minute gallop over a real world, failing on any correction. Seed
+  2145202720632702597 at 7,41 crosses a dip that once rubber-banded for good.
+- `-PsmokeCloseUp` (`=150` nearly from the front; default 90 is the side): 1920x1080 at a narrow view, a shot every tick (`closeup-*.png`) and
+  the neck's numbers logged, for anything that should stay attached. With `-PsmokeWithoutMod` the task reports a failure at the course
+  where a vanilla horse gets stuck.
+- NeoForge: `./gradlew :<version>-neoforge:runSmoke`, results in `build/run/smoke/<version>-neoforge/`.
 
 ## Compatibility
 
-`./gradlew runCompat --continue` runs the tests in a production game with packs of popular mods (`compatPacks` in
-`build.gradle`); results in `build/run/compat/<pack>/`. Run it before a release and after touching mixins. The `icys` pack (Icy's Better
-Horses) rides one of its breeds, an American Paint (`-Dhorsingaround.horse`, see `TestHorse`), through every section of the
-ride test and the terrain, mounts and server tests, which must pass as on a vanilla horse; `MountsTest` also rides a
-Friesian under both riding styles and checks the breeds' traits (`BreedTraits`) and the bash. `IcyFeaturesTest`
-(`-PcompatTests=icy`, `horsingaround-icy-report.txt`) rides Icy's gear on this mod's riding: cart and wagon (how they trail round a bend and a hard turn, and up and down a hill), plough, a second
-rider (a server-only player), Glidewing Harness off a cliff, rear key, horseshoes on powder snow and water, medkit, the
-charge toggle, mounted mining and the dismount side. Other packs run the ride test's core and cuts sections (`-PcompatSections` for others). To play with a pack yourself,
-`./gradlew playCompat<Pack>` (e.g. `playCompatIcys`) opens the same game without tests; its worlds stay in
-`build/run/play/<pack>/`.
+`./gradlew runCompat --continue` runs tests in a production game per pack of popular mods (`compatPacks` in
+`gradle/client-tests.gradle`, pinned by Modrinth version id because some mods reuse version numbers). Results: `build/run/compat/<pack>/`.
+Add a pack mod when a popular one appears. `-PcompatSections`, `-PcompatTests` change what runs. Play with a pack: `./gradlew playCompat<Pack>`,
+with worlds kept in `build/run/play/<pack>/`.
 
-Icy's features with only screens or keys to them aren't tested; check them by hand in `playCompatIcys`, riding on this
-mod's riding (default keys on 26.3):
+The `icys` pack rides an American Paint (`-Dhorsingaround.horse`, `TestHorse`) through the horse tests, which must pass as on a vanilla horse;
+`MountsTest` also checks a Friesian under both riding styles and the breeds' traits. `IcyFeaturesTest` (`-PcompatTests=icy`) rides Icy's gear on
+this mod's riding.
 
-- Command wheel (R): each command on the horse you look at, and on the one you ride.
-- Whistle (P): calls your active horse; pressed while riding, opens its info screen.
-- Roster (G): lists your horses; Set Active, Whistle, Send Home; a dead horse comes back with Summon (revival) and
-  rides as before.
-- Trust: `/horse trust <player>` lets them ride and drive your horses; `/horse untrust` bucks them off.
-- Upgraded saddle held while looking at a horse: the stats panel above the hotbar.
-- Stable Handbook opens and pages turn; Icy's settings screen from Mod Menu opens and saves.
+Icy's features with only screens or keys aren't tested. Check by hand in `playCompatIcys`, on this mod's riding:
+
+- Command wheel (R), on a horse you look at and the one you ride.
+- Whistle (P); pressed while riding, it opens the info screen.
+- Roster (G): Set Active, Whistle, Send Home; a dead horse returns with Summon and rides as before.
+- `/horse trust <player>` lets them ride and drive; `/horse untrust` bucks them off.
+- Upgraded saddle held at a horse shows the stats panel. Stable Handbook pages turn. Icy's settings open from Mod Menu and save.
 - Cart menu (Left Alt) while driving: switch model, Riders tab, Unload all.
 - Breeding: golden carrots on a male and a female give a foal; two of one gender refuse.
-- Free look (Left Ctrl, also sprint) does nothing on this mod's riding, by design (see research.md).

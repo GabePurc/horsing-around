@@ -37,7 +37,7 @@ import net.minecraft.world.item.Items;
 
 /**
  * Rides a horse through every mechanic with simulated keys, measures what happens tick by tick, and checks it against
- * the feel targets in mvp_requirements.md. Writes a report and screenshots to the test run folder.
+ * the feel targets in docs/design.md and RideTuning. Writes a report and screenshots to the test run folder.
  *
  * <p>Run with {@code ./gradlew runClientGameTest}.
  */
@@ -4123,11 +4123,11 @@ public final class RideFeelTest implements FabricClientGameTest {
 		// (Stepping from block to block, a hoof is lifted or set down for a tick or two.)
 		// (On a slope of full blocks, a block up for every block along, the risers are taller than a leg: the horse
 		// scrambles, a hoof off the ground on its way up or reaching down for the next block. Off the ground is fine; in it
-		// isn't: a known limit, see research.md. Going down, a leg can't reach down and each end of the body falls under
+		// isn't: a known limit, see docs/design.md. Going down, a leg can't reach down and each end of the body falls under
 		// gravity once its hooves step off, so a hoof hangs a little longer.)
 		final boolean fullBlocks = !stairs;
 		// (Trotting down full blocks the box lands on each edge with the front hooves over ground 2 blocks lower: a known
-		// limit the user kept on 2026-10-10, see research.md.)
+		// limit the user kept on 2026-10-10, see docs/design.md.)
 		check("hooves on the ground: nearly always (blocks off it, 90th percentile)", most, 0.0, fullBlocks ? !up && trot ? 1.2 : 0.65 : up ? 0.25 : 0.3);
 		check("a hoof is hardly ever in the ground (share of frames one is more than 0.1 in)", frames == 0 ? 1.0 : (double) sunkFrames / frames, 0.0, 0.1);
 		check("a leg is hardly ever in the ground (share of frames one is more than 0.1 in)", frames == 0 ? 1.0 : (double) legFrames / frames, 0.0, 0.1);
