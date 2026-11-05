@@ -69,14 +69,18 @@ then read that range.
 All versions build from the one `src/` with Stonecutter. `src/` reads as 26.3 code (Java 25); older versions' code sits in
 `//?` comments. Gradle picks the JDK. Jars land in `versions/<version>/build/libs/`.
 
-- Shared code changed: `./gradlew build` and `./gradlew auditMixins` (every jar in a production client and server).
-- Gameplay changed: `./gradlew runClientGameTest` narrowed with `-Ptests=`/`-Psections=` while iterating, and
-  `./gradlew runClientGameTestParallel --continue` for full runs. Don't start a second test game yourself: two games at
-  once make ride checks flaky.
-- Version-specific code changed: `./gradlew :<version>:runSmoke`.
-- Mixins changed, or a release: `./gradlew runCompat --continue`.
-- Play: `./gradlew :26.3:runClient` (plain `runClient` matches every version and fails Gradle validation). Dev runs load Mod
-  Menu, Entity Model Features, Entity Texture Features and Fresh Animations, the user's target setup.
+While developing (user, 2026-11-05), test only what you're changing: `./gradlew :26.3:build`, then `./gradlew runClientGameTest`
+narrowed with `-Ptests=`/`-Psections=`, or `./gradlew :<version>:runSmoke` for version-specific code.
 
-Keep test output out of the conversation: send a run to a file, read its tail, then the failures (`docs/testing.md`). View only
-the screenshots that matter.
+Before merging, run the real tests:
+
+- `./gradlew build auditMixins` (every jar in a production client and server).
+- `./gradlew runClientGameTestParallel --continue`.
+- Version-specific code changed: `./gradlew :<version>:runSmoke`.
+- Mixins changed: `./gradlew runCompat --continue`.
+
+Play: `./gradlew :26.3:runClient` (plain `runClient` matches every version and fails Gradle validation). Dev runs load Mod
+Menu, Entity Model Features, Entity Texture Features and Fresh Animations, the user's target setup.
+
+Don't start a second test game yourself: two games at once make ride checks flaky. Keep test output out of the conversation:
+send a run to a file, read its tail, then the failures (`docs/testing.md`). View only the screenshots that matter.

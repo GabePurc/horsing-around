@@ -4,14 +4,19 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"DeltaTrackerTimerAccessor",
+		"EventLoopMixin",
 		"FilmCameraMixin",
+		"FrameClockMixin",
 		"GameRendererMixin",
 		"GuiMixin",
 		"ModelFeatureRendererMixin",
 		"MouseHandlerMixin",
 		"OptionsMixin",
 		"RideCameraAccessor",
-		"ScreenMixin"
+		"ScreenMixin",
+		"ServerClockMixin",
+		"TestClockMixin",
+		"UtilAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -29,17 +29,18 @@ features need the user's OK (see `AGENTS.md`); each feel change ends with the us
 Each needs a look: a real fault, or a limit to set from what the stride itself does.
 
 - "Trotting past a 2-block ledge that only catches the flank" failed 2 of 7 full runs on a release branch, always passing
-  alone; the lane logs its path, so the next failure shows what happened.
-- "Galloping straight at a narrow 2-block ledge with a way round" once ended 0.95 blocks off the line (target 0.3) under heavy
-  machine load, having started 0.6 off.
-- "Walking down a staircase of stair blocks": hooves' 90th percentile 0.23-0.32 against 0.3, failing only with other tests.
+  alone; the lane logs its path, so the next failure shows what happened. (Perhaps the horse's idling before mounting, since removed.)
+- "All three mob riders still mounted": the skeleton ended up on foot in 3 of 20 full runs, once even with the riders 8 blocks apart behind
+  glass, so probably not the spear.
 - Icy's "trotting up a slope of full blocks" median 0.116-0.135 against 0.12 (Icy's trot lifts the hooves higher).
-- The horses pack's nautilus once rode 0.54 blocks (target 1).
+- The nautilus in a pack rides little now and then: 0.54 in the horses pack; in Icy's 0.945 or 2.258, the low one more often on the frame
+  clock (3 of 4 runs, against 0 of 2 at normal speed); about 3.7 with no pack. Limit 0.4, from 1.
+- Making the legs snap into their pose in the air (the blend in `AirLegs`) fails no check: the blend isn't really tested.
 
 ## Known issues
 
 - Hoof soles meeting a bank's top mid-heave still jump up to 0.34 blocks in a frame (logged by `exits`).
-- Galloping up a ragged hillside, the head can dip about 0.2 blocks into a step for a moment (`hill`, limit 0.3).
+- Galloping up a ragged hillside, the head can dip 0.31-0.39 blocks into a step for a moment (`hill`, limit 0.4).
 
 Outside this mod's control:
 
