@@ -2,6 +2,15 @@
 
 Each version's notes are written to paste straight into the store version pages.
 
+## 0.6.1
+
+### Fixed
+- Fabric on Minecraft 1.20.1 to 1.21.11: fixed a crash on launch in 0.6.0.
+- With Fresh Animations:
+  - Your rider stays on the saddle when your horse rears, instead of floating above and behind it.
+  - Before Minecraft 1.21.5, the bridle and reins stay on the head on stairs, steps and jump take-offs, and the stirrups hold at the rider's feet.
+  - Before Minecraft 1.21, your horse's head no longer rises into your face on stairs.
+
 ## 0.6.0
 
 ### New
