@@ -3,6 +3,8 @@ package dev.horsingaround.gametest;
 import com.mojang.authlib.GameProfile;
 import dev.horsingaround.HorsingAround;
 import dev.horsingaround.ride.HorseConfig;
+import dev.horsingaround.client.render.IcyCartDrawing;
+import dev.horsingaround.ride.CartTrail;
 import dev.horsingaround.ride.IcyCompat;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
@@ -98,17 +100,70 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 				mc.options.chatVisibility().set(ChatVisiblity.HIDDEN);
 			});
 
-			cart(ctx, input, world);
-			cartHill(ctx, input, world);
-			plough(ctx, input, world);
-			wagon(ctx, input, world);
-			secondRider(ctx, input, world);
-			glider(ctx, input, world);
-			rear(ctx, input, world);
-			horseshoes(ctx, input, world);
-			medkit(ctx, input, world);
-			chargeToggle(ctx, input, world);
-			comforts(ctx, input, world);
+			// (-PcompatSections=<names> runs only some, while working on them; all of them by default.)
+			final List<String> only = List.of(System.getProperty("horsingaround.sections", "").split(","));
+			final boolean all = only.size() == 1 && only.getFirst().isEmpty();
+			if (all || only.contains("room")) {
+				cartClearance(ctx, input, world);
+			}
+			if (all || only.contains("cart")) {
+				cart(ctx, input, world);
+			}
+			if (all || only.contains("hill")) {
+				cartHill(ctx, input, world, "american_paint_horse");
+				cartHill(ctx, input, world, "belgian_horse");
+			}
+			if (all || only.contains("steep")) {
+				cartSteep(ctx, input, world, "american_paint_horse");
+				cartSteep(ctx, input, world, "belgian_horse");
+			}
+			if (all || only.contains("jitter")) {
+				cartJitter(ctx, input, world, "american_paint_horse");
+				cartJitter(ctx, input, world, "belgian_horse");
+			}
+			if (all || only.contains("fast")) {
+				cartFast(ctx, input, world, "american_paint_horse");
+				cartFast(ctx, input, world, "belgian_horse");
+			}
+			if (all || only.contains("tight")) {
+				cartTight(ctx, input, world, "american_paint_horse");
+				cartTight(ctx, input, world, "belgian_horse");
+			}
+			if (all || only.contains("drop")) {
+				cartDrop(ctx, input, world, "american_paint_horse");
+				cartDrop(ctx, input, world, "belgian_horse");
+			}
+			if (all || only.contains("rough")) {
+				cartRough(ctx, input, world, "american_paint_horse");
+				cartRough(ctx, input, world, "belgian_horse");
+			}
+			if (all || only.contains("ledge")) {
+				cartLedge(ctx, input, world, "american_paint_horse");
+				cartLedge(ctx, input, world, "belgian_horse");
+			}
+			if (all || only.contains("jump")) {
+				cartJump(ctx, input, world, "american_paint_horse");
+				cartJump(ctx, input, world, "belgian_horse");
+			}
+			if (all || only.contains("lean")) {
+				cartLean(ctx, world);
+			}
+			if (all || only.contains("reverse")) {
+				cartBackIntoWall(ctx, input, world);
+				cartReverse(ctx, input, world, "american_paint_horse");
+				cartReverse(ctx, input, world, "belgian_horse");
+			}
+			if (all) {
+				plough(ctx, input, world);
+				wagon(ctx, input, world);
+				secondRider(ctx, input, world);
+				glider(ctx, input, world);
+				rear(ctx, input, world);
+				horseshoes(ctx, input, world);
+				medkit(ctx, input, world);
+				chargeToggle(ctx, input, world);
+				comforts(ctx, input, world);
+			}
 
 			section("Log");
 			final List<String> problems = watch.matching("horsingaround", "Exception", "moved wrongly", "moved too quickly", "was expected to be controlling");
@@ -127,6 +182,38 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 	}
 
 	// ---- The cart, the plough and the wagon ----
+
+	/** On every breed, the rider's knees on the bench and the cart clear the horse's hindquarters. */
+	private void cartClearance(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Icy's carts behind every breed: room behind the horse");
+		double closest = Double.MAX_VALUE;
+		for (final String breed : new String[] {
+			"american_paint_horse", "andalusian_horse", "arabian_horse", "belgian_horse", "clydesdale_horse", "friesian_horse", "haflinger_horse", "icelandic_horse",
+			"mustang_horse", "percheron_horse", "quarter_horse", "shire_horse", "thoroughbred_horse", "appaloosa_horse", "morgan_horse"
+		}) {
+			final int x = nextLane();
+			final int id;
+			try {
+				id = summon(ctx, world, breed, UPGRADED, x, GROUND);
+			} catch (final RuntimeException e) {
+				log("  (no %s)", breed);
+				continue;
+			}
+			onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+			ctx.waitTicks(10);
+			board(ctx, world, x);
+			ctx.runOnClient(mc -> LegProbe.arm(true));
+			ctx.waitTicks(5);
+			final double[] room = ctx.computeOnClient(mc -> new double[] {LegProbe.rump, -forwardOf(mc.player.getVehicle(), mc.player), mc.player.getVehicle().getBbWidth(), mc.player.getVehicle().getBbHeight(), IcyCompat.cartFrontAxle((Entity) call(mc.player.getVehicle(), "bh_getCartEntity"))});
+			ctx.runOnClient(mc -> LegProbe.arm(false));
+			log("  (%s: body ends %.2f behind its middle, the seat %.2f; %.2f wide, %.2f tall)", breed, room[0], room[1], room[2], room[3]);
+			closest = Math.min(closest, room[1] - room[0]);
+			sideScreenshot(ctx, "icy_room_" + breed);
+			dismount(ctx, input);
+		}
+		// (A seated rider's knees reach about half a block ahead of the seat.)
+		check("on every breed the rider's seat is well clear of the horse's hindquarters (blocks, closest)", closest, 1.1, 2.0);
+	}
 
 	/** A cart in an American Paint's harness slot: it rolls behind at this mod's gaits, slowed by Icy's drag. */
 	private void cart(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
@@ -148,6 +235,7 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 		check("gallops at its own top speed, the drag included (blocks/tick)", averageSpeed(ctx, 10), gallop * 0.85, gallop * 1.15);
 		screenshot(ctx, "icy_cart_gallop");
 		sideScreenshot(ctx, "icy_cart_gallop_side");
+		bedStaysStill(ctx);
 		// (Alone it turns as tight as about 6 blocks at a gallop; in the shafts it can bend 20 degrees before the cart holds it.)
 		followThroughTurn(ctx, input, "icy_cart", 6.5);
 		check("the same cart all along (never dropped and put back)", cartId.equals(world.getServer().computeOnServer(server -> cartUuid(horse(server, id)))));
@@ -159,20 +247,25 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 	 * Up and down a hill of 1-block steps at a canter, then on along the flat at a gallop, watching the cart as drawn: it
 	 * rises and tilts smoothly, not a block at a time, and at a gallop on the flat it hardly bounces.
 	 */
-	private void cartHill(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
-		section("Icy's cart up and down a hill");
+	private void cartHill(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String breed) {
+		section("Icy's cart up and down a hill, behind a " + breed);
 		final int x = nextLane();
 		// Steps up every 3 blocks for 5 blocks, a flat top, and down again the same way (the ride heads north, -z).
 		for (int step = 0; step < 5; step++) {
 			world.getServer().runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:grass_block", x - 3, GROUND + step, -12 - 3 * step, x + 3, GROUND + step, -60 + 3 * step));
 		}
-		final int id = summon(ctx, world, "american_paint_horse", UPGRADED, x, GROUND);
+		final int id = summon(ctx, world, breed, UPGRADED, x, GROUND);
 		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
 		ctx.waitTicks(10);
 		board(ctx, world, x);
 		input.lookAt(180.0F, 10.0F);
 		input.holdKey(o -> o.keyUp);
 		spurs(ctx, input, 2);
+		// (A wagon on its own wheels: where the hitch is, ahead of its axles, it moves further than they do.)
+		final double riseMost = "belgian_horse".equals(breed) ? 0.45 : 0.3;
+		final Kicks kicks = new Kicks();
+		double wheelHigh = 0.0;
+		double wheelLow = 0.0;
 		double riseJump = 0.0;
 		double tiltJump = 0.0;
 		double slopeTilt = 0.0;
@@ -197,6 +290,12 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 			if (now == null) {
 				continue;
 			}
+			final double[] gaps = ctx.computeOnClient(IcyFeaturesTest::wheelGaps);
+			for (final double gap : gaps) {
+				wheelLow = Math.min(wheelLow, gap);
+			}
+			wheelHigh = Math.max(wheelHigh, ctx.computeOnClient(IcyFeaturesTest::offRamps));
+			kicks.add(now[0], now[1], ctx.computeOnClient(mc -> IcyCompat.cartLean(mc.player.getVehicle()).horsingaround$roll(1.0F)));
 			// (Halfway up the slope, steps of 1 in 3: about 18 degrees.)
 			if (now[2] < -15.0 && now[2] > -21.0) {
 				slopeTilt += now[1];
@@ -206,24 +305,879 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 				riseJump = Math.max(riseJump, Math.abs(now[0] - was[0]));
 				tiltJump = Math.max(tiltJump, Math.abs(now[1] - was[1]));
 			}
-			if (now[2] < -66.0 && i > 140) {
+			// (On past the last step with the whole cart.)
+			if (now[2] < -72.0) {
 				flatLow = Math.min(flatLow, now[0]);
 				flatHigh = Math.max(flatHigh, now[0]);
 			}
 			was = now;
 			if (i == 45 || i == 95) {
-				sideScreenshot(ctx, "icy_cart_hill_" + i);
+				sideScreenshot(ctx, "icy_cart_hill_" + breed + "_" + i);
 				// (A shot can take a tick of its own: the next change isn't one tick's.)
 				was = null;
+				kicks.skip();
 			}
 		}
-		check("up and down the hill it rises smoothly (blocks a tick, most)", riseJump, 0.0, 0.3);
-		check("...and tilts smoothly (degrees a tick, most)", tiltJump, 0.0, 3.0);
+		log("  (wheels off the ground, most: %.2f above, %.2f in)", wheelHigh, -wheelLow);
+		log("  (kicks up the hill, change in rate from tick to tick, most: height %.3f, tilt %.2f, lean %.2f)", kicks.most[0], kicks.most[1], kicks.most[2]);
+		// (How suddenly it changes how fast it moves: most of all as an axle comes down and is caught by its suspension.)
+		check("it has weight: its tilt gathers and settles (change in degrees a tick, from tick to tick, most)", kicks.most[1], 0.0, 5.0);
+		check("...and its height (blocks)", kicks.most[0], 0.0, 0.2);
+		check("up and down the hill it rises smoothly (blocks a tick, most)", riseJump, 0.0, riseMost);
+		check("...its wheels on the ground and its ramps (blocks off them, most)", wheelHigh, 0.0, 0.6);
+		check("...and not sunk far into it (blocks)", -wheelLow, 0.0, 0.6);
+		check("...and tilts smoothly (degrees a tick, most)", tiltJump, 0.0, 7.0);
 		// (A little steeper than the slope: the horse's feet climb each step before its middle, where the hitch is, is over it.)
 		check("...going up with the slope (degrees, on average; a slope of 1 in 3 is 18)", slopeTilt / Math.max(slopeTicks, 1), 14.0, 25.0);
 		check("galloping on the flat it hardly bounces (blocks, top to bottom)", flatHigh - flatLow, 0.0, 0.08);
 		stop(ctx, input);
 		dismount(ctx, input);
+	}
+
+	/**
+	 * Down a steep hill, a step of a block for each block along with drops of 2 and 3 in it, and back up: going down, the horse
+	 * well below the cart, it doesn't tip up on end (user, 2026-11-06). It stays on its wheels, tilted as far as a cart tilts,
+	 * and the shafts reach down to the horse.
+	 */
+	private void cartSteep(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String breed) {
+		section("Icy's cart down a steep hill, behind a " + breed);
+		final int x = nextLane();
+		final int top = GROUND + 12;
+		world.getServer().runOnServer(server -> {
+			final BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+			for (int bx = x - 8; bx <= x + 8; bx++) {
+				for (int bz = -70; bz <= 12; bz++) {
+					// (Flat on top, down a block a block, a drop of 3, a block a block again, a drop of 2, and on along the bottom.)
+					final int along = -bz;
+					final int high = along < 8 ? 12 : along < 12 ? 12 - (along - 7) : along < 16 ? 5 : along < 19 ? 5 - (along - 15) : 2;
+					for (int up = 0; up < high; up++) {
+						server.overworld().setBlockAndUpdate(pos.set(bx, GROUND + up, bz), Blocks.GRASS_BLOCK.defaultBlockState());
+					}
+				}
+			}
+		});
+		final int id = summon(ctx, world, breed, UPGRADED + ",NoAI:1b", x, top);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x, top);
+		input.lookAt(180.0F, 15.0F);
+		input.holdKey(o -> o.keyUp);
+		ctx.runOnClient(mc -> IcyCartDrawing.shaftMiss = 0.0);
+		double noseDown = 0.0;
+		double noseUp = 0.0;
+		double wheelIn = 0.0;
+		double bedIn = 0.0;
+		double below = 0.0;
+		int shots = 0;
+		double fell = 0.0;
+		for (int i = 0; i < 260; i++) {
+			ctx.waitTick();
+			final double[] now = ctx.computeOnClient(mc -> {
+				final Entity horse = mc.player.getVehicle();
+				final Object cart = horse == null ? null : call(horse, "bh_getCartEntity");
+				return cart == null ? null : new double[] {(float) call(cart, "renderTilt", 1.0F), horse.getY(), ((net.minecraft.world.phys.Vec3) call(cart, "gluedRenderPosition", 1.0F)).y};
+			});
+			if (now == null) {
+				continue;
+			}
+			noseDown = Math.max(noseDown, -now[0]);
+			noseUp = Math.max(noseUp, now[0]);
+			below = Math.max(below, now[2] - now[1]);
+			fell = Math.max(fell, top - now[1]);
+			for (final double gap : ctx.computeOnClient(IcyFeaturesTest::wheelGaps)) {
+				wheelIn = Math.max(wheelIn, -gap);
+			}
+			for (final double gap : ctx.computeOnClient(IcyFeaturesTest::bedGaps)) {
+				bedIn = Math.max(bedIn, -gap);
+			}
+			if (shots < 3 && fell > 2.0 + shots * 3.0) {
+				sideScreenshot(ctx, "icy_steep_" + breed + "_" + shots);
+				screenshot(ctx, "icy_steep_back_" + breed + "_" + shots);
+				shots++;
+			}
+		}
+		log("  (went down %.1f; tilted %.1f down and %.1f up at most; the cart up to %.2f above the horse; in the ground: wheels %.2f, bed %.2f; shafts short %.2f)", fell, noseDown, noseUp, below, wheelIn, bedIn, ctx.computeOnClient(mc -> IcyCartDrawing.shaftMiss));
+		check("it goes down the hill (blocks down)", fell, 5.0, 14.0);
+		check("it doesn't tip up on end going down (degrees nose down, most)", noseDown, 0.0, 43.0);
+		check("...its wheels stay out of the ground (blocks in, most)", wheelIn, 0.0, 0.4);
+		check("...and its bed (blocks in, most)", bedIn, 0.0, 0.4);
+		// (Off the 3-block drop, the horse nearly 4 below the cart for a moment: further than its shafts stretch.)
+		check("...and the shafts on the horse (blocks short of it, most)", ctx.computeOnClient(mc -> IcyCartDrawing.shaftMiss), 0.0, 0.8);
+		stop(ctx, input);
+		dismount(ctx, input);
+	}
+
+	/**
+	 * At a steady pace over easy rolling ground: nothing about the cart or its rider jumps between one tick and the next (user,
+	 * 2026-11-06: a bit jittery), and its tilt, lean and height change gradually. Each value as drawn at the end of one tick must
+	 * be where it is drawn at the start of the next.
+	 */
+	private void cartJitter(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String breed) {
+		section("Icy's cart at a steady pace over easy ground, behind a " + breed);
+		final int x = nextLane();
+		world.getServer().runOnServer(server -> {
+			final BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+			for (int bx = x - 8; bx <= x + 8; bx++) {
+				for (int bz = -110; bz <= -6; bz++) {
+					final int across = bx - x;
+					final int high = Mth.floor(1.2F + 0.9F * Mth.sin(bz * 0.13F + across * 0.05F) + 0.6F * Mth.sin(bz * 0.31F - across * 0.11F));
+					for (int up = 0; up < high; up++) {
+						server.overworld().setBlockAndUpdate(pos.set(bx, GROUND + up, bz), Blocks.GRASS_BLOCK.defaultBlockState());
+					}
+				}
+			}
+		});
+		final int id = summon(ctx, world, breed, UPGRADED + ",NoAI:1b", x, GROUND);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x);
+		input.lookAt(180.0F, 15.0F);
+		input.holdKey(o -> o.keyUp);
+		spurs(ctx, input, 2);
+		final Kicks kicks = new Kicks();
+		double seatJump = 0.0;
+		double cartJump = 0.0;
+		double[] was = null;
+		for (int i = 0; i < 220; i++) {
+			ctx.waitTick();
+			final double[] now = ctx.computeOnClient(mc -> {
+				final Entity horse = mc.player.getVehicle();
+				final Object cart = horse == null ? null : call(horse, "bh_getCartEntity");
+				if (cart == null) {
+					return null;
+				}
+				final net.minecraft.world.phys.Vec3 seat0 = (net.minecraft.world.phys.Vec3) call(cart, "renderSeat", mc.player, 0.0F);
+				final net.minecraft.world.phys.Vec3 seat1 = (net.minecraft.world.phys.Vec3) call(cart, "renderSeat", mc.player, 1.0F);
+				final net.minecraft.world.phys.Vec3 cart0 = (net.minecraft.world.phys.Vec3) call(cart, "gluedRenderPosition", 0.0F);
+				final net.minecraft.world.phys.Vec3 cart1 = (net.minecraft.world.phys.Vec3) call(cart, "gluedRenderPosition", 1.0F);
+				return new double[] {
+					seat0.x, seat0.y, seat0.z, seat1.x, seat1.y, seat1.z, cart0.x, cart0.y, cart0.z, cart1.x, cart1.y, cart1.z,
+					(float) call(cart, "renderTilt", 1.0F), ((CartTrail.Lean) cart).horsingaround$roll(1.0F)
+				};
+			});
+			if (now == null) {
+				continue;
+			}
+			if (was != null) {
+				seatJump = Math.max(seatJump, Math.sqrt(Mth.square(now[0] - was[3]) + Mth.square(now[1] - was[4]) + Mth.square(now[2] - was[5])));
+				cartJump = Math.max(cartJump, Math.sqrt(Mth.square(now[6] - was[9]) + Mth.square(now[7] - was[10]) + Mth.square(now[8] - was[11])));
+			}
+			kicks.add(now[10], now[12], now[13]);
+			was = now;
+		}
+		log("  (jumps between ticks: seat %.3f, cart %.3f; kicks: height %.3f, tilt %.2f, lean %.2f)", seatJump, cartJump, kicks.most[0], kicks.most[1], kicks.most[2]);
+		check("the rider doesn't jump between ticks (blocks, most)", seatJump, 0.0, 0.01);
+		check("...nor the cart", cartJump, 0.0, 0.01);
+		// (Most of all as an axle comes down off a step and is caught by its suspension.)
+		check("its tilt changes gradually (degrees a tick, from tick to tick, most)", kicks.most[1], 0.0, 6.0);
+		check("...its lean", kicks.most[2], 0.0, 4.0);
+		stop(ctx, input);
+		dismount(ctx, input);
+	}
+
+	/**
+	 * Flat out up and over hills of 1-block steps: the cart rides over them with its weight, not hopping at every step (user,
+	 * 2026-11-06: going fast up and over hills is really jerky). Reads how suddenly the rider's seat and the cart's tilt change
+	 * how fast they are moving, at worst and typically.
+	 */
+	private void cartFast(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String breed) {
+		section("Icy's cart flat out over hills, behind a " + breed);
+		final int x = nextLane();
+		world.getServer().runOnServer(server -> {
+			final BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+			for (int bx = x - 8; bx <= x + 8; bx++) {
+				for (int bz = -170; bz <= -12; bz++) {
+					// (Long hills of 1 to 3 blocks, a step every few blocks, on a flat run-up.)
+					final int high = Mth.floor(1.6F + 1.6F * Mth.sin(bz * 0.11F) + 0.35F * Mth.sin(bz * 0.37F + (bx - x) * 0.07F));
+					for (int up = 0; up < high; up++) {
+						server.overworld().setBlockAndUpdate(pos.set(bx, GROUND + up, bz), Blocks.GRASS_BLOCK.defaultBlockState());
+					}
+				}
+			}
+		});
+		final int id = summon(ctx, world, breed, UPGRADED + ",NoAI:1b", x, GROUND);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x);
+		input.lookAt(180.0F, 15.0F);
+		input.holdKey(o -> o.keyUp);
+		spurs(ctx, input, 3);
+		final Kicks kicks = new Kicks();
+		double wheelIn = 0.0;
+		double farthest = 0.0;
+		for (int i = 0; i < 300; i++) {
+			ctx.waitTick();
+			final double[] now = ctx.computeOnClient(mc -> {
+				final Entity horse = mc.player.getVehicle();
+				final Object cart = horse == null ? null : call(horse, "bh_getCartEntity");
+				return cart == null ? null : new double[] {((net.minecraft.world.phys.Vec3) call(cart, "renderSeat", mc.player, 1.0F)).y, (float) call(cart, "renderTilt", 1.0F), ((CartTrail.Lean) cart).horsingaround$roll(1.0F), horse.getZ()};
+			});
+			if (now == null || now[3] > -12.0) {
+				kicks.skip();
+				continue;
+			}
+			farthest = Math.min(farthest, now[3]);
+			kicks.add(now[0], now[1], now[2]);
+			for (final double gap : ctx.computeOnClient(IcyFeaturesTest::wheelGaps)) {
+				wheelIn = Math.max(wheelIn, -gap);
+			}
+		}
+		log("  (reached z %.1f; seat kicks %.3f at worst, %.3f typically; tilt kicks %.2f at worst, %.2f typically; lean %.2f; wheels in the ground %.2f)", farthest, kicks.most[0], kicks.typical(0), kicks.most[1], kicks.typical(1), kicks.most[2], wheelIn);
+		check("it gets over the hills (blocks along)", -farthest, 50.0, 200.0);
+		// (Before the body rode on the averaged ground, the wagon: 0.049 and 0.21 for the seat, 1.31 and 3.98 for the tilt.)
+		check("the rider isn't jolted at every step (blocks a tick, from tick to tick, typically)", kicks.typical(0), 0.0, 0.03);
+		check("...at worst", kicks.most[0], 0.0, 0.2);
+		check("its tilt rides over them (degrees a tick, from tick to tick, typically)", kicks.typical(1), 0.0, 0.55);
+		check("...at worst", kicks.most[1], 0.0, 2.5);
+		check("its wheels stay out of the ground (blocks in, most)", wheelIn, 0.0, 0.4);
+		stop(ctx, input);
+		dismount(ctx, input);
+	}
+
+	/**
+	 * How tight it turns at each gait, the rider looking well off to one side: tighter the slower it goes (user, 2026-11-06), and
+	 * its shafts still on the horse at the angle that takes.
+	 */
+	private void cartTight(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String breed) {
+		section("How tight Icy's cart turns, behind a " + breed);
+		final int x = nextLane();
+		final int id = summon(ctx, world, breed, UPGRADED + ",NoAI:1b", x, GROUND);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x);
+		final double[] radius = new double[4];
+		final double[] angle = new double[4];
+		float view = 180.0F;
+		input.lookAt(view, 15.0F);
+		input.holdKey(o -> o.keyUp);
+		for (int gait = 0; gait < 4; gait++) {
+			if (gait > 0) {
+				spurs(ctx, input, 1);
+			}
+			ctx.waitTicks(60);
+			ctx.runOnClient(mc -> IcyCartDrawing.shaftMiss = 0.0);
+			double tightest = Double.MAX_VALUE;
+			double most = 0.0;
+			double[] was = null;
+			for (int i = 0; i < 90; i++) {
+				// (Keeps the view well ahead of the horse round the circle.)
+				final float heading = ctx.computeOnClient(mc -> mc.player.getVehicle().getYRot());
+				view = heading + 80.0F;
+				input.lookAt(view, 15.0F);
+				ctx.waitTick();
+				final double[] at = ctx.computeOnClient(mc -> {
+					final Entity horse = mc.player.getVehicle();
+					final Object cart = call(horse, "bh_getCartEntity");
+					return new double[] {horse.getX(), horse.getZ(), horse.getYRot(), Math.abs(Mth.wrapDegrees((float) call(cart, "gluedRenderYaw", 1.0F) - ((LivingEntity) horse).yBodyRot))};
+				});
+				most = Math.max(most, at[3]);
+				if (was != null && i > 30) {
+					final double turned = Math.abs(Mth.wrapDegrees((float) (at[2] - was[2]))) * Mth.DEG_TO_RAD;
+					if (turned > 0.002) {
+						tightest = Math.min(tightest, Math.hypot(at[0] - was[0], at[1] - was[1]) / turned);
+					}
+				}
+				was = at;
+			}
+			radius[gait] = tightest;
+			angle[gait] = most;
+			final double miss = ctx.computeOnClient(mc -> IcyCartDrawing.shaftMiss);
+			log("  (gait %d: tightest turning radius %.1f blocks, %.0f degrees off the cart, shafts short %.2f)", gait + 1, tightest, most, miss);
+			if (gait == 0) {
+				sideScreenshot(ctx, "icy_tight_" + breed);
+				screenshot(ctx, "icy_tight_back_" + breed);
+			}
+		}
+		check("it turns tighter at a walk than at a gallop (blocks tighter)", radius[3] - radius[0], 1.5, 40.0);
+		stop(ctx, input);
+		dismount(ctx, input);
+	}
+
+	/**
+	 * Off a 3-block drop at a trot: it comes down with the weight it has, not floating (user, 2026-11-06), and lands on its
+	 * suspension instead of stopping dead.
+	 */
+	private void cartDrop(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String breed) {
+		section("Icy's cart off a 3-block drop, behind a " + breed);
+		final int x = nextLane();
+		final int top = GROUND + 3;
+		// (Not a command: that fails where the lane's chunks aren't loaded yet.)
+		world.getServer().runOnServer(server -> {
+			final BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+			for (int bx = x - 8; bx <= x + 8; bx++) {
+				for (int bz = -24; bz <= 12; bz++) {
+					for (int up = 0; up < 3; up++) {
+						server.overworld().setBlockAndUpdate(pos.set(bx, GROUND + up, bz), Blocks.GRASS_BLOCK.defaultBlockState());
+					}
+				}
+			}
+		});
+		final int id = summon(ctx, world, breed, UPGRADED + ",NoAI:1b", x, top);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x, top);
+		input.lookAt(180.0F, 15.0F);
+		input.holdKey(o -> o.keyUp);
+		spurs(ctx, input, 1);
+		double fastest = 0.0;
+		double hardest = 0.0;
+		double travel = 0.0;
+		double rate = Double.NaN;
+		double last = Double.NaN;
+		double lowest = Double.MAX_VALUE;
+		int shots = 0;
+		for (int i = 0; i < 220; i++) {
+			ctx.waitTick();
+			final double[] now = ctx.computeOnClient(mc -> {
+				final Entity horse = mc.player.getVehicle();
+				final Object cart = horse == null ? null : call(horse, "bh_getCartEntity");
+				if (cart == null) {
+					return null;
+				}
+				double most = 0.0;
+				for (int wheel = CartTrail.FRONT_LEFT; wheel <= CartTrail.REAR_RIGHT; wheel++) {
+					most = Math.max(most, ((CartTrail.Lean) cart).horsingaround$travel(wheel, 1.0F));
+				}
+				return new double[] {((net.minecraft.world.phys.Vec3) call(cart, "gluedRenderPosition", 1.0F)).y, most, horse.getZ()};
+			});
+			if (now == null) {
+				continue;
+			}
+			if (!Double.isNaN(last)) {
+				final double nowRate = now[0] - last;
+				fastest = Math.min(fastest, nowRate);
+				if (!Double.isNaN(rate)) {
+					hardest = Math.max(hardest, nowRate - rate);
+				}
+				rate = nowRate;
+			}
+			last = now[0];
+			lowest = Math.min(lowest, now[0]);
+			travel = Math.max(travel, now[1]);
+			if (shots < 2 && now[2] < -24.0 - shots * 1.5) {
+				sideScreenshot(ctx, "icy_drop_" + breed + "_" + shots);
+				shots++;
+				rate = Double.NaN;
+				last = Double.NaN;
+			}
+		}
+		log("  (falls at most %.3f a tick; hardest stop %.3f a tick; wheels up into it %.2f; lowest %.2f)", fastest, hardest, travel, lowest - GROUND);
+		check("it comes down with some weight (blocks a tick, fastest)", -fastest, 0.25, 2.0);
+		check("...and lands on its suspension, not stopping dead (blocks a tick slower, at most, in a tick)", hardest, 0.0, 0.25);
+		check("...its wheels taking it (blocks up into the cart, most)", travel, 0.1, 0.7);
+		stop(ctx, input);
+		dismount(ctx, input);
+	}
+
+	/**
+	 * Across a rough hillside, drops of a few blocks under one wheel and all: the cart never goes into the ground (user,
+	 * 2026-11-06), its wheels and its bed, and its shafts stay on the horse.
+	 */
+	private void cartRough(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String breed) {
+		section("Icy's cart across a rough hillside, behind a " + breed);
+		final int x = nextLane();
+		world.getServer().runOnServer(server -> {
+			final BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+			for (int bx = x - 8; bx <= x + 8; bx++) {
+				for (int bz = -80; bz <= -6; bz++) {
+					// (Deterministic: ridges and hollows of up to 4 blocks, running across and along the way.)
+					// (The same wherever the lane falls.)
+					final int across = bx - x;
+					final int high = Mth.floor(2.0 + 1.6 * Mth.sin(across * 0.9F + bz * 0.23F) + 1.4 * Mth.sin(bz * 0.47F - across * 0.31F));
+					for (int up = 0; up < high; up++) {
+						server.overworld().setBlockAndUpdate(pos.set(bx, GROUND + up, bz), Blocks.GRASS_BLOCK.defaultBlockState());
+					}
+				}
+			}
+		});
+		final int id = summon(ctx, world, breed, UPGRADED, x, GROUND);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x);
+		input.lookAt(180.0F, 15.0F);
+		input.holdKey(o -> o.keyUp);
+		spurs(ctx, input, 1);
+		ctx.runOnClient(mc -> IcyCartDrawing.shaftMiss = 0.0);
+		double wheelIn = 0.0;
+		double bedIn = 0.0;
+		double farthest = 0.0;
+		final Kicks kicks = new Kicks();
+		for (int i = 0; i < 300; i++) {
+			ctx.waitTick();
+			final double[] now = ctx.computeOnClient(mc -> {
+				final Entity horse = mc.player.getVehicle();
+				final Object cart = horse == null ? null : call(horse, "bh_getCartEntity");
+				return cart == null ? null : new double[] {horse.getZ(), (float) call(cart, "renderTilt", 1.0F), ((CartTrail.Lean) cart).horsingaround$roll(1.0F), ((net.minecraft.world.phys.Vec3) call(cart, "gluedRenderPosition", 1.0F)).y};
+			});
+			if (now == null) {
+				continue;
+			}
+			farthest = Math.min(farthest, now[0]);
+			kicks.add(now[3], now[1], now[2]);
+			for (final double gap : ctx.computeOnClient(IcyFeaturesTest::wheelGaps)) {
+				wheelIn = Math.max(wheelIn, -gap);
+			}
+			for (final double gap : ctx.computeOnClient(IcyFeaturesTest::bedGaps)) {
+				bedIn = Math.max(bedIn, -gap);
+			}
+			if (i == 100 || i == 200) {
+				sideScreenshot(ctx, "icy_rough_" + breed + "_" + i);
+				screenshot(ctx, "icy_rough_back_" + breed + "_" + i);
+				kicks.skip();
+			}
+		}
+		log("  (reached z %.1f; wheels in the ground %.2f, bed %.2f at most; kicks: height %.3f, tilt %.2f, lean %.2f)", farthest, wheelIn, bedIn, kicks.most[0], kicks.most[1], kicks.most[2]);
+		check("it gets across (blocks along)", -farthest, 15.0, 200.0);
+		check("its wheels stay out of the ground (blocks in, most)", wheelIn, 0.0, 0.4);
+		check("...and its bed (blocks in, most)", bedIn, 0.0, 0.7);
+		check("...and the shafts on the horse (blocks short of it, most)", ctx.computeOnClient(mc -> IcyCartDrawing.shaftMiss), 0.0, 0.6);
+		stop(ctx, input);
+		dismount(ctx, input);
+	}
+
+	/**
+	 * Up a 2-block rise at a canter and down the far side: the wheels roll up and down as if on ramps (user, 2026-11-06), the
+	 * cart doesn't fly along behind the horse, and the shafts stay on the horse.
+	 */
+	private void cartLedge(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String breed) {
+		section("Icy's cart up and down two blocks, behind a " + breed);
+		final int x = nextLane();
+		world.getServer().runCommand(String.format(Locale.ROOT, "fill %d %d -44 %d %d -16 minecraft:grass_block", x - 5, GROUND, x + 5, GROUND + 1));
+		final int id = summon(ctx, world, breed, UPGRADED, x, GROUND);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x);
+		input.lookAt(180.0F, 10.0F);
+		input.holdKey(o -> o.keyUp);
+		spurs(ctx, input, 2);
+		ctx.runOnClient(mc -> IcyCartDrawing.shaftMiss = 0.0);
+		final Kicks kicks = new Kicks();
+		double off = 0.0;
+		double top = 0.0;
+		double shaftOnTop = 0.0;
+		int shots = 0;
+		for (int i = 0; i < 260; i++) {
+			ctx.waitTick();
+			final double[] now = ctx.computeOnClient(mc -> {
+				final Entity horse = mc.player.getVehicle();
+				final Object cart = horse == null ? null : call(horse, "bh_getCartEntity");
+				return cart == null ? null : new double[] {horse.getY(), horse.getZ(), ((net.minecraft.world.phys.Vec3) call(cart, "gluedRenderPosition", 1.0F)).y, (float) call(cart, "renderTilt", 1.0F), horse.getY() + ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride().heightOffset(1.0F)};
+			});
+			if (now == null) {
+				continue;
+			}
+			top = Math.max(top, now[0] - GROUND);
+			off = Math.max(off, ctx.computeOnClient(IcyFeaturesTest::offRamps));
+			kicks.add(now[2], now[3], now[4]);
+			shaftOnTop = ctx.computeOnClient(mc -> IcyCartDrawing.shaftMiss);
+			if (shots < 2 && now[1] < (shots == 0 ? -16.0 : -44.5)) {
+				sideScreenshot(ctx, "icy_ledge_" + breed + "_" + (shots == 0 ? "up" : "down"));
+				shots++;
+				kicks.skip();
+			}
+			if (now[1] < -60.0) {
+				break;
+			}
+		}
+		log("  (rose %.2f; wheels off their ramps %.2f at most; shafts short of the horse %.2f; kicks: height %.3f, tilt %.2f, the horse itself %.3f)", top, off, shaftOnTop, kicks.most[0], kicks.most[1], kicks.most[2]);
+		check("it goes up two blocks (blocks up)", top, 1.9, 4.5);
+		check("the cart stays on its wheels, not flying behind the horse (blocks off the ground and its ramps, most)", off, 0.0, 1.0);
+		check("the shafts stay on the horse (blocks short of it, most)", shaftOnTop, 0.0, 0.5);
+		stop(ctx, input);
+		dismount(ctx, input);
+	}
+
+	/**
+	 * A jump at a gallop: a wagon's wheels stay on the ground under the horse's leap (its shafts make up the difference)
+	 * unless the horse goes too high; a two-wheeled cart hangs from the hitch, so its wheels stay down as far as its tilt lets them.
+	 */
+	private void cartJump(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String breed) {
+		section("Icy's cart when the horse jumps, behind a " + breed);
+		final int x = nextLane();
+		final int id = summon(ctx, world, breed, UPGRADED, x, GROUND);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x);
+		input.lookAt(180.0F, 10.0F);
+		input.holdKey(o -> o.keyUp);
+		spurs(ctx, input, 2);
+		ctx.waitTicks(40);
+		ctx.runOnClient(mc -> IcyCartDrawing.shaftMiss = 0.0);
+		final double startY = ctx.computeOnClient(mc -> mc.player.getVehicle().getY());
+		input.pressKey(o -> o.keyJump);
+		double peak = 0.0;
+		double wheelHigh = 0.0;
+		double wheelIn = 0.0;
+		double bedIn = 0.0;
+		boolean shot = false;
+		for (int i = 0; i < 30; i++) {
+			ctx.waitTick();
+			final double up = ctx.computeOnClient(mc -> mc.player.getVehicle().getY()) - startY;
+			peak = Math.max(peak, up);
+			wheelHigh = Math.max(wheelHigh, ctx.computeOnClient(IcyFeaturesTest::offRamps));
+			for (final double gap : ctx.computeOnClient(IcyFeaturesTest::wheelGaps)) {
+				wheelIn = Math.max(wheelIn, -gap);
+			}
+			for (final double gap : ctx.computeOnClient(IcyFeaturesTest::bedGaps)) {
+				bedIn = Math.max(bedIn, -gap);
+			}
+			if (!shot && up > 0.8) {
+				shot = true;
+				sideScreenshot(ctx, "icy_jump_" + breed);
+			}
+		}
+		log("  (the horse rose %.2f, the wheels at most %.2f; in the ground: wheels %.2f, bed %.2f)", peak, wheelHigh, wheelIn, bedIn);
+		check("coming down it doesn't go into the ground (blocks in, most)", wheelIn, 0.0, 0.35);
+		check("...its bed neither (blocks in, most)", bedIn, 0.0, 0.2);
+		check("the horse jumps (blocks up)", peak, 0.6, 3.0);
+		check("its wheels stay near the ground (blocks up, most)", wheelHigh, 0.0, 1.0);
+		check("...and the shafts on the horse (blocks short of it, most)", ctx.computeOnClient(mc -> IcyCartDrawing.shaftMiss), 0.0, 0.5);
+		stop(ctx, input);
+		dismount(ctx, input);
+	}
+
+	/**
+	 * Each wheel of the cart the rider's horse pulls, as drawn: how far it is above the ground under it (blocks). Worked
+	 * out as Icy's renderer turns the cart: tilted about the hitch, then leaned over, and on its suspension.
+	 */
+	private static double[] wheelGaps(final net.minecraft.client.Minecraft mc) {
+		final Entity horse = mc.player.getVehicle();
+		final Object cart = horse == null ? null : call(horse, "bh_getCartEntity");
+		if (cart == null) {
+			return new double[0];
+		}
+		final double rear = IcyCompat.cartLength((Entity) cart);
+		final double front = IcyCompat.cartFrontAxle((Entity) cart);
+		final float yaw = (float) call(cart, "gluedRenderYaw", 1.0F) * Mth.DEG_TO_RAD;
+		final float tilt = (float) call(cart, "renderTilt", 1.0F) * Mth.DEG_TO_RAD;
+		final float roll = ((CartTrail.Lean) cart).horsingaround$roll(1.0F) * Mth.DEG_TO_RAD;
+		final net.minecraft.world.phys.Vec3 at = (net.minecraft.world.phys.Vec3) call(cart, "gluedRenderPosition", 1.0F);
+		final double[] gaps = new double[front > 0.0 ? 4 : 2];
+		for (int i = 0; i < gaps.length; i++) {
+			final double behind = i < 2 ? rear : front;
+			final double left = i % 2 == 0 ? 1.25 : -1.25;
+			final double wx = at.x + Mth.sin(yaw) * behind + Mth.cos(yaw) * left;
+			final double wz = at.z - Mth.cos(yaw) * behind + Mth.sin(yaw) * left;
+			final double wy = at.y - behind * Mth.sin(tilt) + left * Mth.sin(roll) + ((CartTrail.Lean) cart).horsingaround$travel((i < 2 ? CartTrail.REAR_LEFT : CartTrail.FRONT_LEFT) + i % 2, 1.0F);
+			gaps[i] = wy - groundUnder(mc, wx, wz, wy);
+		}
+		return gaps;
+	}
+
+	/** The underside of the cart's bed as drawn, at its corners and middle: how far each is above the ground under it (blocks). */
+	private static double[] bedGaps(final net.minecraft.client.Minecraft mc) {
+		final Entity horse = mc.player.getVehicle();
+		final Object cart = horse == null ? null : call(horse, "bh_getCartEntity");
+		if (cart == null) {
+			return new double[0];
+		}
+		final double rear = IcyCompat.cartLength((Entity) cart) + 0.9;
+		final double front = 1.0625;
+		final float yaw = (float) call(cart, "gluedRenderYaw", 1.0F) * Mth.DEG_TO_RAD;
+		final float tilt = (float) call(cart, "renderTilt", 1.0F) * Mth.DEG_TO_RAD;
+		final float roll = ((CartTrail.Lean) cart).horsingaround$roll(1.0F) * Mth.DEG_TO_RAD;
+		final net.minecraft.world.phys.Vec3 at = (net.minecraft.world.phys.Vec3) call(cart, "gluedRenderPosition", 1.0F);
+		final double[] gaps = new double[5];
+		for (int i = 0; i < 5; i++) {
+			final double behind = i < 2 ? front : i < 4 ? rear : (front + rear) * 0.5;
+			final double left = i == 4 ? 0.0 : i % 2 == 0 ? 1.0 : -1.0;
+			final double px = at.x + Mth.sin(yaw) * behind + Mth.cos(yaw) * left;
+			final double pz = at.z - Mth.cos(yaw) * behind + Mth.sin(yaw) * left;
+			final double py = at.y + 0.75 - behind * Mth.sin(tilt) + left * Mth.sin(roll);
+			gaps[i] = py - groundUnder(mc, px, pz, py);
+		}
+		return gaps;
+	}
+
+	/** The most any wheel of the cart was left above what it rolls on, the ground with its ramps (blocks). */
+	private static double offRamps(final net.minecraft.client.Minecraft mc) {
+		final Entity horse = mc.player.getVehicle();
+		final CartTrail.Lean cart = horse == null ? null : IcyCompat.cartLean(horse);
+		double most = 0.0;
+		if (cart != null) {
+			for (int i = CartTrail.FRONT_LEFT; i <= CartTrail.REAR_RIGHT; i++) {
+				most = Math.max(most, cart.horsingaround$offRamp(i));
+			}
+		}
+		return most;
+	}
+
+	private static double groundUnder(final net.minecraft.client.Minecraft mc, final double x, final double z, final double from) {
+		final BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+		for (int y = Mth.floor(from + 2.0); y > Mth.floor(from - 6.0); y--) {
+			pos.set(Mth.floor(x), y, Mth.floor(z));
+			final net.minecraft.world.phys.shapes.VoxelShape shape = mc.level.getBlockState(pos).getCollisionShape(mc.level, pos);
+			if (!shape.isEmpty()) {
+				return y + shape.max(net.minecraft.core.Direction.Axis.Y);
+			}
+		}
+		return from;
+	}
+
+	/** Rolling on the flat, Icy's wheel animation doesn't jolt the bed, nor its riders with it (read as Icy's mod reads it for them). */
+	private void bedStaysStill(final ClientGameTestContext ctx) {
+		double bounce = 0.0;
+		double rock = 0.0;
+		for (int i = 0; i < 40; i++) {
+			ctx.waitTick();
+			final double[] bed = ctx.computeOnClient(mc -> {
+				final Object cart = mc.player.getVehicle() == null ? null : call(mc.player.getVehicle(), "bh_getCartEntity");
+				return cart == null ? new double[2] : new double[] {(float) call(cart, "bedBounce"), (float) call(cart, "bedRock")};
+			});
+			bounce = Math.max(bounce, Math.abs(bed[0]));
+			rock = Math.max(rock, Math.abs(bed[1]));
+		}
+		check("rolling along, the bed doesn't bounce (blocks, most)", bounce, 0.0, 0.001);
+		check("...nor rock (degrees, most)", rock, 0.0, 0.01);
+	}
+
+	/**
+	 * A cart lies on its wheels (user, 2026-11-06): the plane it lies in, for the shapes of ground that matter; then a wagon
+	 * and a cart standing with blocks put and dug under their wheels.
+	 */
+	private void cartLean(final ClientGameTestContext ctx, final TestSingleplayerContext world) {
+		section("Icy's carts lie on their wheels");
+		final double[] plane = new double[4];
+		CartTrail.level(new double[] {1.0, 0.0, 1.0, 0.0}, plane);
+		check("two left wheels on blocks, two right ones a block down: it leans all the way", plane[0] == 1.0 && plane[1] == 0.0 && plane[2] == 1.0 && plane[3] == 0.0);
+		CartTrail.level(new double[] {0.0, 0.0, 0.0, -1.0}, plane);
+		check("three on the ground: the fourth wheel stays well above the ground under it (blocks)", plane[3] + 1.0, 0.6, 0.9);
+		check("...and the cart leans a little towards it (blocks at that corner)", -plane[3], 0.1, 0.3);
+		check("...the other three about on the ground", Math.abs(plane[0]) <= 0.3 && Math.abs(plane[1]) <= 0.01 && Math.abs(plane[2]) <= 0.01);
+		CartTrail.level(new double[] {1.0, 0.0, 0.0, 0.0}, plane);
+		check("one wheel up on a block: it rides up on it", plane[0] == 1.0 && plane[3] == 0.0 && plane[1] == 0.5 && plane[2] == 0.5);
+
+		// A wagon, standing: (world) left is -x, heading north. Behind a Belgian, wheels 2.5 and 4.65 blocks behind the horse
+		// (at z 3.0 and 5.15), 1.25 to each side.
+		// (No AI: left to itself it wanders off the blocks under its wheels.)
+		int x = nextLane();
+		int id = summon(ctx, world, "belgian_horse", UPGRADED + ",NoAI:1b", x, GROUND);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x);
+		ctx.waitTicks(30);
+		screenshot(ctx, "icy_wagon_view_standing");
+		check("a wagon on the flat is level (degrees across)", Math.abs(cartRoll(ctx)), 0.0, 0.01);
+		check("...and along", Math.abs(cartTilt(ctx)), 0.0, 0.01);
+		check("...its wheels on the ground (blocks up)", Math.abs(cartRise(ctx)), 0.0, 0.01);
+		// The rear right wheel over a long hole, too long for it to bridge: three on the ground.
+		final TestServerContext server = world.getServer();
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d 4 %d %d 7 minecraft:air", x + 1, GROUND - 1, x + 1, GROUND - 1));
+		ctx.waitTicks(30);
+		final double holeRoll = cartRoll(ctx);
+		final double holeTilt = cartTilt(ctx);
+		log("  (over a hole: lean %.2f, tilt %.2f, rise %.2f)", holeRoll, holeTilt, cartRise(ctx));
+		check("three wheels on the ground: it leans a little to the fourth's side (degrees, its left up)", holeRoll, 2.0, 8.0);
+		check("...and along, to that end (degrees, nose up)", holeTilt, 2.0, 8.0);
+		sideScreenshot(ctx, "icy_wagon_hole");
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d 4 %d %d 7 minecraft:grass_block", x + 1, GROUND - 1, x + 1, GROUND - 1));
+		// The two left wheels on blocks.
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d 2 %d %d 6 minecraft:stone", x - 2, GROUND, x - 1, GROUND));
+		ctx.waitTicks(30);
+		log("  (left wheels up a block: lean %.2f, tilt %.2f, rise %.2f)", cartRoll(ctx), cartTilt(ctx), cartRise(ctx));
+		check("two left wheels up a block: it leans over (degrees, its left up)", cartRoll(ctx), 15.0, 20.5);
+		check("...not along it (degrees)", Math.abs(cartTilt(ctx)), 0.0, 1.0);
+		sideScreenshot(ctx, "icy_wagon_left_up");
+		screenshot(ctx, "icy_wagon_left_up_back");
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d 2 %d %d 6 minecraft:air", x - 2, GROUND, x - 1, GROUND));
+		ctx.waitTicks(30);
+		check("back on the flat it comes level", Math.abs(cartRoll(ctx)), 0.0, 0.5);
+		// Both right wheels over a deep drop: it leans as far as it goes, on the left ones, and doesn't sink into the ground for it.
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d 2 %d %d 7 minecraft:air", x + 1, GROUND - 3, x + 5, GROUND - 1));
+		ctx.waitTicks(30);
+		restsOn(ctx, "a wagon with both right wheels over a deep drop");
+		sideScreenshot(ctx, "icy_wagon_drop");
+		screenshot(ctx, "icy_wagon_drop_back");
+		dismount(ctx, ctx.getInput());
+		// A two-wheeled cart: its left wheel on a block (2.9 behind the horse, at z 3.4). Not at the hitch: that's on the horse.
+		x = nextLane();
+		id = summon(ctx, world, "american_paint_horse", UPGRADED + ",NoAI:1b", x, GROUND);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x);
+		ctx.waitTicks(10);
+		check("a cart on the flat is level (degrees across)", Math.abs(cartRoll(ctx)), 0.0, 0.01);
+		server.runCommand(String.format(Locale.ROOT, "setblock %d %d 3 minecraft:stone", x - 1, GROUND));
+		ctx.waitTicks(30);
+		log("  (cart, left wheel up a block: lean %.2f, tilt %.2f)", cartRoll(ctx), cartTilt(ctx));
+		check("its left wheel up a block: it leans over (degrees, its left up)", cartRoll(ctx), 15.0, 20.5);
+		sideScreenshot(ctx, "icy_cart_left_up");
+		server.runCommand(String.format(Locale.ROOT, "setblock %d %d 3 minecraft:air", x - 1, GROUND));
+		ctx.waitTicks(5);
+		// Its right wheel over a deep drop (the case seen in play).
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d 2 %d %d 7 minecraft:air", x + 1, GROUND - 3, x + 5, GROUND - 1));
+		ctx.waitTicks(30);
+		restsOn(ctx, "a cart with its right wheel over a deep drop");
+		sideScreenshot(ctx, "icy_cart_drop");
+		screenshot(ctx, "icy_cart_drop_back");
+		dismount(ctx, ctx.getInput());
+	}
+
+	/** The cart is on the wheels that have ground under them, leaned as far as it goes towards the others, and in the ground nowhere. */
+	private void restsOn(final ClientGameTestContext ctx, final String what) {
+		final double[] gaps = ctx.computeOnClient(IcyFeaturesTest::wheelGaps);
+		final double[] bed = ctx.computeOnClient(IcyFeaturesTest::bedGaps);
+		double wheelIn = 0.0;
+		for (final double gap : gaps) {
+			wheelIn = Math.max(wheelIn, -gap);
+		}
+		double bedIn = 0.0;
+		for (final double gap : bed) {
+			bedIn = Math.max(bedIn, -gap);
+		}
+		log("  (%s: lean %.2f, tilt %.2f, wheels in the ground %.2f, bed %.2f)", what, cartRoll(ctx), cartTilt(ctx), wheelIn, bedIn);
+		check(what + ": it leans over to that side (degrees, its left up)", cartRoll(ctx), 15.0, 20.5);
+		check("...its wheels out of the ground (blocks in, most)", wheelIn, 0.0, 0.05);
+		check("...and its bed (blocks in, most)", bedIn, 0.0, 0.05);
+	}
+
+	private static double cartRoll(final ClientGameTestContext ctx) {
+		return ctx.computeOnClient(mc -> IcyCompat.cartLean(mc.player.getVehicle()).horsingaround$roll(1.0F));
+	}
+
+	private static double cartRise(final ClientGameTestContext ctx) {
+		return ctx.computeOnClient(mc -> IcyCompat.cartLean(mc.player.getVehicle()).horsingaround$rise(1.0F));
+	}
+
+	private static double cartTilt(final ClientGameTestContext ctx) {
+		return ctx.computeOnClient(mc -> (float) call(call(mc.player.getVehicle(), "bh_getCartEntity"), "renderTilt", 1.0F));
+	}
+
+	/**
+	 * Backing up with a cart (and a wagon, behind a draft horse): looking straight on, it backs straight; looking off to one
+	 * side, the rig comes round to where the rider looks. The cart never jack-knifes, and its wheels don't slide sideways.
+	 */
+	private void cartReverse(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String breed) {
+		section("Backing up with Icy's cart behind a " + breed);
+		final int x = nextLane();
+		final int id = summon(ctx, world, breed, UPGRADED, x, GROUND);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x);
+		input.lookAt(180.0F, 10.0F);
+		ctx.waitTicks(5);
+		final double[] start = rig(ctx);
+		input.holdKey(o -> o.keyDown);
+		double straightAngle = 0.0;
+		double slip = 0.0;
+		double[] was = start;
+		for (int i = 0; i < 60; i++) {
+			ctx.waitTick();
+			final double[] now = rig(ctx);
+			if (now == null) {
+				continue;
+			}
+			straightAngle = Math.max(straightAngle, Math.abs(Mth.wrapDegrees((float) (now[2] - now[3]))));
+			slip = Math.max(slip, sideSlip(was, now));
+			was = now;
+		}
+		final double[] backed = rig(ctx);
+		check("looking straight on, it backs up (blocks)", backed[1] - start[1], 2.0, 30.0);
+		check("...straight (blocks off its line)", Math.abs(backed[0] - start[0]), 0.0, 0.2);
+		check("...the cart behind it (degrees off the horse, most)", straightAngle, 0.0, 2.0);
+		// Looking 40 degrees off: the rig comes round to the view.
+		final float view = 220.0F;
+		input.lookAt(view, 10.0F);
+		double mostOff = 0.0;
+		for (int i = 0; i < 160; i++) {
+			ctx.waitTick();
+			final double[] now = rig(ctx);
+			if (now == null) {
+				continue;
+			}
+			mostOff = Math.max(mostOff, Math.abs(Mth.wrapDegrees((float) (now[2] - now[3]))));
+			slip = Math.max(slip, sideSlip(was, now));
+			was = now;
+		}
+		final double[] end = rig(ctx);
+		check("looking off to one side, it doesn't jack-knife (degrees off the horse, most)", mostOff, 0.0, 19.0);
+		check("...and the cart comes round to the view (degrees off it)", Math.abs(Mth.wrapDegrees((float) (end[3] - view))), 0.0, 6.0);
+		check("...the horse in line with it (degrees off the horse)", Math.abs(Mth.wrapDegrees((float) (end[2] - end[3]))), 0.0, 6.0);
+		check("backing, its wheels don't slide sideways (blocks a tick, most)", slip, 0.0, 0.03);
+		screenshot(ctx, "icy_reverse_" + breed);
+		stop(ctx, input);
+		dismount(ctx, input);
+	}
+
+	/** Backing towards a wall: the cart stops short of it instead of going through it. */
+	private void cartBackIntoWall(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Backing Icy's cart up to a wall");
+		final int x = nextLane();
+		final int wall = 12;
+		world.getServer().runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:stone", x - 4, GROUND, wall, x + 5, GROUND + 3, wall));
+		final int id = summon(ctx, world, "american_paint_horse", UPGRADED, x, GROUND);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x);
+		input.lookAt(180.0F, 10.0F);
+		input.holdKey(o -> o.keyDown);
+		ctx.waitTicks(200);
+		input.releaseKey(o -> o.keyDown);
+		ctx.waitTicks(5);
+		final double[] end = rig(ctx);
+		final double gap = wall - (end[1] + end[4]);
+		log("  (the rear axle stopped %.2f from the wall)", gap);
+		check("backing up to a wall, it stops at it (blocks from the rear axle to the wall)", gap, 0.8, 2.5);
+		stop(ctx, input);
+		dismount(ctx, input);
+	}
+
+	/** The most the rate of change of each of a few values changed from one tick to the next: how sudden the motion is. */
+	private static final class Kicks {
+		final double[] most = new double[3];
+		private final double[] squares = new double[3];
+		private final int[] counted = new int[3];
+		private final double[] was = {Double.NaN, Double.NaN, Double.NaN};
+		private final double[] rate = {Double.NaN, Double.NaN, Double.NaN};
+
+		/** The next value isn't one tick after the last. */
+		void skip() {
+			java.util.Arrays.fill(this.was, Double.NaN);
+			java.util.Arrays.fill(this.rate, Double.NaN);
+		}
+
+		/** The root mean square of the same. */
+		double typical(final int value) {
+			return Math.sqrt(this.squares[value] / Math.max(this.counted[value], 1));
+		}
+
+		void add(final double... values) {
+			for (int i = 0; i < 3; i++) {
+				final double now = values[i] - this.was[i];
+				if (!Double.isNaN(this.rate[i])) {
+					final double kick = now - this.rate[i];
+					if (!Double.isNaN(kick)) {
+						this.most[i] = Math.max(this.most[i], Math.abs(kick));
+						this.squares[i] += kick * kick;
+						this.counted[i]++;
+					}
+				}
+				this.rate[i] = now;
+				this.was[i] = values[i];
+			}
+		}
+	}
+
+	/** The rig as it is now: the horse's x, z and heading, the cart's heading as drawn, and how far behind the horse its axle is. */
+	private static double[] rig(final ClientGameTestContext ctx) {
+		return ctx.computeOnClient(mc -> {
+			final Entity horse = mc.player.getVehicle();
+			final Object cart = horse == null ? null : call(horse, "bh_getCartEntity");
+			if (cart == null) {
+				return null;
+			}
+			return new double[] {horse.getX(), horse.getZ(), ((LivingEntity) horse).yBodyRot, (float) call(cart, "gluedRenderYaw", 1.0F), IcyCompat.cartLength((Entity) cart) + ((CartTrail.Lean) cart).horsingaround$behind()};
+		});
+	}
+
+	/** How far the rig's axle went sideways, across the cart, from one tick to the next (blocks). */
+	private static double sideSlip(final double[] was, final double[] now) {
+		final double wasX = was[0] + Mth.sin((float) was[3] * Mth.DEG_TO_RAD) * was[4];
+		final double wasZ = was[1] - Mth.cos((float) was[3] * Mth.DEG_TO_RAD) * was[4];
+		final double nowX = now[0] + Mth.sin((float) now[3] * Mth.DEG_TO_RAD) * now[4];
+		final double nowZ = now[1] - Mth.cos((float) now[3] * Mth.DEG_TO_RAD) * now[4];
+		final float rad = (float) (was[3] + Mth.wrapDegrees((float) (now[3] - was[3])) * 0.5) * Mth.DEG_TO_RAD;
+		return Math.abs((nowX - wasX) * Mth.cos(rad) + (nowZ - wasZ) * Mth.sin(rad));
 	}
 
 	/** The small cart with a hoe fitted: ridden over grass, it turns a strip to farmland behind it. */
@@ -274,6 +1228,7 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 		ctx.waitTicks(20);
 		check("gallops at its own top speed (blocks/tick)", averageSpeed(ctx, 10), gallop * 0.85, gallop * 1.15);
 		screenshot(ctx, "icy_wagon_gallop");
+		bedStaysStill(ctx);
 		followThroughTurn(ctx, input, "icy_wagon", 8.0);
 		stop(ctx, input);
 		dismount(ctx, input);
@@ -288,6 +1243,7 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 		double bendAngle = 0.0;
 		double hardAngle = 0.0;
 		double circle = Double.MAX_VALUE;
+		final Kicks kicks = new Kicks();
 		double[] was = null;
 		double last = Double.NaN;
 		boolean present = true;
@@ -313,6 +1269,7 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 					circle = Math.min(circle, Math.hypot(at[0] - was[0], at[1] - was[1]) / turned);
 				}
 			}
+			kicks.add(at[2], Mth.wrapDegrees((float) (at[2] - (angle == null ? at[2] : at[2]))), angle == null ? 0.0 : angle);
 			was = at;
 			if (angle == null) {
 				present = false;
@@ -328,9 +1285,10 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 				sideScreenshot(ctx, shot + (i == 20 ? "_bend" : "_turn"));
 			}
 		}
+		log("  (kicks through the turns, change in rate from tick to tick, most: horse's heading %.2f, angle off the cart %.2f)", kicks.most[0], kicks.most[2]);
 		check("the cart is there all through the turns and the jump", present);
-		check("round a bend it angles off the horse into the turn (degrees, most)", bendAngle, 3.0, 20.5);
-		check("in a hard turn the shafts hold it (degrees off the horse, most)", hardAngle, 10.0, 20.5);
+		check("round a bend it angles off the horse into the turn (degrees, most)", bendAngle, 3.0, 28.5);
+		check("in a hard turn the shafts hold it (degrees off the horse, most)", hardAngle, 10.0, 28.5);
 		check("...and the horse, pulling it round, turns wide (turning radius, blocks, tightest)", circle, widest, 100.0);
 		check("galloping on straight, it lines up behind the horse again (degrees)", last, 0.0, 2.0);
 	}

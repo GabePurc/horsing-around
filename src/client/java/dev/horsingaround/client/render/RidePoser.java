@@ -2,6 +2,7 @@ package dev.horsingaround.client.render;
 
 import static dev.horsingaround.ride.RideTuning.*;
 
+import dev.horsingaround.ride.CartTrail;
 import dev.horsingaround.ride.IcyCompat;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
@@ -58,10 +59,18 @@ public final class RidePoser {
 		if (holder == null) {
 			// Render states are reused between entities, so nothing of a ridden horse's pose may carry over.
 			pose.horsingaround$clearPose();
-			// On the bench of one of Icy's Better Horses' carts, posed by that mod: over steps the rider rises with the horse
-			// as drawn (the cart's hitch does), not a block at a time.
-			if (!isHorse && entity.getVehicle() instanceof RideStateHolder carting && carting.horsingaround$managed()) {
-				pose.horsingaround$setPose(0.0F, carting.horsingaround$ride().heightOffset(partialTicks), 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F);
+			// On one of Icy's Better Horses' carts, seated by that mod (HorseCartEntityMixin moves the seat): the rider leans
+			// over with the cart, about the seat. It doesn't know of a lean across.
+			final CartTrail.Lean cart = isHorse || entity.getVehicle() == null ? null : IcyCompat.cartLean(entity.getVehicle());
+			final float roll = cart == null ? 0.0F : cart.horsingaround$roll(partialTicks);
+			if (roll != 0.0F) {
+				final float half = roll * 0.5F * Mth.DEG_TO_RAD;
+				final float heading = cart.horsingaround$yaw(partialTicks) * Mth.DEG_TO_RAD;
+				//? if >=1.20.5 {
+				final float seat = (float) entity.getVehicleAttachmentPoint(entity.getVehicle()).y;
+				//?} else
+				/*final float seat = 0.0F;*/
+				pose.horsingaround$setPose(0.0F, 0.0F, 0.0F, -Mth.sin(heading) * Mth.sin(half), 0.0F, Mth.cos(heading) * Mth.sin(half), Mth.cos(half), 0.0F, seat, 0.0F);
 			}
 			pose.horsingaround$setNeck(0.0F);
 			pose.horsingaround$setHeadShake(0.0F, 0.0F);

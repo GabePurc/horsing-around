@@ -93,11 +93,12 @@ most players run the plain model, and some bugs only show there.
 `./gradlew runCompat --continue` runs tests in a production game per pack of popular mods (`compatPacks` in
 `gradle/client-tests.gradle`, pinned by Modrinth version id because some mods reuse version numbers). Results: `build/run/compat/<pack>/`.
 Add a pack mod when a popular one appears. `-PcompatSections`, `-PcompatTests` change what runs. Play with a pack: `./gradlew playCompat<Pack>`,
-with worlds kept in `build/run/play/<pack>/`.
+with worlds kept in `build/run/play/<pack>/`. Icy's boots straight onto a tamed horse pulling a cart, in the hills of a fresh world (`PlayScene`;
+`-Pscene=wagon`, `horse`, or `none` to play normally; `-PsceneCheck=1` takes a screenshot there and quits, to check a scene without playing it).
 
 The `icys` pack rides an American Paint (`-Dhorsingaround.horse`, `TestHorse`) through the horse tests, which must pass as on a vanilla horse;
 `MountsTest` also checks a Friesian under both riding styles and the breeds' traits. `IcyFeaturesTest` (`-PcompatTests=icy`) rides Icy's gear on
-this mod's riding.
+this mod's riding; while working on carts, `-PcompatSections=` runs only some of it (`room,cart,hill,steep,jitter,fast,tight,drop,rough,ledge,jump,lean,reverse`).
 
 Icy's features with only screens or keys aren't tested. Check by hand in `playCompatIcys`, on this mod's riding:
 

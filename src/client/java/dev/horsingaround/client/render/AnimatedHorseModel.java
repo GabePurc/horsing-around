@@ -4,6 +4,7 @@ import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideTuning;
 import java.util.Map;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.util.Mth;
 import org.jspecify.annotations.Nullable;
 
@@ -49,6 +50,14 @@ public final class AnimatedHorseModel {
 		}
 		AirLegs.pose(leftFront, rightFront, leftHind, rightHind, shaped, ride.airRise(partialTicks));
 		GroundLegs.floor(leftFront, rightFront, leftHind, rightHind, pixels, ride, root);
+	}
+
+	/** Brings a leg {@code amount} (0..1) of the way back to straight under the body: across it and about its own length. */
+	public static void straighten(final ModelPart leg, final float amount) {
+		final PartPose pose = leg.getInitialPose();
+		leg.x = Mth.lerp(amount, leg.x, pose.x());
+		leg.yRot = Mth.lerp(amount, leg.yRot, pose.yRot());
+		leg.zRot = Mth.lerp(amount, leg.zRot, pose.zRot());
 	}
 
 	/**

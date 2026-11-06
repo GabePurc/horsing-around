@@ -35,6 +35,8 @@ public final class IcyCompat {
 	/** The horses Icy's mod rides: vanilla's horse, donkey, mule and undead horses, and its breeds. */
 	private static final TagKey<net.minecraft.world.entity.EntityType<?>> ICY_HORSES = TagKey.create(Registries.ENTITY_TYPE, Identifier.fromNamespaceAndPath(MOD_ID, "horses"));
 	private static final MethodHandles.Lookup LOOKUP = MethodHandles.publicLookup();
+	/** (Where Icy's wagon model has its front axle.) */
+	private static final double WAGON_FRONT_AXLE = 1.8125;
 
 	private IcyCompat() {
 	}
@@ -168,6 +170,43 @@ public final class IcyCompat {
 		return 2.375;
 	}
 
+	/** How far behind the horse's middle a wagon has its front axle, blocks: 0 for a two-wheeled cart. */
+	public static double cartFrontAxle(final Entity cart) {
+		if (Gear.LARGE != null) {
+			try {
+				return (boolean) Gear.LARGE.invokeExact(cart) ? WAGON_FRONT_AXLE : 0.0;
+			} catch (final Throwable e) {
+				// (Two wheels, below.)
+			}
+		}
+		return 0.0;
+	}
+
+	/** The cart a rider sits in, or that a horse it rides pulls, if any: {@code vehicle} is the cart or the horse. */
+	public static CartTrail.@Nullable Lean cartLean(final Entity vehicle) {
+		if (!LOADED) {
+			return null;
+		}
+		if (vehicle instanceof CartTrail.Lean cart) {
+			return cart;
+		}
+		// (Any rider of anything asks: only a horse has Icy's gear to look up.)
+		if (!(vehicle instanceof AbstractHorse) || Gear.CART_ENTITY == null || !pullsCart(vehicle)) {
+			return null;
+		}
+		try {
+			return (Object) Gear.CART_ENTITY.invokeExact(vehicle) instanceof CartTrail.Lean cart ? cart : null;
+		} catch (final Throwable e) {
+			return null;
+		}
+	}
+
+	/** Whether the cart the horse pulls has something too tall to roll over right behind it. */
+	public static boolean cartBlockedBehind(final Entity horse) {
+		final CartTrail.Lean cart = cartLean(horse);
+		return cart != null && cart.horsingaround$blockedBehind();
+	}
+
 	/**
 	 * Whether the horse wears Icy's horseshoes, switched on: they let it walk on powder snow. Read from the gear flags
 	 * Icy's mod sends clients, so it holds on the rider's client too (the shoes themselves are only on the server).
@@ -208,6 +247,13 @@ public final class IcyCompat {
 				LOOKUP.findVirtual(CART_CLASS, "type", MethodType.methodType(type)),
 				LOOKUP.findVirtual(type, "axleBehind", MethodType.methodType(double.class))
 			).asType(MethodType.methodType(double.class, Entity.class));
+		});
+		static final @Nullable MethodHandle LARGE = find(() -> {
+			final Class<?> type = Class.forName("icy.betterhorses.net.entity.CartType");
+			return MethodHandles.filterReturnValue(
+				LOOKUP.findVirtual(CART_CLASS, "type", MethodType.methodType(type)),
+				LOOKUP.findVirtual(type, "isLarge", MethodType.methodType(boolean.class))
+			).asType(MethodType.methodType(boolean.class, Entity.class));
 		});
 		static final @Nullable MethodHandle CART_ENTITY = find(() -> LOOKUP.findVirtual(HORSE_DATA, "bh_getCartEntity", MethodType.methodType(CART_CLASS))
 			.asType(MethodType.methodType(Object.class, Entity.class)));
