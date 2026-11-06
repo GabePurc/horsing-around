@@ -32,7 +32,9 @@ Each needs a look: a real fault, or a limit to set from what the stride itself d
   alone; the lane logs its path, so the next failure shows what happened. (Perhaps the horse's idling before mounting, since removed.)
 - "All three mob riders still mounted": the skeleton ended up on foot in 3 of 20 full runs, once even with the riders 8 blocks apart behind
   glass, so probably not the spear.
-- Icy's "trotting up a slope of full blocks" median 0.116-0.135 against 0.12 (Icy's trot lifts the hooves higher).
+- "Trotting up a slope of full blocks": in Icy's, median 0.116-0.135 against 0.12, failing over half of runs (Icy's trot lifts the hooves
+  higher). Without Icy's it's 0.096-0.133, failing 2 of 28 runs of that shard.
+- Icy's "up a 1-block step at a walk", no hoof in the step: -0.081 to -0.091 against -0.08 in about a quarter of runs.
 - The nautilus in a pack rides little now and then: 0.54 in the horses pack; in Icy's 0.945 or 2.258, the low one more often on the frame
   clock (3 of 4 runs, against 0 of 2 at normal speed); about 3.7 with no pack. Limit 0.4, from 1.
 - Making the legs snap into their pose in the air (the blend in `AirLegs`) fails no check: the blend isn't really tested.
