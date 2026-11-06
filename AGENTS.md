@@ -29,6 +29,9 @@ Everything else here is guidance; these hold because the user asked for them or 
 - The supporter hat (user, 2026-10-08) stays cosmetic: never an item or a gameplay advantage. Mojang's usage guidelines
   allow cosmetics, not capes. Add a supporter to `supporters.json` by PR when the user asks.
 - Public text (README, changelog, store descriptions) follows `docs/releasing.md`.
+- Every change, however small, starts from a GitHub issue (user, 2026-11-06): reuse one that fits or open one, assigned to
+  `@me`. Branch as `<n>-<slug>` from a just-fetched origin/main, not local main; in an app worktree, sync with main first.
+  The PR says `Closes #<n>`.
 
 ## Docs
 
@@ -62,7 +65,7 @@ then read that range.
 
 - `src/main/.../ride/`: the ride itself (`RideController`, `Awareness` for the horse's look-ahead and planning, `Footing`, `Mounts`).
 - `src/main/.../net/`: payloads. `src/client/.../render/`: legs, rider and body posing. `src/client/.../cosmetic/`: the hat.
-- `RideCamera`, `RideAim`, `RiderKeys` in `src/client/.../client/`. `src/gametest/`, `src/smoke/`: tests.
+- `src/gametest/`, `src/smoke/`: tests.
 
 ## Build and test
 
