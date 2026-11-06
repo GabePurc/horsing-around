@@ -35,6 +35,7 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
 | `drawn`, `legs` | Close shots: legs as drawn on slopes and steps; legs in a jump |
 | `exits`, `strafe` | Out of water onto banks; stopping after A or D alone |
 | `hands`, `icons` | Rider's arms with items; shulker boxes with Entity Model Features |
+| `rear` | A ridden horse rears; on a pack's model the seat stays on the measured saddle (also in `core`) |
 
 ### Reading results
 

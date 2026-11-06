@@ -193,6 +193,9 @@ public final class RideState {
 	public float sitBack;
 	public float roomAt = Float.NaN;
 	public float headGap = Float.MAX_VALUE;
+	/** The first rider's drawn seat, blocks from the horse: along its heading, and up (as of their last drawing; for tests). */
+	public float seatForward;
+	public float seatUp;
 
 	/** The move in progress is the horse's in the air, with a hoof put down for it (see the entity mixin): steps up only AIR_STEP. */
 	public boolean airFooting;
@@ -331,6 +334,17 @@ public final class RideState {
 	public int animatedFrame = -10;
 	/** How far up the horse is rearing (0..1), as of its last drawing: the measured motion's baseline holds meanwhile. */
 	public float rear;
+	/** The rear (0..1) riders were last placed for, and the tick before: the game places them with the stand of a tick ago. */
+	float rearSeat;
+	float rearSeatO;
+	/**
+	 * The measured saddle has a rear's whole movement in it, so the shift the game gives a rider is counted twice unless it
+	 * comes off (a pack's model through Entity Model Features; not Icy's Better Horses', see the rider's seat in RidePoser).
+	 */
+	public boolean animatedWholeRear;
+	/** Where the first rider is placed from the horse when it isn't rearing, blocks: along its heading, and up. */
+	public float restSeatForward = Float.NaN;
+	public float restSeatUp;
 	/** Frames the head toss was applied through the animation pack (for tests). */
 	public int animatedShakeFrames;
 	/**
@@ -403,6 +417,11 @@ public final class RideState {
 	/** Roll into the turn, degrees; positive leans right. */
 	public float lean(final float partialTicks) {
 		return this.leanO + (this.lean - this.leanO) * partialTicks;
+	}
+
+	/** The rear (0..1) the rider's position has in it this frame (behind the horse's own {@code getStandAnim}). */
+	public float rearSeat(final float partialTicks) {
+		return this.rearSeatO + (this.rearSeat - this.rearSeatO) * partialTicks;
 	}
 
 	/** Body pitch, degrees; positive is nose up. */

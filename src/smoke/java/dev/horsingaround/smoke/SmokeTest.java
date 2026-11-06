@@ -90,13 +90,13 @@ public final class SmokeTest {
 	private static final int TAP_TICKS = 3;
 
 	private enum Phase {
-		TITLE, LOADING, BUILD, SETTLE, STAND, WALK, GALLOP, JUMP, STOP, RIDER, ROUGH, WILD, DISMOUNT, FENCE, LEAD, FINISH
+		TITLE, LOADING, BUILD, SETTLE, STAND, WALK, GALLOP, JUMP, STOP, REAR, RIDER, ROUGH, WILD, DISMOUNT, FENCE, LEAD, FINISH
 	}
 
 	private static final String[] SHOTS = {
 		"01-stand.png", "02-walk.png", "03-gallop.png", "04-jump.png", "05-stopped.png", "06-first-person.png",
 		"07-third-person-back.png", "08-fence-front.png", "09-fence-side.png", "10-lead-cow.png", "11-lead-llama.png", "12-lead-horse.png",
-		"13-player-lead.png", "14-rough-slab.png", "15-rough-stairs.png", "16-rough-uneven.png", "17-rough-gallop.png"
+		"13-player-lead.png", "14-rough-slab.png", "15-rough-stairs.png", "16-rough-uneven.png", "17-rough-gallop.png", "18-rearing.png"
 	};
 
 	private final Meter meter = new Meter();
@@ -109,6 +109,8 @@ public final class SmokeTest {
 	private Minecraft minecraft;
 	private MinecraftServer server;
 	private Entity horse;
+	private float seatRestForward;
+	private float seatRestUp;
 	private Marker marker;
 	/** Whether frames show the rider from the side (see the class comment), and the real view while they do. */
 	private boolean sideView;
@@ -306,6 +308,28 @@ public final class SmokeTest {
 			case STOP -> this.stop(minecraft, t);
 			case ROUGH -> this.rough(minecraft, t);
 			case WILD -> this.wild(minecraft, t);
+			case REAR -> {
+				// From the side, the rider at the top of a rear: on the saddle, not floating behind it (with a pack's model).
+				if (t == 0) {
+					this.seatRestForward = ((RideStateHolder) this.horse).horsingaround$ride().seatForward;
+					this.seatRestUp = ((RideStateHolder) this.horse).horsingaround$ride().seatUp;
+					this.server.execute(() -> {
+						if (this.server.getPlayerList().getPlayers().get(0).getVehicle() instanceof AbstractHorse rearing) {
+							rearing.standIfPossible();
+						}
+					});
+				} else if (t == 14) {
+					final RideState ride = ((RideStateHolder) this.horse).horsingaround$ride();
+					LOGGER.info(
+						"Rearing: seat {} along, {} up from where it rests; saddle {} along, {} up; stand {}", ride.seatForward - this.seatRestForward,
+						ride.seatUp - this.seatRestUp, ride.animatedForward - ride.animatedForwardBase, ride.animatedLift - ride.animatedLiftBase,
+						((AbstractHorse) this.horse).getStandAnim(0.0F)
+					);
+					this.shoot(minecraft, SHOTS[17]);
+				} else if (t >= 50) {
+					this.next(Phase.RIDER);
+				}
+			}
 			case RIDER -> {
 				// The rider's own views, with the HUD.
 				if (t == 0) {
@@ -524,7 +548,7 @@ public final class SmokeTest {
 			this.shoot(minecraft, SHOTS[4]);
 		} else if (this.stillTicks >= 14) {
 			this.report("stop", t);
-			this.next(Phase.RIDER);
+			this.next(Phase.REAR);
 		} else if (t >= 300) {
 			throw new IllegalStateException("The horse did not come to a stop");
 		}

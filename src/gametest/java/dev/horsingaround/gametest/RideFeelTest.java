@@ -1,5 +1,6 @@
 package dev.horsingaround.gametest;
 
+import dev.horsingaround.client.render.SaddleMotion;
 import dev.horsingaround.client.RideCamera;
 import dev.horsingaround.ride.Foliage;
 import dev.horsingaround.ride.HorseConfig;
@@ -116,6 +117,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 			}
 			if (sections.isEmpty() || sections.contains("core") || sections.contains("hands")) {
 				riderHands(ctx, input, world);
+			}
+			if (sections.isEmpty() || sections.contains("core") || sections.contains("rear")) {
+				rearing(ctx, input, world);
 			}
 			if (sections.isEmpty() || sections.contains("ledges")) {
 				messyLedges(ctx, input, world);
@@ -1724,6 +1728,66 @@ public final class RideFeelTest implements FabricClientGameTest {
 	 * a loaded crossbow held square to the aim. Shots from behind, in front and the side of each, and frames mid-swing and
 	 * through the draw.
 	 */
+	/**
+	 * A rearing horse's rider stays in the saddle. The game moves a rider up and back for the rear, and a pack-animated
+	 * model's measured saddle has the whole rear in it: the rider takes the rear once, not both.
+	 */
+	private void rearing(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Rearing: the rider stays on the saddle");
+		lane(ctx, input, world, 4100.5, -60, "rear_test");
+		ctx.waitTicks(30);
+		final float restForward = ride(ctx, r -> r.seatForward);
+		final float restUp = ride(ctx, r -> r.seatUp);
+		final boolean measured = ride(ctx, r -> r.animatedFrame) >= SaddleMotion.frame() - 1;
+		final boolean wholeRear = measured && ride(ctx, r -> r.animatedWholeRear);
+		world.getServer().runOnServer(server -> {
+			if (server.getPlayerList().getPlayers().get(0).getVehicle() instanceof AbstractHorse horse) {
+				horse.setStanding(20);
+			}
+		});
+		// The back the rider rides, at the top of the rear (where it holds still, so a frame's lag between the saddle and the
+		// seat doesn't count), and how far back the seat ever got, on the way up too.
+		float furthestBack = 0.0F;
+		float furthestSaddleBack = 0.0F;
+		float peakForwardError = 0.0F;
+		float peakUpError = 0.0F;
+		boolean top = false;
+		for (int i = 0; i < 60; i++) {
+			ctx.waitTick();
+			final float[] now = ctx.computeOnClient(mc -> {
+				final AbstractHorse horse = (AbstractHorse) mc.player.getVehicle();
+				final RideState r = ((RideStateHolder) horse).horsingaround$ride();
+				return new float[] {
+					r.seatForward - restForward, r.seatUp - restUp, r.animatedForward - r.animatedForwardBase, r.animatedLift - r.animatedLiftBase,
+					horse.getStandAnim(0.0F)
+				};
+			});
+			furthestBack = Math.max(furthestBack, -now[0]);
+			furthestSaddleBack = Math.max(furthestSaddleBack, -now[2]);
+			if (now[4] >= 1.0F) {
+				top = true;
+				peakForwardError = Math.max(peakForwardError, Math.abs(now[0] - now[2]));
+				peakUpError = Math.max(peakUpError, Math.abs(now[1] - now[3]));
+			}
+			if (i == 16) {
+				sideScreenshot(ctx, "21_rearing_side");
+			}
+		}
+		check("the horse reared all the way up", top);
+		if (wholeRear) {
+			log("  (saddle furthest back %.2f, seat furthest back %.2f, error at the top: %.2f along, %.2f up)", furthestSaddleBack, furthestBack, peakForwardError, peakUpError);
+			check("the animated saddle moved (furthest back, blocks)", furthestSaddleBack, 0.1, 2.0);
+			check("seat on the saddle at the top of the rear, along the horse (blocks off)", peakForwardError, 0.0, 0.05);
+			check("seat on the saddle at the top of the rear, up (blocks off)", peakUpError, 0.0, 0.05);
+			check("never further back than the saddle on the way (blocks past it)", furthestBack - furthestSaddleBack, -1.0, 0.15);
+		} else if (!measured) {
+			check("the drawn rider takes the game's own rear (furthest back, blocks)", furthestBack, 0.6, 0.8);
+		}
+		check("back down, the seat is where it was (blocks along)", Math.abs(ride(ctx, r -> r.seatForward) - restForward), 0.0, 0.1);
+		check("back down, the seat is where it was (blocks up)", Math.abs(ride(ctx, r -> r.seatUp) - restUp), 0.0, 0.1);
+		dismount(ctx, input);
+	}
+
 	private void riderHands(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
 		section("Rider's hands: reins, a weapon held ready, swings, a bow drawn");
 		lane(ctx, input, world, 4000.5, -60, "hands_test");

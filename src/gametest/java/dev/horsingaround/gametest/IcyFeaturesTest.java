@@ -70,6 +70,8 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 
 	private static ServerPlayer pillion;
 	private int rearShots;
+	/** How far the seat was behind the measured saddle point at the top of the last rear, along the horse, blocks. */
+	private float rearSeatBehind;
 	private final List<String> report = new ArrayList<>();
 	private int failures;
 	private int lane;
@@ -471,6 +473,9 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 		board(ctx, world, x);
 		ctx.waitTicks(10);
 		check("standing still, it rears (ticks up)", rearOnce(ctx, id), 5, 60);
+		// (The point measured on Icy's model sits ahead of its real seat in a rear: the part of the game's shift Icy's keeps
+		// is what lands the rider on the saddle, and without it they are in the horse's neck.)
+		check("the rider keeps Icy's rear shift, clear of the neck (blocks behind the measured point)", this.rearSeatBehind, 0.35, 0.55);
 		input.lookAt(180.0F, 10.0F);
 		input.holdKey(o -> o.keyUp);
 		spurs(ctx, input, 1);
@@ -485,6 +490,8 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 
 	/** Sends Icy's rear request for the ridden horse: the ticks it then stood, or 0 if it never did. */
 	private int rearOnce(final ClientGameTestContext ctx, final int id) {
+		final float restForward = ride(ctx, r -> r.seatForward);
+		this.rearSeatBehind = 0.0F;
 		ctx.runOnClient(mc -> {
 			try {
 				ClientPlayNetworking.send((CustomPacketPayload) Class.forName("icy.betterhorses.net.network.BhRearPayload").getConstructor(int.class).newInstance(id));
@@ -497,6 +504,9 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 			ctx.waitTick();
 			if (ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse h && h.isStanding())) {
 				up++;
+				if (ctx.computeOnClient(mc -> ((AbstractHorse) mc.player.getVehicle()).getStandAnim(0.0F) >= 1.0F)) {
+					this.rearSeatBehind = Math.max(this.rearSeatBehind, ride(ctx, r -> r.animatedForward - r.animatedForwardBase - (r.seatForward - restForward)));
+				}
 				if (this.rearShots < 2 && (up == 6 || up == 14)) {
 					sideScreenshot(ctx, "icy_rear_" + this.rearShots++ + "_" + up);
 				}
