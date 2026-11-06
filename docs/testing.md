@@ -47,13 +47,15 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
   drawn: judge leg work by those numbers and close shots, not formulas.
 - `TestInput.pressKey` runs a game tick of its own. In a loop sampling every tick, use `holdKey` then `releaseKey`, or trace with
   `HorseTrace`; otherwise a tick goes missing and looks like the horse moved two in one.
-- Test games run light: lowest settings, no sound, a 2 GB heap and performance mods. `-PplainGame` drops the mods; `-PfullGraphics` keeps
+- Test games make no sound, and run light: lowest settings, a 2 GB heap and performance mods. `-PplainGame` drops the mods; `-PfullGraphics` keeps
   normal settings. Leg and body easing runs on game time.
 - Test games don't wait for real time (`TestClock`): the game's clock counts drawn frames, 5.9 to a tick as in a game at its default limit,
   so a run goes as fast as the machine draws, and a tick gets the same frames however loaded the machine is. Checks that sample frames need
   several a tick (some broke at one), and a whole number would keep sampling the same moments of it. `-PrealTime` runs at normal speed, to
   tell a problem with this clock from a real one; perf, gallery and store always do. A game whose frames stop for 2 minutes logs its threads
   and exits.
+- Test games work with their window in front, covered, on another workspace or minimized: no vsync, and no frame limit from the game, which would
+  otherwise crawl out of sight on Ubuntu (under 1% of the speed, spinning in `glGetError`). On Linux they use X11, also from a Wayland session's shell.
 - Lanes start from a horse with no AI until mounted (`lane()`): one that idled first now and then starts off its line, failing checks far on.
 
 ## Other runs

@@ -10,6 +10,7 @@ fabricApi {
 }
 dependencies {
 	gametestCompileOnly "maven.modrinth:modmenu:${project.modmenu_version}"
+	gametestCompileOnly "org.lwjgl:lwjgl-sdl:3.4.3" // (The game brings it at run time.)
 }
 // Test games run in the repo's build/run/ (this node's own folder is versions/26.3/).
 loom.runs.matching { it.name in ["clientGameTest", "gameTest"] }.configureEach { run -> run.runDir "../../build/run/${run.name}" }
@@ -354,6 +355,10 @@ compatPacks.keySet().each { name ->
 		}
 		jvmArgs.add("-Dhorsingaround.scenario=")
 		jvmArgs.add("-Dhorsingaround.frameClock=" + !project.hasProperty("realTime"))
+		// (X11 on Linux, from a Wayland session's shell too: with RenderSystemMixin in the tests, as these can't be given an environment.)
+		if (System.getProperty("os.name").startsWith("Linux") && System.getenv("DISPLAY") != null) {
+			jvmArgs.add("-Dorg.lwjgl.opengl.contextAPI=native")
+		}
 		getRunDir().set(runDir)
 		doFirst {
 			new File(runDir, "logs").deleteDir()

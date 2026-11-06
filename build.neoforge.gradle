@@ -113,6 +113,7 @@ tasks.named("runClient") { dependsOn "installFreshAnimations" }
 
 // The in-game smoke test, as on Fabric: ./gradlew :<version>-neoforge:runSmoke.
 apply from: repoDir.file('gradle/smoke-test.gradle')
+apply from: repoDir.file('gradle/x11-games.gradle')
 // Plain "runClient" starts only the main version's (Fabric) game: these answer by path (./gradlew :26.3-neoforge:runClient).
 tasks.matching { it.name in ["runClient", "runServer"] }.configureEach { task ->
 	def plainEverywhere = gradle.startParameter.taskNames.contains(task.name) && (gradle.startParameter.projectDir ?: gradle.startParameter.currentDir) != projectDir
@@ -133,6 +134,9 @@ def auditGame = gradle.sharedServices.registerIfAbsent("neoforgeAuditGame", NeoF
 			new File(auditDir, "logs").deleteDir()
 			auditDir.mkdirs()
 			new File(auditDir, "eula.txt").text = "eula=true\n"
+			if (side == "Client") {
+				new File(auditDir, "options.txt").text = "soundCategory_master:0.0\n" // Silent, like every test game.
+			}
 			// Any free port: a Fabric audit server (its own one-at-a-time limit) or anything else may hold the default.
 			if (side == "Server") {
 				new File(auditDir, "server.properties").text = "server-port=0\n"

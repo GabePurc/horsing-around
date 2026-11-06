@@ -6,9 +6,9 @@ import net.minecraft.server.level.ParticleStatus;
 import net.minecraft.sounds.SoundSource;
 
 /**
- * Test games run light: the lowest graphics settings and no sound. Frames are left to {@code TestClock}. Applied as the
- * game starts, before anything loads, when the run asks for it ({@code horsingaround.lowSettings}; off for the gallery's
- * store screenshots).
+ * Test games make no sound, and run light: the lowest graphics settings. Frames are left to {@code TestClock}. Applied as the
+ * game starts, before anything loads; the light settings when the run asks for them ({@code horsingaround.lowSettings}; off
+ * for the gallery's store screenshots).
  */
 public final class LowSettings {
 	private LowSettings() {
@@ -16,9 +16,13 @@ public final class LowSettings {
 
 	public static void apply(final Options options) {
 		if (TestClock.ON) {
-			// (This limiter is on the real clock, and would only hold the frames back.)
+			// (These are on the real clock, and would only hold the frames back. Vsync worse: with the window out of sight
+			// the desktop may show so few frames that the game does a few a second, spinning in the graphics driver.)
 			options.framerateLimit().set(260);
+			options.enableVsync().set(false);
 		}
+		// (Every test game, whatever else it runs with: nobody wants them heard.)
+		options.getSoundSourceOptionInstance(SoundSource.MASTER).set(0.0);
 		if (!Boolean.getBoolean("horsingaround.lowSettings")) {
 			return;
 		}
@@ -38,6 +42,5 @@ public final class LowSettings {
 		options.weatherRadius().set(3);
 		options.menuBackgroundBlurriness().set(0);
 		options.chunkSectionFadeInTime().set(0.0);
-		options.getSoundSourceOptionInstance(SoundSource.MASTER).set(0.0);
 	}
 }
