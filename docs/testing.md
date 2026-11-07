@@ -98,7 +98,7 @@ with worlds kept in `build/run/play/<pack>/`. Icy's boots straight onto a tamed 
 
 The `icys` pack rides an American Paint (`-Dhorsingaround.horse`, `TestHorse`) through the horse tests, which must pass as on a vanilla horse;
 `MountsTest` also checks a Friesian under both riding styles and the breeds' traits. `IcyFeaturesTest` (`-PcompatTests=icy`) rides Icy's gear on
-this mod's riding; while working on carts, `-PcompatSections=` runs only some of it (`room,cart,hill,steep,jitter,fast,tight,drop,rough,ledge,jump,lean,reverse`).
+this mod's riding; while working on carts, `-PcompatSections=` runs only some of it (`room,cart,stranded,hill,steep,jitter,fast,tight,drop,rough,ledge,jump,lean,reverse`).
 
 The `realcamera` pack rides first person over steps in each of Real Camera's modes (`RealCameraTest`).
 

@@ -171,7 +171,7 @@ public final class IcyCartDrawing {
 	private static <T> @Nullable T find(final Find<T> lookup) {
 		try {
 			return lookup.find();
-		} catch (final ReflectiveOperationException | RuntimeException e) {
+		} catch (final ReflectiveOperationException | RuntimeException | LinkageError e) {
 			return null;
 		}
 	}

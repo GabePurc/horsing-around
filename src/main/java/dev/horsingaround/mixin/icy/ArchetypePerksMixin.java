@@ -1,7 +1,7 @@
 package dev.horsingaround.mixin.icy;
 
 import dev.horsingaround.ride.IcyCompat;
-import dev.horsingaround.ride.Mounts;
+import dev.horsingaround.ride.RideStateHolder;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -25,7 +25,7 @@ public abstract class ArchetypePerksMixin {
 
 	@Inject(method = "updatePath", at = @At("HEAD"), cancellable = true)
 	private void horsingaround$noRoadBonus(final AbstractHorse horse, @Coerce final Object data, @Coerce final Object archetype, final CallbackInfo ci) {
-		if (horse.getControllingPassenger() == null || !Mounts.manages(horse)) {
+		if (horse.getControllingPassenger() == null || RideStateHolder.managedRide(horse) == null) {
 			return;
 		}
 		//? if >=1.21 {

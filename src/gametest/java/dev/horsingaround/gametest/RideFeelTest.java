@@ -101,6 +101,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			if (sections.isEmpty() || sections.contains("core")) {
 				mounting(ctx);
 				overTheShoulder(ctx, input);
+				cameraAndWhatIsBehind(ctx, input, world);
 				freeLook(ctx, input);
 				walk(ctx, input);
 				gallop(ctx, input);
@@ -441,6 +442,31 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("off: no crosshair aim (the eyes aim as in vanilla)", ctx.computeOnClient(mc -> !dev.horsingaround.client.RideAim.isActive()));
 		ctx.runOnClient(mc -> HorseConfig.reset());
 		ctx.waitTicks(20);
+	}
+
+	/** The riding camera sees as the game's own does: a wall behind the rider brings it in, glass doesn't; nor do leaves, which the horse goes through. */
+	private void cameraAndWhatIsBehind(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("The camera and what is behind the rider");
+		if (!ctx.computeOnClient(mc -> RideCamera.isActive(mc.player, mc))) {
+			log("  skipped (another camera mod places the view)");
+			return;
+		}
+		input.lookAt(180.0F, 10.0F);
+		ctx.waitTicks(20);
+		final double clear = cameraFromEyes(ctx);
+		final int[] at = ctx.computeOnClient(mc -> new int[] {mc.player.getBlockX(), mc.player.getBlockY(), mc.player.getBlockZ()});
+		final String wall = String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:", at[0] - 4, at[1] - 1, at[2] + 2, at[0] + 4, at[1] + 4, at[2] + 2);
+		world.getServer().runCommand(wall + "glass");
+		ctx.waitTicks(40);
+		check("glass doesn't bring it in (blocks from the eyes)", cameraFromEyes(ctx), clear - 0.1, clear + 0.1);
+		world.getServer().runCommand(wall + "oak_leaves[persistent=true]");
+		ctx.waitTicks(40);
+		check("nor do leaves (blocks from the eyes)", cameraFromEyes(ctx), clear - 0.1, clear + 0.1);
+		world.getServer().runCommand(wall + "stone");
+		ctx.waitTicks(10);
+		check("a wall does (blocks from the eyes)", cameraFromEyes(ctx), 0.0, clear - 0.5);
+		world.getServer().runCommand(wall + "air");
+		ctx.waitTicks(40);
 	}
 
 	/** The block a line from {@code from} to {@code to} first meets, as text ("null" for none). */

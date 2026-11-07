@@ -3,7 +3,6 @@ package dev.horsingaround.mixin.icy;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import dev.horsingaround.ride.CartTrail;
 import dev.horsingaround.ride.IcyCompat;
-import dev.horsingaround.ride.Mounts;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
 import net.minecraft.util.Mth;
@@ -55,8 +54,8 @@ public abstract class HorseCartEntityMixin implements CartTrail.Lean {
 
 	@Inject(method = "settle", at = @At("TAIL"), remap = false)
 	private void horsingaround$trail(final AbstractHorse horse, final Vec3 hitch, final CallbackInfo ci) {
-		if (!Mounts.manages(horse)) {
-			this.horsingaround$axle.lift();
+		if (RideStateHolder.managedRide(horse) == null) {
+			horsingaround$standAlone();
 			return;
 		}
 		final Entity cart = (Entity) (Object) this;
@@ -74,6 +73,28 @@ public abstract class HorseCartEntityMixin implements CartTrail.Lean {
 			this.horsingaround$axle, horse.level(), hitch.y + horsingaround$stepEase(horse, 1.0F), this.slackYaw, length, IcyCompat.cartFrontAxle(cart), this.tiltO,
 			horse.getControllingPassenger() != null
 		);
+	}
+
+	/**
+	 * Its horse dead, Icy's mod leaves this same cart standing where it is, and settle stops: its box goes back with it, and
+	 * its wheels start afresh should it be hitched again.
+	 */
+	@Inject(method = "tick", at = @At("HEAD"), remap = false)
+	private void horsingaround$letGo(final CallbackInfo ci) {
+		if (this.horsingaround$axle.placed() && isPlaced()) {
+			horsingaround$standAlone();
+		}
+	}
+
+	@Unique
+	private void horsingaround$standAlone() {
+		this.horsingaround$axle.lift();
+		if (this.horsingaround$boxBehind != 0.0F) {
+			this.horsingaround$boxBehind = 0.0F;
+			final Entity cart = (Entity) (Object) this;
+			// (Makes the box again.)
+			cart.setPos(cart.getX(), cart.getY(), cart.getZ());
+		}
 	}
 
 	/** The cart stands further behind the horse: drawn there... */
@@ -222,7 +243,7 @@ public abstract class HorseCartEntityMixin implements CartTrail.Lean {
 
 	@Unique
 	private static float horsingaround$stepEase(final AbstractHorse horse, final float partialTick) {
-		final RideState ride = Mounts.manages(horse) ? RideStateHolder.managedRide(horse) : null;
+		final RideState ride = RideStateHolder.managedRide(horse);
 		return ride == null ? 0.0F : ride.heightOffset(partialTick);
 	}
 }

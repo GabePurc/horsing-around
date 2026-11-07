@@ -4,6 +4,7 @@ import dev.horsingaround.client.HorsingAroundClient;
 import dev.horsingaround.client.cosmetic.Hats;
 import dev.horsingaround.client.cosmetic.Supporters;
 import dev.horsingaround.net.RulesPayload;
+import dev.horsingaround.Platform;
 import dev.horsingaround.ride.HorseConfig;
 import dev.horsingaround.ride.IcyCompat;
 import dev.horsingaround.net.ServerRules;
@@ -54,8 +55,16 @@ public final class ServerRideTest implements FabricClientGameTest {
 		}
 		TestPacks.enable(ctx);
 		boolean completed = false;
+		// (Nothing reads it again in this game: only a dedicated server with Icy's Better Horses has a reason to write it now.)
+		final Path settings = Platform.configDir().resolve("horsingaround.json");
+		try {
+			Files.deleteIfExists(settings);
+		} catch (final IOException e) {
+			throw new IllegalStateException(e);
+		}
 		try (LogWatch watch = LogWatch.begin(); TestDedicatedServerContext server = ctx.worldBuilder().createServer()) {
 			server.runCommand("time set noon");
+			check("a dedicated server writes the settings file its riding style goes in, with Icy's Better Horses installed", Files.exists(settings) == IcyCompat.LOADED);
 			server.runCommand("gamerule spawn_mobs false");
 			server.runCommand("difficulty peaceful");
 

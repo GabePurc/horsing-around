@@ -1,7 +1,6 @@
 package dev.horsingaround.client.mixin;
 
 import dev.horsingaround.client.RideCamera;
-import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.client.Camera;
@@ -13,7 +12,6 @@ import net.minecraft.world.entity.Entity;
 /*import net.minecraft.world.level.Level;*/
 //? if <1.21.11
 /*import net.minecraft.world.level.BlockGetter;*/
-import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
@@ -71,15 +69,6 @@ public abstract class CameraMixin {
 
 	@Shadow
 	protected abstract void setPosition(double x, double y, double z);
-
-	/**
-	 * While riding, vanilla's third-person placement (the front view; this mod places the back view itself) passes through
-	 * leaves like the horse does instead of snapping in.
-	 */
-	@ModifyExpressionValue(method = "getMaxZoom", at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/ClipContext$Block;VISUAL:Lnet/minecraft/world/level/ClipContext$Block;"))
-	private ClipContext.Block horsingaround$seeThroughLeaves(final ClipContext.Block original) {
-		return RideCamera.isRiding() ? ClipContext.Block.COLLIDER : original;
-	}
 
 	//? if <26.1 {
 	/*@Inject(method = "<init>", at = @At("RETURN"))

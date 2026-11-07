@@ -2,8 +2,7 @@ package dev.horsingaround.mixin.icy;
 
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Local;
-import dev.horsingaround.ride.Mounts;
-import net.minecraft.world.entity.Entity;
+import dev.horsingaround.ride.RideStateHolder;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -19,7 +18,6 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class HorseCombatMixin {
 	@ModifyReturnValue(method = "charging", at = @At("RETURN"))
 	private static boolean horsingaround$noCharge(final boolean charging, @Local(argsOnly = true) final Player rider) {
-		final Entity horse = rider.getVehicle();
-		return charging && !(horse != null && Mounts.manages(horse));
+		return charging && RideStateHolder.managedRide(rider.getVehicle()) == null;
 	}
 }

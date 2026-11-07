@@ -109,6 +109,9 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 			if (all || only.contains("cart")) {
 				cart(ctx, input, world);
 			}
+			if (all || only.contains("stranded")) {
+				cartStranded(ctx, world);
+			}
 			if (all || only.contains("hill")) {
 				cartHill(ctx, input, world, "american_paint_horse");
 				cartHill(ctx, input, world, "belgian_horse");
@@ -241,6 +244,38 @@ public final class IcyFeaturesTest implements FabricClientGameTest {
 		check("the same cart all along (never dropped and put back)", cartId.equals(world.getServer().computeOnServer(server -> cartUuid(horse(server, id)))));
 		stop(ctx, input);
 		dismount(ctx, input);
+	}
+
+	/** Its horse dead, Icy's mod leaves the same cart standing: its box stays where it is drawn, on both sides. */
+	private void cartStranded(final ClientGameTestContext ctx, final TestSingleplayerContext world) {
+		section("Icy's cart left standing when its horse dies");
+		final int x = nextLane();
+		final int id = summon(ctx, world, "american_paint_horse", UPGRADED, x, GROUND);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		final String cartId = world.getServer().computeOnServer(server -> cartUuid(horse(server, id)));
+		check("a cart is hitched behind it", !"none".equals(cartId));
+		final UUID uuid = UUID.fromString(cartId);
+		final double hitched = ctx.computeOnClient(mc -> boxAhead(mc.level.getEntity(uuid)));
+		world.getServer().runCommand("kill @e[tag=icy_" + x + "]");
+		ctx.waitTicks(40);
+		check("the same cart is left standing", world.getServer().computeOnServer(server -> {
+			final Entity cart = server.overworld().getEntity(uuid);
+			return cart != null && (boolean) call(cart, "isPlaced");
+		}));
+		check("its box is where it is drawn, as it was behind the horse (blocks ahead of it)", ctx.computeOnClient(mc -> boxAhead(mc.level.getEntity(uuid))), hitched - 0.05, hitched + 0.05);
+		final net.minecraft.world.phys.Vec3 onClient = ctx.computeOnClient(mc -> mc.level.getEntity(uuid).getBoundingBox().getCenter());
+		check("the server has it there too (blocks apart)", world.getServer().computeOnServer(server -> server.overworld().getEntity(uuid).getBoundingBox().getCenter().distanceTo(onClient)), 0.0, 0.05);
+	}
+
+	/** How far ahead of the cart as drawn (client side) the middle of its box is, blocks. */
+	private static double boxAhead(final Entity cart) {
+		// (Icy's mod only places a cart by its horse's position while it has one.)
+		final net.minecraft.world.phys.Vec3 glued = (net.minecraft.world.phys.Vec3) call(cart, "gluedRenderPosition", 1.0F);
+		final net.minecraft.world.phys.Vec3 at = glued != null ? glued : cart.position();
+		final net.minecraft.world.phys.Vec3 box = cart.getBoundingBox().getCenter();
+		final float yaw = cart.getYRot() * Mth.DEG_TO_RAD;
+		return (box.x - at.x) * -Mth.sin(yaw) + (box.z - at.z) * Mth.cos(yaw);
 	}
 
 	/**

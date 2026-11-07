@@ -254,7 +254,8 @@ public final class RideCamera {
 
 	/**
 	 * Share (0 to 1) of the offset the camera can travel from the pivot before a wall, from a few jittered rays as vanilla
-	 * does. Leaves don't stop a ridden horse, so they don't push the camera in either.
+	 * does, and like vanilla's it sees through glass. Leaves don't stop a ridden horse, so they don't push the camera in either
+	 * (a block's visual shape is its collision shape, which leaves don't have for the rider: see the block behaviour mixin).
 	 */
 	private static float clearance(
 		final BlockGetter level, final Entity rider, final double x, final double y, final double z, final double ox, final double oy, final double oz
@@ -266,7 +267,7 @@ public final class RideCamera {
 		double share = 1.0;
 		for (int i = 0; i < 8; i++) {
 			final Vec3 from = new Vec3(x + ((i & 1) * 2 - 1) * 0.1, y + ((i >> 1 & 1) * 2 - 1) * 0.1, z + ((i >> 2 & 1) * 2 - 1) * 0.1);
-			final HitResult hit = level.clip(new ClipContext(from, from.add(ox, oy, oz), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, rider));
+			final HitResult hit = level.clip(new ClipContext(from, from.add(ox, oy, oz), ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, rider));
 			if (hit.getType() != HitResult.Type.MISS) {
 				share = Math.min(share, Math.max((hit.getLocation().distanceTo(from) - CAMERA_WALL_MARGIN) / length, 0.0));
 			}
