@@ -1,10 +1,11 @@
 // The supporter hat service. A payment arrives by webhook and is remembered under a keyed hash of the supporter's email;
-// the supporter then claims their hat on the page by giving that email and their Minecraft username. A claim or a refund
-// starts .github/workflows/supporters.yml, which changes supporters.json. This Worker never holds a token that can push
-// code, and never stores an email or a donation message.
+// the supporter then claims their hat on the page by giving that email and their Minecraft username. Each email gets one
+// hat, and a claim is final. A claim or a refund starts .github/workflows/supporters.yml, which changes supporters.json.
+// This Worker never holds a token that can push code, and never stores an email or a donation message.
 //
-// KV (eventually consistent, within about a minute, which is fine at this volume):
-//   paid:<email hash>  {tx: [transaction ids not refunded], uuid?, name?, changes?}
+// All records live in one Durable Object (Ledger), which handles one change at a time, so two claims made together can't
+// both succeed:
+//   paid:<email hash>  {tx: [transaction ids not refunded], uuid?, name?}
 //   hat:<uuid>         [email hashes holding this hat], so one refund can't take a hat someone else also paid for
 import { PAGE } from "./page.js";
 
@@ -16,9 +17,8 @@ const USERNAME = /^[A-Za-z0-9_]{1,16}$/;
 const UUID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
 const HEADERS = { "user-agent": "horsing-around-hats" };
 const LOOKUP_TIMEOUT_MS = 5000;
-/** One wrong pick can be put right; more than that goes to the author, so a hat can't be passed around friends. */
-const MAX_CHANGES = 1;
 const MAX_BODY = 64 * 1024;
+const GITHUB_TIMEOUT_MS = 10000;
 
 export default {
 	async fetch(request, env) {
@@ -76,25 +76,10 @@ async function webhook(request, env) {
 		return json({ ok: true, unusable: true });
 	}
 	const hash = await emailHash(data.supporter_email, env);
-	const record = (await env.HATS.get(`paid:${hash}`, "json")) ?? { tx: [] };
-	if (GRANTS.has(event.type)) {
-		if (data.status === "refunded" || data.refunded === "true") {
-			return json({ ok: true, ignored: true });
-		}
-		// (A retried delivery carries the same transaction, so this changes nothing the second time.)
-		if (!record.tx.includes(tx)) {
-			record.tx.push(tx);
-			await env.HATS.put(`paid:${hash}`, JSON.stringify(record));
-		}
-		return json({ ok: true });
+	if (GRANTS.has(event.type) && (data.status === "refunded" || data.refunded === "true")) {
+		return json({ ok: true, ignored: true });
 	}
-	record.tx = record.tx.filter((id) => id !== tx);
-	if (record.tx.length === 0 && record.uuid) {
-		await releaseHat(env, hash, record.uuid, record.name);
-		delete record.uuid;
-		delete record.name;
-	}
-	await env.HATS.put(`paid:${hash}`, JSON.stringify(record));
+	await ledger(env, GRANTS.has(event.type) ? "payment" : "refund", { hash, tx });
 	return json({ ok: true });
 }
 
@@ -133,42 +118,96 @@ async function claim(request, env) {
 	if (profile.error) {
 		return json({ error: profile.error }, profile.error === "not_found" ? 404 : 503);
 	}
-	const hash = await emailHash(email, env);
-	const record = await env.HATS.get(`paid:${hash}`, "json");
-	if (!record || record.tx.length === 0) {
+	const result = await ledger(env, "claim", { hash: await emailHash(email, env), uuid: profile.id, name: profile.name });
+	if (result.error === "no_payment") {
 		return json({ error: "no_payment" }, 404);
 	}
-	if (record.uuid === profile.id) {
-		return json({ ok: true, name: profile.name, already: true });
+	if (result.error === "already_claimed") {
+		await alert(env, `A supporter holding the hat for ${result.name} asked to move it to ${profile.name}. Move it by hand if that's right.`);
+		return json({ error: "already_claimed", name: result.name }, 409);
 	}
-	if (record.uuid) {
-		if ((record.changes ?? 0) >= MAX_CHANGES) {
-			await alert(env, `A supporter holding the hat for ${record.name} asked to move it to ${profile.name}, past the limit. Move it by hand if that's right.`);
-			return json({ error: "already_claimed", name: record.name }, 409);
-		}
-		await releaseHat(env, hash, record.uuid, record.name);
-		record.changes = (record.changes ?? 0) + 1;
-	}
-	await dispatch(env, "add", profile.id, profile.name);
-	const holders = (await env.HATS.get(`hat:${profile.id}`, "json")) ?? [];
-	if (!holders.includes(hash)) {
-		holders.push(hash);
-		await env.HATS.put(`hat:${profile.id}`, JSON.stringify(holders));
-	}
-	record.uuid = profile.id;
-	record.name = profile.name;
-	await env.HATS.put(`paid:${hash}`, JSON.stringify(record));
-	return json({ ok: true, name: profile.name });
+	return json({ ok: true, name: profile.name, already: result.already === true });
 }
 
-/** Takes this supporter's claim off a hat, and removes the hat if no one else paid for it. */
-async function releaseHat(env, hash, uuid, name) {
-	const others = ((await env.HATS.get(`hat:${uuid}`, "json")) ?? []).filter((holder) => holder !== hash);
-	if (others.length === 0) {
-		await dispatch(env, "remove", uuid, name);
-		await env.HATS.delete(`hat:${uuid}`);
-	} else {
-		await env.HATS.put(`hat:${uuid}`, JSON.stringify(others));
+/** Asks the Ledger to make a change; a failure inside it fails the request here, so it can be tried again. */
+async function ledger(env, operation, args) {
+	const stub = env.LEDGER.get(env.LEDGER.idFromName("hats"));
+	const response = await stub.fetch(`https://ledger/${operation}`, { method: "POST", body: JSON.stringify(args) });
+	const result = await response.json();
+	if (result.failed) {
+		throw new Error(result.failed);
+	}
+	return result;
+}
+
+/** Every record, and every change to them, one at a time in the order they arrive. */
+export class Ledger {
+	constructor(state, env) {
+		this.storage = state.storage;
+		this.env = env;
+		this.tail = Promise.resolve();
+	}
+
+	async fetch(request) {
+		const operation = new URL(request.url).pathname.slice(1);
+		const args = await request.json();
+		const turn = this.tail.then(() => this[operation](args));
+		this.tail = turn.catch(() => {});
+		try {
+			return Response.json(await turn);
+		} catch (e) {
+			return Response.json({ failed: e.message });
+		}
+	}
+
+	/** (A retried delivery carries the same transaction, so this changes nothing the second time.) */
+	async payment({ hash, tx }) {
+		const record = (await this.storage.get(`paid:${hash}`)) ?? { tx: [] };
+		if (!record.tx.includes(tx)) {
+			record.tx.push(tx);
+			await this.storage.put(`paid:${hash}`, record);
+		}
+		return {};
+	}
+
+	async refund({ hash, tx }) {
+		const record = (await this.storage.get(`paid:${hash}`)) ?? { tx: [] };
+		record.tx = record.tx.filter((id) => id !== tx);
+		if (record.tx.length === 0 && record.uuid) {
+			const others = ((await this.storage.get(`hat:${record.uuid}`)) ?? []).filter((holder) => holder !== hash);
+			if (others.length === 0) {
+				await dispatch(this.env, "remove", record.uuid, record.name);
+				await this.storage.delete(`hat:${record.uuid}`);
+			} else {
+				await this.storage.put(`hat:${record.uuid}`, others);
+			}
+			delete record.uuid;
+			delete record.name;
+		}
+		await this.storage.put(`paid:${hash}`, record);
+		return {};
+	}
+
+	async claim({ hash, uuid, name }) {
+		const record = await this.storage.get(`paid:${hash}`);
+		if (!record || record.tx.length === 0) {
+			return { error: "no_payment" };
+		}
+		if (record.uuid === uuid) {
+			return { already: true };
+		}
+		if (record.uuid) {
+			return { error: "already_claimed", name: record.name };
+		}
+		await dispatch(this.env, "add", uuid, name);
+		const holders = (await this.storage.get(`hat:${uuid}`)) ?? [];
+		if (!holders.includes(hash)) {
+			holders.push(hash);
+		}
+		record.uuid = uuid;
+		record.name = name;
+		await this.storage.put({ [`hat:${uuid}`]: holders, [`paid:${hash}`]: record });
+		return {};
 	}
 }
 
@@ -183,6 +222,7 @@ async function dispatch(env, operation, uuid, name) {
 			"x-github-api-version": "2022-11-28",
 		},
 		body: JSON.stringify({ ref: "main", inputs: { operation, uuid, name } }),
+		signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
 	});
 	if (!response.ok) {
 		// (401 here most likely means the token has expired.)
