@@ -54,6 +54,7 @@ a { color: var(--accent); }
 <canvas id="head" width="64" height="64" aria-hidden="true"></canvas>
 <div>Is this you?<strong id="found"></strong></div>
 </div>
+<p class="hint">Each email gets one hat, and it can't be moved afterwards, so check this is the right player.</p>
 <button id="claim" type="button">Yes, give me the hat</button>
 <button id="back" class="quiet" type="button">No, go back</button>
 </div>
