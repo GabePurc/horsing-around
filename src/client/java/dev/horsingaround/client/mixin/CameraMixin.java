@@ -22,7 +22,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(Camera.class)
+// (A low priority: first among the mods working on the camera as vanilla finishes placing it, see horsingaround$eyes.)
+@Mixin(value = Camera.class, priority = 900)
 public abstract class CameraMixin {
 	@Shadow
 	private @Nullable Entity entity;
@@ -86,9 +87,8 @@ public abstract class CameraMixin {
 	//?}
 
 	/**
-	 * Places the third-person camera while riding (over the shoulder or centred, instead of vanilla's placement), and in
-	 * first person carries the eyes with the saddle. Another camera mod that is driving the camera (see
-	 * {@link RideCamera#isActive}) is left alone.
+	 * Places the third-person camera while riding (over the shoulder or centred, instead of vanilla's placement). Another
+	 * camera mod that is driving the camera (see {@link RideCamera#isActive}) is left alone.
 	 */
 	//? if >=26.1 {
 	@WrapMethod(method = "alignWithEntity")
@@ -100,7 +100,6 @@ public abstract class CameraMixin {
 			return;
 		}
 		original.call(partialTicks);
-		this.horsingaround$firstPerson(partialTicks);
 	}
 	//?} elif >=1.21.11 {
 	/*// Before 26.1 the camera is placed in one method, called once per frame with everything it needs.
@@ -117,7 +116,6 @@ public abstract class CameraMixin {
 			return;
 		}
 		original.call(level, e, detached, mirrored, partialTicks);
-		this.horsingaround$firstPerson(partialTicks);
 	}
 	*///?} else {
 	/*@WrapMethod(method = "setup")
@@ -133,7 +131,6 @@ public abstract class CameraMixin {
 			return;
 		}
 		original.call(level, e, detached, mirrored, partialTicks);
-		this.horsingaround$firstPerson(partialTicks);
 	}
 	*///?}
 
@@ -159,7 +156,28 @@ public abstract class CameraMixin {
 		this.setPosition(RideCamera.cameraX(), RideCamera.cameraY(), RideCamera.cameraZ());
 	}
 
-	/** In first person the eyes follow the saddle. */
+	/**
+	 * In first person the eyes follow the saddle, before another mod works on the view from here. Real Camera puts the view on
+	 * the rider's drawn head, which already rides the saddle: on top of that, every step's easing moved the view again, into
+	 * the horse on the way up.
+	 */
+	//? if >=26.1 {
+	@Inject(method = "alignWithEntity", at = @At("RETURN"))
+	private void horsingaround$eyes(final float partialTicks, final CallbackInfo ci) {
+		this.horsingaround$firstPerson(partialTicks);
+	}
+	//?} elif >=1.21.11 {
+	/*@Inject(method = "setup", at = @At("RETURN"))
+	private void horsingaround$eyes(final Level level, final Entity e, final boolean detached, final boolean mirrored, final float partialTicks, final CallbackInfo ci) {
+		this.horsingaround$firstPerson(partialTicks);
+	}
+	*///?} else {
+	/*@Inject(method = "setup", at = @At("RETURN"))
+	private void horsingaround$eyes(final BlockGetter level, final Entity e, final boolean detached, final boolean mirrored, final float partialTicks, final CallbackInfo ci) {
+		this.horsingaround$firstPerson(partialTicks);
+	}
+	*///?}
+
 	@Unique
 	private void horsingaround$firstPerson(final float partialTicks) {
 		if (this.detached || !RideCamera.isFirstPersonRide(this.entity, this.minecraft)) {
