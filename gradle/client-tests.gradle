@@ -12,6 +12,35 @@ dependencies {
 	gametestCompileOnly "maven.modrinth:modmenu:${project.modmenu_version}"
 	gametestCompileOnly "org.lwjgl:lwjgl-sdl:3.4.3" // (The game brings it at run time.)
 }
+
+// Spawnproof (https://github.com/GabePurc/spawnproof) runs the client tests: every test in one game, one after another, each
+// recorded on its own, with results in the run folder's spawnproof/ (results.json, report.txt, junit.xml, screenshots/).
+// It also makes the games fast and light: a clock that runs on drawn frames, the lowest settings, no sound, no grabbed
+// cursor. Tests written for it (HatTest so far) list under the "spawnproof" entrypoint; the others still run as plain Fabric
+// tests inside it. Not published yet: ./gradlew :fabric:publishToMavenLocal in Spawnproof's repo puts it in Maven Local.
+def spawnproofVersion = "0.2.0-SNAPSHOT"
+repositories {
+	exclusiveContent {
+		forRepository { mavenLocal() }
+		filter { includeModule "io.github.gabepurc", "spawnproof-fabric" }
+	}
+}
+configurations.register("spawnproofRuntime") { transitive = false }
+dependencies {
+	gametestImplementation "io.github.gabepurc:spawnproof-fabric:${spawnproofVersion}"
+	spawnproofRuntime "io.github.gabepurc:spawnproof-fabric:${spawnproofVersion}"
+}
+// Each test's -Ptests id and its name in Spawnproof's results. A run leaves out the ones it didn't ask for (spawnproof.skip),
+// so its results list only what ran. (The tests still written as plain Fabric tests also check horsingaround.tests
+// themselves.)
+def testNames = [ride: "ride-feel", terrain: "terrain-ride", mounts: "mounts", server: "server-ride", hat: "hat", perf: "perf",
+	gallery: "gallery", store: "store-media", icy: "icy-features", realcamera: "real-camera"]
+def spawnproofSkip = { String tests ->
+	def asked = tests.split(",")*.trim()
+	testNames.findAll { id, name -> !asked.contains(id) }.values().join(",")
+}
+// The tests written for Spawnproof: their checks are in its results, with no report of their own.
+def spawnproofTests = ["hat"] as Set
 // Test games run in the repo's build/run/ (this node's own folder is versions/26.3/).
 loom.runs.matching { it.name in ["clientGameTest", "gameTest"] }.configureEach { run -> run.runDir "../../build/run/${run.name}" }
 tasks.named("installFreshAnimations") { mustRunAfter "deleteGameTestRunDir" }
@@ -34,9 +63,10 @@ installDebugPack.configure { mustRunAfter "deleteGameTestRunDir" }
 def clientTests = project.findProperty("tests") ?: "ride,terrain,mounts,server,hat"
 def terrainScenario = project.findProperty("scenario") ?: ""
 def rideSections = project.findProperty("sections") ?: ""
-// Test games run light, to keep the load on the machine down: the lowest settings, no sound (LowSettings in the tests),
-// a 2 GB heap, and performance mods (-PplainGame runs without them, -PfullGraphics with normal settings; the gallery and
-// store shots always get normal settings). They also run as fast as they can draw (TestClock; -PrealTime for normal speed).
+// Test games run light, to keep the load on the machine down: the lowest settings and no sound (Spawnproof's), a 2 GB
+// heap, and performance mods (-PplainGame runs without them, -PfullGraphics with normal settings; the gallery and store
+// shots always get normal settings). They also run as fast as they can draw (Spawnproof's frame clock; -PrealTime for
+// normal speed).
 def lowSettings = !project.hasProperty("fullGraphics") && !clientTests.contains("gallery") && !clientTests.contains("store")
 configurations.register("testPerformanceMods") { transitive = false }
 dependencies {
@@ -58,8 +88,8 @@ def storeLook = clientTests.contains("store") && !project.hasProperty("shaderPac
 // (https://aka.ms/MinecraftEULA) for it on 2026-10-07.
 def gameTestEula = rootProject.layout.buildDirectory.file("run/clientGameTest/eula.txt").get().asFile
 def lightTestGame = { task ->
-	task.systemProperty "horsingaround.lowSettings", lowSettings
-	task.systemProperty "horsingaround.frameClock", lowSettings && !clientTests.contains("perf") && !project.hasProperty("realTime")
+	task.systemProperty "spawnproof.graphics", lowSettings ? "low" : "normal"
+	task.systemProperty "spawnproof.clock", lowSettings && !clientTests.contains("perf") && !project.hasProperty("realTime") ? "frames" : "real"
 	task.maxHeapSize = "2G"
 	if (project.hasProperty("profile")) {
 		// A Java Flight Recorder recording of the whole run, for finding what the mod costs (docs/testing.md).
@@ -76,6 +106,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 		gameTestEula.text = "eula=true\n"
 	}
 	systemProperty "horsingaround.tests", clientTests
+	systemProperty "spawnproof.skip", spawnproofSkip(clientTests)
 	systemProperty "horsingaround.scenario", terrainScenario
 	systemProperty "horsingaround.sections", rideSections
 	systemProperty "horsingaround.plainTextures", project.hasProperty("plainTextures")
@@ -127,7 +158,10 @@ def copyDebugPack = { File into ->
 }
 def shardDirs = testShards.collectEntries { name, shard -> [name, rootProject.layout.buildDirectory.dir("run/clientGameTest-${name.toLowerCase()}").get().asFile] }
 // The reports a shard's tests write (each test writes horsingaround-<test>-report.txt).
-def shardReports = testShards.collectEntries { name, shard -> [name, shard.tests.split(",").collect { "horsingaround-${it}-report.txt".toString() }] }
+// (Spawnproof's tests write spawnproof/ instead, read below.)
+def shardReports = testShards.collectEntries { name, shard ->
+	[name, shard.tests.split(",").findAll { !spawnproofTests.contains(it) }.collect { "horsingaround-${it}-report.txt".toString() }]
+}
 // Which shards started in this build: the collector merges only those (the folders of the others hold an earlier run's).
 abstract class ShardRuns implements org.gradle.api.services.BuildService<org.gradle.api.services.BuildServiceParameters.None> {
 	final Set<String> started = java.util.concurrent.ConcurrentHashMap.newKeySet()
@@ -149,6 +183,7 @@ testShards.each { name, shard ->
 			new File(dir, "eula.txt").text = "eula=true\n"
 		}
 		systemProperty "horsingaround.tests", shard.tests
+		systemProperty "spawnproof.skip", spawnproofSkip(shard.tests)
 		systemProperty "horsingaround.scenario", ""
 		systemProperty "horsingaround.sections", shard.sections
 		systemProperty "horsingaround.plainTextures", project.hasProperty("plainTextures")
@@ -184,6 +219,30 @@ def collectShardReports = tasks.register("collectClientGameTestShards") {
 			new File(mergedReports, report).text = text
 			text.eachLine { if (it.contains("FAIL") || it.contains("INCOMPLETE")) failed << report + ": " + it.trim() }
 		}
+		// Each shard's Spawnproof results: every test it ran, failed checks and errors by name. Their reports go together in
+		// spawnproof-report.txt.
+		def spawnproofReports = new StringBuilder()
+		testShards.keySet().findAll { it in started }.each { name ->
+			def dir = shardDirs[name]
+			def results = new File(dir, "spawnproof/results.json")
+			if (!results.isFile()) {
+				failed << "${name}: no spawnproof/results.json (the game stopped before the tests started; see ${dir}/logs/latest.log)".toString()
+				return
+			}
+			def report = new File(dir, "spawnproof/report.txt")
+			if (report.isFile()) spawnproofReports << "### " << dir.name << "\n" << report.text << "\n"
+			def run = new groovy.json.JsonSlurper().parse(results)
+			(run.problems ?: []).each { failed << "${name}: ${it}".toString() }
+			run.tests.findAll { it.status != "passed" }.each { test ->
+				test.checks.findAll { !it.ok }.each { check ->
+					failed << "${name}: ${test.name}${check.section ? " > " + check.section : ""} > ${check.name}".toString()
+				}
+				if (test.error) failed << "${name}: ${test.name}: error: ${test.error.message}".toString()
+				if (test.status == "not-run") failed << "${name}: ${test.name}: not run (${test.stopReason})".toString()
+				else if (test.stopReason && !test.stopReason.startsWith("required check failed")) failed << "${name}: ${test.name}: ${test.stopReason}".toString()
+			}
+		}
+		new File(mergedReports, "spawnproof-report.txt").text = spawnproofReports.toString()
 		if (!failed.isEmpty()) {
 			throw new GradleException("Failed client test checks:\n" + failed.join("\n"))
 		}
@@ -358,16 +417,20 @@ compatPacks.keySet().each { name ->
 		finalizedBy "compatFindings${name.capitalize()}"
 		mods.from(tasks.named("jar"))
 		mods.from(gametestJar)
+		mods.from(configurations.named("spawnproofRuntime"))
 		mods.from(configurations.named("compatBase"))
 		mods.from(configurations.named("compat${name.capitalize()}"))
 		jvmArgs.add("-Dfabric.client.gametest")
-		jvmArgs.add("-Dhorsingaround.tests=" + (compatTests ?: compatPackTests[name] ?: "mounts,server,ride"))
+		def packTests = compatTests ?: compatPackTests[name] ?: "mounts,server,ride"
+		jvmArgs.add("-Dhorsingaround.tests=" + packTests)
+		jvmArgs.add("-Dspawnproof.skip=" + spawnproofSkip(packTests))
 		jvmArgs.add("-Dhorsingaround.sections=" + (compatSections ?: compatPackSections.getOrDefault(name, "core,cuts")))
 		if (compatPackHorse[name]) {
 			jvmArgs.add("-Dhorsingaround.horse=" + compatPackHorse[name])
 		}
 		jvmArgs.add("-Dhorsingaround.scenario=")
-		jvmArgs.add("-Dhorsingaround.frameClock=" + !project.hasProperty("realTime"))
+		jvmArgs.add("-Dspawnproof.clock=" + (project.hasProperty("realTime") ? "real" : "frames"))
+		jvmArgs.add("-Dspawnproof.graphics=normal")
 		// (X11 on Linux, from a Wayland session's shell too: with RenderSystemMixin in the tests, as these can't be given an environment.)
 		if (System.getProperty("os.name").startsWith("Linux") && System.getenv("DISPLAY") != null) {
 			jvmArgs.add("-Dorg.lwjgl.opengl.contextAPI=native")

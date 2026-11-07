@@ -18,7 +18,6 @@ public final class TestSummary implements FabricClientGameTest {
 
 	@Override
 	public void runTest(final ClientGameTestContext ctx) {
-		System.out.println("[test-clock] " + TestClock.pace());
 		if (!FAILED.isEmpty()) {
 			throw new AssertionError("Client tests failed:" + FAILED);
 		}

@@ -6,16 +6,19 @@ check enforces something wrong, fix the check and say so in the PR. When feel nu
 ## Client tests (26.3)
 
 `./gradlew runClientGameTest` runs these; all fail on server corrections ("moved wrongly", meaning rubber-banding) and log warnings.
+[Spawnproof](https://github.com/GabePurc/spawnproof) runs them in one game, each on its own: one that throws doesn't stop
+the rest. Until it's published, run `./gradlew :fabric:publishToMavenLocal` in its repo first.
 
 - `RideFeelTest` (`ride`): every mechanic in hand-built lanes, with simulated keys. Report: `build/run/clientGameTest/horsingaround-ride-report.txt`.
 - `TerrainRideTest` (`terrain`): built natural terrain ridden like a player would, with traces of any crash, hurt or dead end.
 - `MountsTest` (`mounts`): every vanilla mount and mob riders.
 - `ServerRideTest` (`server`): a real dedicated server accepts every move.
-- `HatTest` (`hat`): the supporter hat.
+- `HatTest` (`hat`): the supporter hat. Written for Spawnproof: its checks and screenshots are in `build/run/clientGameTest/spawnproof/`.
 
 Full runs: `./gradlew runClientGameTestParallel --continue` splits them into shards (`testShards` in `gradle/client-tests.gradle`,
 one alone with `runClientGameTest<Shard>`), runs two games at a time (`-PtestGames=N`) to leave the machine room, merges reports
-into `build/run/clientGameTest/` and lists failed checks. While iterating, run only the section that covers the change.
+into `build/run/clientGameTest/` (Spawnproof's as `spawnproof-report.txt`) and lists failed checks. While iterating, run only the
+section that covers the change.
 
 ### Choosing what runs
 
@@ -40,8 +43,8 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
 ### Reading results
 
 - A run's console output includes the game log, so send it to a file outside the repo and read only the tail. Failures, across
-  all reports: `grep -E 'FAIL|INCOMPLETE' build/run/clientGameTest/horsingaround-*-report.txt`. Open a report only for a failure's
-  context. Screenshots are in `build/run/clientGameTest/screenshots/`.
+  all reports: `grep -E 'FAIL|INCOMPLETE' build/run/clientGameTest/horsingaround-*-report.txt`; Spawnproof's are summed up at
+  the end of the console. Open a report only for a failure's context. Screenshots are in `build/run/clientGameTest/screenshots/`.
 - F3+B draws the ridden horse's box, line, heading, plan and look-ahead findings (1.21.11 and newer).
 - Test horses wear colour-coded legs (`src/gametest/debugpack`: upper leg blue, a white band, cannon orange, hoof black, sole
   magenta). `-PplainTextures` for real ones; `-PvanillaModel` for the plain model with no pack. `LegProbe` measures the legs as
@@ -50,13 +53,9 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
   `HorseTrace`; otherwise a tick goes missing and looks like the horse moved two in one.
 - Test games make no sound, and run light: lowest settings, a 2 GB heap and performance mods. `-PplainGame` drops the mods; `-PfullGraphics` keeps
   normal settings. Leg and body easing runs on game time.
-- Test games don't wait for real time (`TestClock`): the game's clock counts drawn frames, 5.9 to a tick as in a game at its default limit,
-  so a run goes as fast as the machine draws, and a tick gets the same frames however loaded the machine is. Checks that sample frames need
-  several a tick (some broke at one), and a whole number would keep sampling the same moments of it. `-PrealTime` runs at normal speed, to
-  tell a problem with this clock from a real one; perf, gallery and store always do. A game whose frames stop for 2 minutes logs its threads
-  and exits.
-- Test games work with their window in front, covered, on another workspace or minimized: no vsync, and no frame limit from the game, which would
-  otherwise crawl out of sight on Ubuntu (under 1% of the speed, spinning in `glGetError`). On Linux they use X11, also from a Wayland session's shell.
+- Test games run on Spawnproof's frame clock (`GameClock`): as fast as the machine draws, a tick getting the same frames however loaded it
+  is, with the window in front, covered or minimized. Checks that sample frames need several a tick (some broke at one). `-PrealTime` runs
+  at normal speed, to tell a problem with the clock from a real one; perf, gallery and store always do.
 - Lanes start from a horse with no AI until mounted (`lane()`): one that idled first now and then starts off its line, failing checks far on.
 
 ## Other runs

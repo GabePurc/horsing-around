@@ -944,7 +944,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 			ctx.waitTick();
 			final float[] lift = ctx.computeOnClient(mc -> {
 				final RideState s = ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride();
-				return new float[] {s.animatedLift - s.animatedLiftBase, TestClock.nanos() - s.animatedAt < 200_000_000L ? 1 : 0};
+				return new float[] {s.animatedLift - s.animatedLiftBase, io.github.gabepurc.spawnproof.test.GameClock.nanos() - s.animatedAt < 200_000_000L ? 1 : 0};
 			});
 			low = Math.min(low, lift[0]);
 			high = Math.max(high, lift[0]);
