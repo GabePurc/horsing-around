@@ -1,0 +1,21 @@
+# The supporter hat service: takes Buy Me a Coffee's webhooks and serves the page where supporters claim their hat.
+# Deployed by .github/workflows/hats.yml, which fills in the KV id (the namespace is found or made at deploy time).
+name = "horsing-around-hats"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "HATS"
+id = "KV_ID_FILLED_AT_DEPLOY"
+
+# Approximate, and per Cloudflare location: enough to slow someone guessing emails or hammering the page.
+[[ratelimits]]
+name = "CLAIM_LIMIT"
+namespace_id = "1001"
+simple = { limit = 5, period = 60 }
+
+[[ratelimits]]
+name = "LOOKUP_LIMIT"
+namespace_id = "1002"
+simple = { limit = 20, period = 60 }
