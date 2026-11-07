@@ -62,6 +62,10 @@ public final class Hats {
 			WORN.remove(hat.player());
 		} else {
 			WORN.put(hat.player(), hat.color());
+			// (Someone who only just became a supporter: their hat is drawn as soon as the fresh list arrives.)
+			if (!Supporters.isSupporter(hat.player())) {
+				Supporters.refreshSoon();
+			}
 		}
 	}
 

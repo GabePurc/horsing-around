@@ -3,6 +3,7 @@ package dev.horsingaround.client.config;
 import dev.horsingaround.HorsingAround;
 import dev.horsingaround.client.cosmetic.HatColors;
 import dev.horsingaround.client.cosmetic.Hats;
+import dev.horsingaround.client.cosmetic.Supporters;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Locale;
@@ -61,6 +62,7 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	public HorseSettingsScreen(final Screen parent) {
 		super(parent, Minecraft.getInstance().options, Component.translatable(KEY + "title"));
 		this.hsv = HatColors.toHsv(HorseConfig.get().hatColor);
+		Supporters.refreshSoon();
 	}
 
 	/** Opens the settings over whatever is showing now (the key binding). */

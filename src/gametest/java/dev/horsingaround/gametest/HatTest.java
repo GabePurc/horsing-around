@@ -145,6 +145,20 @@ public final class HatTest implements FabricClientGameTest {
 				final net.minecraft.world.entity.player.Player other = mc.level.getPlayerByUUID(friend);
 				return other != null && Hats.colorFor(other) == 0xC8A27A;
 			}));
+			check("a hat from someone not on our list waits, and asks once for a fresh list", ctx.computeOnClient(mc -> {
+				final net.minecraft.world.entity.player.Player other = mc.level.getPlayerByUUID(friend);
+				Supporters.removeForTesting(friend);
+				Supporters.allowRefreshForTesting();
+				final int before = Supporters.refreshesStarted();
+				Hats.receive(new PlayerHatPayload(friend, RED));
+				Hats.receive(new PlayerHatPayload(friend, RED));
+				return other != null && Hats.colorFor(other) == HatPayload.NONE && Supporters.refreshesStarted() == before + 1;
+			}));
+			check("once they're on the list, the hat they announced is drawn", ctx.computeOnClient(mc -> {
+				final net.minecraft.world.entity.player.Player other = mc.level.getPlayerByUUID(friend);
+				Supporters.addForTesting(friend);
+				return other != null && Hats.colorFor(other) == RED;
+			}));
 			ctx.runOnClient(mc -> {
 				Hats.receive(new PlayerHatPayload(friend, HatPayload.NONE));
 				mc.setCameraEntity(mc.player);

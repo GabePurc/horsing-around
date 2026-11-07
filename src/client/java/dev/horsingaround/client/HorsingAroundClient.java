@@ -96,6 +96,7 @@ public final class HorsingAroundClient {
 		ServerRules.reset();
 		ServerNotice.reset();
 		Hats.clear();
+		Supporters.refreshSoon();
 	}
 
 	public static void left() {
