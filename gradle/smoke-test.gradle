@@ -25,6 +25,7 @@ def label = neoforge ? "${mc} NeoForge" : mc
 def smokeDir = rootProject.layout.buildDirectory.dir("run/smoke/${project.name}").get().asFile
 def plain = project.hasProperty("smokePlain")
 def freshAnimations = !plain && !project.hasProperty("smokeNoPack")
+def closeUp = project.hasProperty("smokeCloseUp")
 def freshAnimationsName = project.ext.freshAnimationsZip.name
 def gameJava = project.ext.javaVersion
 
@@ -53,7 +54,7 @@ if (neoforge) {
 				gameDirectory = smokeDir
 				systemProperty 'horsingaround.smoke', 'true'
 				jvmArgument '-Xmx2G'
-				if (project.hasProperty("smokeCloseUp")) {
+				if (closeUp) {
 					systemProperty 'horsingaround.smoke.closeUp', project.property('smokeCloseUp').toString()
 				}
 				if (project.hasProperty("smokeWild")) {
@@ -78,7 +79,7 @@ if (neoforge) {
 			runDir "../../build/run/smoke/${mc}"
 			vmArg "-Dhorsingaround.smoke=true"
 			vmArg "-Xmx2G"
-			if (project.hasProperty("smokeCloseUp")) {
+			if (closeUp) {
 				vmArg "-Dhorsingaround.smoke.closeUp=${project.property('smokeCloseUp')}"
 			}
 			if (project.hasProperty("smokeWild")) {
@@ -120,7 +121,7 @@ def optionsText = [
 	'joinedFirstServer:true',
 	'chatVisibility:0',
 	'touchscreen:false',
-].plus(project.hasProperty("smokeCloseUp") ? ['overrideWidth:1920', 'overrideHeight:1080'] : []).join("\n") + "\n"
+].plus(closeUp ? ['overrideWidth:1920', 'overrideHeight:1080'] : []).join("\n") + "\n"
 
 // Problems that name this mod, or a mixin that could not be applied.
 def smokeProblem = ~/(?i)(Mixin apply failed|Injection validation failed|could not find any targets|InvalidInjectionException|InvalidMixinException|MixinApplyError|MixinTransformerError|Critical injection failure|smoke test failed|\/(ERROR|FATAL)\].*horsing.?around|^\s+at dev\.horsingaround\.)/
@@ -151,7 +152,7 @@ tasks.matching { it.name == "runSmoke" }.configureEach { task ->
 			clientConfig.parentFile.mkdirs()
 			clientConfig.text = clientConfig.exists() ? clientConfig.text.replace('showLoadWarnings = true', 'showLoadWarnings = false') : "showLoadWarnings = false\n"
 			// (The early loading window can't hand itself over to a window of another size: "trouble handing off the window".)
-			if (project.hasProperty("smokeCloseUp")) {
+			if (closeUp) {
 				def fmlConfig = new File(smokeDir, "config/fml.toml")
 				fmlConfig.text = fmlConfig.exists() ? fmlConfig.text.replace('earlyWindowControl = true', 'earlyWindowControl = false') : "earlyWindowControl = false\n"
 			}
