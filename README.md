@@ -117,8 +117,8 @@ features still working. Pick Icy's and Horsing Around leaves horses alone.
 <summary><b>Every mod it's tested with</b></summary>
 
 Automated test rides run alongside Sodium, Iris, Lithium, C2ME, FerriteCore, ImmediatelyFast, Entity Culling, More
-Culling, Not Enough Animations, Emotecraft, Better Combat, First-person Model, Shoulder Surfing Reloaded, Camera
-Overhaul, Freecam, Do a Barrel Roll, AppleSkin, Raised, Better Mount HUD, Jade, Xaero's Minimap, Horse Expert, Horseman,
+Culling, Not Enough Animations, Emotecraft, Better Combat, First-person Model, Real Camera, Shoulder Surfing Reloaded,
+Camera Overhaul, Freecam, Do a Barrel Roll, AppleSkin, Raised, Better Mount HUD, Jade, Xaero's Minimap, Horse Expert, Horseman,
 Bareback Horse Riding, Mounts Stay Still and Icy's Better Horses.
 
 </details>

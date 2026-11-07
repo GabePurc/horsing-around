@@ -496,7 +496,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 	 * Partial tick the last drawn frame placed the camera at: test code runs between frames, after the rider moved for
 	 * the latest tick, while the camera still shows the frame before.
 	 */
-	private static float framePartialTicks(final net.minecraft.client.Minecraft mc) {
+	static float framePartialTicks(final net.minecraft.client.Minecraft mc) {
 		return mc.gameRenderer.gameRenderState().levelRenderState.cameraRenderState.cameraEntityPartialTicks;
 	}
 
