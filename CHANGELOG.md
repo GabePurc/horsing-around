@@ -4,29 +4,31 @@ Each version's notes are written to paste straight into the store version pages.
 
 ## 0.6.1
 
+Fixes the crash on launch in 0.6.0 (Fabric, Minecraft 1.20.1 to 1.21.11), and makes carts from Icy's Better Horses feel much more real.
+
 ### Changed
-- With Icy's Better Horses:
-  - Carts and wagons lean from where their wheels touch the ground, and climb rises and drops of up to two blocks instead of flying off them.
-  - Carts have weight and suspension: they land softly after a drop and stay smooth over hills at speed.
-  - The shafts stay on the horse, carts sit further back on big horses, and carts turn more sharply at low speed.
-  - The wagon camera sits further out, so the whole wagon is in view.
-  - Reversing with a cart stays steady, and your horse stops when the cart is blocked behind it.
-- Riding in third person, glass behind you no longer pulls the camera in, the same as on foot.
-- A new supporter's hat shows up without restarting the game.
+- **Carts and wagons** (with Icy's Better Horses):
+  - They tilt with the ground under their wheels, and roll up and down steps of one or two blocks instead of bouncing off them.
+  - They feel heavy: they land softly after a drop and stay steady over hills, even at speed.
+  - They stay properly hitched to the horse, sit a bit further back from big horses, and turn tighter at low speed.
+  - Backing up with a cart is steady, and your horse stops if something blocks the cart.
+  - When you drive a wagon, the camera pulls back far enough to show the whole wagon.
+- **Camera:** riding in third person, glass behind you no longer pushes the camera in close. It now works the same as on foot.
+- **Supporter hats:** a new supporter's hat appears without restarting the game.
 
 ### Fixed
-- Fabric on Minecraft 1.20.1 to 1.21.11: fixed a crash on launch in 0.6.0.
-- Fabric: with a Fabric API too old for the mod, the game now says so at launch instead of failing later.
-- With Real Camera: in first person, your view no longer sinks into your horse when it goes up or down blocks.
-- With Fresh Animations:
-  - Your rider stays on the saddle when your horse rears, instead of floating above and behind it.
-  - Before Minecraft 1.21.5, the bridle and reins stay on the head on stairs, steps and jump take-offs, and the stirrups hold at the rider's feet.
-  - Before Minecraft 1.21, your horse's head no longer rises into your face on stairs.
-- With Icy's Better Horses:
-  - Your horse's hind legs no longer swing out sideways in a jump.
-  - When a cart's horse dies, you can hit and bump into the cart where you see it, instead of half a block away.
-  - If an update to Icy's Better Horses changes something this mod relies on, only that part switches off instead of crashing the game.
-  - A dedicated server now writes `config/horsingaround.json` when it starts without one, so there's a file to set `ridingStyle` in. A value it doesn't recognise is reported in the log.
+- **Fabric, Minecraft 1.20.1 to 1.21.11:** the game no longer crashes on launch.
+- **Fabric:** if your Fabric API is too old, the game now tells you so when it starts, instead of crashing later.
+- **With Real Camera:** in first person, your view no longer dips into your horse when it steps up or down a block.
+- **With Fresh Animations:**
+  - You stay in the saddle when your horse rears, instead of floating behind it.
+  - On Minecraft older than 1.21.5, the bridle, reins and stirrups stay in place on stairs, steps and jumps.
+  - On Minecraft older than 1.21, your horse's head no longer pops up in front of your face on stairs.
+- **With Icy's Better Horses:**
+  - Your horse's back legs no longer kick out sideways when it jumps.
+  - When a horse pulling a cart dies, the cart stays solid where you see it, instead of half a block away.
+  - If a future Icy's update changes something this mod uses, only that part stops working, instead of the game crashing.
+  - **Servers:** the settings file, `config/horsingaround.json`, is now created when the server first starts, so you can set `ridingStyle` without making the file yourself. A mistyped value shows a warning in the server log.
 
 ## 0.6.0
 
