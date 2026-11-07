@@ -17,12 +17,12 @@ dependencies {
 // recorded on its own, with results in the run folder's spawnproof/ (results.json, report.txt, junit.xml, screenshots/).
 // It also makes the games fast and light: a clock that runs on drawn frames, the lowest settings, no sound, no grabbed
 // cursor. Tests written for it (HatTest so far) list under the "spawnproof" entrypoint; the others still run as plain Fabric
-// tests inside it. Not published yet: ./gradlew :fabric:publishToMavenLocal in Spawnproof's repo puts it in Maven Local.
-def spawnproofVersion = "0.2.0-SNAPSHOT"
+// tests inside it. It comes from Maven Central; Maven Local is looked in after it, for a Spawnproof built from source
+// (./gradlew :fabric:publishToMavenLocal in its repo).
+def spawnproofVersion = "0.3.0"
 repositories {
-	exclusiveContent {
-		forRepository { mavenLocal() }
-		filter { includeModule "io.github.gabepurc", "spawnproof-fabric" }
+	mavenLocal {
+		content { includeModule "io.github.gabepurc", "spawnproof-fabric" }
 	}
 }
 configurations.register("spawnproofRuntime") { transitive = false }

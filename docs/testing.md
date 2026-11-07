@@ -7,7 +7,7 @@ check enforces something wrong, fix the check and say so in the PR. When feel nu
 
 `./gradlew runClientGameTest` runs these; all fail on server corrections ("moved wrongly", meaning rubber-banding) and log warnings.
 [Spawnproof](https://github.com/GabePurc/spawnproof) runs them in one game, each on its own: one that throws doesn't stop
-the rest. Until it's published, run `./gradlew :fabric:publishToMavenLocal` in its repo first.
+the rest. It comes from Maven Central, or from Maven Local for one built from source.
 
 - `RideFeelTest` (`ride`): every mechanic in hand-built lanes, with simulated keys. Report: `build/run/clientGameTest/horsingaround-ride-report.txt`.
 - `TerrainRideTest` (`terrain`): built natural terrain ridden like a player would, with traces of any crash, hurt or dead end.
