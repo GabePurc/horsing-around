@@ -1,5 +1,5 @@
 {
-	"about": "Players who support Horsing Around (https://buymeacoffee.com/blintzbug). Each one wears a cowboy hat in game. The mod downloads this file when the game starts; add a supporter with their Minecraft UUID (look it up from their username).",
+	"about": "Players who support Horsing Around (https://buymeacoffee.com/blintzbug). Each one wears a cowboy hat in game. The mod downloads this file when the game starts and when it might have changed. Supporters are added when they claim a hat (hats/ in this repository).",
 	"supporters": [
 		{
 			"name": "Blintzbug",
