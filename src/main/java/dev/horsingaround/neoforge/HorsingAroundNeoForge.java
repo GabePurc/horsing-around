@@ -37,6 +37,7 @@ public final class HorsingAroundNeoForge {
 		NeoForge.EVENT_BUS.addListener(PlayerEvent.PlayerLoggedInEvent.class, event -> HorsingAround.joined((ServerPlayer) event.getEntity()));
 		NeoForge.EVENT_BUS.addListener(PlayerEvent.PlayerLoggedOutEvent.class, event -> HatRelay.left((ServerPlayer) event.getEntity()));
 		NeoForge.EVENT_BUS.addListener(ServerTickEvent.Post.class, event -> HatRelay.tick(event.getServer()));
+		NeoForge.EVENT_BUS.addListener(ServerStartedEvent.class, event -> HorsingAround.serverStarted(event.getServer()));
 		NeoForge.EVENT_BUS.addListener(ServerStoppedEvent.class, event -> HatRelay.clear());
 		NeoForge.EVENT_BUS.addListener(TagsUpdatedEvent.class, event -> Mounts.invalidate());
 		if (MixinAudit.ENABLED) {

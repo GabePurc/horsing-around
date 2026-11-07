@@ -304,13 +304,13 @@ public final class IcyCompat {
 	}
 
 	/**
-	 * What {@code lookup} finds, or null if Icy's mod doesn't have it (any more). Each is looked up on its own, so a change
-	 * in that mod turns off only the part of the compat that uses what changed.
+	 * What {@code lookup} finds, or null if Icy's mod doesn't have it (any more), or has it but its class won't load. Each is
+	 * looked up on its own, so a change in that mod turns off only the part of the compat that uses what changed.
 	 */
 	private static <T> @Nullable T find(final Find<T> lookup) {
 		try {
 			return lookup.find();
-		} catch (final ReflectiveOperationException | RuntimeException e) {
+		} catch (final ReflectiveOperationException | RuntimeException | LinkageError e) {
 			return null;
 		}
 	}

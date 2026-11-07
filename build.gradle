@@ -186,7 +186,7 @@ if (mainVersion) {
 // and refuses the config, and nothing in our mixins needs more.
 def mixinJava = javaVersion == 21 ? 17 : javaVersion
 def hatMixins = sc.current.parsed.matches('>=1.21.2') ? '"AvatarRenderStateMixin", "AvatarRendererMixin",' : '"CustomHeadLayerMixin", "HumanoidArmorLayerMixin",'
-def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, loader: project.findProperty('loader_minimum') ?: project.loader_version, java: javaVersion.toString(), mixinJava: mixinJava.toString(), hatMixins: hatMixins]
+def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, loader: project.findProperty('loader_minimum') ?: project.loader_version, fabricApi: project.findProperty('fabric_api_minimum') ?: project.fabric_api_version.tokenize('+')[0], java: javaVersion.toString(), mixinJava: mixinJava.toString(), hatMixins: hatMixins]
 tasks.matching { it.name in ["processResources", "processClientResources"] }.configureEach {
 	inputs.properties resourceProps
 	filesMatching(["fabric.mod.json", "*.mixins.json"]) {

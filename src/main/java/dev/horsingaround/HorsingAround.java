@@ -27,6 +27,16 @@ public final class HorsingAround {
 		HorseConfig.load();
 	}
 
+	/**
+	 * The server is up. A dedicated one with Icy's Better Horses reads its riding style from a file nothing else there would
+	 * write, so it writes it, for its admin to find.
+	 */
+	public static void serverStarted(final MinecraftServer server) {
+		if (server.isDedicatedServer() && IcyCompat.LOADED) {
+			HorseConfig.saveIfMissing();
+		}
+	}
+
 	/** A player joined: a client that runs the mod hears the riding style and the rules, and everyone's hats. */
 	public static void joined(final ServerPlayer player) {
 		// (The style first: the rules switch the ride on, and by then it has to be the right one.)

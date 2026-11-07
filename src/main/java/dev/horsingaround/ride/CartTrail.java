@@ -42,7 +42,6 @@ import static dev.horsingaround.ride.RideTuning.CART_WHEEL_TRAVEL_EASE;
 import java.util.Arrays;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
@@ -636,7 +635,7 @@ public final class CartTrail {
 	/** The top of a block something can rest on, NaN if it isn't one. Leaves aren't: the ride goes through them. */
 	private static double solidTop(final Level level, final BlockPos.MutableBlockPos pos, final int bx, final int by, final int bz) {
 		final BlockState state = level.getBlockState(pos.set(bx, by, bz));
-		if (state.isAir() || state.is(BlockTags.LEAVES)) {
+		if (state.isAir() || Foliage.leavesOpen(level) && Foliage.isLeaves(state)) {
 			return Double.NaN;
 		}
 		final VoxelShape shape = state.getCollisionShape(level, pos);

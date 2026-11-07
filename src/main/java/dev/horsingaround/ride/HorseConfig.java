@@ -12,6 +12,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 import net.minecraft.util.Mth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,6 +100,13 @@ public final class HorseConfig {
 		}
 	}
 
+	/** Writes the file if there is none, for someone to find and edit. */
+	public static void saveIfMissing() {
+		if (!Files.exists(FILE)) {
+			save();
+		}
+	}
+
 	/** Written beside the file and moved over it, so quitting mid-write can't leave half a file. */
 	public static void save() {
 		final Path partial = FILE.resolveSibling(FILE.getFileName() + ".tmp");
@@ -150,6 +158,8 @@ public final class HorseConfig {
 			c.shoulder = DEFAULTS.shoulder;
 		}
 		if (c.ridingStyle == null) {
+			// (Written by hand, on a server: what's on it should hear this one didn't take.)
+			LOGGER.warn("ridingStyle in {} isn't one of {}; using {}", FILE, Arrays.toString(RidingStyle.values()), DEFAULTS.ridingStyle);
 			c.ridingStyle = DEFAULTS.ridingStyle;
 		}
 		AUTO_THIRD_PERSON = c.thirdPersonOnMount;

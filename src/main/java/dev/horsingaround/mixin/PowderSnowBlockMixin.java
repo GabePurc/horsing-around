@@ -3,7 +3,7 @@ package dev.horsingaround.mixin;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import dev.horsingaround.ride.IcyCompat;
-import dev.horsingaround.ride.Mounts;
+import dev.horsingaround.ride.RideStateHolder;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.PowderSnowBlock;
 import org.spongepowered.asm.mixin.Mixin;
@@ -18,6 +18,6 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class PowderSnowBlockMixin {
 	@ModifyReturnValue(method = "canEntityWalkOnPowderSnow", at = @At("RETURN"))
 	private static boolean horsingaround$shod(final boolean walks, @Local(argsOnly = true) final Entity entity) {
-		return walks || IcyCompat.LOADED && Mounts.manages(entity) && IcyCompat.shod(entity);
+		return walks || IcyCompat.LOADED && RideStateHolder.managedRide(entity) != null && IcyCompat.shod(entity);
 	}
 }
