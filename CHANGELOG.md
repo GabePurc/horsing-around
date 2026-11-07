@@ -4,12 +4,28 @@ Each version's notes are written to paste straight into the store version pages.
 
 ## 0.6.1
 
+### Changed
+- With Icy's Better Horses:
+  - Carts and wagons lean from where their wheels touch the ground, and climb rises and drops of up to two blocks instead of flying off them.
+  - Carts have weight and suspension: they land softly after a drop and stay smooth over hills at speed.
+  - The shafts stay on the horse, carts sit further back on big horses, and carts turn more sharply at low speed.
+  - The wagon camera sits further out, so the whole wagon is in view.
+  - Reversing with a cart stays steady, and your horse stops when the cart is blocked behind it.
+- Riding in third person, glass behind you no longer pulls the camera in, the same as on foot.
+- A new supporter's hat shows up without restarting the game.
+
 ### Fixed
 - Fabric on Minecraft 1.20.1 to 1.21.11: fixed a crash on launch in 0.6.0.
+- Fabric: with a Fabric API too old for the mod, the game now says so at launch instead of failing later.
 - With Fresh Animations:
   - Your rider stays on the saddle when your horse rears, instead of floating above and behind it.
   - Before Minecraft 1.21.5, the bridle and reins stay on the head on stairs, steps and jump take-offs, and the stirrups hold at the rider's feet.
   - Before Minecraft 1.21, your horse's head no longer rises into your face on stairs.
+- With Icy's Better Horses:
+  - Your horse's hind legs no longer swing out sideways in a jump.
+  - When a cart's horse dies, you can hit and bump into the cart where you see it, instead of half a block away.
+  - If an update to Icy's Better Horses changes something this mod relies on, only that part switches off instead of crashing the game.
+  - A dedicated server now writes `config/horsingaround.json` when it starts without one, so there's a file to set `ridingStyle` in. A value it doesn't recognise is reported in the log.
 
 ## 0.6.0
 
