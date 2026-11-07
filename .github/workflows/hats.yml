@@ -32,20 +32,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Find or make the KV namespace
-        working-directory: hats
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/storage/kv/namespaces"
-          id=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api?per_page=100" |
-            jq -r '.result[] | select(.title == "horsing-around-hats") | .id')
-          if [ -z "$id" ]; then
-            id=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'content-type: application/json' \
-              -d '{"title":"horsing-around-hats"}' "$api" | jq -r '.result.id')
-          fi
-          sed -i "s/KV_ID_FILLED_AT_DEPLOY/$id/" wrangler.toml
       - name: Deploy
         working-directory: hats
         env:

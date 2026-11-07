@@ -1,8 +1,8 @@
-// Runs the Worker against an in-memory KV and a stubbed network: npm test (from hats/).
+// Runs the Worker and its Ledger against in-memory storage and a stubbed network: npm test (from hats/).
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { beforeEach, test } from "node:test";
-import worker from "../src/index.js";
+import worker, { Ledger } from "../src/index.js";
 
 const SECRET = "signing-secret";
 const STEVE = "11111111-1111-4111-8111-111111111111";
@@ -17,6 +17,7 @@ let env;
 let dispatched;
 let alerts;
 let gitHubStatus;
+let storage;
 /** Each lookup source's answer for a request, by host; a source not named here refuses. */
 let sources;
 
@@ -32,15 +33,16 @@ const answers = {
 			: Response.json({ code: "minecraft.invalid_username", data: {} }, { status: 400 }),
 };
 
-function memoryKv() {
+function memoryStorage() {
 	const store = new Map();
 	return {
 		store,
-		get: async (key, type) => {
-			const value = store.get(key);
-			return value === undefined ? null : type === "json" ? JSON.parse(value) : value;
+		get: async (key) => (store.has(key) ? structuredClone(store.get(key)) : undefined),
+		put: async (key, value) => {
+			for (const [k, v] of typeof key === "string" ? [[key, value]] : Object.entries(key)) {
+				store.set(k, structuredClone(v));
+			}
 		},
-		put: async (key, value) => void store.set(key, value),
 		delete: async (key) => void store.delete(key),
 	};
 }
@@ -51,12 +53,14 @@ beforeEach(() => {
 	gitHubStatus = 204;
 	sources = { "api.minecraftservices.com": answers.official, "api.mojang.com": answers.official, "playerdb.co": answers.playerdb };
 	env = {
-		HATS: memoryKv(),
 		BMC_SIGNING_SECRET: SECRET,
 		EMAIL_PEPPER: "pepper",
 		GITHUB_TOKEN: "token",
 		DISCORD_WEBHOOK: "https://discord.test/hook",
 	};
+	storage = memoryStorage();
+	const instance = new Ledger({ storage }, env);
+	env.LEDGER = { idFromName: (name) => name, get: () => ({ fetch: (url, init) => instance.fetch(new Request(url, init)) }) };
 	globalThis.fetch = async (input, init) => {
 		const url = String(input);
 		const source = sources[new URL(url).host];
@@ -109,7 +113,7 @@ test("a webhook without the right signature changes nothing", async () => {
 	const body = JSON.stringify({ type: "donation.created", live_mode: true, data: payment("a@b.c") });
 	assert.equal((await send("/webhook", { method: "POST", body })).status, 401);
 	assert.equal((await send("/webhook", { method: "POST", body, headers: { "x-signature-sha256": "zz" } })).status, 401);
-	assert.equal(env.HATS.store.size, 0);
+	assert.equal(storage.store.size, 0);
 });
 
 test("before the signing secret is set, webhooks fail so they get retried", async () => {
@@ -119,7 +123,7 @@ test("before the signing secret is set, webhooks fail so they get retried", asyn
 
 test("a dashboard test event reports back and changes nothing", async () => {
 	assert.equal((await hook("donation.created", payment("a@b.c"), { live: false })).status, 200);
-	assert.equal(env.HATS.store.size, 0);
+	assert.equal(storage.store.size, 0);
 	assert.match(alerts[0], /Test webhook received/);
 	assert.ok(!alerts[0].includes("a@b.c"));
 });
@@ -142,7 +146,7 @@ test("paying then claiming adds the hat, whatever the email's case", async () =>
 test("nothing readable about the supporter is stored", async () => {
 	await hook("donation.created", payment("fan@example.com"));
 	await claim("fan@example.com", "Steve");
-	const everything = JSON.stringify([...env.HATS.store]);
+	const everything = JSON.stringify([...storage.store]);
 	assert.ok(!everything.includes("fan@example.com"));
 	assert.ok(!everything.includes("love the mod"));
 });
@@ -168,16 +172,38 @@ test("a retried webhook doesn't count twice", async () => {
 	assert.deepEqual(dispatched.at(-1), { operation: "remove", uuid: STEVE, name: "Steve" });
 });
 
-test("one mistaken pick can be moved, and no more", async () => {
+test("an email gets one hat, and a claim is final", async () => {
 	await hook("donation.created", payment("a@b.c"));
 	await claim("a@b.c", "Steve");
-	assert.equal((await claim("a@b.c", "Alex")).status, 200);
-	assert.deepEqual(dispatched.slice(1), [{ operation: "remove", uuid: STEVE, name: "Steve" }, { operation: "add", uuid: ALEX, name: "Alex" }]);
-	const third = await claim("a@b.c", "Steve");
-	assert.equal(third.status, 409);
-	assert.equal((await third.json()).name, "Alex");
-	assert.equal(dispatched.length, 3);
+	const second = await claim("a@b.c", "Alex");
+	assert.equal(second.status, 409);
+	assert.equal((await second.json()).name, "Steve");
+	assert.deepEqual(dispatched, [{ operation: "add", uuid: STEVE, name: "Steve" }]);
 	assert.equal(alerts.length, 1);
+});
+
+test("paying again doesn't buy a second hat", async () => {
+	await hook("donation.created", payment("a@b.c", "pi_1"));
+	await claim("a@b.c", "Steve");
+	await hook("donation.created", payment("a@b.c", "pi_2"));
+	assert.equal((await claim("a@b.c", "Alex")).status, 409);
+	assert.equal(dispatched.length, 1);
+});
+
+test("two claims made together get one hat between them", async () => {
+	await hook("donation.created", payment("a@b.c"));
+	const answers = await Promise.all([claim("a@b.c", "Steve"), claim("a@b.c", "Alex"), claim("a@b.c", "Steve")]);
+	assert.deepEqual(answers.map((answer) => answer.status), [200, 409, 200]);
+	assert.deepEqual(dispatched, [{ operation: "add", uuid: STEVE, name: "Steve" }]);
+});
+
+test("after a refund, a new payment can claim again", async () => {
+	await hook("donation.created", payment("a@b.c", "pi_1"));
+	await claim("a@b.c", "Steve");
+	await hook("donation.refunded", payment("a@b.c", "pi_1"));
+	await hook("donation.created", payment("a@b.c", "pi_2"));
+	assert.equal((await claim("a@b.c", "Alex")).status, 200);
+	assert.deepEqual(dispatched.at(-1), { operation: "add", uuid: ALEX, name: "Alex" });
 });
 
 test("a refund removes the hat", async () => {
