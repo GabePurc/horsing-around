@@ -100,7 +100,7 @@ The `icys` pack rides an American Paint (`-Dhorsingaround.horse`, `TestHorse`) t
 `MountsTest` also checks a Friesian under both riding styles and the breeds' traits. `IcyFeaturesTest` (`-PcompatTests=icy`) rides Icy's gear on
 this mod's riding; while working on carts, `-PcompatSections=` runs only some of it (`room,cart,hill,steep,jitter,fast,tight,drop,rough,ledge,jump,lean,reverse`).
 
-The `realcamera` pack rides first person over steps in each of Real Camera's modes (`RealCameraTest`, `-PcompatTests=realcamera`).
+The `realcamera` pack rides first person over steps in each of Real Camera's modes (`RealCameraTest`).
 
 Icy's features with only screens or keys aren't tested. Check by hand in `playCompatIcys`, on this mod's riding:
 
