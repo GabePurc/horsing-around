@@ -13,6 +13,9 @@ const WORKFLOW = "supporters.yml";
 const GRANTS = new Set(["donation.created", "extra_purchase.created"]);
 const REFUNDS = new Set(["donation.refunded", "extra_purchase.refunded"]);
 const USERNAME = /^[A-Za-z0-9_]{1,16}$/;
+const UUID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
+const HEADERS = { "user-agent": "horsing-around-hats" };
+const LOOKUP_TIMEOUT_MS = 5000;
 /** One wrong pick can be put right; more than that goes to the author, so a hat can't be passed around friends. */
 const MAX_CHANGES = 1;
 const MAX_BODY = 64 * 1024;
@@ -100,10 +103,11 @@ async function lookup(request, env, url) {
 		return json({ error: "slow_down" }, 429);
 	}
 	const profile = await mojangProfile(url.searchParams.get("name") ?? "");
+	const tried = { "x-lookup-tried": profile.tried };
 	if (profile.error) {
-		return json({ error: profile.error }, profile.error === "not_found" ? 404 : 503);
+		return json({ error: profile.error }, profile.error === "not_found" ? 404 : 503, tried);
 	}
-	return json({ name: profile.name, id: profile.id, skin: await skinUrl(profile.id) });
+	return json({ name: profile.name, id: profile.id, skin: await skinUrl(profile) }, 200, tried);
 }
 
 async function claim(request, env) {
@@ -186,39 +190,88 @@ async function dispatch(env, operation, uuid, name) {
 	}
 }
 
+/**
+ * Who a username belongs to. Mojang can refuse requests from Cloudflare's addresses, so a refusal moves on to the next
+ * source; only a clear "no such player" ends the search. `tried` lists each source's answer, for diagnosing a failure.
+ */
 async function mojangProfile(name) {
 	if (!USERNAME.test(name)) {
-		return { error: "not_found" };
+		return { error: "not_found", tried: "" };
 	}
-	const response = await fetch(`https://api.minecraftservices.com/minecraft/profile/lookup/name/${name}`, {
-		headers: { "user-agent": "horsing-around-hats" },
-	});
+	const tried = [];
+	for (const source of LOOKUPS) {
+		const answer = await askSource(source, name);
+		tried.push(`${source.label}=${answer.status}`);
+		if (answer.missing) {
+			return { error: "not_found", tried: tried.join(",") };
+		}
+		if (answer.profile && UUID.test(answer.profile.id) && answer.profile.name?.toLowerCase() === name.toLowerCase()) {
+			return { ...answer.profile, id: dashed(answer.profile.id), tried: tried.join(",") };
+		}
+	}
+	return { error: "mojang_unavailable", tried: tried.join(",") };
+}
+
+const fromMojang = async (response) => {
 	if (response.status === 404 || response.status === 204) {
-		return { error: "not_found" };
+		return { missing: true };
 	}
 	if (!response.ok) {
-		return { error: "mojang_unavailable" };
+		return {};
 	}
 	const profile = await response.json();
-	return { id: dashed(profile.id), name: profile.name };
+	return { profile: { id: profile.id, name: profile.name } };
+};
+
+const LOOKUPS = [
+	{ label: "minecraftservices", url: (name) => `https://api.minecraftservices.com/minecraft/profile/lookup/name/${name}`, read: fromMojang },
+	{ label: "mojang", url: (name) => `https://api.mojang.com/users/profiles/minecraft/${name}`, read: fromMojang },
+	{
+		label: "playerdb",
+		url: (name) => `https://playerdb.co/api/player/minecraft/${name}`,
+		read: async (response) => {
+			const body = await response.json();
+			if (body.code === "minecraft.invalid_username") {
+				return { missing: true };
+			}
+			const player = body.data?.player;
+			return player ? { profile: { id: player.id, name: player.username, skin: player.skin_texture } } : {};
+		},
+	},
+];
+
+async function askSource(source, name) {
+	try {
+		const response = await fetch(source.url(name), { headers: HEADERS, signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS) });
+		return { status: response.status, ...(await source.read(response)) };
+	} catch {
+		return { status: 0 };
+	}
 }
 
 /** The player's skin for the page's preview, or null: the preview can do without it. */
-async function skinUrl(uuid) {
+async function skinUrl(profile) {
+	if (profile.skin) {
+		return httpsOnly(profile.skin);
+	}
 	try {
-		const response = await fetch(`https://sessionserver.mojang.com/session/minecraft/profile/${uuid.replaceAll("-", "")}`, {
-			headers: { "user-agent": "horsing-around-hats" },
+		const response = await fetch(`https://sessionserver.mojang.com/session/minecraft/profile/${profile.id.replaceAll("-", "")}`, {
+			headers: HEADERS,
+			signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
 		});
 		if (!response.ok) {
 			return null;
 		}
-		const profile = await response.json();
-		const textures = profile.properties?.find((property) => property.name === "textures");
-		const url = JSON.parse(atob(textures.value)).textures?.SKIN?.url ?? null;
-		return url ? url.replace(/^http:/, "https:") : null;
+		const session = await response.json();
+		const textures = session.properties?.find((property) => property.name === "textures");
+		return httpsOnly(JSON.parse(atob(textures.value)).textures?.SKIN?.url);
 	} catch {
 		return null;
 	}
+}
+
+function httpsOnly(url) {
+	return url ? url.replace(/^http:/, "https:") : null;
 }
 
 function dashed(id) {
@@ -268,9 +321,9 @@ async function alert(env, content) {
 	}
 }
 
-function json(body, status = 200) {
+function json(body, status = 200, headers = {}) {
 	return new Response(JSON.stringify(body), {
 		status,
-		headers: { "content-type": "application/json", "x-content-type-options": "nosniff" },
+		headers: { "content-type": "application/json", "x-content-type-options": "nosniff", ...headers },
 	});
 }

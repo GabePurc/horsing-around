@@ -17,6 +17,20 @@ let env;
 let dispatched;
 let alerts;
 let gitHubStatus;
+/** Each lookup source's answer for a request, by host; a source not named here refuses. */
+let sources;
+
+const answers = {
+	official: (name) => (PROFILES[name] ? Response.json(PROFILES[name]) : new Response("", { status: 404 })),
+	refusing: () => new Response("", { status: 403 }),
+	broken: () => {
+		throw new Error("no connection");
+	},
+	playerdb: (name) =>
+		PROFILES[name]
+			? Response.json({ code: "player.found", data: { player: { id: PROFILES[name].id, username: PROFILES[name].name, skin_texture: "http://textures.minecraft.net/texture/fromdb" } } })
+			: Response.json({ code: "minecraft.invalid_username", data: {} }, { status: 400 }),
+};
 
 function memoryKv() {
 	const store = new Map();
@@ -35,6 +49,7 @@ beforeEach(() => {
 	dispatched = [];
 	alerts = [];
 	gitHubStatus = 204;
+	sources = { "api.minecraftservices.com": answers.official, "api.mojang.com": answers.official, "playerdb.co": answers.playerdb };
 	env = {
 		HATS: memoryKv(),
 		BMC_SIGNING_SECRET: SECRET,
@@ -44,9 +59,9 @@ beforeEach(() => {
 	};
 	globalThis.fetch = async (input, init) => {
 		const url = String(input);
-		if (url.startsWith("https://api.minecraftservices.com/")) {
-			const profile = PROFILES[url.split("/").pop()];
-			return profile ? Response.json(profile) : new Response("", { status: 404 });
+		const source = sources[new URL(url).host];
+		if (source) {
+			return source(url.split("/").pop());
 		}
 		if (url.startsWith("https://sessionserver.mojang.com/")) {
 			const textures = btoa(JSON.stringify({ textures: { SKIN: { url: "http://textures.minecraft.net/texture/abc" } } }));
@@ -230,6 +245,49 @@ test("lookup finds a player and their skin over https", async () => {
 	assert.equal(found.id, STEVE);
 	assert.equal(found.skin, "https://textures.minecraft.net/texture/abc");
 	assert.equal((await send("/lookup?name=Nobody")).status, 404);
+});
+
+test("when Mojang refuses, the lookup falls back, and a claim still works", async () => {
+	sources["api.minecraftservices.com"] = answers.refusing;
+	sources["api.mojang.com"] = answers.broken;
+	const response = await send("/lookup?name=Steve");
+	assert.equal(response.headers.get("x-lookup-tried"), "minecraftservices=403,mojang=0,playerdb=200");
+	const found = await response.json();
+	assert.equal(found.id, STEVE);
+	assert.equal(found.skin, "https://textures.minecraft.net/texture/fromdb");
+	await hook("donation.created", payment("a@b.c"));
+	assert.equal((await claim("a@b.c", "Steve")).status, 200);
+	assert.deepEqual(dispatched, [{ operation: "add", uuid: STEVE, name: "Steve" }]);
+});
+
+test("a fallback's clear no means no such player", async () => {
+	sources["api.minecraftservices.com"] = answers.refusing;
+	sources["api.mojang.com"] = answers.refusing;
+	assert.equal((await send("/lookup?name=Nobody")).status, 404);
+});
+
+test("a clear no from Mojang ends the search", async () => {
+	sources["playerdb.co"] = () => assert.fail("should not be asked");
+	const response = await send("/lookup?name=Nobody");
+	assert.equal(response.status, 404);
+	assert.equal(response.headers.get("x-lookup-tried"), "minecraftservices=404");
+});
+
+test("when every source fails, the page is told to try later, and why is reported", async () => {
+	sources["api.minecraftservices.com"] = answers.refusing;
+	sources["api.mojang.com"] = answers.refusing;
+	sources["playerdb.co"] = answers.broken;
+	const response = await send("/lookup?name=Steve");
+	assert.equal(response.status, 503);
+	assert.equal(response.headers.get("x-lookup-tried"), "minecraftservices=403,mojang=403,playerdb=0");
+	assert.equal((await response.json()).error, "mojang_unavailable");
+});
+
+test("an answer for a different player is not believed", async () => {
+	sources["api.minecraftservices.com"] = () => Response.json(PROFILES.Alex);
+	sources["api.mojang.com"] = answers.refusing;
+	sources["playerdb.co"] = answers.refusing;
+	assert.equal((await send("/lookup?name=Steve")).status, 503);
 });
 
 test("a name that couldn't be a username never reaches Mojang", async () => {
