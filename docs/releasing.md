@@ -17,7 +17,8 @@
 `CURSEFORGE_TOKEN`) is the main store; for Modrinth, see `plan.md`.
 
 Dry run: run the workflow by hand (Actions > publish), or locally `./gradlew publishModrinth publishCurseforge -PpublishDryRun`.
-Ticking "curseforge" in the manual run uploads that branch's jars to CurseForge only, for a release that never reached it.
+Ticking "curseforge" in the manual run uploads that branch's jars to CurseForge only, for a release that never reached it, once the
+author approves the run.
 
 ## Public text
 

@@ -18,6 +18,8 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # (A manual CurseForge upload waits for the author's approval: the hat service's token can start workflows.)
+    environment: ${{ inputs.curseforge && 'curseforge-manual' || '' }}
     permissions:
       contents: write
     env:

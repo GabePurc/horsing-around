@@ -27,7 +27,7 @@ Everything else here is guidance; these hold because the user asked for them or 
 - Every version keeps building and passing its audit, on any machine: no machine-specific paths in the repo (a local JDK
   goes in `~/.gradle/gradle.properties`).
 - The supporter hat (user, 2026-10-08) stays cosmetic: never an item or a gameplay advantage. Mojang's usage guidelines
-  allow cosmetics, not capes. Add a supporter to `supporters.json` by PR when the user asks.
+  allow cosmetics, not capes. `hats/` adds supporters by itself; to add one by hand, run `supporters.yml`.
 - Public text (README, changelog, store descriptions) follows `docs/releasing.md`.
 - Every change, however small, starts from a GitHub issue (user, 2026-11-06): reuse one that fits or open one, assigned to
   `@me`. Branch as `<n>-<slug>` from a just-fetched origin/main, not local main; in an app worktree, sync with main first.

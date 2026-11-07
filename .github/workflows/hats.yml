@@ -1,0 +1,67 @@
+# The supporter hat service (hats/): tests on pull requests, deploys to Cloudflare from main. Run by hand (Actions > hats) to
+# redeploy after changing one of the secrets.
+name: hats
+on:
+  pull_request:
+    paths: ["hats/**", ".github/workflows/hats.yml"]
+  push:
+    branches: [main]
+    paths: ["hats/**", ".github/workflows/hats.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+        working-directory: hats
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Find or make the KV namespace
+        working-directory: hats
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/storage/kv/namespaces"
+          id=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api?per_page=100" |
+            jq -r '.result[] | select(.title == "horsing-around-hats") | .id')
+          if [ -z "$id" ]; then
+            id=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'content-type: application/json' \
+              -d '{"title":"horsing-around-hats"}' "$api" | jq -r '.result.id')
+          fi
+          sed -i "s/KV_ID_FILLED_AT_DEPLOY/$id/" wrangler.toml
+      - name: Deploy
+        working-directory: hats
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: "false"
+          GITHUB_TOKEN_VALUE: ${{ secrets.HATS_GITHUB_TOKEN }}
+          DISCORD_WEBHOOK_VALUE: ${{ secrets.HATS_DISCORD_WEBHOOK }}
+          EMAIL_PEPPER_VALUE: ${{ secrets.HATS_EMAIL_PEPPER }}
+          BMC_SIGNING_SECRET_VALUE: ${{ secrets.BMC_SIGNING_SECRET }}
+        run: |
+          npx --yes wrangler@4.152.0 deploy
+          # (BMC_SIGNING_SECRET only exists once the webhook does, which needs this Worker's address; until then webhooks are refused.)
+          for name in GITHUB_TOKEN DISCORD_WEBHOOK EMAIL_PEPPER BMC_SIGNING_SECRET; do
+            value_name="${name}_VALUE"
+            if [ -n "${!value_name}" ]; then
+              printf '%s' "${!value_name}" | npx --yes wrangler@4.152.0 secret put "$name"
+            fi
+          done
