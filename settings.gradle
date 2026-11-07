@@ -12,8 +12,9 @@ pluginManagement {
 		gradlePluginPortal()
 	}
 	plugins {
-		// NeoForge's ModDevGradle, for the NeoForge nodes (build.neoforge.gradle).
+		// NeoForge's ModDevGradle, for the NeoForge nodes (build.neoforge.gradle), and its add-on for Forge 1.20.1.
 		id 'net.neoforged.moddev' version '2.0.148'
+		id 'net.neoforged.moddev.legacyforge' version '2.0.148'
 	}
 }
 
@@ -40,6 +41,8 @@ stonecutter {
 		versions '26.3', '26.2', '26.1.2', '1.21.11', '1.21.10', '1.21.8', '1.21.5', '1.21.4', '1.21.3', '1.21.1', '1.20.6', '1.20.4', '1.20.2', '1.20.1'
 		// NeoForge, for the versions NeoForge players are on.
 		['26.3', '26.2', '26.1.2', '1.21.1'].each { vers("${it}-neoforge", it).buildscript('build.neoforge.gradle') }
+		// Forge, for 1.20.1, where Forge players are (Realistic Horse Genetics is Forge only). The jar loads on NeoForge for 1.20.1 too.
+		vers('1.20.1-forge', '1.20.1').buildscript('build.neoforge.gradle')
 		vcsVersion = '26.3'
 	}
 }

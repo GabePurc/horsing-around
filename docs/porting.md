@@ -15,6 +15,13 @@ main version: `src/` reads as 26.3 code, and the client tests and compat runs ex
 - NeoForge: `<version>-neoforge` projects (26.3, 26.2, 26.1.2, 1.21.1) build the same `src/` with `build.neoforge.gradle`. Code for one loader
   sits in `fabric/` or `neoforge/` packages or behind `//? if neoforge`; common code goes through `Platform`. Mojang names, so no refmap.
   `neoforge.mods.toml` is its `fabric.mod.json`. Client tests are Fabric's only.
+- Forge: `1.20.1-forge` (Realistic Horse Genetics' version), also `build.neoforge.gradle`, with ModDevGradle's legacy add-on; `forge/`
+  packages or `//? if fabric {} elif neoforge {} else {}`; `mods.toml`. It runs on SRG names: the mixin annotation processor writes
+  refmaps (any name it can't map fails the compile), the manifest lists the mixin configs, `checkRefmaps` checks both in `reobfJar`'s
+  jar (the release one). The jar carries MixinExtras and a `pack.mcmeta` (Forge warns about a mod without one). Its dev games load Realistic
+  Horse Genetics (`-PnoGenetics` not) but not EMF or ETF, whose Forge jars name SRG names with no refmap. Its audit runs dev classes, as
+  NeoForge's does: after changing mixins or Forge calls, check the release jar by hand in a game Forge's installer makes (`--installServer`,
+  `--installClient`), run with `-Dhorsingaround.audit=true`.
 
 ## Version-specific code
 
@@ -88,7 +95,7 @@ A change to version-specific code is checked by building and auditing every vers
 
 ## Status
 
-Build and pass the audit: 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9), 1.21.8 (1.21.6-7), 1.21.5, 1.21.4, 1.21.3 (1.21.2), 1.21.1 (1.21), 1.20.6
+Build and pass the audit: 1.20.1 Forge, 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9), 1.21.8 (1.21.6-7), 1.21.5, 1.21.4, 1.21.3 (1.21.2), 1.21.1 (1.21), 1.20.6
 (1.20.5), 1.20.4 (1.20.3), 1.20.2, 1.20.1 (1.20). A jar covering several is built against the named one. Played by the user: only 26.3.
 
 ## Gaps on older versions

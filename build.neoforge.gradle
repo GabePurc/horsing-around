@@ -1,22 +1,30 @@
 plugins {
-	id 'net.neoforged.moddev'
+	id 'net.neoforged.moddev' apply false
+	id 'net.neoforged.moddev.legacyforge' apply false
 	id 'me.modmuss50.mod-publish-plugin' version '2.2.1'
 }
 
-// The NeoForge build of a Minecraft version (Stonecutter node <version>-neoforge, see settings.gradle), from the same
-// src/ as the Fabric one (build.gradle). Code for one loader only sits in fabric/ or neoforge/ packages, each left out of
-// the other loader's build, or in //? if neoforge comments. This node's numbers come from
-// versions/<version>-neoforge/gradle.properties. The client tests stay on Fabric (the ride code is the same); here
-// auditMixins loads every mixin target in a NeoForge client and dedicated server, and runSmoke rides the smoke test's
-// course (gradle/smoke-test.gradle).
+// The NeoForge build of a Minecraft version (Stonecutter node <version>-neoforge, see settings.gradle), and the Forge one
+// (<version>-forge: 1.20.1, with ModDevGradle's add-on for Forge), from the same src/ as the Fabric one (build.gradle).
+// Code for one loader only sits in fabric/, neoforge/ or forge/ packages, each left out of the other loaders' builds, or in
+// //? if neoforge comments. This node's numbers come from versions/<node>/gradle.properties. The client tests stay on
+// Fabric (the ride code is the same); here auditMixins loads every mixin target in a client and dedicated server, and
+// runSmoke rides the smoke test's course (gradle/smoke-test.gradle).
+def forge = project.name.endsWith('-forge')
+def loader = forge ? 'forge' : 'neoforge'
+def loaderName = forge ? 'Forge' : 'NeoForge'
+ext.loaderName = loaderName // (for gradle/smoke-test.gradle)
+apply plugin: forge ? 'net.neoforged.moddev.legacyforge' : 'net.neoforged.moddev'
 def mc = sc.current.version
-def javaVersion = sc.current.parsed.matches('>=26') ? 25 : 21
+def javaVersion = sc.current.parsed.matches('>=26') ? 25 : sc.current.parsed.matches('>=1.20.5') ? 21 : 17
 ext.javaVersion = javaVersion // (for gradle/smoke-test.gradle)
 version = "${project.version}+${mc}"
-base.archivesName = 'horsing-around-neoforge'
-// Repo-level folders (each node's own project folder is versions/<version>-neoforge/).
+base.archivesName = "horsing-around-${loader}"
+// Repo-level folders (each node's own project folder is versions/<node>/).
 def repoDir = rootProject.layout.projectDirectory
-def runFolder = "run/neoforge/${mc}"
+def runFolder = "run/${loader}/${mc}"
+// The extension both plugins share (the Forge add-on's is legacyForge).
+def modDev = forge ? legacyForge : neoForge
 
 repositories {
 	exclusiveContent {
@@ -38,17 +46,27 @@ sourceSets {
 		compileClasspath += main.output
 		runtimeClasspath += main.output
 	}
-	main.java.exclude 'dev/horsingaround/fabric/**'
-	client.java.exclude 'dev/horsingaround/client/fabric/**'
-	main.resources.exclude 'fabric.mod.json'
+	main.java.exclude 'dev/horsingaround/fabric/**', "dev/horsingaround/${forge ? 'neoforge' : 'forge'}/**"
+	client.java.exclude 'dev/horsingaround/client/fabric/**', "dev/horsingaround/client/${forge ? 'neoforge' : 'forge'}/**"
+	main.resources.exclude 'fabric.mod.json', forge ? 'META-INF/neoforge.mods.toml' : 'META-INF/mods.toml'
+	// (Icy's Better Horses is Fabric and NeoForge only; Realistic Horse Genetics Forge only.)
+	if (forge) {
+		main.java.exclude 'dev/horsingaround/mixin/icy/**'
+		client.java.exclude 'dev/horsingaround/client/mixin/icy/**'
+		main.resources.exclude 'horsingaround.icy.mixins.json'
+		client.resources.exclude 'horsingaround.icy.client.mixins.json', 'horsingaround.emf.client.mixins.json'
+	} else {
+		client.java.exclude 'dev/horsingaround/client/mixin/rhg/**'
+		client.resources.exclude 'horsingaround.rhg.client.mixins.json'
+	}
 }
 configurations {
 	clientCompileOnly.extendsFrom compileOnly
 	clientRuntimeOnly.extendsFrom runtimeOnly
 }
 
-neoForge {
-	version = project.neoforge_version
+configure(modDev) {
+	version = forge ? "${mc}-${project.forge_version}" : project.neoforge_version
 	addModdingDependenciesTo sourceSets.client
 
 	mods {
@@ -73,16 +91,16 @@ neoForge {
 			gameDirectory = repoDir.dir("${runFolder}/server")
 			programArgument '--nogui'
 		}
-		// ./gradlew :<version>-neoforge:auditMixins (below)
+		// ./gradlew :<node>:auditMixins (below)
 		auditClient {
 			client()
-			gameDirectory = rootProject.layout.buildDirectory.dir("run/audit/${mc}-neoforge/client")
+			gameDirectory = rootProject.layout.buildDirectory.dir("run/audit/${project.name}/client")
 			systemProperty 'horsingaround.audit', 'true'
 			systemProperty 'mixin.debug.countInjections', 'true'
 		}
 		auditServer {
 			server()
-			gameDirectory = rootProject.layout.buildDirectory.dir("run/audit/${mc}-neoforge/server")
+			gameDirectory = rootProject.layout.buildDirectory.dir("run/audit/${project.name}/server")
 			programArgument '--nogui'
 			systemProperty 'horsingaround.audit', 'true'
 			systemProperty 'mixin.debug.countInjections', 'true'
@@ -90,17 +108,101 @@ neoForge {
 	}
 }
 
+// (Forge for 1.20.1 runs on SRG names: other mods' jars are remapped to Mojang names for compiling against, ours back.)
+def compileMod = forge ? 'modCompileOnly' : 'compileOnly'
+def runtimeMod = forge ? 'modRuntimeOnly' : 'runtimeOnly'
 dependencies {
 	// Optional integration: ride the horse's real animated body when Entity Model Features animates it.
-	compileOnly "maven.modrinth:entity-model-features:${project.emf_version}"
-	compileOnly "maven.modrinth:entitytexturefeatures:${project.etf_version}"
+	add compileMod, "maven.modrinth:entity-model-features:${project.emf_version}"
+	add compileMod, "maven.modrinth:entitytexturefeatures:${project.etf_version}"
 	// Optional integration: the riding camera steps aside while Shoulder Surfing Reloaded drives the camera.
-	compileOnly "maven.modrinth:shoulder-surfing-reloaded:${project.shoulder_surfing_version}"
+	add compileMod, "maven.modrinth:shoulder-surfing-reloaded:${project.shoulder_surfing_version}"
 
-	// Dev-only: the Fresh Animations stack, so runClient looks like the target setup.
-	if (!project.hasProperty("smokePlain")) {
-		runtimeOnly "maven.modrinth:entity-model-features:${project.emf_version}"
-		runtimeOnly "maven.modrinth:entitytexturefeatures:${project.etf_version}"
+	// Dev-only: the Fresh Animations stack, so runClient looks like the target setup. (Not on Forge: its Forge jars name the
+	// game's runtime names in their mixins, without a refmap, so they can't run in a dev game, which has Mojang's names.)
+	if (!project.hasProperty("smokePlain") && !forge) {
+		add runtimeMod, "maven.modrinth:entity-model-features:${project.emf_version}"
+		add runtimeMod, "maven.modrinth:entitytexturefeatures:${project.etf_version}"
+	}
+
+	if (forge) {
+		// Optional integration: Realistic Horse Genetics' horses ride, and its model gets the ride's legs (ride/Genetics).
+		modCompileOnly "maven.modrinth:realistic-horse-genetics:${project.rhg_version}"
+		// Dev-only: in every game (play, smoke test, mixin audit) unless -PnoGenetics. It turns every vanilla horse into one of its own.
+		if (!project.hasProperty("noGenetics")) {
+			modRuntimeOnly "maven.modrinth:realistic-horse-genetics:${project.rhg_version}"
+		}
+		// The refmaps (Mojang names to SRG) for the mixins, MixinExtras' injectors included. Forge for 1.20.1 has no
+		// MixinExtras of its own: the jar carries a copy (Forge runs the newest any mod brings).
+		["annotationProcessor", "clientAnnotationProcessor"].each {
+			add it, "org.spongepowered:mixin:0.8.5:processor"
+			add it, "io.github.llamalad7:mixinextras-common:${project.mixinextras_version}"
+		}
+		compileOnly "io.github.llamalad7:mixinextras-common:${project.mixinextras_version}"
+		implementation(jarJar("io.github.llamalad7:mixinextras-forge:${project.mixinextras_version}"))
+		// (The games run the client source set, which doesn't see the main one's implementation dependencies.)
+		clientRuntimeOnly "io.github.llamalad7:mixinextras-forge:${project.mixinextras_version}"
+	}
+}
+
+if (forge) {
+	// The mixin configs each name their refmap; the jar's manifest lists the configs (Forge for 1.20.1 has no list in mods.toml).
+	def mixinConfigs = ["horsingaround.mixins.json", "horsingaround.client.mixins.json", "horsingaround.rhg.client.mixins.json"]
+	def refmaps = [processResources: "horsingaround.refmap.json", processClientResources: "horsingaround.client.refmap.json"]
+	mixin {
+		add sourceSets.main, refmaps.processResources
+		add sourceSets.client, refmaps.processClientResources
+		mixinConfigs.each { config it }
+	}
+	refmaps.each { taskName, refmap ->
+		tasks.named(taskName) {
+			inputs.property "refmap", refmap
+			inputs.property "mixinMinVersion", "0.8"
+			filesMatching("*.mixins.json") {
+				// (And the oldest Mixin they need: Forge's logs an error for a config that doesn't say.)
+				filter { line -> line.contains('"package"') ? "\t\"refmap\": \"${refmap}\",\n\t\"minVersion\": \"0.8\",\n${line}" : line }
+			}
+		}
+	}
+	jar.manifest.attributes(["MixinConfigs": mixinConfigs.join(",")])
+	// A name the annotation processor can't map is only a warning, and a mixin that misses in every player's game: an error here.
+	tasks.withType(JavaCompile).configureEach { options.compilerArgs.add("-Werror") }
+	// (The add-on puts the main source set's refmap in the jar, not the client one's, which the annotation processor writes here.)
+	jar.from(layout.buildDirectory.file("mixin/${refmaps.processClientResources}"))
+	// Every mixin config must name a refmap in the jar, or the game crashes on launch (as the Fabric jars are checked).
+	def releaseJar = tasks.named("reobfJar").flatMap { it.archiveFile }
+	def checkRefmaps = tasks.register("checkRefmaps") {
+		inputs.file(releaseJar)
+		doLast {
+			new java.util.zip.ZipFile(releaseJar.get().asFile).withCloseable { zip ->
+				def listed = zip.getInputStream(zip.getEntry("META-INF/MANIFEST.MF")).withCloseable { new java.util.jar.Manifest(it).mainAttributes.getValue("MixinConfigs") }
+				if (listed?.split(",")?.toList() != mixinConfigs) throw new GradleException("${zip.name} lists the mixin configs ${listed}, not ${mixinConfigs}")
+				mixinConfigs.each { config ->
+					def refmap = new groovy.json.JsonSlurper().parse(zip.getInputStream(zip.getEntry(config))).refmap
+					if (!refmap || zip.getEntry(refmap) == null) {
+						throw new GradleException("${config} in ${zip.name} names no refmap in the jar (it says: ${refmap}), so it would crash on launch")
+					}
+				}
+			}
+		}
+	}
+	tasks.named("reobfJar") { finalizedBy checkRefmaps }
+
+	// Forge reads a mod's resources as a pack, which needs its pack.mcmeta (15: 1.20.1's format).
+	def packMeta = layout.buildDirectory.dir("generated/packMeta")
+	def writePackMeta = tasks.register("writePackMeta") {
+		outputs.dir(packMeta)
+		doLast {
+			packMeta.get().file("pack.mcmeta").asFile.text = '{"pack": {"description": "Horsing Around", "pack_format": 15}}\n'
+		}
+	}
+	tasks.named("processResources") {
+		from(writePackMeta)
+		// Data pack folders had plural names before 1.21 (tags/entity_types).
+		includeEmptyDirs = false
+		eachFile { details ->
+			details.path = details.path.replace('/tags/entity_type/', '/tags/entity_types/').replace('/tags/block/', '/tags/blocks/')
+		}
 	}
 }
 
@@ -111,7 +213,7 @@ ext.freshAnimationsTargets = [
 apply from: repoDir.file('gradle/fresh-animations.gradle')
 tasks.named("runClient") { dependsOn "installFreshAnimations" }
 
-// The in-game smoke test, as on Fabric: ./gradlew :<version>-neoforge:runSmoke.
+// The in-game smoke test, as on Fabric: ./gradlew :<node>:runSmoke.
 apply from: repoDir.file('gradle/smoke-test.gradle')
 apply from: repoDir.file('gradle/x11-games.gradle')
 // Plain "runClient" starts only the main version's (Fabric) game: these answer by path (./gradlew :26.3-neoforge:runClient).
@@ -120,13 +222,13 @@ tasks.matching { it.name in ["runClient", "runServer"] }.configureEach { task ->
 	task.onlyIf("plain ${task.name} starts only the main version's game; use :${project.name}:${task.name}") { !plainEverywhere }
 }
 
-// ./gradlew :<version>-neoforge:auditMixins (plain auditMixins runs every version's): every class the mixins patch loaded in a
-// NeoForge client and dedicated server (MixinAudit), which then quit; fails unless both say so and nothing in the log
-// names a mixin failure. One NeoForge game at a time.
+// ./gradlew :<node>:auditMixins (plain auditMixins runs every version's): every class the mixins patch loaded in a
+// NeoForge (Forge) client and dedicated server (MixinAudit), which then quit; fails unless both say so and nothing in the log
+// names a mixin failure. One NeoForge or Forge game at a time.
 abstract class NeoForgeAuditGame implements org.gradle.api.services.BuildService<org.gradle.api.services.BuildServiceParameters.None> {}
 def auditGame = gradle.sharedServices.registerIfAbsent("neoforgeAuditGame", NeoForgeAuditGame) { maxParallelUsages = 1 }
 ["Client", "Server"].each { side ->
-	def auditDir = rootProject.layout.buildDirectory.dir("run/audit/${mc}-neoforge/${side.toLowerCase()}").get().asFile
+	def auditDir = rootProject.layout.buildDirectory.dir("run/audit/${project.name}/${side.toLowerCase()}").get().asFile
 	tasks.named("runAudit${side}") {
 		group = "verification"
 		usesService(auditGame)
@@ -147,9 +249,9 @@ def auditGame = gradle.sharedServices.registerIfAbsent("neoforgeAuditGame", NeoF
 			def text = log.exists() ? log.text : ""
 			def problems = text.readLines().findAll { it =~ /Mixin apply for mod|Mixin apply failed|Injection validation failed|could not find any targets|InvalidInjectionException|InvalidMixinException|MixinApplyError|MixinTransformerError|Critical injection failure/ }
 			if (!text.contains("Horsing Around mixin audit passed") || !problems.isEmpty()) {
-				throw new GradleException("Mixin audit failed on ${mc} NeoForge (${side.toLowerCase()}); see ${log}\n" + problems.take(20).join("\n"))
+				throw new GradleException("Mixin audit failed on ${mc} ${loaderName} (${side.toLowerCase()}); see ${log}\n" + problems.take(20).join("\n"))
 			}
-			logger.lifecycle("Mixin audit passed on ${mc} NeoForge (${side.toLowerCase()}).")
+			logger.lifecycle("Mixin audit passed on ${mc} ${loaderName} (${side.toLowerCase()}).")
 		}
 	}
 }
@@ -159,15 +261,15 @@ tasks.register("auditMixins") {
 }
 tasks.named("runAuditServer") { mustRunAfter "runAuditClient" }
 
-// neoforge.mods.toml and the mixin configs carry this node's Minecraft range and Java version.
+// The mods.toml and the mixin configs carry this node's Minecraft range and Java version.
 // (The cowboy hat is done with the render state from 1.21.2; before, two mixins keep a helmet off the supporter's head.)
 def hatMixins = sc.current.parsed.matches('>=1.21.2') ? '"AvatarRenderStateMixin", "AvatarRendererMixin",' : '"CustomHeadLayerMixin", "HumanoidArmorLayerMixin",'
 // (NeoForge for 26.2 renamed the mod list's logoFile to iconFile, and warns at start-up about the old name.)
 def logo = sc.current.parsed.matches('>=26.2') ? 'iconFile' : 'logoFile'
-def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, neoforge: project.neoforge_minimum, mixinJava: javaVersion.toString(), hatMixins: hatMixins, logo: logo]
+def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, (loader): forge ? project.forge_version : project.neoforge_minimum, mixinJava: javaVersion.toString(), hatMixins: hatMixins, logo: logo]
 tasks.matching { it.name in ["processResources", "processClientResources"] }.configureEach {
 	inputs.properties resourceProps
-	filesMatching(["META-INF/neoforge.mods.toml", "*.mixins.json"]) {
+	filesMatching(["META-INF/neoforge.mods.toml", "META-INF/mods.toml", "*.mixins.json"]) {
 		expand resourceProps
 	}
 }

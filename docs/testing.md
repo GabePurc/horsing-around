@@ -1,7 +1,7 @@
 # Testing
 
-Flags can lag behind the build: `gradle/client-tests.gradle`, `build.gradle` and the tests themselves are the truth. If a
-check enforces something wrong, fix the check and say so in the PR. When feel numbers change on purpose, update the targets.
+If a check enforces something wrong, fix the check and say so in the PR. When feel numbers change on purpose, update the
+targets.
 
 ## Client tests (26.3)
 
@@ -86,7 +86,8 @@ most players run the plain model, and some bugs only show there.
 - `-PsmokeCloseUp` (`=150` nearly from the front; default 90 is the side): 1920x1080 at a narrow view, a shot every tick (`closeup-*.png`) and
   the neck's numbers logged, for anything that should stay attached. With `-PsmokeWithoutMod` the task reports a failure at the course
   where a vanilla horse gets stuck.
-- NeoForge: `./gradlew :<version>-neoforge:runSmoke`, results in `build/run/smoke/<version>-neoforge/`.
+- NeoForge and Forge: `:<version>-neoforge:runSmoke`, `:1.20.1-forge:runSmoke`, results under the node's name. Forge's horse is one of
+  Realistic Horse Genetics' (`-PnoGenetics` for vanilla's).
 
 ## Compatibility
 

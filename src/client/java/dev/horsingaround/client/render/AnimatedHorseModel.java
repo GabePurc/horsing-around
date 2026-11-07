@@ -66,14 +66,19 @@ public final class AnimatedHorseModel {
 	 * about its own legs. False if the parts have no leg boxes (a tack layer's).
 	 */
 	public static boolean fitLegs(final ModelPart frontLeft, final ModelPart hindLeft, final RideState ride) {
+		return fitLegs(frontLeft, hindLeft, ride, 1.0F);
+	}
+
+	/** @param scale how large the model is drawn against the vanilla horse's model (1: the same) */
+	public static boolean fitLegs(final ModelPart frontLeft, final ModelPart hindLeft, final RideState ride, final float scale) {
 		final Legs.Leg front = Legs.of(frontLeft);
 		final Legs.Leg hind = Legs.of(hindLeft);
 		if (front == null || hind == null) {
 			return false;
 		}
-		ride.foreHooves = RideTuning.FORE_HOOVES * -(frontLeft.getInitialPose().z() + front.z) / VANILLA_FORE;
-		ride.hindHooves = RideTuning.HIND_HOOVES * (hindLeft.getInitialPose().z() + hind.z) / VANILLA_HIND;
-		ride.legLength = RideTuning.LEG_LENGTH * (front.length + hind.length) * 0.5F / VANILLA_LEG;
+		ride.foreHooves = RideTuning.FORE_HOOVES * -(frontLeft.getInitialPose().z() + front.z) / VANILLA_FORE * scale;
+		ride.hindHooves = RideTuning.HIND_HOOVES * (hindLeft.getInitialPose().z() + hind.z) / VANILLA_HIND * scale;
+		ride.legLength = RideTuning.LEG_LENGTH * (front.length + hind.length) * 0.5F / VANILLA_LEG * scale;
 		return true;
 	}
 

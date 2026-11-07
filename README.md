@@ -98,7 +98,7 @@ ride as normal. On a server without it, your horse rides like vanilla and the mo
 
 Horses ride the same for everyone. You can change the camera, how much the view moves and how loud the horse is, and if
 motion bothers you, all of it turns down. Open the settings from [Mod Menu](https://modrinth.com/mod/modmenu) (on
-NeoForge, the Mods screen) or with the "Open horse settings" key.
+NeoForge and Forge, the Mods screen) or with the "Open horse settings" key.
 
 <img src="https://raw.githubusercontent.com/GabePurc/horsing-around/main/docs/media/settings.webp" alt="Moving the camera from the horse settings while the world carries on behind" width="100%">
 
@@ -113,13 +113,17 @@ With [Icy's Better Horses](https://modrinth.com/mod/icys-better-horses), pick wh
 the settings (on a server, the server picks). Pick Horsing Around's and Icy's breeds ride this way, with all of Icy's
 features still working. Pick Icy's and Horsing Around leaves horses alone.
 
+With [Realistic Horse Genetics](https://www.curseforge.com/minecraft/mc-mods/realistic-horse-genetics) (Forge, Minecraft
+1.20.1), its horses, donkeys and mules ride this way too, keeping their own look, and their hooves find the ground at
+whatever size their genes give them.
+
 <details>
 <summary><b>Every mod it's tested with</b></summary>
 
 Automated test rides run alongside Sodium, Iris, Lithium, C2ME, FerriteCore, ImmediatelyFast, Entity Culling, More
 Culling, Not Enough Animations, Emotecraft, Better Combat, First-person Model, Real Camera, Shoulder Surfing Reloaded,
 Camera Overhaul, Freecam, Do a Barrel Roll, AppleSkin, Raised, Better Mount HUD, Jade, Xaero's Minimap, Horse Expert, Horseman,
-Bareback Horse Riding, Mounts Stay Still and Icy's Better Horses.
+Bareback Horse Riding, Mounts Stay Still, Icy's Better Horses and Realistic Horse Genetics.
 
 </details>
 
@@ -129,6 +133,7 @@ Something not getting along? [Open an issue](https://github.com/GabePurc/horsing
 
 - **Fabric:** Minecraft 1.20.1 to 26.3, Fabric Loader 0.14.25 or newer (or whatever your Fabric API needs) and Fabric API. Mod Menu is optional.
 - **NeoForge:** Minecraft 1.21.1, 26.1.2, 26.2 or 26.3, with NeoForge for that version.
+- **Forge:** Minecraft 1.20.1, with Forge 47.1.0 or newer.
 
 ## Buy me a coffee, get a hat
 

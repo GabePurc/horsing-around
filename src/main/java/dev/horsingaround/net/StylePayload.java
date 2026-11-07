@@ -6,11 +6,12 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-//?} else {
+//?} elif fabric {
 /*import net.fabricmc.fabric.api.networking.v1.FabricPacket;
 import net.fabricmc.fabric.api.networking.v1.PacketType;
 import net.minecraft.network.FriendlyByteBuf;
-*///?}
+*///?} else
+/*import net.minecraft.network.FriendlyByteBuf;*/
 import net.minecraft.resources.Identifier;
 
 /**
@@ -30,7 +31,7 @@ public record StylePayload(boolean icyRides) implements CustomPacketPayload {
 		return TYPE;
 	}
 }
-//?} else {
+//?} elif fabric {
 /*public record StylePayload(boolean icyRides) implements FabricPacket {
 	public static final PacketType<StylePayload> TYPE = PacketType.create(
 		Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "riding_style"), buf -> new StylePayload(buf.readBoolean()));
@@ -43,6 +44,19 @@ public record StylePayload(boolean icyRides) implements CustomPacketPayload {
 	@Override
 	public PacketType<StylePayload> getType() {
 		return TYPE;
+	}
+}
+*///?} else {
+/*// (Forge: one channel carries every payload, forge/HorsingAroundForge; TYPE names it to Platform.canSend.)
+public record StylePayload(boolean icyRides) {
+	public static final Class<StylePayload> TYPE = StylePayload.class;
+
+	public static StylePayload read(final FriendlyByteBuf buf) {
+		return new StylePayload(buf.readBoolean());
+	}
+
+	public void write(final FriendlyByteBuf buf) {
+		buf.writeBoolean(icyRides);
 	}
 }
 *///?}

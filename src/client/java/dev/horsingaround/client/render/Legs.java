@@ -54,6 +54,47 @@ public final class Legs {
 		return leg == NONE ? null : leg;
 	}
 
+	/**
+	 * Measures a leg built of parts hung one under another (Realistic Horse Genetics' thigh, shin and hoof) as one leg
+	 * standing straight, from the top of the top part's box to the sole of the lowest box under it, and keeps that as the
+	 * top part's leg for {@link #of}. Only for a model known to be built so: an animation pack's parts under a leg aren't
+	 * always more of it. Null if the part has no leg box.
+	 */
+	public static @Nullable Leg chain(final ModelPart top) {
+		final PartData data = (PartData) (Object) top;
+		Leg leg = data.horsingaround$leg();
+		if (leg == null) {
+			final Leg own = find(top, 0.0F, 0.0F, 0.0F, 0);
+			final Leg hoof = own == null ? null : lowest(top, 0.0F, 0.0F, 0.0F, 0, null);
+			leg = hoof == null ? NONE : new Leg(hoof.soleX, hoof.soleHalf, own.hipY, hoof.soleY, hoof.z);
+			data.horsingaround$setLeg(leg);
+		}
+		return leg == NONE ? null : leg;
+	}
+
+	/** The sole of the lowest box in the part or the parts hung straight under it (offset {@code dx}, {@code dy}, {@code dz}), as a leg with no top. */
+	private static @Nullable Leg lowest(final ModelPart part, final float dx, final float dy, final float dz, final int depth, @Nullable Leg best) {
+		final PartData access = (PartData) (Object) part;
+		for (final ModelPart.Cube cube : access.horsingaround$cubes()) {
+			final float sole = dy + extent(cube, false, 1);
+			if (sixSided(cube) && (best == null || sole > best.soleY)) {
+				best = new Leg(
+					dx + (extent(cube, true, 0) + extent(cube, false, 0)) * 0.5F, (extent(cube, false, 2) - extent(cube, true, 2)) * 0.5F, 0.0F, sole,
+					dz + (extent(cube, true, 2) + extent(cube, false, 2)) * 0.5F
+				);
+			}
+		}
+		if (depth < 3) {
+			for (final ModelPart child : access.horsingaround$children().values()) {
+				final PartPose pose = child.getInitialPose();
+				if (pose.xRot() == 0.0F && pose.yRot() == 0.0F && pose.zRot() == 0.0F) {
+					best = lowest(child, dx + pose.x(), dy + pose.y(), dz + pose.z(), depth + 1, best);
+				}
+			}
+		}
+		return best;
+	}
+
 	/** Turns the leg part to {@code xRot} about the top of the leg, which stays where it was. */
 	public static void swing(final ModelPart part, final Leg leg, final float xRot) {
 		float cos = Mth.cos(part.xRot);
