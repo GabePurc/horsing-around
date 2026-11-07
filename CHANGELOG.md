@@ -2,6 +2,34 @@
 
 Each version's notes are written to paste straight into the store version pages.
 
+## 0.6.1
+
+Fixes the crash on launch in 0.6.0 (Fabric, Minecraft 1.20.1 to 1.21.11), and makes carts from Icy's Better Horses feel much more real.
+
+### Changed
+- **Carts and wagons** (with Icy's Better Horses):
+  - They tilt with the ground under their wheels, and roll up and down steps of one or two blocks instead of bouncing off them.
+  - They feel heavy: they land softly after a drop and stay steady over hills, even at speed.
+  - They stay properly hitched to the horse, sit a bit further back from big horses, and turn tighter at low speed.
+  - Backing up with a cart is steady, and your horse stops if something blocks the cart.
+  - When you drive a wagon, the camera pulls back far enough to show the whole wagon.
+- **Camera:** riding in third person, glass behind you no longer pushes the camera in close. It now works the same as on foot.
+- **Supporter hats:** a new supporter's hat appears without restarting the game.
+
+### Fixed
+- **Fabric, Minecraft 1.20.1 to 1.21.11:** the game no longer crashes on launch.
+- **Fabric:** if your Fabric API is too old, the game now tells you so when it starts, instead of crashing later.
+- **With Real Camera:** in first person, your view no longer dips into your horse when it steps up or down a block.
+- **With Fresh Animations:**
+  - You stay in the saddle when your horse rears, instead of floating behind it.
+  - On Minecraft older than 1.21.5, the bridle, reins and stirrups stay in place on stairs, steps and jumps.
+  - On Minecraft older than 1.21, your horse's head no longer pops up in front of your face on stairs.
+- **With Icy's Better Horses:**
+  - Your horse's back legs no longer kick out sideways when it jumps.
+  - When a horse pulling a cart dies, the cart stays solid where you see it, instead of half a block away.
+  - If a future Icy's update changes something this mod uses, only that part stops working, instead of the game crashing.
+  - **Servers:** the settings file, `config/horsingaround.json`, is now created when the server first starts, so you can set `ridingStyle` without making the file yourself. A mistyped value shows a warning in the server log.
+
 ## 0.6.0
 
 ### New
