@@ -299,6 +299,7 @@ def compatTests = project.findProperty("compatTests")
 // the tests' own stats, and none of its abilities changes how it rides. MountsTest checks the breeds' traits.)
 def compatPackTests = [horses: "ride,mounts", icys: "ride,terrain,mounts,server,icy"]
 def compatPackHorse = [icys: "icys-better-horses:american_paint_horse"]
+def compatPlayScene = [icys: "cart"]
 // (Most packs run the ride test's core and cuts sections; Icy's runs every section, its breed standing in for the horse.)
 def compatPackSections = [icys: ""]
 def compatSections = project.findProperty("compatSections")
@@ -321,6 +322,14 @@ dependencies {
 def gametestJar = tasks.register("gametestJar", Jar) {
 	from sourceSets.gametest.output
 	archiveClassifier = "gametest"
+	destinationDirectory = rootProject.layout.buildDirectory.dir("compat-libs")
+}
+
+// The play scene as a mod of its own: never the tests' jar, whose mixins are for tests (they stop the game grabbing the mouse...).
+def playSceneJar = tasks.register("playSceneJar", Jar) {
+	from(sourceSets.gametest.output) { include "dev/horsingaround/gametest/PlayScene*.class" }
+	from(rootProject.file("src/gametest/playscene"))
+	archiveClassifier = "playscene"
 	destinationDirectory = rootProject.layout.buildDirectory.dir("compat-libs")
 }
 
@@ -386,7 +395,8 @@ compatPacks.keySet().each { name ->
 		}
 	}
 	runCompat.configure { dependsOn task }
-	// To play-test with a pack: ./gradlew playCompatIcys (no tests; worlds and settings stay between runs).
+	// To play-test with a pack: ./gradlew playCompatIcys (no tests; worlds and settings stay between runs). A pack with a scene
+	// boots straight into it; -Pscene=<name> picks another (PlayScene), -Pscene=none plays normally.
 	def playDir = rootProject.layout.buildDirectory.dir("run/play/$name").get().asFile
 	tasks.register("playCompat${name.capitalize()}", clientProductionRunTask) {
 		group = "verification"
@@ -398,7 +408,20 @@ compatPacks.keySet().each { name ->
 		mods.from(configurations.named("compatBase"))
 		mods.from(configurations.named("compat${name.capitalize()}"))
 		getRunDir().set(playDir)
+		programArgs.addAll("--username", "Rider")
+		def scene = project.findProperty("scene") ?: compatPlayScene[name]
+		def inScene = scene && scene != "none"
+		if (inScene) {
+			mods.from(playSceneJar)
+			jvmArgs.add("-Dhorsingaround.play=$scene")
+			if (project.findProperty("sceneCheck")) {
+				jvmArgs.add("-Dhorsingaround.play.check=true")
+			}
+		}
 		doFirst {
+			if (inScene) {
+				new File(playDir, "saves/Scene").deleteDir()
+			}
 			new File(playDir, "resourcepacks").mkdirs()
 			java.nio.file.Files.copy(freshAnimationsPack.toPath(), new File(playDir, "resourcepacks/" + freshAnimationsPack.name).toPath(),
 				java.nio.file.StandardCopyOption.REPLACE_EXISTING)

@@ -824,6 +824,13 @@ public final class RideTuning {
 	 */
 	public static final float CAMERA_DISTANCE_STILL = 4.0F;
 	public static final float CAMERA_DISTANCE_GALLOP = 5.5F;
+	/**
+	 * Driving a wagon, the third-person view is further back, so all of it is in view (user, 2026-11-06), and higher, to see
+	 * the horse over its cover (higher still pushes the wagon down out of the frame). A two-wheeled cart needs only some more room.
+	 */
+	public static final float CAMERA_WAGON_RAISE = 1.5F;
+	public static final float CAMERA_WAGON_BACK = 7.0F;
+	public static final float CAMERA_CART_BACK = 2.0F;
 	public static float CAMERA_DISTANCE_SCALE = 1.0F;
 	/** Low value = the camera falls behind as the horse speeds up and catches up as it slows. */
 	public static final float CAMERA_DISTANCE_SMOOTHING = 0.08F;
@@ -926,10 +933,12 @@ public final class RideTuning {
 	static final float TRAMPLE_MAX_WIDTH = 0.8F;
 	static final float TRAMPLE_MAX_HEIGHT = 1.0F;
 	/**
-	 * The furthest one of Icy's Better Horses' carts angles off the horse pulling it, degrees (see CartTrail): the shafts
-	 * hold it, and past this the horse drags it round.
+	 * The furthest one of Icy's Better Horses' carts angles off the horse pulling it, degrees (see CartTrail): the shafts hold it,
+	 * and past this the horse drags it round. From CART_SWING_SLOW standing down to CART_SWING_MAX flat out, so it turns tighter
+	 * the slower it goes (user, 2026-11-06).
 	 */
-	static final float CART_SWING_MAX = 20.0F;
+	static final float CART_SWING_SLOW = 60.0F;
+	static final float CART_SWING_MAX = 28.0F;
 	/**
 	 * Pulling one of those carts, the horse gets going this much slower (its acceleration scale), and slows this much
 	 * more gently letting go or reined back, the cart rolling on behind it (braking for danger stays as hard).
@@ -937,15 +946,100 @@ public final class RideTuning {
 	static final float CART_ACCEL = 0.55F;
 	static final float CART_DECEL = 0.6F;
 	/**
-	 * A cart's wheels roll up and down steps instead of jumping a block: its axle eases this share of the way to the
-	 * ground under it each tick, at most CART_AXLE_RISE blocks; its tilt (from the hitch, as the horse is drawn, down to
-	 * the axle) eases CART_TILT_EASE of the way, at most CART_TILT_RATE degrees a tick, up to CART_TILT_MAX.
+	 * Backing up, a cart swings away from where the horse points, so the horse does the steering a driver would: it points
+	 * off the cart's line, against the way the cart should come round, by CART_BACK_GAIN of how far the cart is off where
+	 * the rider looks, at most CART_BACK_SWING degrees, turning at most CART_BACK_TURN degrees a tick.
 	 */
-	static final float CART_AXLE_EASE = 0.5F;
-	static final float CART_AXLE_RISE = 0.2F;
-	static final float CART_TILT_EASE = 0.25F;
-	static final float CART_TILT_RATE = 2.5F;
-	static final float CART_TILT_MAX = 25.0F;
+	static final float CART_BACK_GAIN = 1.0F;
+	static final float CART_BACK_SWING = 15.0F;
+	static final float CART_BACK_TURN = 2.0F;
+	/** Backing up stops for anything too tall to roll over this far behind the rear axle (blocks), about where the bed ends. */
+	static final double CART_BACK_CLEAR = 1.1;
+	/**
+	 * A cart's wheels roll up and down steps instead of jumping a block: each eases this share of the way to the ground
+	 * under it each tick, at most CART_AXLE_RISE blocks up or CART_AXLE_DROP down, and takes nothing over CART_WHEEL_STEP above
+	 * itself for ground (a wall: it holds its height).
+	 */
+	static final float CART_AXLE_EASE = 0.7F;
+	static final float CART_AXLE_RISE = 0.35F;
+	static final float CART_AXLE_DROP = 0.8F;
+	static final double CART_WHEEL_STEP = 3.0;
+	/**
+	 * The cart has weight (user, 2026-11-06: not rigid, not floaty, no sudden stop). Each corner of it is carried by its wheel on
+	 * a spring and damper: its rate gains CART_SUSPENSION of how far it is below where the wheel would hold it, and CART_DAMPER of
+	 * how far its rate is from the ground's. They can only hold it up, so with nothing under it a corner falls at CART_GRAVITY a
+	 * tick (a horse's own), up to CART_FALL_MOST a tick, and coming down it compresses them and comes to rest, not all at once.
+	 */
+	static final double CART_SUSPENSION = 0.12;
+	static final double CART_DAMPER = 0.45;
+	/** (Of the ground's own rate it takes only this much at once: it comes through the spring, not as a kick.) */
+	static final double CART_DAMPER_GROUND = 0.15;
+	static final double CART_GRAVITY = 0.08;
+	static final double CART_FALL_MOST = 1.5;
+	/**
+	 * The body doesn't answer every block edge (user, 2026-11-06: going fast over hills was jerky): it rides on the ground averaged
+	 * along the cart, a stretch either way of CART_AVERAGE_PER_SPEED blocks for each block a tick it's going (its pace eased
+	 * CART_PACE_EASE a tick), from CART_AVERAGE_LEAST to CART_AVERAGE_MOST. An average has no lag on a steady slope, and turns each edge
+	 * into a slope as long as the stretch. The wheels still take every edge, on their suspension.
+	 */
+	static final double CART_AVERAGE_PER_SPEED = 4.0;
+	static final double CART_AVERAGE_LEAST = 0.5;
+	static final double CART_AVERAGE_MOST = 2.5;
+	static final double CART_PACE_EASE = 0.1;
+	static final float CART_TILT_MAX = 42.0F;
+	static final float CART_ROLL_MAX = 20.0F;
+	/**
+	 * Drawn, each wheel goes up to CART_WHEEL_BUMP blocks up into the cart where the ground is higher than the body has come to,
+	 * and hangs at most CART_WHEEL_DROOP below it, so a wheel over a drop stays in the air (user, 2026-11-06). They take
+	 * CART_WHEEL_TRAVEL_EASE of the way a tick.
+	 */
+	static final float CART_WHEEL_BUMP = 0.6F;
+	static final float CART_WHEEL_DROOP = 0.2F;
+	static final float CART_WHEEL_TRAVEL_EASE = 0.6F;
+	/**
+	 * The body never goes into the ground (user, 2026-11-06): it comes up off whatever it would, a wheel's ground once its
+	 * suspension is used up, at most CART_REST_RISE blocks a tick, and the ground under its bed (CART_BED_CLEAR above the wheels'
+	 * feet, reaching CART_BED_SIDE across, from CART_BED_FRONT behind the cart's origin to CART_BED_PAST past its rear axle) at most
+	 * CART_BED_RISE blocks.
+	 */
+	static final double CART_REST_RISE = 0.2;
+	static final double CART_BED_CLEAR = 0.75;
+	static final double CART_BED_SIDE = 1.0;
+	static final double CART_BED_FRONT = 1.0625;
+	static final double CART_BED_PAST = 0.9;
+	static final double CART_BED_RISE = 0.35;
+	/**
+	 * A wheel rolls over the ground as if every rise and drop along the cart had a ramp on it (user, 2026-11-06), CART_RAMP_SLOPE
+	 * blocks up for each block along, up to CART_RAMP_REACH blocks away: enough for a ramp up two blocks.
+	 */
+	static final double CART_RAMP_SLOPE = 0.75;
+	static final double CART_RAMP_REACH = 2.67;
+	/**
+	 * Over the last CART_SWING_SOFT degrees before the shafts stop it, a horse turning further off its cart
+	 * eases off, instead of stopping dead against them.
+	 */
+	static final float CART_SWING_SOFT = 8.0F;
+	/**
+	 * A cart stands this far further behind its horse than Icy's mod has it, by the horse's height (user, 2026-11-06: the
+	 * rider was in the horse's hindquarters, on the biggest most of all): CART_BEHIND_SCALE of its height less CART_BEHIND_LESS.
+	 */
+	static final double CART_BEHIND_SCALE = 0.6;
+	static final double CART_BEHIND_LESS = 0.46;
+	static final double CART_BEHIND_LEAST = 0.35;
+	/**
+	 * The shafts give a little: a cart hangs back as the horse gets it going and rolls up on it as it slows, CART_GIVE_GAIN
+	 * blocks for each block a tick its speed changes in a tick, at most CART_GIVE_MAX, on a slower spring of its own.
+	 */
+	static final double CART_GIVE_GAIN = 12.0;
+	static final double CART_GIVE_MAX = 0.12;
+	static final double CART_GIVE_SPRING = 0.05;
+	static final double CART_GIVE_DAMPING = 0.4;
+	/** (How much of its change in speed each tick that goes by: a horse's speed wavers over rough ground, and shouldn't shake the cart.) */
+	static final double CART_GIVE_SMOOTH = 0.15;
+	/** With three wheels on the ground, how far the fourth drawing away counts: the cart leans this share towards it (user, 2026-11-06). */
+	static final double CART_HANG_LEAN = 0.2;
+	/** How far above or below the horse a cart goes on its own wheels before the shafts bring it along (blocks). */
+	static final double CART_HITCH_SLACK = 2.5;
 
 	private RideTuning() {
 	}

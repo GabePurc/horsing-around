@@ -136,6 +136,17 @@ This area was reworked most. Read it before changing it.
 - Issue #15: leaving water launched the body about 2.6 blocks, because the drawn body took the physics box's step as its own speed.
   The drawn body always carries its own speed.
 
+## Icy's carts
+
+2026-11-06, one day of play-tests with the user, each step fixing the last:
+
+- Icy's wheel animation bounced the bed and rider, and lean came only from the tilt. A first version on wheel heights, eased hard to keep them on the ground, felt "extremely rigid".
+- Soft springs on tilt and height felt floaty, and a body hung from the hitch flew up 2-block rises; wheels then roll as if on ramps.
+- Keeping the body out of the ground by tilting it tipped a two-wheeled cart nearly on end going downhill: it has to rise on its wheels, tilt capped, shafts reaching for the horse.
+- Gravity and suspension per corner gave weight, but at speed each block edge made an axle hop ("really jerky"): the body follows ground averaged along the cart, wider at speed.
+- Reading the horse's height for the cart's tilt shook it with every step; it reads the ground under the horse.
+- A field with an initializer plus a `static` one with an initializer in a mixin left the instance one unset (a crash): keep such statics in plain classes.
+
 ## Multiplayer and versions
 
 - 2026-10-22, a NeoForge report and the user's play: on 1.21.1 a gallop across a dip got the client a hoof down in the air while the

@@ -90,6 +90,15 @@ public abstract class BhHorseModelMixin {
 		if (ride == null) {
 			return;
 		}
+		// Its jump clip moves the hind legs across the body and turns one about its length (play-test, 2026-11-06: they
+		// went sideways for a moment in every jump). The ride's jump shape only swings legs fore and aft, so that stayed.
+		final float clip = ((BhHorseRenderStateAccess) state).horsingaround$jumpLegWeight();
+		if (clip > 0.0F) {
+			AnimatedHorseModel.straighten(this.frontLeftLeg, clip);
+			AnimatedHorseModel.straighten(this.frontRightLeg, clip);
+			AnimatedHorseModel.straighten(this.backLeftLeg, clip);
+			AnimatedHorseModel.straighten(this.backRightLeg, clip);
+		}
 		final PartPose initial = this.body.getInitialPose();
 		SaddleMotion.measure(ride, this.body, initial.x(), initial.y() - SADDLE_UP, initial.z());
 		ride.animatedWholeRear = false;

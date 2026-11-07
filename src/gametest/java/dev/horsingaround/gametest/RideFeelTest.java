@@ -602,6 +602,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		final float staminaBefore = sample(ctx).stamina;
 		// (Counted in the horse's own ticks: a screenshot can let the game run a tick or two between samples.)
 		final int startTick = horseTick(ctx);
+		ctx.runOnClient(mc -> LegProbe.arm(true));
 		input.pressKey(o -> o.keyJump);
 		double peak = startY;
 		double slowest = Double.MAX_VALUE;
@@ -677,6 +678,12 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("rider's head clear of the horse's in the jump (closest, centre to centre, blocks)", headGap, 0.45, 10.0);
 		check("speed kept in the air (fraction)", slowest / before, 0.85, 1.3);
 		check("in the air the legs take the jump's shape (0..1)", airLegs, 0.95, 1.0);
+		final double[] sideways = ctx.computeOnClient(mc -> new double[] {
+			LegProbe.soleSideHigh[0] - LegProbe.soleSideLow[0], LegProbe.soleSideHigh[1] - LegProbe.soleSideLow[1],
+			LegProbe.soleSideHigh[2] - LegProbe.soleSideLow[2], LegProbe.soleSideHigh[3] - LegProbe.soleSideLow[3]
+		});
+		check("through the jump the hind hooves don't go sideways (blocks across the horse, most)", Math.max(sideways[2], sideways[3]), 0.0, 0.03);
+		check("...nor the front ones", Math.max(sideways[0], sideways[1]), 0.0, 0.03);
 		check("the gallop stride stops in the air (leg-animation speed)", slowestStride, 0.0, 0.3);
 		check("front legs fold up rising, then reach for the ground coming down", tucked && reaching);
 		check("smooth and floaty in the air: front legs move at most (radians a tick)", foreStep, 0.0, 0.1);

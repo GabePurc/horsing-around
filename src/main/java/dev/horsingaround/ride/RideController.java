@@ -88,7 +88,7 @@ public final class RideController {
 			rate = s.speed < target ? GAIT_ACCEL[s.gait] * s.accelScale : DECEL_REIN;
 		} else {
 			s.gait = STOP;
-			if (back && s.speed <= 0.01F) {
+			if (back && s.speed <= 0.01F && !(pulling && IcyCompat.cartBlockedBehind(horse))) {
 				target = REVERSE_SPEED;
 				rate = REVERSE_ACCEL;
 			} else {
@@ -314,12 +314,24 @@ public final class RideController {
 		s.heading = horse.getYRot() + s.yawVelocity;
 		s.bankRate = s.turnIntent * maxTurn;
 		if (pulling) {
-			// In a cart's shafts the horse turns only as far as the rolling cart comes round behind it (CartTrail): wide,
-			// and not at all standing. So the cart is pulled round, never dragged sideways.
-			final float off = Mth.wrapDegrees(s.heading - s.cartYaw);
-			if (Math.abs(off) > CART_SWING_MAX) {
-				s.heading = s.cartYaw + Math.copySign(CART_SWING_MAX, off);
-				s.yawVelocity = Mth.wrapDegrees(s.heading - horse.getYRot());
+			if (!forward && (back || s.speed < 0.0F)) {
+				// Backing up, a cart swings further from where the horse points, unchecked, till it jack-knifes. So the
+				// horse points the other way from where the rider wants the cart to come round, and eases back into line.
+				final float swing = Mth.clamp(Mth.wrapDegrees(targetYaw - s.cartYaw) * CART_BACK_GAIN, -CART_BACK_SWING, CART_BACK_SWING);
+				s.yawVelocity = Mth.clamp(Mth.wrapDegrees(s.cartYaw - swing - horse.getYRot()), -CART_BACK_TURN, CART_BACK_TURN);
+				s.heading = horse.getYRot() + s.yawVelocity;
+				s.bankRate = s.yawVelocity;
+			} else {
+				// In a cart's shafts the horse turns only as far as the rolling cart comes round behind it (CartTrail): wider the
+				// faster it goes, and standing, only as far as the shafts bend. So the cart is pulled round, never dragged sideways. Nearing the limit it eases
+				// off turning further from the cart, so it comes up against the shafts softly, not all at once.
+				final float at = Mth.wrapDegrees(horse.getYRot() - s.cartYaw);
+				if (s.yawVelocity * at > 0.0F) {
+					s.yawVelocity *= smoothstep((Mth.lerp(speedFraction, CART_SWING_SLOW, CART_SWING_MAX) - Math.abs(at)) / CART_SWING_SOFT);
+				}
+				final float eased = Mth.wrapDegrees(horse.getYRot() + s.yawVelocity - s.cartYaw);
+				s.yawVelocity = Mth.clamp(eased, -CART_SWING_SLOW, CART_SWING_SLOW) - at;
+				s.heading = horse.getYRot() + s.yawVelocity;
 				s.bankRate = s.yawVelocity;
 			}
 		}

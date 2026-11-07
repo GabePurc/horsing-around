@@ -67,6 +67,11 @@ public final class LegProbe {
 	public static final double[][] sole = new double[4][3];
 	/** The top of the leg (world). */
 	public static final double[][] top = new double[4][3];
+	/** How far behind the horse's middle its body ends, along its heading (blocks, the last frame drawn). */
+	public static double rump;
+	/** Per leg since {@link #reset}: the sole's centre across the horse, least and most (blocks, its left positive). */
+	public static final double[] soleSideLow = new double[4];
+	public static final double[] soleSideHigh = new double[4];
 
 	// Scratch for a frame (render thread).
 	private static final double[] lowest = new double[4];
@@ -113,6 +118,8 @@ public final class LegProbe {
 		snaps = 0;
 		snapLog.setLength(0);
 		haveLast = false;
+		Arrays.fill(soleSideLow, Double.MAX_VALUE);
+		Arrays.fill(soleSideHigh, -Double.MAX_VALUE);
 	}
 
 	public static void requestTree() {
@@ -160,6 +167,10 @@ public final class LegProbe {
 			final double hx = -Mth.sin(heading);
 			final double hz = Mth.cos(heading);
 			final double middle = (belly[0] + belly[3] + belly[6] + belly[9]) * 0.25 * hx + (belly[2] + belly[5] + belly[8] + belly[11]) * 0.25 * hz;
+			rump = 0.0;
+			for (int i = 0; i < 4; i++) {
+				rump = Math.max(rump, -((belly[i * 3] - s.x) * hx + (belly[i * 3 + 2] - s.z) * hz));
+			}
 			for (int i = 0; i < 4; i++) {
 				final double in = insideAt(level, belly[i * 3], belly[i * 3 + 2], belly[i * 3 + 1]);
 				bodyInside = Math.max(bodyInside, in);
@@ -221,6 +232,11 @@ public final class LegProbe {
 		// Snaps: where the sole is against the horse, from the last frame.
 		for (int leg = 0; leg < 4; leg++) {
 			final double rx = sole[leg][0] - s.x, ry = sole[leg][1] - s.y, rz = sole[leg][2] - s.z;
+			if (!Double.isNaN(gap[leg])) {
+				final double side = rx * Mth.cos(s.bodyRot * Mth.DEG_TO_RAD) + rz * Mth.sin(s.bodyRot * Mth.DEG_TO_RAD);
+				soleSideLow[leg] = Math.min(soleSideLow[leg], side);
+				soleSideHigh[leg] = Math.max(soleSideHigh[leg], side);
+			}
 			if (haveLast && !Double.isNaN(gap[leg])) {
 				final double dSole = Math.sqrt(Mth.square(rx - lastSole[leg][0]) + Mth.square(ry - lastSole[leg][1]) + Mth.square(rz - lastSole[leg][2]));
 				soleSnapMost = Math.max(soleSnapMost, dSole);
