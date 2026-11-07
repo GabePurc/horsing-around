@@ -1,0 +1,24 @@
+# Posts a release's notes to the Discord server by hand (Actions > discord > Run workflow), for a release published
+# before the webhook was set up, or to post one again. publish.yml posts each new release itself.
+name: discord
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release's tag, such as v0.6.1
+        required: true
+        type: string
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Post the notes to Discord
+        run: scripts/discord-release.sh "$TAG"
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+          DISCORD_RELEASES_WEBHOOK: ${{ secrets.DISCORD_RELEASES_WEBHOOK }}
