@@ -1,4 +1,4 @@
-// Runs the Worker against an in-memory KV and a stubbed network: node --test test/ (from hats/).
+// Runs the Worker against an in-memory KV and a stubbed network: npm test (from hats/).
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { beforeEach, test } from "node:test";
