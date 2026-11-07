@@ -291,13 +291,17 @@ def compatPacks = [
 		"modonomicon:DwjrSwcC",        // 26.3-2.20.0
 		"cloth-config:fg2uyxOW",       // 26.3.159 (its settings screen needs it)
 	],
+	realcamera: [
+		"real-camera:ROhlZqcT",  // 0.7.8-beta-26.3 (moves the first-person view itself: a pack of its own)
+		"cloth-config:fg2uyxOW", // 26.3.159 (its settings screen needs it)
+	],
 ]
 
 def compatTests = project.findProperty("compatTests")
 // (The horses pack skips the server test: Horseman's server config isn't loaded in the test's second, in-process server.)
 // (Icy's pack rides one of its breeds through the horse tests, an American Paint: a vanilla horse's size, summoned with
 // the tests' own stats, and none of its abilities changes how it rides. MountsTest checks the breeds' traits.)
-def compatPackTests = [horses: "ride,mounts", icys: "ride,terrain,mounts,server,icy"]
+def compatPackTests = [horses: "ride,mounts", icys: "ride,terrain,mounts,server,icy", realcamera: "realcamera,mounts,server,ride"]
 def compatPackHorse = [icys: "icys-better-horses:american_paint_horse"]
 def compatPlayScene = [icys: "cart"]
 // (Most packs run the ride test's core and cuts sections; Icy's runs every section, its breed standing in for the horse.)

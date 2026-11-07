@@ -66,7 +66,7 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
 - `-Ptests=perf`: load, not pass/fail: horses of every kind in a pen, a gallop round them for 90 s; server tick time, frame rate and
   plan times in `horsingaround-perf-report.txt`.
 - `-Pprofile`, on any run: a Java Flight Recording at `build/run/clientGameTest/horsingaround-profile.jfr`. Count samples with a
-  `dev.horsingaround` frame for the mod's share. Measured 2026-10-20: about 3% of the client thread, 0.1-0.3% of the server.
+  `dev.horsingaround` frame for the mod's share.
 - `-Ptests=store`: films the README's clips and stills in a generated world (`StoreMediaTest`, `FilmCamera`; `-Pscenario=gaits,river`
   for some), with ATMOSPHERICS for the sky. `scripts/store-media.sh` turns them into `docs/media/`, as MP4 and animated WebP. Every
   client test run clears `build/run/clientGameTest`, so encode before the next run. `-PshaderPack=<zip>` shoots stills with Iris; the
@@ -99,6 +99,8 @@ with worlds kept in `build/run/play/<pack>/`. Icy's boots straight onto a tamed 
 The `icys` pack rides an American Paint (`-Dhorsingaround.horse`, `TestHorse`) through the horse tests, which must pass as on a vanilla horse;
 `MountsTest` also checks a Friesian under both riding styles and the breeds' traits. `IcyFeaturesTest` (`-PcompatTests=icy`) rides Icy's gear on
 this mod's riding; while working on carts, `-PcompatSections=` runs only some of it (`room,cart,hill,steep,jitter,fast,tight,drop,rough,ledge,jump,lean,reverse`).
+
+The `realcamera` pack rides first person over steps in each of Real Camera's modes (`RealCameraTest`).
 
 Icy's features with only screens or keys aren't tested. Check by hand in `playCompatIcys`, on this mod's riding:
 
