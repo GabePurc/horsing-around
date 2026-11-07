@@ -27,7 +27,8 @@ import org.slf4j.LoggerFactory;
 /**
  * Who supports the project: Minecraft player UUIDs in {@code supporters.json} in the GitHub repository. Downloaded in
  * the background when the game starts (nothing is sent: it's a plain download) and kept in the config folder, so it
- * still works offline. Supporters get the cowboy hat.
+ * still works offline. Fetched again when something suggests it has changed, so a new hat shows without a restart.
+ * Supporters get the cowboy hat.
  */
 public final class Supporters {
 	private static final Logger LOGGER = LoggerFactory.getLogger(HorsingAround.MOD_ID);
@@ -35,6 +36,8 @@ public final class Supporters {
 	private static final Path CACHE = Platform.configDir().resolve("horsingaround-supporters.json");
 	/** The list is a few KB; anything over this is not it. */
 	private static final int MAX_BYTES = 1 << 20;
+	/** Fetched again at most this often: GitHub's cache holds a change back for about this long anyway. */
+	private static final long REFRESH_GAP_NANOS = Duration.ofMinutes(5).toNanos();
 
 	/** Everyone who gets a hat: {@link #listed} plus {@link #testing}. Replaced whole on a change; read from the render thread. */
 	private static volatile Set<UUID> supporters = Set.of();
@@ -42,6 +45,10 @@ public final class Supporters {
 	private static Set<UUID> listed = Set.of();
 	/** Players the tests made supporters; kept apart so a download arriving mid-test can't drop them. */
 	private static Set<UUID> testing = Set.of();
+	/** The text of the list we hold, so an identical download can be skipped; null if there's none yet. */
+	private static volatile String known;
+	private static long nextRefresh;
+	private static int refreshesStarted;
 
 	private Supporters() {
 	}
@@ -52,25 +59,39 @@ public final class Supporters {
 
 	/** Loads the cached list, then fetches the current one in the background. */
 	public static void load() {
-		String cached = null;
 		try {
 			if (Files.exists(CACHE)) {
 				final String text = Files.readString(CACHE);
 				setListed(parse(text));
 				// Only a cache that parsed lets an identical download be skipped.
-				cached = text;
+				known = text;
 			}
 		} catch (final IOException | RuntimeException e) {
 			LOGGER.warn("Could not read the cached supporters list", e);
 		}
-		final String known = cached;
-		final Thread refresh = new Thread(() -> refresh(known), "Horsing Around supporters");
+		startRefresh();
+	}
+
+	/**
+	 * Fetches the list again unless that happened moments ago: on joining a world, on opening the settings (where a new
+	 * supporter goes looking for the hat) and when the server announces a hat for someone we don't have on the list.
+	 */
+	public static synchronized void refreshSoon() {
+		if (System.nanoTime() - nextRefresh >= 0) {
+			startRefresh();
+		}
+	}
+
+	private static synchronized void startRefresh() {
+		nextRefresh = System.nanoTime() + REFRESH_GAP_NANOS;
+		refreshesStarted++;
+		final Thread refresh = new Thread(Supporters::refresh, "Horsing Around supporters");
 		refresh.setDaemon(true);
 		refresh.start();
 	}
 
-	/** Downloads the current list (background thread); {@code cached} is the cache's text, or null. */
-	private static void refresh(final String cached) {
+	/** Downloads the current list (background thread). */
+	private static void refresh() {
 		HttpClient client = null;
 		try {
 			// (Follows redirects: GitHub answers with one when the repository is renamed or moved.)
@@ -91,10 +112,11 @@ public final class Supporters {
 				}
 				body = new String(bytes, StandardCharsets.UTF_8);
 			}
-			if (body.equals(cached)) {
+			if (body.equals(known)) {
 				return;
 			}
 			setListed(parse(body));
+			known = body;
 			writeCache(body);
 			// A list that arrives after joining a server would otherwise leave the hat unannounced until the next change.
 			Minecraft.getInstance().execute(Hats::sendOwn);
@@ -174,6 +196,16 @@ public final class Supporters {
 			throw new IllegalArgumentException(id);
 		}
 		return UUID.fromString(id);
+	}
+
+	/** For tests: how many fetches have started. */
+	public static synchronized int refreshesStarted() {
+		return refreshesStarted;
+	}
+
+	/** For tests: the next {@link #refreshSoon} goes ahead whenever the last one was. */
+	public static synchronized void allowRefreshForTesting() {
+		nextRefresh = System.nanoTime();
 	}
 
 	/** For tests: make a player a supporter for this session. */

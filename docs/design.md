@@ -144,6 +144,6 @@ On this mod's setting, the default:
 - Settings are comfort and preference only (see `AGENTS.md`), reached from Mod Menu, the NeoForge Mods screen or a key, and
   should look polished and at home in Minecraft.
 - The supporter cowboy hat (user, 2026-10-08) is for people who buy the user a coffee (https://buymeacoffee.com/blintzbug).
-  Supporters are listed by UUID in `supporters.json`, which every client downloads at startup (disclosed in the README). The
+  `hats/` lists claimed supporters by UUID in `supporters.json`, which clients download (disclosed in the README). The
   colour goes through the server (`HatRelay`); clients draw hats only for players on their own copy of the list. While worn,
   head items aren't drawn but still protect. Shape: `art/cowboy_hat.bbmodel`, built into the code by `scripts/hat-model.py`.

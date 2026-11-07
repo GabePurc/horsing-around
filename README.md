@@ -132,9 +132,10 @@ Something not getting along? [Open an issue](https://github.com/GabePurc/horsing
 
 ## Buy me a coffee, get a hat
 
-The mod is free and will stay that way. [Buy me a coffee](https://buymeacoffee.com/blintzbug) with your Minecraft username
-in the message and within a day or two you'll get a cowboy hat in your horse settings, in any colour you like. Everyone
-on your server who has the mod sees it. It's only cosmetic: your helmet is hidden under it but still protects you.
+The mod is free and will stay that way. [Buy me a coffee](https://buymeacoffee.com/blintzbug), then
+[claim your hat](https://horsing-around-hats.blintzbug.workers.dev) with your Minecraft username, and within about 10
+minutes you'll find a cowboy hat in your horse settings, in any colour you like. Everyone on your server who has the mod
+sees it. It's only cosmetic: your helmet is hidden under it but still protects you.
 
 <div align="center">
 
@@ -146,8 +147,11 @@ on your server who has the mod sees it. It's only cosmetic: your helmet is hidde
 
 ## Privacy
 
-At startup the mod downloads the supporter list (`supporters.json` in this repository) from GitHub to know who gets a
-hat. Nothing about you is sent. If it can't connect, it uses the last list it saw.
+At startup, and now and then while you play, the mod downloads the supporter list (`supporters.json` in this repository)
+from GitHub to know who gets a hat. Nothing about you is sent. If it can't connect, it uses the last list it saw.
+
+If you claim a hat, your Minecraft username goes on that public list. Your email is only compared against a scrambled copy
+of the one on your payment, and is never stored in readable form.
 
 ## What's next
 
