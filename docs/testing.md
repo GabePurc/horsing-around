@@ -33,7 +33,7 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
 | `slopes`, `hill` | Slope and stair lanes; a gallop up a ragged hillside (also in `stairs`) |
 | `slowstep` | Standing, stopping and single steps frame by frame, for snaps, at world tick 158 million |
 | `drawn`, `legs` | Close shots: legs as drawn on slopes and steps; legs in a jump |
-| `idle` | Horses no one rides: level ground, grass, a lead; a step's edge (baseline) |
+| `idle`, `unseen` | Horses no one rides: level, grass, a lead, a step's edge; moved out of view (`performance` pack) |
 | `exits`, `strafe` | Out of water onto banks; stopping after A or D alone |
 | `hands`, `icons` | Rider's arms with items; shulker boxes with Entity Model Features |
 | `rear` | A ridden horse rears; on a pack's model the seat stays on the measured saddle (also in `core`) |
@@ -57,7 +57,7 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
   store always do. A game whose frames stop for 2 minutes logs its threads and exits.
 - Test games run the same in front, covered or minimized: no vsync or frame limit (out of sight on Ubuntu they crawled under 1%,
   spinning in `glGetError`). On Linux they use X11, even from a Wayland shell.
-- Lanes start from a horse with no AI until mounted (`lane()`): one that idled first now and then starts off its line, failing checks far on.
+- Lanes start from a horse with no AI until mounted (`lane()`): one that idled first sometimes starts off its line, failing checks far on.
 
 ## Other runs
 
@@ -71,7 +71,7 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
   for some), with ATMOSPHERICS for the sky. `scripts/store-media.sh` turns them into `docs/media/`, as MP4 and animated WebP. Every
   client test run clears `build/run/clientGameTest`, so encode before the next run. Stills may use shaders; the user wants clips
   without, which are easier to see. Modrinth uses the MP4s; GitHub and CurseForge the WebPs.
-- `-PshaderPack=<zip>`, any client test run: Iris with that pack. Its shadows draw every entity again, first only up to 1.21.11.
+- `-PshaderPack=<zip>`, any client test run: Iris with that pack (its shadows come first only up to 1.21.11).
 
 ## Smoke test (every version)
 

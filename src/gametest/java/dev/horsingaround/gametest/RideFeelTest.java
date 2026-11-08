@@ -152,6 +152,11 @@ public final class RideFeelTest implements FabricClientGameTest {
 				// Only on request: horses no one rides, standing about on level ground and at a step's edge.
 				idleHorses(ctx, world);
 			}
+			if (sections.contains("idle") || sections.contains("unseen")) {
+				// Only on request (the performance pack asks, for Entity Culling): a horse that moved while out of sight.
+				unseenHorse(ctx, world, false);
+				unseenHorse(ctx, world, true);
+			}
 			if (sections.isEmpty() || sections.contains("climbs")) {
 				// 2-block climbs swept by angle, speed, start and what is round them.
 				climbs(ctx, input, world);
@@ -4080,6 +4085,73 @@ public final class RideFeelTest implements FabricClientGameTest {
 			check("no leg in a block (most, blocks)", legIn, 0.0, 0.06);
 			check("the body stays out of the ground (blocks)", body, 0.0, 0.05);
 		}
+		server.runCommand("kill @e[tag=" + tag + "]");
+	}
+
+	/**
+	 * A horse no one rides goes down off a step while the player looks away, then the player looks back. Entity Culling
+	 * (in the performance pack) skips the client ticks of an entity out of view, the ride's with them: when it is back in
+	 * view, the body must be where the horse is, not pop up to where it was and drop (issue 121).
+	 */
+	/** @param up up onto the step, else down off it */
+	private void unseenHorse(final ClientGameTestContext ctx, final TestSingleplayerContext world, final boolean up) {
+		section("Idle: moved " + (up ? "up" : "down") + " a block while out of sight");
+		final TestServerContext server = world.getServer();
+		final int x = up ? 6160 : 6140;
+		final String tag = "idle_unseen";
+		server.runCommand("ride @p dismount");
+		server.runCommand(String.format(Locale.ROOT, "tp @p %d.5 -60 9.5 180 10", x + 6));
+		ctx.waitTicks(20);
+		world.getConnection().waitForChunksRender();
+		server.runCommand(backdrop(x));
+		server.runCommand(String.format(Locale.ROOT, "fill %d -60 -12 %d -60 0 minecraft:stone", x - 3, x + 3));
+		server.runCommand(String.format(Locale.ROOT, "summon %s %d.5 %s {Tame:1b,Variant:1,Rotation:[0f,0f],equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
+			+ "attributes:[{id:\"minecraft:movement_speed\",base:0d}],Tags:[\"%s\"]}", TestHorse.TYPE, x, up ? "-60 3.5" : "-59 -2.5", tag));
+		final CameraType camera = ctx.computeOnClient(mc -> mc.options.getCameraType());
+		ctx.runOnClient(mc -> {
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			setView(mc.player, 160.0F, 10.0F);
+		});
+		ctx.waitTicks(40);
+		final boolean found = ctx.computeOnClient(mc -> {
+			LegProbe.target = mc.level.getEntitiesOfClass(AbstractHorse.class, new net.minecraft.world.phys.AABB(x - 1, -62, -6, x + 2, -55, 6)).stream().findFirst().orElse(null);
+			return LegProbe.target != null;
+		});
+		check("the horse is there", found);
+		if (!found) {
+			return;
+		}
+		// Away (it is behind the player), then down off the step and onto the ground in front of it, unseen.
+		ctx.runOnClient(mc -> setView(mc.player, 0.0F, 10.0F));
+		ctx.waitTicks(20);
+		server.runCommand(String.format(Locale.ROOT, "tp @e[tag=%s,limit=1] %d.5 %s 0 0", tag, x, up ? "-59 -2.5" : "-60 3.5"));
+		ctx.waitTicks(40);
+		final int ticksBefore = ctx.computeOnClient(mc -> LegProbe.target.tickCount);
+		ctx.runOnClient(mc -> setView(mc.player, 180.0F, 10.0F));
+		double most = 0.0;
+		final StringBuilder trace = new StringBuilder();
+		for (int i = 0; i < 30; i++) {
+			ctx.waitTick();
+			final double[] m = ctx.computeOnClient(mc -> new double[] {
+				((RideStateHolder) LegProbe.target).horsingaround$ride().heightOffset(1.0F), LegProbe.target.getY(), LegProbe.target.tickCount
+			});
+			most = Math.max(most, Math.abs(m[0]));
+			trace.append(String.format(Locale.ROOT, "t%d y%.2f body%+.2f | ", (int) m[2], m[1], m[0]));
+			if (i == 10) {
+				final double horseY = m[1];
+				final double horseZ = up ? -2.5 : 3.5;
+				sideCamera(world, x + 5.5, horseY + 1.8 - 1.7775, horseZ, 90.0F);
+				server.runCommand(String.format(Locale.ROOT, "tp @e[type=minecraft:armor_stand,tag=test_camera] %d.5 %.2f %.2f 90 15", x + 5, horseY + 1.8 - 1.7775, horseZ));
+				ctx.waitTick();
+				cameraShot(ctx, "33_unseen_" + (up ? "up" : "down"));
+			}
+		}
+		log("  back in view (horse tick %d): %s", ticksBefore, trace);
+		check("back in view, the body is where the horse is (most off its box, blocks)", most, 0.0, 0.1);
+		ctx.runOnClient(mc -> {
+			mc.options.setCameraType(camera);
+			LegProbe.target = null;
+		});
 		server.runCommand("kill @e[tag=" + tag + "]");
 	}
 

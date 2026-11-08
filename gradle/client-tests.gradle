@@ -305,7 +305,7 @@ def compatPackTests = [horses: "ride,mounts", icys: "ride,terrain,mounts,server,
 def compatPackHorse = [icys: "icys-better-horses:american_paint_horse"]
 def compatPlayScene = [icys: "cart"]
 // (Most packs run the ride test's core and cuts sections; Icy's runs every section, its breed standing in for the horse.)
-def compatPackSections = [icys: ""]
+def compatPackSections = [icys: "", performance: "core,cuts,unseen"]
 def compatSections = project.findProperty("compatSections")
 
 configurations.register("compatBase") { transitive = false }
