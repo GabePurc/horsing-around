@@ -198,7 +198,7 @@ tasks.register("runClientGameTestParallel") {
 }
 testShards.keySet().each { name -> tasks.matching { it.name == "runClientGameTest${name}" }.configureEach { finalizedBy collectShardReports } }
 
-// Store filming (-Ptests=store) with shaders, to match store screenshots taken with them: -PshaderPack=<path to a shader
+// Shaders on any client test run (store stills, or legs with a pack's shadow pass): -PshaderPack=<path to a shader
 // pack zip> also loads Sodium and Iris (the compatibility pack's versions) and turns that pack on, with its settings
 // file (<pack>.txt) when there is one. Dev-only; nothing here ships.
 def storeShaderPack = project.findProperty("shaderPack")
@@ -305,7 +305,7 @@ def compatPackTests = [horses: "ride,mounts", icys: "ride,terrain,mounts,server,
 def compatPackHorse = [icys: "icys-better-horses:american_paint_horse"]
 def compatPlayScene = [icys: "cart"]
 // (Most packs run the ride test's core and cuts sections; Icy's runs every section, its breed standing in for the horse.)
-def compatPackSections = [icys: ""]
+def compatPackSections = [icys: "", performance: "core,cuts,unseen"]
 def compatSections = project.findProperty("compatSections")
 
 configurations.register("compatBase") { transitive = false }

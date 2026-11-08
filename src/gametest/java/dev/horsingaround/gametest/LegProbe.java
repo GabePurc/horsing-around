@@ -35,6 +35,8 @@ public final class LegProbe {
 	private static final String[] ICY_LEGS = {"front_left_leg", "front_right_leg", "back_left_leg", "back_right_leg"};
 
 	private static volatile boolean armed;
+	/** A horse no one rides to measure instead (client side), or null for the ridden one. */
+	public static volatile AbstractHorse target;
 	private static volatile boolean wantTree;
 	/** The parts' tree, written once when asked for. */
 	public static volatile String tree;
@@ -129,11 +131,13 @@ public final class LegProbe {
 
 	/** After a model is drawn: if it is the ridden horse's body, measures its legs. */
 	public static void measure(final Model<?> model, final Object state, final PoseStack.Pose pose) {
-		if (!armed || !(state instanceof LivingEntityRenderState s)) {
+		// (Not a shader pack's shadow pass: its pose has the sun's view in it.)
+		if (!armed || !(state instanceof LivingEntityRenderState s) || dev.horsingaround.client.compat.ShaderShadows.drawing()) {
 			return;
 		}
 		final Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || !(mc.player.getVehicle() instanceof AbstractHorse horse) || Math.abs(s.x - horse.getX()) > 1.0
+		final AbstractHorse horse = target != null ? target : mc.player != null && mc.player.getVehicle() instanceof AbstractHorse ridden ? ridden : null;
+		if (horse == null || Math.abs(s.x - horse.getX()) > 1.0
 			|| Math.abs(s.z - horse.getZ()) > 1.0 || !(mc.getEntityRenderDispatcher().getRenderer(horse) instanceof LivingEntityRenderer<?, ?, ?> renderer)
 			|| renderer.getModel() != model) {
 			return;

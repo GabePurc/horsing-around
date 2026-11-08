@@ -2,6 +2,7 @@ package dev.horsingaround.client.render;
 
 import static dev.horsingaround.ride.RideTuning.*;
 
+import dev.horsingaround.client.compat.ShaderShadows;
 import dev.horsingaround.ride.RideController;
 import dev.horsingaround.ride.RideState;
 import net.minecraft.client.Minecraft;
@@ -95,9 +96,14 @@ public final class GroundLegs {
 			// Game time (ticks and the partial tick): how long since the legs were last posed, whatever the frame rate.
 			partial = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
 			final double now = (double) level.getGameTime() + partial;
-			again = now == ride.legRiseAt;
+			// (A shader pack's shadow pass draws it too, with the sun's view in its pose, and up to 1.21.11 before the camera's
+			// pass: there the legs keep what the camera's pass last worked out, and only that pass works them out.)
+			final boolean shadow = ShaderShadows.drawing();
+			again = shadow || now == ride.legRiseAt;
 			dt = again || Double.isNaN(ride.legRiseAt) ? 0.0F : (float) Mth.clamp((now - ride.legRiseAt) / 20.0, 0.0, 0.1);
-			ride.legRiseAt = now;
+			if (!shadow) {
+				ride.legRiseAt = now;
+			}
 		}
 		if (again ? ride.legsQuiet
 			: tilt == 0.0F && fore == 0.0F && hind == 0.0F && (!drawn || !ride.narrow && !ride.legsActive && ride.drawnFit == 0.0F && !ride.lowered())) {
