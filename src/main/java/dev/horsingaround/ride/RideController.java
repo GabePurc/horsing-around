@@ -786,6 +786,21 @@ public final class RideController {
 		s.hindLegO = s.hindLeg;
 		final boolean onGround = horse.onGround();
 		final double y = horse.getY();
+		// Ticks the game skipped (Entity Culling skips an entity's while it is out of view, and this with them): the horse
+		// may have moved meanwhile, and the body went with it. Standing still, it reads the ground again only now, else it
+		// stood on the ground it had left (floating a block over the ground it went down to; issue 121).
+		final boolean skipped = horse.tickCount - s.visualTick > 1 && !Double.isNaN(s.visualY) && !Double.isNaN(s.hind);
+		if (skipped) {
+			final double shift = horse.yo - s.visualY;
+			s.fore += shift;
+			s.hind += shift;
+			s.foreGround += shift;
+			s.hindGround += shift;
+			s.foreRise += shift;
+			s.hindRise += shift;
+		}
+		s.visualTick = horse.tickCount;
+		s.visualY = y;
 		if (Math.abs(s.heightOffset) > STEP_SNAP || Double.isNaN(s.hind)) {
 			// First seen, or teleported: stand where the body is.
 			s.heightOffset = 0.0F;
@@ -838,7 +853,7 @@ public final class RideController {
 					// (Off the ground the line was the drawn tilt.)
 					s.groundTilt = s.pitch;
 				}
-				steps(horse, s, bodyYaw, (float) Math.sqrt(horizontalSq), moved || !s.wasOnGround, wasFlying ? (float) Math.max(-dy, 0.0) : -1.0F);
+				steps(horse, s, bodyYaw, (float) Math.sqrt(horizontalSq), moved || !s.wasOnGround || skipped, wasFlying ? (float) Math.max(-dy, 0.0) : -1.0F);
 			} else {
 				// In the air the body tilts with its flight: nose up taking off, level over the top, nose down to land.
 				final float flight = (float) Math.toDegrees(Math.atan2(dy, Math.sqrt(horizontalSq) + 1.0E-3)) * JUMP_PITCH_SCALE;

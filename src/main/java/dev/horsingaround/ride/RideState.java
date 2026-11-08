@@ -288,6 +288,9 @@ public final class RideState {
 	/** The ground actually under the front and hind hooves (NaN on level ground or where there is none). */
 	double foreFoot = Double.NaN;
 	double hindFoot = Double.NaN;
+	/** The horse's tick count and height at the last tickVisual, to tell ticks the game skipped (see there). */
+	int visualTick;
+	double visualY = Double.NaN;
 	/** In the air from a jump or a fall bigger than a step: the body follows its flight instead of the ground. */
 	boolean flying;
 	/**

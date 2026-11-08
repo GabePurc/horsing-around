@@ -33,10 +33,11 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
 | `slopes`, `hill` | Slope and stair lanes; a gallop up a ragged hillside (also in `stairs`) |
 | `slowstep` | Standing, stopping and single steps frame by frame, for snaps, at world tick 158 million |
 | `drawn`, `legs` | Close shots: legs as drawn on slopes and steps; legs in a jump |
+| `idle`, `unseen` | Horses no one rides: level, grass, a lead, a step's edge; moved out of view (`performance` pack) |
 | `exits`, `strafe` | Out of water onto banks; stopping after A or D alone |
 | `hands`, `icons` | Rider's arms with items; shulker boxes with Entity Model Features |
 | `rear` | A ridden horse rears; on a pack's model the seat stays on the measured saddle (also in `core`) |
-| `leads` | Over a step, leads stay on the horse and rider as drawn, also in first person |
+| `leads` | Leads on the drawn horse and rider over a step, also in first person |
 
 ### Reading results
 
@@ -51,13 +52,12 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
   `HorseTrace`; otherwise a tick goes missing and looks like the horse moved two in one.
 - Test games make no sound, and run light: lowest settings, a 2 GB heap and performance mods. `-PplainGame` drops the mods; `-PfullGraphics` keeps
   normal settings. Leg and body easing runs on game time.
-- Test games don't wait for real time (`TestClock`): the game's clock counts drawn frames, 5.9 to a tick as in a game at its default limit,
-  so a run goes as fast as the machine draws, and a tick gets the same frames however loaded the machine is. Checks that sample frames need
-  several a tick, and a whole number would keep sampling the same moments of it. `-PrealTime` runs at normal speed, to
-  tell a problem with this clock from a real one; perf, gallery and store always do. A game whose frames stop for 2 minutes logs its threads
-  and exits.
-- Test games work with their window in front, covered, on another workspace or minimized: no vsync, and no frame limit from the game, which would
-  otherwise crawl out of sight on Ubuntu. On Linux they use X11, also from a Wayland session's shell.
+- Test games don't wait for real time (`TestClock`): the clock counts drawn frames, 5.9 to a tick (a game's default limit), so a run goes
+  as fast as the machine draws and every tick gets the same frames. Checks sampling frames need several a tick, and not a whole number
+  (it samples the same moments). `-PrealTime` runs at normal speed, to tell this clock's problems from real ones; perf, gallery and
+  store always do. A game whose frames stop for 2 minutes logs its threads and exits.
+- Test games run the same in front, covered or minimized: no vsync or frame limit (out of sight on Ubuntu they crawled under 1%).
+  On Linux they use X11, even from a Wayland shell.
 - Lanes start from a horse with no AI until mounted (`lane()`): one that idled first sometimes starts off its line, failing checks far on.
 
 ## Other runs
@@ -70,8 +70,9 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
   `dev.horsingaround` frame for the mod's share.
 - `-Ptests=store`: films the README's clips and stills in a generated world (`StoreMediaTest`, `FilmCamera`; `-Pscenario=gaits,river`
   for some), with ATMOSPHERICS for the sky. `scripts/store-media.sh` turns them into `docs/media/`, as MP4 and animated WebP. Every
-  client test run clears `build/run/clientGameTest`, so encode before the next run. `-PshaderPack=<zip>` shoots stills with Iris; the
-  user wants clips without shaders, which are easier to see. Modrinth uses the MP4s; GitHub and CurseForge the WebPs.
+  client test run clears `build/run/clientGameTest`, so encode before the next run. Stills may use shaders; the user wants clips
+  without, which are easier to see. Modrinth uses the MP4s; GitHub and CurseForge the WebPs.
+- `-PshaderPack=<zip>`, any client test run: Iris with that pack (its shadows come first only up to 1.21.11).
 
 ## Smoke test (every version)
 
@@ -81,12 +82,12 @@ error, and the server corrected no move. Screenshots: `build/run/smoke/<version>
 most players run the plain model, and some bugs only show there.
 
 - `-PsmokeNoPack`: no Fresh Animations. `-PsmokePlain`: no EMF, ETF or pack. These tell this mod's problems from the animation stack's.
-- `-PsmokeWithoutMod`: the same scene with this mod off (Fabric only); corrections are vanilla's own and only warned about.
+- `-PsmokeWithoutMod`: the same scene with this mod off (Fabric only); corrections are only warned about. It fails at the course,
+  where a vanilla horse gets stuck.
 - `-PsmokeWild=<seed>` (`-PsmokeWildAt=x,z` for a fixed start): a two-minute gallop over a real world, failing on any correction. Seed
   2145202720632702597 at 7,41 crosses a dip that once rubber-banded for good.
 - `-PsmokeCloseUp` (`=150` nearly from the front; default 90 is the side): 1920x1080 at a narrow view, a shot every tick (`closeup-*.png`) and
-  the neck's numbers logged, for anything that should stay attached. With `-PsmokeWithoutMod` the task reports a failure at the course
-  where a vanilla horse gets stuck.
+  the neck's numbers logged, for anything that should stay attached.
 - NeoForge: `./gradlew :<version>-neoforge:runSmoke`, results in `build/run/smoke/<version>-neoforge/`.
 
 ## Compatibility

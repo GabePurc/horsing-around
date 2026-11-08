@@ -1,6 +1,7 @@
 package dev.horsingaround.client.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import dev.horsingaround.client.compat.ShaderShadows;
 import dev.horsingaround.client.render.RidePoseState;
 import dev.horsingaround.client.render.RidePoser;
 //? if <1.21.2
@@ -167,7 +168,8 @@ public abstract class LivingEntityRendererMixin {
 		//? if <1.21.2
 		/*final LivingEntityRenderState state = LegacyRenderState.state();*/
 		final RideState ride = state == null ? null : ((RidePoseState) state).horsingaround$rideState();
-		if (ride != null) {
+		// (Not from a shader pack's shadow pass: its pose stack has the sun's view in it.)
+		if (ride != null && !ShaderShadows.drawing()) {
 			ride.drawnPose.set(poseStack.last().pose());
 			//? if >=1.21.9 {
 			ride.drawnCameraX = camera.pos.x;
