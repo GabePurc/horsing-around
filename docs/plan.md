@@ -54,4 +54,5 @@ Outside this mod's control:
 - Horseman crashes the client test's second in-process server (its server config isn't loaded there), so the horses pack
   skips the server test; a real server is unaffected.
 - Fabulously Optimized on 1.20.1 ships Fabric Loader 0.14.23, older than MixinExtras' floor of 0.14.25.
-- Leads tied above the llama's and horse's heads on 26.x come from Fresh Animations.
+- From 1.21 with Fresh Animations, a llama's lead is tied about a block above its head: Entity Model Features adds the pack's
+  `render.leash_offset_*` (the head's own position) to vanilla's point instead of using it.

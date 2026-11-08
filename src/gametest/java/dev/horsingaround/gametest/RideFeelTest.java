@@ -27,14 +27,22 @@ import net.minecraft.client.gui.components.debug.DebugScreenEntryStatus;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.Leashable;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.decoration.LeashFenceKnotEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3f;
 
 /**
  * Rides a horse through every mechanic with simulated keys, measures what happens tick by tick, and checks it against
@@ -156,6 +164,9 @@ public final class RideFeelTest implements FabricClientGameTest {
 			if (sections.contains("slowstep")) {
 				// Only on request: walking slowly over a single step up and down, every leg watched tick by tick for snaps.
 				slowSteps(ctx, input, world);
+			}
+			if (sections.isEmpty() || sections.contains("leads")) {
+				leads(ctx, input, world);
 			}
 			if (sections.isEmpty() || sections.contains("stairs") || sections.contains("hill")) {
 				gallopUpHill(ctx, input, world);
@@ -3649,6 +3660,103 @@ public final class RideFeelTest implements FabricClientGameTest {
 	/** Running up a single step, the most the drawn climb (blocks/tick) and tilt (deg/tick) may change from one tick to the next. */
 	private static final double RUN_STEP_KICK = 0.06;
 	private static final double RUN_STEP_FLICK = 3.0;
+
+	/**
+	 * Leads stay on the horse and its rider as drawn. Over a step the body is drawn easing up after the horse, and vanilla's
+	 * lead points, fixed to where the horse and rider are, left the neck and the rider by up to 0.65 blocks. A horse tied to
+	 * a post walks up a step while its rider leads a cow, watched from behind, then from the rider's eyes.
+	 */
+	private void leads(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Leads over a step");
+		final CameraType view = ctx.computeOnClient(mc -> mc.options.getCameraType());
+		leadsOverAStep(ctx, input, world, 3500, false);
+		leadsOverAStep(ctx, input, world, 3510, true);
+		ctx.runOnClient(mc -> mc.options.setCameraType(view));
+	}
+
+	private void leadsOverAStep(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final int x, final boolean firstPerson) {
+		final String view = firstPerson ? "first person" : "third person";
+		lane(ctx, input, world, x + 0.5, -60, "leads_" + x,
+			String.format(Locale.ROOT, "fill %d -60 -30 %d -60 -6 minecraft:stone", x - 1, x + 1),
+			String.format(Locale.ROOT, "setblock %d -60 -4 minecraft:oak_fence", x + 3));
+		world.getServer().runCommand(String.format(Locale.ROOT, "summon minecraft:cow %.2f -60 1.5 {Tags:[\"lead_cow\"],Rotation:[180f,0f]}", x + 2.5));
+		ctx.waitTicks(2);
+		world.getServer().runOnServer(s -> {
+			final ServerLevel level = s.overworld();
+			final ServerPlayer player = s.getPlayerList().getPlayers().get(0);
+			((AbstractHorse) player.getVehicle()).setLeashedTo(LeashFenceKnotEntity.getOrCreateKnot(level, new BlockPos(x + 3, -60, -4)), true);
+			for (final Entity e : level.getAllEntities()) {
+				if (e.entityTags().remove("lead_cow") && e instanceof Mob cow) {
+					cow.setLeashedTo(player, true);
+				}
+			}
+		});
+		ctx.waitTicks(10);
+		final boolean watching = ctx.computeOnClient(mc -> {
+			mc.options.setCameraType(firstPerson ? CameraType.FIRST_PERSON : CameraType.THIRD_PERSON_BACK);
+			for (final Entity e : mc.level.entitiesForRendering()) {
+				if (e instanceof Leashable led && led.getLeashHolder() == mc.player) {
+					LeadProbe.watch(mc.player.getVehicle(), e);
+					return true;
+				}
+			}
+			return false;
+		});
+		check(view + ": the cow is on the rider's lead", watching);
+		ctx.waitTicks(5);
+		// Where each end sits as the horse stands: the horse's on its body, the rider's above the saddle (a point on the
+		// body under the rider), or in first person from the eyes.
+		final Vector3f[] onBody = new Vector3f[2];
+		final Vec3[] fromEyes = new Vec3[1];
+		final double[] holderAbove = {Double.NaN};
+		double horseMost = 0.0;
+		double holderMost = 0.0;
+		double climbed = 0.0;
+		input.holdKey(o -> o.keyUp);
+		for (int i = 0; i < 120; i++) {
+			ctx.waitTick();
+			// How far each end is from there now (blocks), worked out on the client, between its frames.
+			final double[] now = ctx.computeOnClient(mc -> {
+				final Entity horse = mc.player.getVehicle();
+				final RideState ride = ((RideStateHolder) horse).horsingaround$ride();
+				final Vec3 onHorse = LeadProbe.onHorse;
+				final Vec3 onHolder = LeadProbe.onHolder;
+				double horseOff = 0.0;
+				double holderOff = 0.0;
+				if (firstPerson && onHolder != null) {
+					final Vec3 seen = onHolder.subtract(mc.gameRenderer.mainCamera().position());
+					if (fromEyes[0] == null) {
+						fromEyes[0] = seen;
+					}
+					holderOff = seen.distanceTo(fromEyes[0]);
+				} else if (!firstPerson && onHolder != null && onHorse != null && ride.drawnPoseSet) {
+					if (onBody[0] == null) {
+						onBody[0] = LeadProbe.onBody(ride, onHorse);
+						onBody[1] = LeadProbe.onBody(ride, mc.player.position());
+						holderAbove[0] = onHolder.y - mc.player.getY();
+					}
+					horseOff = onHorse.distanceTo(LeadProbe.inWorld(ride, onBody[0]));
+					holderOff = Math.abs(onHolder.y - LeadProbe.inWorld(ride, onBody[1]).y - holderAbove[0]);
+				}
+				return new double[] {horse.getZ(), horse.getY(), horseOff, holderOff};
+			});
+			horseMost = Math.max(horseMost, now[2]);
+			holderMost = Math.max(holderMost, now[3]);
+			climbed = now[1] + 60.0;
+			if (now[0] < -11.0) {
+				break;
+			}
+		}
+		input.releaseKey(o -> o.keyUp);
+		check(view + ": the horse went up the step (blocks)", climbed, 0.99, 1.01);
+		if (firstPerson) {
+			check(view + ": the rider's end of the cow's lead stays put in the view (most it moved, blocks)", holderMost, 0.0, 0.03);
+		} else {
+			check(view + ": the horse's end of its lead stays on its body as drawn (most it moved off, blocks)", horseMost, 0.0, 0.03);
+			check(view + ": the rider's end of the cow's lead keeps its height above the saddle as drawn (most it changed, blocks)", holderMost, 0.0, 0.1);
+		}
+		ctx.waitTicks(5);
+	}
 
 	private void slowSteps(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
 		// (In a world played for a long time: its clock past what a float holds to the tick. The legs once read the time as

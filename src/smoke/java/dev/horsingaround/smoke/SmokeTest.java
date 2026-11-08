@@ -311,20 +311,24 @@ public final class SmokeTest {
 			case REAR -> {
 				// From the side, the rider at the top of a rear: on the saddle, not floating behind it (with a pack's model).
 				if (t == 0) {
-					this.seatRestForward = ((RideStateHolder) this.horse).horsingaround$ride().seatForward;
-					this.seatRestUp = ((RideStateHolder) this.horse).horsingaround$ride().seatUp;
+					if (!WITHOUT_MOD) {
+						this.seatRestForward = ((RideStateHolder) this.horse).horsingaround$ride().seatForward;
+						this.seatRestUp = ((RideStateHolder) this.horse).horsingaround$ride().seatUp;
+					}
 					this.server.execute(() -> {
 						if (this.server.getPlayerList().getPlayers().get(0).getVehicle() instanceof AbstractHorse rearing) {
 							rearing.standIfPossible();
 						}
 					});
 				} else if (t == 14) {
-					final RideState ride = ((RideStateHolder) this.horse).horsingaround$ride();
-					LOGGER.info(
-						"Rearing: seat {} along, {} up from where it rests; saddle {} along, {} up; stand {}", ride.seatForward - this.seatRestForward,
-						ride.seatUp - this.seatRestUp, ride.animatedForward - ride.animatedForwardBase, ride.animatedLift - ride.animatedLiftBase,
-						((AbstractHorse) this.horse).getStandAnim(0.0F)
-					);
+					if (!WITHOUT_MOD) {
+						final RideState ride = ((RideStateHolder) this.horse).horsingaround$ride();
+						LOGGER.info(
+							"Rearing: seat {} along, {} up from where it rests; saddle {} along, {} up; stand {}", ride.seatForward - this.seatRestForward,
+							ride.seatUp - this.seatRestUp, ride.animatedForward - ride.animatedForwardBase, ride.animatedLift - ride.animatedLiftBase,
+							((AbstractHorse) this.horse).getStandAnim(0.0F)
+						);
+					}
 					this.shoot(minecraft, SHOTS[17]);
 				} else if (t >= 50) {
 					this.next(Phase.RIDER);

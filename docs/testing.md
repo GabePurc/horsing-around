@@ -36,6 +36,7 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
 | `exits`, `strafe` | Out of water onto banks; stopping after A or D alone |
 | `hands`, `icons` | Rider's arms with items; shulker boxes with Entity Model Features |
 | `rear` | A ridden horse rears; on a pack's model the seat stays on the measured saddle (also in `core`) |
+| `leads` | Over a step, leads stay on the horse and rider as drawn, also in first person |
 
 ### Reading results
 
@@ -52,12 +53,12 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
   normal settings. Leg and body easing runs on game time.
 - Test games don't wait for real time (`TestClock`): the game's clock counts drawn frames, 5.9 to a tick as in a game at its default limit,
   so a run goes as fast as the machine draws, and a tick gets the same frames however loaded the machine is. Checks that sample frames need
-  several a tick (some broke at one), and a whole number would keep sampling the same moments of it. `-PrealTime` runs at normal speed, to
+  several a tick, and a whole number would keep sampling the same moments of it. `-PrealTime` runs at normal speed, to
   tell a problem with this clock from a real one; perf, gallery and store always do. A game whose frames stop for 2 minutes logs its threads
   and exits.
 - Test games work with their window in front, covered, on another workspace or minimized: no vsync, and no frame limit from the game, which would
-  otherwise crawl out of sight on Ubuntu (under 1% of the speed, spinning in `glGetError`). On Linux they use X11, also from a Wayland session's shell.
-- Lanes start from a horse with no AI until mounted (`lane()`): one that idled first now and then starts off its line, failing checks far on.
+  otherwise crawl out of sight on Ubuntu. On Linux they use X11, also from a Wayland session's shell.
+- Lanes start from a horse with no AI until mounted (`lane()`): one that idled first sometimes starts off its line, failing checks far on.
 
 ## Other runs
 
