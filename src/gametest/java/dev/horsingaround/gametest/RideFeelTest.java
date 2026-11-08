@@ -174,7 +174,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 				// Only on request: walking slowly over a single step up and down, every leg watched tick by tick for snaps.
 				slowSteps(ctx, input, world);
 			}
-			if (sections.isEmpty() || sections.contains("leads")) {
+			if (sections.isEmpty() || sections.contains("steps") || sections.contains("leads")) {
 				leads(ctx, input, world);
 			}
 			if (sections.isEmpty() || sections.contains("stairs") || sections.contains("hill")) {
@@ -3678,8 +3678,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 	private void leads(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
 		section("Leads over a step");
 		final CameraType view = ctx.computeOnClient(mc -> mc.options.getCameraType());
-		leadsOverAStep(ctx, input, world, 3500, false);
-		leadsOverAStep(ctx, input, world, 3510, true);
+		leadsOverAStep(ctx, input, world, 3540, false);
+		leadsOverAStep(ctx, input, world, 3560, true);
 		ctx.runOnClient(mc -> mc.options.setCameraType(view));
 	}
 
