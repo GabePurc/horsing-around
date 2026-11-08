@@ -5,16 +5,28 @@ fabricApi {
 		createSourceSet = true
 		modId = "horsingaround-gametest"
 		enableGameTests = true
-		enableClientGameTests = true
+		enableClientGameTests = false
 	}
 }
 dependencies {
 	gametestCompileOnly "maven.modrinth:modmenu:${project.modmenu_version}"
 	gametestCompileOnly "org.lwjgl:lwjgl-sdl:3.4.3" // (The game brings it at run time.)
 }
+// Client tests run on this project's own harness (src/gametest/.../harness, ported from Fabric API's), the same on every
+// loader, not on Fabric API's. Each run starts from an empty folder.
+loom.runs.register("clientGameTest") {
+	client()
+	source sourceSets.gametest
+	property "horsingaround.gametest"
+	ideConfigGenerated false
+}
+tasks.register("deleteClientGameTestRunDir", Delete) {
+	delete rootProject.layout.buildDirectory.dir("run/clientGameTest")
+}
+tasks.matching { it.name == "runClientGameTest" }.configureEach { dependsOn "deleteClientGameTestRunDir" }
 // Test games run in the repo's build/run/ (this node's own folder is versions/26.3/).
 loom.runs.matching { it.name in ["clientGameTest", "gameTest"] }.configureEach { run -> run.runDir "../../build/run/${run.name}" }
-tasks.named("installFreshAnimations") { mustRunAfter "deleteGameTestRunDir" }
+tasks.named("installFreshAnimations") { mustRunAfter "deleteClientGameTestRunDir" }
 
 // (Set by build.gradle; a local so task actions can see it.)
 def freshAnimationsZip = project.ext.freshAnimationsZip
@@ -25,7 +37,7 @@ def installDebugPack = tasks.register("installDebugPack", Sync) {
 	from rootProject.layout.projectDirectory.dir("src/gametest/debugpack/horsingaround-debug")
 	into rootProject.layout.buildDirectory.dir("run/clientGameTest/resourcepacks/horsingaround-debug")
 }
-installDebugPack.configure { mustRunAfter "deleteGameTestRunDir" }
+installDebugPack.configure { mustRunAfter "deleteClientGameTestRunDir" }
 
 // Client tests: ./gradlew runClientGameTest runs the ride test, the natural-terrain test, every vanilla mount, and a ride
 // on a dedicated server; pick some with -Ptests=ride,terrain,mounts,server, one terrain scenario with
@@ -314,8 +326,6 @@ compatPacks.each { name, mods ->
 }
 dependencies {
 	compatBaseMods.each { add("compatBase", "maven.modrinth:$it") }
-	// The client test runner isn't part of the Fabric API jar players install.
-	add("compatBase", fabricApi.module("fabric-client-gametest-api-v1", project.fabric_api_version))
 	compatPacks.each { name, mods ->
 		mods.each { add("compat${name.capitalize()}", "maven.modrinth:$it") }
 	}
@@ -360,7 +370,7 @@ compatPacks.keySet().each { name ->
 		mods.from(gametestJar)
 		mods.from(configurations.named("compatBase"))
 		mods.from(configurations.named("compat${name.capitalize()}"))
-		jvmArgs.add("-Dfabric.client.gametest")
+		jvmArgs.add("-Dhorsingaround.gametest")
 		jvmArgs.add("-Dhorsingaround.tests=" + (compatTests ?: compatPackTests[name] ?: "mounts,server,ride"))
 		jvmArgs.add("-Dhorsingaround.sections=" + (compatSections ?: compatPackSections.getOrDefault(name, "core,cuts")))
 		if (compatPackHorse[name]) {

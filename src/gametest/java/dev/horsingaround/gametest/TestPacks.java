@@ -1,7 +1,7 @@
 package dev.horsingaround.gametest;
 
 import java.util.concurrent.CompletableFuture;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
 import net.minecraft.server.packs.repository.PackRepository;
 
 /**

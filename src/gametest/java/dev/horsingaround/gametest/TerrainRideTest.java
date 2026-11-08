@@ -14,11 +14,11 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.TestInput;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestServerContext;
+import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
@@ -48,7 +48,7 @@ import net.minecraft.world.level.block.state.BlockState;
  *
  * <p>Run with {@code ./gradlew runClientGameTest} (or {@code -Ptests=terrain} for just this one).
  */
-public final class TerrainRideTest implements FabricClientGameTest {
+public final class TerrainRideTest implements ClientGameTest {
 	private static final String TAG = "terrain_test";
 	/** Top block of the flat test world; horses stand at GROUND + 1. */
 	private static final int GROUND = -61;

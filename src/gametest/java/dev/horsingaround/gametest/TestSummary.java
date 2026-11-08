@@ -1,13 +1,13 @@
 package dev.horsingaround.gametest;
 
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
 
 /**
  * Runs last: fails the run if any test failed. The tests record failures here instead of throwing, so one failing test
  * doesn't keep the others from running.
  */
-public final class TestSummary implements FabricClientGameTest {
+public final class TestSummary implements ClientGameTest {
 	private static final StringBuilder FAILED = new StringBuilder();
 
 	static void failed(final int failures, final String report) {

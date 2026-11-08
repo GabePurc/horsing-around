@@ -13,10 +13,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestServerContext;
+import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
@@ -36,7 +36,7 @@ import net.minecraft.world.entity.animal.equine.AbstractHorse;
  * server, gone when switched off, and never drawn for players who aren't supporters. Writes
  * {@code horsingaround-hat-report.txt} and screenshots. Run with {@code ./gradlew runClientGameTest -Ptests=hat}.
  */
-public final class HatTest implements FabricClientGameTest {
+public final class HatTest implements ClientGameTest {
 	private static final int RED = 0x8E2B2B;
 
 	private final List<String> report = new ArrayList<>();
