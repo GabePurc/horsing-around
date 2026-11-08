@@ -23,9 +23,6 @@ import dev.horsingaround.gametest.harness.TestInput;
 import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
 import dev.horsingaround.gametest.harness.context.TestServerContext;
 import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.entity.FakePlayer;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
@@ -1379,12 +1376,7 @@ public final class IcyFeaturesTest implements ClientGameTest {
 	private static ServerPlayer pillion(final MinecraftServer server) {
 		if (pillion == null) {
 			pillion = new ServerPlayer(server, server.overworld(), new GameProfile(UUID.nameUUIDFromBytes("horsingaround-pillion".getBytes()), "Pillion"), ClientInformation.createDefault());
-			try {
-				// (Fabric's fake player's connection, which sends nothing.)
-				pillion.connection = FakePlayer.get(server.overworld()).connection.getClass().getConstructor(ServerPlayer.class).newInstance(pillion);
-			} catch (final ReflectiveOperationException e) {
-				throw new IllegalStateException(e);
-			}
+			pillion.connection = TestEnv.silentConnection(pillion);
 		}
 		return pillion;
 	}
@@ -1487,7 +1479,7 @@ public final class IcyFeaturesTest implements ClientGameTest {
 		this.rearSeatBehind = 0.0F;
 		ctx.runOnClient(mc -> {
 			try {
-				ClientPlayNetworking.send((CustomPacketPayload) Class.forName("icy.betterhorses.net.network.BhRearPayload").getConstructor(int.class).newInstance(id));
+				TestEnv.sendToServer((CustomPacketPayload) Class.forName("icy.betterhorses.net.network.BhRearPayload").getConstructor(int.class).newInstance(id));
 			} catch (final ReflectiveOperationException e) {
 				throw new IllegalStateException("Icy's rear changed", e);
 			}
@@ -1899,7 +1891,7 @@ public final class IcyFeaturesTest implements ClientGameTest {
 	}
 
 	private void writeReport() {
-		final Path file = FabricLoader.getInstance().getGameDir().resolve("horsingaround-icy-report.txt");
+		final Path file = TestEnv.gameDir().resolve("horsingaround-icy-report.txt");
 		try {
 			Files.write(file, this.report);
 		} catch (final IOException e) {

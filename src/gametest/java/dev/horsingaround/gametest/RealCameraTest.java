@@ -14,7 +14,6 @@ import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
 import dev.horsingaround.gametest.harness.context.TestServerContext;
 import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import dev.horsingaround.gametest.harness.world.TestWorldBuilder;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
@@ -61,7 +60,7 @@ public final class RealCameraTest implements ClientGameTest {
 			ctx.runOnClient(mc -> mc.options.chatVisibility().set(ChatVisiblity.HIDDEN));
 
 			// (Without Real Camera, as a look at another first-person mod in its pack: only the plain first-person lanes.)
-			if (FabricLoader.getInstance().isModLoaded("realcamera")) {
+			if (TestEnv.modLoaded("realcamera")) {
 				setConfig("enabled", true);
 				setConfig("isClassic", false);
 				section("Bound to the rider's head (Real Camera's default mode)");
@@ -287,7 +286,7 @@ public final class RealCameraTest implements ClientGameTest {
 	}
 
 	private void writeReport() {
-		final Path file = FabricLoader.getInstance().getGameDir().resolve("horsingaround-realcamera-report.txt");
+		final Path file = TestEnv.gameDir().resolve("horsingaround-realcamera-report.txt");
 		try {
 			Files.write(file, this.report);
 		} catch (final IOException e) {

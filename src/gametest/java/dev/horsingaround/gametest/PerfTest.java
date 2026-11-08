@@ -14,7 +14,6 @@ import dev.horsingaround.gametest.harness.TestInput;
 import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
 import dev.horsingaround.gametest.harness.context.TestServerContext;
 import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
 
@@ -124,7 +123,7 @@ public final class PerfTest implements ClientGameTest {
 	}
 
 	private void writeReport() {
-		final Path file = FabricLoader.getInstance().getGameDir().resolve("horsingaround-perf-report.txt");
+		final Path file = TestEnv.gameDir().resolve("horsingaround-perf-report.txt");
 		try {
 			Files.write(file, this.report);
 		} catch (final IOException e) {

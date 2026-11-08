@@ -35,8 +35,6 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
 
 import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
 import dev.horsingaround.gametest.harness.context.TestServerConnection;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import dev.horsingaround.gametest.harness.impl.threading.ThreadingImpl;
 import dev.horsingaround.gametest.harness.impl.util.GameTestSyncPayload;
 import dev.horsingaround.gametest.harness.mixin.ClientLevelAccessor;
@@ -91,7 +89,7 @@ public class TestServerConnectionImpl implements TestServerConnection {
 	public void waitForClientboundPackets() {
 		ThreadingImpl.checkOnGametestThread("waitForClientboundPackets");
 
-		serverContext.runOnServer(server -> ServerPlayNetworking.send(getServerPlayer(), GameTestSyncPayload.INSTANCE));
+		serverContext.runOnServer(server -> dev.horsingaround.Platform.send(getServerPlayer(), GameTestSyncPayload.INSTANCE));
 
 		try {
 			context.waitFor(_ -> ThreadingImpl.networkSyncReceived);
@@ -104,7 +102,7 @@ public class TestServerConnectionImpl implements TestServerConnection {
 	public void waitForServerboundPackets() {
 		ThreadingImpl.checkOnGametestThread("waitForServerboundPackets");
 
-		context.runOnClient(_ -> ClientPlayNetworking.send(GameTestSyncPayload.INSTANCE));
+		context.runOnClient(_ -> dev.horsingaround.gametest.TestEnv.sendToServer(GameTestSyncPayload.INSTANCE));
 
 		try {
 			serverContext.waitFor(_ -> ThreadingImpl.networkSyncReceived);

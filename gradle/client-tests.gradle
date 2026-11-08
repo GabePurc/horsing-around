@@ -8,48 +8,39 @@ fabricApi {
 		enableClientGameTests = false
 	}
 }
+// (The tests' NeoForge entry and metadata are NeoForge's: gradle/client-tests-neoforge.gradle.)
+sourceSets.gametest.java.exclude 'dev/horsingaround/gametest/neoforge/**'
+sourceSets.gametest.resources.exclude 'META-INF/neoforge.mods.toml', 'horsingaround-gametest-neoforge.mixins.json'
 dependencies {
 	gametestCompileOnly "maven.modrinth:modmenu:${project.modmenu_version}"
 	gametestCompileOnly "org.lwjgl:lwjgl-sdl:3.4.3" // (The game brings it at run time.)
 }
 // Client tests run on this project's own harness (src/gametest/.../harness, ported from Fabric API's), the same on every
-// loader, not on Fabric API's. Each run starts from an empty folder.
+// loader, not on Fabric API's.
 loom.runs.register("clientGameTest") {
 	client()
 	source sourceSets.gametest
 	property "horsingaround.gametest"
 	ideConfigGenerated false
 }
-tasks.register("deleteClientGameTestRunDir", Delete) {
-	delete rootProject.layout.buildDirectory.dir("run/clientGameTest")
-}
-tasks.matching { it.name == "runClientGameTest" }.configureEach { dependsOn "deleteClientGameTestRunDir" }
 // Test games run in the repo's build/run/ (this node's own folder is versions/26.3/).
 loom.runs.matching { it.name in ["clientGameTest", "gameTest"] }.configureEach { run -> run.runDir "../../build/run/${run.name}" }
-tasks.named("installFreshAnimations") { mustRunAfter "deleteClientGameTestRunDir" }
 
-// (Set by build.gradle; a local so task actions can see it.)
-def freshAnimationsZip = project.ext.freshAnimationsZip
-
-// Test colours (src/gametest/debugpack): in the client tests horses' legs are colour-coded (upper leg blue, knee white,
-// lower leg orange, hoof black, sole magenta) so screenshots show what each piece is doing; -PplainTextures turns it off.
-def installDebugPack = tasks.register("installDebugPack", Sync) {
-	from rootProject.layout.projectDirectory.dir("src/gametest/debugpack/horsingaround-debug")
-	into rootProject.layout.buildDirectory.dir("run/clientGameTest/resourcepacks/horsingaround-debug")
+// What both loaders share (runs, shards, reports): client-tests-common.gradle.
+ext.clientTestRuns = "clientGameTest"
+apply from: rootProject.layout.projectDirectory.file('gradle/client-tests-common.gradle')
+loom {
+	runs {
+		project.ext.testShards.each { name, shard ->
+			register("clientGameTest${name}") {
+				inherit clientGameTest
+				runDir "../../build/run/clientGameTest-${name.toLowerCase()}"
+				ideConfigGenerated false
+			}
+		}
+	}
 }
-installDebugPack.configure { mustRunAfter "deleteClientGameTestRunDir" }
-
-// Client tests: ./gradlew runClientGameTest runs the ride test, the natural-terrain test, every vanilla mount, and a ride
-// on a dedicated server; pick some with -Ptests=ride,terrain,mounts,server, one terrain scenario with
-// -Pscenario=<part of its name>, and only some sections of the ride test with -Psections=<names> (core, stairs,
-// picking, steps).
 def clientTests = project.findProperty("tests") ?: "ride,terrain,mounts,server,hat"
-def terrainScenario = project.findProperty("scenario") ?: ""
-def rideSections = project.findProperty("sections") ?: ""
-// Test games run light, to keep the load on the machine down: the lowest settings, no sound (LowSettings in the tests),
-// a 2 GB heap, and performance mods (-PplainGame runs without them, -PfullGraphics with normal settings; the gallery and
-// store shots always get normal settings). They also run as fast as they can draw (TestClock; -PrealTime for normal speed).
-def lowSettings = !project.hasProperty("fullGraphics") && !clientTests.contains("gallery") && !clientTests.contains("store")
 configurations.register("testPerformanceMods") { transitive = false }
 dependencies {
 	testPerformanceMods "maven.modrinth:sodium:bAZQdGpg"          // mc26.3-0.9.2
@@ -66,149 +57,12 @@ dependencies {
 	storeLookMods "maven.modrinth:atmospherics:DbHCSFGO" // 2.6.7 for 26.3
 }
 def storeLook = clientTests.contains("store") && !project.hasProperty("shaderPack") ? configurations.storeLookMods : null
-// The server test starts a local dedicated server in the test run folder; the user accepted the Minecraft EULA
-// (https://aka.ms/MinecraftEULA) for it on 2026-10-07.
-def gameTestEula = rootProject.layout.buildDirectory.file("run/clientGameTest/eula.txt").get().asFile
-def lightTestGame = { task ->
-	task.systemProperty "horsingaround.lowSettings", lowSettings
-	task.systemProperty "horsingaround.frameClock", lowSettings && !clientTests.contains("perf") && !project.hasProperty("realTime")
-	task.maxHeapSize = "2G"
-	if (project.hasProperty("profile")) {
-		// A Java Flight Recorder recording of the whole run, for finding what the mod costs (docs/testing.md).
-		task.jvmArgs "-XX:StartFlightRecording=filename=horsingaround-profile.jfr,settings=profile,jdk.ExecutionSample#period=1ms,dumponexit=true"
-	}
+tasks.matching { it.name ==~ /runClientGameTest(RideA|RideB|RideC|Terrain|Others)?/ }.configureEach { task ->
 	def addMods = [performanceMods, storeLook].findAll { it != null }.collect { it.asPath }
 	if (!addMods.isEmpty()) {
 		task.systemProperty "fabric.addMods", addMods.join(File.pathSeparator)
 	}
 }
-tasks.matching { it.name == "runClientGameTest" }.configureEach {
-	doFirst {
-		gameTestEula.parentFile.mkdirs()
-		gameTestEula.text = "eula=true\n"
-	}
-	systemProperty "horsingaround.tests", clientTests
-	systemProperty "horsingaround.scenario", terrainScenario
-	systemProperty "horsingaround.sections", rideSections
-	systemProperty "horsingaround.plainTextures", project.hasProperty("plainTextures")
-	systemProperty "horsingaround.vanillaModel", project.hasProperty("vanillaModel")
-	dependsOn installDebugPack
-	lightTestGame(it)
-}
-tasks.matching { it.name in ["runClient", "runClientGameTest"] }.configureEach { dependsOn "installFreshAnimations" }
-
-// Faster: ./gradlew runClientGameTestParallel --continue runs the same client tests split into
-// shards, each a light game in its own folder (build/run/clientGameTest-<shard>/), two at a time by default so the
-// machine keeps room for other work (-PtestGames=N for more or fewer at once). The configuration cache (on in
-// gradle.properties) is what lets Gradle run them side by side; --continue lets the others finish when one fails. The
-// shards' reports are then merged into build/run/clientGameTest/ and every failed check is listed.
-def testShards = [
-	RideA  : [tests: "ride", sections: "core,ledges,cuts"],
-	RideB  : [tests: "ride", sections: "stairs,picking"],
-	RideC  : [tests: "ride", sections: "steps,climbs"],
-	Terrain: [tests: "terrain", sections: ""],
-	Others : [tests: "mounts,server,hat", sections: ""],
-]
-loom {
-	runs {
-		testShards.each { name, shard ->
-			register("clientGameTest${name}") {
-				inherit clientGameTest
-				runDir "../../build/run/clientGameTest-${name.toLowerCase()}"
-				ideConfigGenerated false
-			}
-		}
-	}
-}
-// At most this many test games at once (-PtestGames=N), whatever Gradle's own worker count.
-abstract class TestGameSlots implements org.gradle.api.services.BuildService<org.gradle.api.services.BuildServiceParameters.None> {}
-def testGameSlots = gradle.sharedServices.registerIfAbsent("testGameSlots", TestGameSlots) {
-	maxParallelUsages = (project.findProperty("testGames") ?: "2") as int
-}
-def debugPackSource = rootProject.layout.projectDirectory.dir("src/gametest/debugpack/horsingaround-debug").asFile
-def copyDebugPack = { File into ->
-	def from = debugPackSource.toPath()
-	java.nio.file.Files.walk(from).each { path ->
-		def target = into.toPath().resolve(from.relativize(path).toString())
-		if (java.nio.file.Files.isDirectory(path)) {
-			java.nio.file.Files.createDirectories(target)
-		} else {
-			java.nio.file.Files.copy(path, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-		}
-	}
-}
-def shardDirs = testShards.collectEntries { name, shard -> [name, rootProject.layout.buildDirectory.dir("run/clientGameTest-${name.toLowerCase()}").get().asFile] }
-// The reports a shard's tests write (each test writes horsingaround-<test>-report.txt).
-def shardReports = testShards.collectEntries { name, shard -> [name, shard.tests.split(",").collect { "horsingaround-${it}-report.txt".toString() }] }
-// Which shards started in this build: the collector merges only those (the folders of the others hold an earlier run's).
-abstract class ShardRuns implements org.gradle.api.services.BuildService<org.gradle.api.services.BuildServiceParameters.None> {
-	final Set<String> started = java.util.concurrent.ConcurrentHashMap.newKeySet()
-}
-def shardRuns = gradle.sharedServices.registerIfAbsent("shardRuns", ShardRuns) {}
-testShards.each { name, shard ->
-	def dir = shardDirs[name]
-	def shardName = name // (inside the task's closure, "name" is the task's)
-	tasks.matching { it.name == "runClientGameTest${name}" }.configureEach {
-		dependsOn "installFreshAnimations"
-		usesService(shardRuns)
-		doFirst {
-			shardRuns.get().started.add(shardName)
-			// A fresh folder each run, with the Fresh Animations pack, the test colours and the EULA for the server test.
-			dir.deleteDir()
-			new File(dir, "resourcepacks").mkdirs()
-			java.nio.file.Files.copy(freshAnimationsZip.toPath(), new File(dir, "resourcepacks/" + freshAnimationsZip.name).toPath())
-			copyDebugPack(new File(dir, "resourcepacks/horsingaround-debug"))
-			new File(dir, "eula.txt").text = "eula=true\n"
-		}
-		systemProperty "horsingaround.tests", shard.tests
-		systemProperty "horsingaround.scenario", ""
-		systemProperty "horsingaround.sections", shard.sections
-		systemProperty "horsingaround.plainTextures", project.hasProperty("plainTextures")
-		systemProperty "horsingaround.vanillaModel", project.hasProperty("vanillaModel")
-		usesService(testGameSlots)
-		lightTestGame(it)
-	}
-}
-def mergedReports = rootProject.layout.buildDirectory.dir("run/clientGameTest").get().asFile
-def collectShardReports = tasks.register("collectClientGameTestShards") {
-	description = "Merges the reports of the client test shards that ran into build/run/clientGameTest/ and fails on any failed check."
-	usesService(shardRuns)
-	doLast { task ->
-		def started = shardRuns.get().started
-		if (started.isEmpty()) {
-			throw new GradleException("No client test shard ran in this build, so there are no reports to merge.")
-		}
-		mergedReports.mkdirs()
-		def merged = [:]
-		def failed = []
-		testShards.keySet().findAll { it in started }.each { name ->
-			def dir = shardDirs[name]
-			shardReports[name].each { reportName ->
-				def report = new File(dir, reportName)
-				if (report.isFile()) {
-					merged[reportName] = (merged[reportName] ?: "") + "### " + dir.name + "\n" + report.text
-				} else {
-					failed << "${name}: no ${reportName} (the game stopped before its test wrote one; see ${dir}/logs/latest.log)".toString()
-				}
-			}
-		}
-		merged.each { report, text ->
-			new File(mergedReports, report).text = text
-			text.eachLine { if (it.contains("FAIL") || it.contains("INCOMPLETE")) failed << report + ": " + it.trim() }
-		}
-		if (!failed.isEmpty()) {
-			throw new GradleException("Failed client test checks:\n" + failed.join("\n"))
-		}
-		task.logger.lifecycle("All client test checks passed (${merged.size()} reports from the ${started.size()} shards that ran).")
-	}
-}
-tasks.register("runClientGameTestParallel") {
-	group = "fabric"
-	description = "Runs the client tests in light games side by side (use --continue; -PtestGames=N sets how many at once, 2 by default)."
-	dependsOn testShards.keySet().collect { "runClientGameTest${it}" }
-	finalizedBy collectShardReports
-}
-testShards.keySet().each { name -> tasks.matching { it.name == "runClientGameTest${name}" }.configureEach { finalizedBy collectShardReports } }
 
 // Shaders on any client test run (store stills, or legs with a pack's shadow pass): -PshaderPack=<path to a shader
 // pack zip> also loads Sodium and Iris (the compatibility pack's versions) and turns that pack on, with its settings

@@ -21,27 +21,41 @@ package dev.horsingaround.gametest.harness.impl;
 
 import net.minecraft.client.Minecraft;
 
+//? if fabric {
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+//?}
 import dev.horsingaround.gametest.harness.impl.threading.ThreadingImpl;
 import dev.horsingaround.gametest.harness.impl.util.GameTestSyncPayload;
 
+/**
+ * Sets the harness up as the client starts: Fabric runs it as a client entrypoint; on NeoForge the test mod's entry
+ * ({@code gametest/neoforge}) calls {@link #init} and registers the sync payload on its own bus.
+ */
+//? if fabric {
 public class ClientGameTestSetup implements ClientModInitializer {
+//?} else
+/*public class ClientGameTestSetup {*/
 	public static final String MOD_ID = "horsingaround_gametest";
 
+	//? if fabric {
 	@Override
 	public void onInitializeClient() {
 		if (!TestSystemProperties.ENABLED) {
 			return;
 		}
 
-		ThreadingImpl.unsafeClientInstance = Minecraft.getInstance();
-
+		init();
 		PayloadTypeRegistry.serverboundPlay().register(GameTestSyncPayload.TYPE, GameTestSyncPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(GameTestSyncPayload.TYPE, GameTestSyncPayload.CODEC);
 		ClientPlayNetworking.registerGlobalReceiver(GameTestSyncPayload.TYPE, (_, _) -> ThreadingImpl.networkSyncReceived = true);
 		ServerPlayNetworking.registerGlobalReceiver(GameTestSyncPayload.TYPE, (_, _) -> ThreadingImpl.networkSyncReceived = true);
+	}
+	//?}
+
+	public static void init() {
+		ThreadingImpl.unsafeClientInstance = Minecraft.getInstance();
 	}
 }

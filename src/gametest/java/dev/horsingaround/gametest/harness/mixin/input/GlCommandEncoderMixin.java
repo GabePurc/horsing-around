@@ -35,7 +35,8 @@ import dev.horsingaround.gametest.harness.impl.util.WindowHooks;
 public class GlCommandEncoderMixin {
 	@WrapOperation(method = "presentTexture", at = @At(value = "INVOKE", target = "Lcom/mojang/renderpearl/backend/opengl/DirectStateAccess;blitFrameBuffers(IIIIIIIIIIII)V"))
 	private void blitFrameBuffer(DirectStateAccess manager, int readFramebuffer, int drawFramebuffer, int srcX0, int srcY0, int srcX1, int srcY1, int dstX0, int dstY0, int dstX1, int dstY1, int mask, int filter, Operation<Void> original, @Local(argsOnly = true) GpuTextureView gpuTextureView) {
-		if (gpuTextureView.texture() == Minecraft.getInstance().gameRenderer.mainRenderTarget().getColorTexture()) {
+		// (NeoForge's loading screen presents frames before the game renderer exists.)
+		if (Minecraft.getInstance().gameRenderer != null && gpuTextureView.texture() == Minecraft.getInstance().gameRenderer.mainRenderTarget().getColorTexture()) {
 			WindowHooks window = ((WindowHooks) (Object) Minecraft.getInstance().getWindow());
 			dstY0 = 0;
 			dstX1 = window.fabric_getRealFramebufferWidth();

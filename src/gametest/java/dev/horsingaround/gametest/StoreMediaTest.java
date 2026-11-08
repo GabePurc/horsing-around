@@ -32,7 +32,6 @@ import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
 import dev.horsingaround.gametest.harness.context.TestServerContext;
 import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import dev.horsingaround.gametest.harness.screenshot.TestScreenshotOptions;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.DeltaTracker;
@@ -133,7 +132,7 @@ public final class StoreMediaTest implements ClientGameTest {
 			return;
 		}
 		this.only = System.getProperty("horsingaround.scenario", "");
-		this.out = FabricLoader.getInstance().getGameDir().resolve("store");
+		this.out = TestEnv.gameDir().resolve("store");
 		if (this.only.contains("scout")) {
 			// How far each shot's ground is from spawn in a few worlds, to pick a seed that keeps the filming close.
 			for (final String seed : new String[] {SEED, "saddle up", "happy trails", "giddy up", "tumbleweed", "high noon", "dust devil", "horsing around"}) {
