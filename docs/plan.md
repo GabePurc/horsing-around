@@ -29,7 +29,7 @@ features need the user's OK (see `AGENTS.md`); each feel change ends with the us
 Each needs a look: a real fault, or a limit to set from what the stride itself does.
 
 - "Trotting past a 2-block ledge that only catches the flank" failed 2 of 7 full runs on a release branch, always passing
-  alone; the lane logs its path, so the next failure shows what happened. (Perhaps the horse's idling before mounting, since removed.)
+  alone; the lane logs its path, so the next failure shows what happened.
 - "All three mob riders still mounted": the skeleton ended up on foot in 3 of 20 full runs, once even with the riders 8 blocks apart behind
   glass, so probably not the spear.
 - "Trotting up a slope of full blocks": in Icy's, median 0.116-0.135 against 0.12, failing over half of runs (Icy's trot lifts the hooves
@@ -47,7 +47,6 @@ Each needs a look: a real fault, or a limit to set from what the stride itself d
 
 - Hoof soles meeting a bank's top mid-heave still jump up to 0.34 blocks in a frame (logged by `exits`).
 - Galloping up a ragged hillside, the head can dip 0.31-0.39 blocks into a step for a moment (`hill`, limit 0.4).
-
 - Icy's carts don't collide going forward: they pass through a trunk or cliff if the horse cuts close.
 
 Outside this mod's control:
@@ -55,4 +54,5 @@ Outside this mod's control:
 - Horseman crashes the client test's second in-process server (its server config isn't loaded there), so the horses pack
   skips the server test; a real server is unaffected.
 - Fabulously Optimized on 1.20.1 ships Fabric Loader 0.14.23, older than MixinExtras' floor of 0.14.25.
-- Leads tied above the llama's and horse's heads on 26.x come from Fresh Animations.
+- From 1.21 with Fresh Animations, a llama's lead is tied about a block above its head: Entity Model Features adds the pack's
+  `render.leash_offset_*` (the head's own position) to vanilla's point instead of using it.
