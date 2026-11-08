@@ -37,6 +37,7 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
 | `exits`, `strafe` | Out of water onto banks; stopping after A or D alone |
 | `hands`, `icons` | Rider's arms with items; shulker boxes with Entity Model Features |
 | `rear` | A ridden horse rears; on a pack's model the seat stays on the measured saddle (also in `core`) |
+| `leads` | Leads on the drawn horse and rider, in both views (also in `steps`) |
 
 ### Reading results
 
@@ -55,8 +56,8 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
   as fast as the machine draws and every tick gets the same frames. Checks sampling frames need several a tick, and not a whole number
   (it samples the same moments). `-PrealTime` runs at normal speed, to tell this clock's problems from real ones; perf, gallery and
   store always do. A game whose frames stop for 2 minutes logs its threads and exits.
-- Test games run the same in front, covered or minimized: no vsync or frame limit (out of sight on Ubuntu they crawled under 1%,
-  spinning in `glGetError`). On Linux they use X11, even from a Wayland shell.
+- Test games run the same in front, covered or minimized: no vsync or frame limit (out of sight on Ubuntu they crawled under 1%).
+  On Linux they use X11, even from a Wayland shell.
 - Lanes start from a horse with no AI until mounted (`lane()`): one that idled first sometimes starts off its line, failing checks far on.
 
 ## Other runs
@@ -81,12 +82,12 @@ error, and the server corrected no move. Screenshots: `build/run/smoke/<version>
 most players run the plain model, and some bugs only show there.
 
 - `-PsmokeNoPack`: no Fresh Animations. `-PsmokePlain`: no EMF, ETF or pack. These tell this mod's problems from the animation stack's.
-- `-PsmokeWithoutMod`: the same scene with this mod off (Fabric only); corrections are vanilla's own and only warned about.
+- `-PsmokeWithoutMod`: the same scene with this mod off (Fabric only); corrections are only warned about. It fails at the course,
+  where a vanilla horse gets stuck.
 - `-PsmokeWild=<seed>` (`-PsmokeWildAt=x,z` for a fixed start): a two-minute gallop over a real world, failing on any correction. Seed
   2145202720632702597 at 7,41 crosses a dip that once rubber-banded for good.
 - `-PsmokeCloseUp` (`=150` nearly from the front; default 90 is the side): 1920x1080 at a narrow view, a shot every tick (`closeup-*.png`) and
-  the neck's numbers logged, for anything that should stay attached. With `-PsmokeWithoutMod` the task reports a failure at the course
-  where a vanilla horse gets stuck.
+  the neck's numbers logged, for anything that should stay attached.
 - NeoForge: `./gradlew :<version>-neoforge:runSmoke`, results in `build/run/smoke/<version>-neoforge/`.
 
 ## Compatibility
