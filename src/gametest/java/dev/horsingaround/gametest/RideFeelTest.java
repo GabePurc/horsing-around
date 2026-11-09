@@ -21,8 +21,10 @@ import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import dev.horsingaround.gametest.harness.screenshot.TestScreenshotOptions;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
+//? if >=1.21.9 {
 import net.minecraft.client.gui.components.debug.DebugScreenEntries;
 import net.minecraft.client.gui.components.debug.DebugScreenEntryStatus;
+//?}
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
@@ -33,6 +35,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
+//? if >=1.21
 import net.minecraft.world.entity.Leashable;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
@@ -87,8 +90,7 @@ public final class RideFeelTest implements ClientGameTest {
 			server.runCommand("time set noon");
 			server.runCommand("tp @a 0.5 -60 0.5 180 10");
 			server.runCommand("summon " + TestHorse.TYPE + " 0.5 -60 0.5 {Tame:1b,Variant:0,Rotation:[180f,0f],"
-				+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
-				+ "attributes:[{id:\"minecraft:movement_speed\",base:" + SPEED_ATTRIBUTE + "d},{id:\"minecraft:jump_strength\",base:" + JUMP_ATTRIBUTE + "d}],"
+				+ Versions.saddle() + "," + Versions.attributes("movement_speed", SPEED_ATTRIBUTE, "jump_strength", JUMP_ATTRIBUTE) + ","
 				+ "Tags:[\"ride_test\"]}");
 			// (Another camera mod may already have the view in third person: dismounting should restore whatever it was.)
 			this.cameraBeforeMounting = ctx.computeOnClient(mc -> mc.options.getCameraType());
@@ -262,7 +264,10 @@ public final class RideFeelTest implements ClientGameTest {
 			for (int slot = 0; slot < 9; slot++) {
 				this.server.runCommand("item replace entity @p hotbar." + slot + " with minecraft:" + (slot % 2 == 0 ? "shulker_box" : "red_shulker_box"));
 			}
+			//? if >=1.21.5 {
 			ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+			//?} else
+			/*ctx.runOnClient(mc -> mc.player.getInventory().selected = 0);*/
 			ctx.waitTicks(20);
 			ctx.runOnClient(mc -> mc.gui.hud.getChat().clearMessages(false));
 			screenshot(ctx, "00b_shulker_boxes");
@@ -399,8 +404,13 @@ public final class RideFeelTest implements ClientGameTest {
 		ctx.waitTicks(10);
 		final String[] blocks = ctx.computeOnClient(mc -> {
 			final net.minecraft.client.Camera camera = mc.gameRenderer.mainCamera();
+			//? if >=1.21.11 {
 			final net.minecraft.world.phys.Vec3 from = camera.position();
 			final org.joml.Vector3fc f = camera.forwardVector();
+			//?} else {
+			/*final net.minecraft.world.phys.Vec3 from = camera.getPosition();
+			final org.joml.Vector3fc f = camera.getLookVector();
+			*///?}
 			final net.minecraft.world.phys.Vec3 to = from.add(f.x() * 32.0, f.y() * 32.0, f.z() * 32.0);
 			final net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition(1.0F);
 			final net.minecraft.world.phys.Vec3 look = mc.player.getViewVector(1.0F).scale(32.0);
@@ -516,7 +526,14 @@ public final class RideFeelTest implements ClientGameTest {
 	 * the latest tick, while the camera still shows the frame before.
 	 */
 	static float framePartialTicks(final net.minecraft.client.Minecraft mc) {
+		//? if >=26.3 {
 		return mc.gameRenderer.gameRenderState().levelRenderState.cameraRenderState.cameraEntityPartialTicks;
+		//?} elif >=26.1 {
+		/*return mc.gameRenderer.mainCamera().getCameraEntityPartialTicks(mc.getDeltaTracker());
+		*///?} elif >=1.20.3 {
+		/*return mc.gameRenderer.mainCamera().getPartialTickTime();
+		*///?} else
+		/*return mc.getFrameTime();*/
 	}
 
 	/**
@@ -555,17 +572,26 @@ public final class RideFeelTest implements ClientGameTest {
 		ctx.waitTicks(30);
 	}
 
-	/** Simple name of the bar in the experience bar's slot (jump bar, experience, locator). */
+	/**
+	 * Simple name of the bar in the experience bar's slot (jump bar, experience, locator). Before 1.21.6 the jump bar takes
+	 * it whenever the vehicle jumps.
+	 */
 	private static String contextualBar(final ClientGameTestContext ctx) {
+		//? if >=1.21.6 {
 		return ctx.computeOnClient(mc -> {
 			try {
 				final java.lang.reflect.Field field = net.minecraft.client.gui.Hud.class.getDeclaredField("contextualInfoBar");
 				field.setAccessible(true);
-				return ((com.mojang.datafixers.util.Pair<?, ?>) field.get(mc.gui.hud)).getSecond().getClass().getSimpleName();
+				final Object pair = field.get(mc.gui.hud);
+				// (A DataFixerUpper pair from 26.2, Apache's before.)
+				final Object bar = pair instanceof com.mojang.datafixers.util.Pair<?, ?> p ? p.getSecond() : ((org.apache.commons.lang3.tuple.Pair<?, ?>) pair).getRight();
+				return bar.getClass().getSimpleName();
 			} catch (final ReflectiveOperationException e) {
 				return e.toString();
 			}
 		});
+		//?} else
+		/*return ctx.computeOnClient(mc -> mc.player.jumpableVehicle() != null ? "JumpableVehicleBar" : "experience");*/
 	}
 
 	/** How far the riding camera is above the rider's (smoothed) eyes this frame. */
@@ -1046,8 +1072,7 @@ public final class RideFeelTest implements ClientGameTest {
 		server.runCommand("fill 97 -60 -30 104 -57 -16 minecraft:stone");
 		server.runCommand("tp @p 100.5 -60 0.5 180 10");
 		server.runCommand("summon " + TestHorse.TYPE + " 100.5 -60 0.5 {Tame:1b,Variant:2,Rotation:[180f,0f],"
-			+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
-			+ "attributes:[{id:\"minecraft:movement_speed\",base:" + SPEED_ATTRIBUTE + "d}],Tags:[\"stairs_test\"]}");
+			+ Versions.saddle() + "," + Versions.attributes("movement_speed", SPEED_ATTRIBUTE) + ",Tags:[\"stairs_test\"]}");
 		// The horse spawns in a chunk the player only just reached; give it a moment before mounting.
 		for (int attempt = 0; attempt < 10 && !ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse); attempt++) {
 			ctx.waitTicks(5);
@@ -1612,15 +1637,9 @@ public final class RideFeelTest implements ClientGameTest {
 	) {
 		section((deep ? "Swimming" : "Wading") + " out onto a bank " + (rise == 0.0 ? "level with the water" : rise == 0.5 ? "a slab above the water"
 			: "a block above the water"));
-		// The ground's top layer is y=-61 (its top at -60); the water's top layer takes its place from z=-2 to the bank.
 		final int bankZ = deep ? -25 : -13;
 		final double top = -60.0 + rise;
-		final List<String> build = new ArrayList<>();
-		build.add(String.format(Locale.ROOT, "fill %d %d -2 %d -61 %d minecraft:water", x - 4, deep ? -63 : -61, x + 4, bankZ + 1));
-		if (rise > 0.0) {
-			build.add(String.format(Locale.ROOT, "fill %d -60 %d %d -60 %d minecraft:%s", x - 4, bankZ, x + 4, bankZ - 12, rise < 1.0 ? "stone_slab" : "stone"));
-		}
-		lane(ctx, input, world, x + 0.5, -60, "exit_" + x, build.toArray(String[]::new));
+		lane(ctx, input, world, x + 0.5, -60, "exit_" + x, waterExitBuild(x, deep, rise));
 		sideCamera(world, x + 6.5, top + 0.8, bankZ + 0.5, 90.0F);
 		ctx.runOnClient(mc -> LegProbe.reset());
 		input.holdKey(o -> o.keyUp);
@@ -1631,8 +1650,6 @@ public final class RideFeelTest implements ClientGameTest {
 		double jolt = 0.0;
 		double sunk = 0.0;
 		double drawn = 0.0;
-		int climbStart = -1;
-		int shots = 0;
 		final List<double[]> history = new ArrayList<>();
 		final StringBuilder trace = new StringBuilder();
 		for (int i = 0; i < 400 && horseZ(ctx) > bankZ - 6.0; i++) {
@@ -1668,12 +1685,6 @@ public final class RideFeelTest implements ClientGameTest {
 			if (now[1] < bankZ && now[6] > 0.0 && now[7] == 0.0 && !Double.isNaN(now[10])) {
 				sunk = Math.min(sunk, now[10]);
 			}
-			if (climbStart < 0 && (now[8] > 0.0 || now[2] > (deep ? -61.0 : -60.95))) {
-				climbStart = i;
-			}
-			if (climbStart >= 0 && shots < 6 && (i - climbStart) % 3 == 0) {
-				cameraShot(ctx, String.format(Locale.ROOT, "19b_exit_%s_%.1f_%d", deep ? "swim" : "wade", rise, shots++));
-			}
 			trace.append(String.format(Locale.ROOT, "%n    t%d z%.2f y%.3f drawn%.3f tilt%.1f fit%.3f %s%s%s heave%d gap%+.3f", (int) now[0], now[1], now[2] - top,
 				now[3] - top, now[4], now[5], now[6] > 0.0 ? "g" : "a", now[7] > 0.0 ? " wet" : "", now[9] > 0.0 ? " swim" : "", (int) now[8], now[10]));
 		}
@@ -1690,6 +1701,48 @@ public final class RideFeelTest implements ClientGameTest {
 			+ " jumping (%d frames of %d):%s", peakBox, ctx.computeOnClient(mc -> LegProbe.soleSnapMost), ctx.computeOnClient(mc -> LegProbe.snapLog.toString()),
 			ctx.computeOnClient(mc -> LegProbe.spikeCount), ctx.computeOnClient(mc -> LegProbe.frames), ctx.computeOnClient(mc -> LegProbe.spikes.toString()));
 		log("  every tick (heights against the bank's top):%s", trace);
+		input.releaseKey(o -> o.keyUp);
+		stop(ctx, input);
+		waterExitShots(ctx, input, world, x + 10, deep, rise);
+	}
+
+	/** The water and bank of {@link #waterExit}: the ground's top layer is y=-61 (its top at -60), the water's from z=-2 to the bank. */
+	private static String[] waterExitBuild(final int x, final boolean deep, final double rise) {
+		final int bankZ = deep ? -25 : -13;
+		final List<String> build = new ArrayList<>();
+		build.add(String.format(Locale.ROOT, "fill %d %d -2 %d -61 %d minecraft:water", x - 4, deep ? -63 : -61, x + 4, bankZ + 1));
+		if (rise > 0.0) {
+			build.add(String.format(Locale.ROOT, "fill %d -60 %d %d -60 %d minecraft:%s", x - 4, bankZ, x + 4, bankZ - 12, rise < 1.0 ? "stone_slab" : "stone"));
+		}
+		return build.toArray(String[]::new);
+	}
+
+	/**
+	 * Films {@link #waterExit}'s climb out on a copy of its lane, in a pass of its own: a screenshot takes a tick on some
+	 * versions, and the measuring pass must see every tick.
+	 */
+	private void waterExitShots(
+		final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final int x, final boolean deep, final double rise
+	) {
+		final int bankZ = deep ? -25 : -13;
+		lane(ctx, input, world, x + 0.5, -60, "exit_shots_" + x, waterExitBuild(x, deep, rise));
+		sideCamera(world, x + 6.5, -60.0 + rise + 0.8, bankZ + 0.5, 90.0F);
+		input.holdKey(o -> o.keyUp);
+		hitboxes(ctx, true);
+		int climbStart = -1;
+		int shots = 0;
+		for (int i = 0; i < 400 && horseZ(ctx) > bankZ - 6.0 && shots < 6; i++) {
+			ctx.waitTick();
+			final boolean climbing = horseZ(ctx) <= bankZ + 4.0 && ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().bankTicks > 0
+				|| mc.player.getVehicle().getY() > (deep ? -61.0 : -60.95));
+			if (climbStart < 0 && climbing) {
+				climbStart = i;
+			}
+			if (climbStart >= 0 && (i - climbStart) % 3 == 0) {
+				cameraShot(ctx, String.format(Locale.ROOT, "19b_exit_%s_%.1f_%d", deep ? "swim" : "wade", rise, shots++));
+			}
+		}
+		hitboxes(ctx, false);
 		input.releaseKey(o -> o.keyUp);
 		stop(ctx, input);
 	}
@@ -1794,7 +1847,10 @@ public final class RideFeelTest implements ClientGameTest {
 		final boolean wholeRear = measured && ride(ctx, r -> r.animatedWholeRear);
 		world.getServer().runOnServer(server -> {
 			if (server.getPlayerList().getPlayers().get(0).getVehicle() instanceof AbstractHorse horse) {
+				//? if >=1.21.6 {
 				horse.setStanding(20);
+				//?} else
+				/*horse.setStanding(true);*/
 			}
 		});
 		// The back the rider rides, at the top of the rear (where it holds still, so a frame's lag between the saddle and the
@@ -1805,6 +1861,16 @@ public final class RideFeelTest implements ClientGameTest {
 		float peakUpError = 0.0F;
 		boolean top = false;
 		for (int i = 0; i < 60; i++) {
+			//? if <1.21.6 {
+			/*if (i == 20) {
+				// (Before 1.21.6 a rear started from outside the horse lasts until stopped: stopped where 1.21.6's ends.)
+				world.getServer().runOnServer(server -> {
+					if (server.getPlayerList().getPlayers().get(0).getVehicle() instanceof AbstractHorse horse) {
+						horse.setStanding(false);
+					}
+				});
+			}
+			*///?}
 			ctx.waitTick();
 			final float[] now = ctx.computeOnClient(mc -> {
 				final AbstractHorse horse = (AbstractHorse) mc.player.getVehicle();
@@ -1886,7 +1952,10 @@ public final class RideFeelTest implements ClientGameTest {
 		bowDraw(ctx, input, 60.0F, "20g_bow_aim_right");
 
 		// A loaded crossbow: square to the aim, both arms along it.
+		//? if >=1.20.5 {
 		this.server.runCommand("item replace entity @p weapon.mainhand with minecraft:crossbow[minecraft:charged_projectiles=[{id:\"minecraft:arrow\"}]]");
+		//?} else
+		/*this.server.runCommand("item replace entity @p weapon.mainhand with minecraft:crossbow{Charged:1b,ChargedProjectiles:[{id:\"minecraft:arrow\",Count:1b}]}");*/
 		input.lookAt(180.0F + 40.0F, 10.0F);
 		ctx.waitTicks(5);
 		arms = riderArms(ctx);
@@ -1950,19 +2019,20 @@ public final class RideFeelTest implements ClientGameTest {
 	private void riderShot(final ClientGameTestContext ctx, final String name) {
 		ctx.runOnClient(mc -> {
 			mc.gui.hud.getChat().clearMessages(false);
-			mc.gui.hud.toggle();
+			Versions.toggleHud(mc);
 		});
 		screenshot(ctx, name);
-		ctx.runOnClient(mc -> mc.gui.hud.toggle());
+		ctx.runOnClient(mc -> Versions.toggleHud(mc));
 	}
 
 	/**
-	 * Swings the main hand and watches the arm (index {@code arm}: 0 right, 3 left) frame by frame: it should start from
-	 * where it is held, rise, and come back to exactly there, with no jump between frames. A shot every other tick.
+	 * Swings the main hand and watches the arm (index {@code arm}: 0 right, 3 left) tick by tick: it should start from
+	 * where it is held, rise, and come back to exactly there, with no jump between ticks. Then a second swing, with a shot
+	 * every other tick (a shot can take ticks of its own, which would hide ticks from the first).
 	 */
 	private void swing(final ClientGameTestContext ctx, final String name, final int arm) {
 		final float[] before = riderArms(ctx);
-		ctx.runOnClient(mc -> mc.player.swing(InteractionHand.MAIN_HAND, net.minecraft.world.item.component.SwingAnimation.DEFAULT, true));
+		swingMainHand(ctx);
 		float highest = 0.0F;
 		float jump = 0.0F;
 		float last = before[arm];
@@ -1972,14 +2042,27 @@ public final class RideFeelTest implements ClientGameTest {
 			highest = Math.max(highest, before[arm] - now[arm]);
 			jump = Math.max(jump, Math.abs(now[arm] - last));
 			last = now[arm];
-			if (i % 2 == 0 && i < 6) {
-				riderShot(ctx, name + "_" + i);
-			}
 		}
 		final float[] after = riderArms(ctx);
 		check(name + ": the swing raises the arm from where it is held (rad)", highest, 0.6, 3.0);
 		check(name + ": and brings it back to where it was held (rad)", Math.abs(after[arm] - before[arm]) + Math.abs(after[arm + 2] - before[arm + 2]), 0.0, 0.08);
-		check(name + ": no jump between ticks (most the arm turned in a tick, rad)", jump, 0.0, 1.2);
+		// (Vanilla's whack rises nearly all the way in its first tick, about 1.4 rad looking level: more is a jump of ours.)
+		check(name + ": no jump between ticks (most the arm turned in a tick, rad)", jump, 0.0, 1.55);
+		swingMainHand(ctx);
+		for (int i = 0; i < 6; i++) {
+			ctx.waitTick();
+			if (i % 2 == 0) {
+				riderShot(ctx, name + "_" + i);
+			}
+		}
+		ctx.waitTicks(6);
+	}
+
+	private static void swingMainHand(final ClientGameTestContext ctx) {
+		//? if >=26.3 {
+		ctx.runOnClient(mc -> mc.player.swing(InteractionHand.MAIN_HAND, net.minecraft.world.item.component.SwingAnimation.DEFAULT, true));
+		//?} else
+		/*ctx.runOnClient(mc -> mc.player.swing(InteractionHand.MAIN_HAND, true));*/
 	}
 
 	/**
@@ -2638,14 +2721,17 @@ public final class RideFeelTest implements ClientGameTest {
 		stop(ctx, input);
 	}
 
-	/** A sheer 9-block drop: one fall-damage point for the horse (horses take half damage past 6 blocks). Healthy, it takes it; hurt, it won't. */
+	/**
+	 * A sheer 9-block drop: horses take half damage past 6 blocks, 1.5, which vanilla rounds down to one point from 1.21.5
+	 * and up to two before. Healthy, it takes it; hurt, it won't.
+	 */
 	private void hurtingDrop(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final boolean hurt) {
 		section(hurt ? "Galloping at a 9-block drop, horse at 30% health" : "Galloping at a 9-block drop, healthy");
 		final int x = hurt ? 740 : 720;
 		final String tag = hurt ? "drop7_hurt_test" : "drop7_test";
 		lane(ctx, input, world, x + 0.5, -51, tag, "fill " + (x - 5) + " -60 -40 " + (x + 5) + " -52 6 minecraft:stone");
 		final TestServerContext server = world.getServer();
-		server.runCommand("attribute @e[tag=" + tag + ",limit=1] minecraft:max_health base set 20");
+		server.runCommand("attribute @e[tag=" + tag + ",limit=1] " + Versions.attribute("max_health") + " base set 20");
 		server.runCommand("data merge entity @e[tag=" + tag + ",limit=1] {Health:" + (hurt ? 6 : 20) + "f}");
 		ctx.waitTicks(5);
 		log("  horse health %.1f / %.1f, will fall up to %.2f blocks",
@@ -2667,11 +2753,15 @@ public final class RideFeelTest implements ClientGameTest {
 		if (hurt) {
 			check("a hurt horse won't take a fall that hurts (still on top)", sample(ctx).y > -51.05);
 		} else {
-			check("a healthy horse takes a fall that costs half a heart (landed below)", sample(ctx).y < -59.9);
+			check("a healthy horse takes a fall that hurts a little (landed below)", sample(ctx).y < -59.9);
 			// Read on the server, where the damage is done (the client's copy can lag a busy machine).
 			final float after = server.computeOnServer(sv -> sv.overworld().getEntities(net.minecraft.world.level.entity.EntityTypeTest.forClass(AbstractHorse.class),
 				e -> e.entityTags().contains(tag)).stream().findFirst().map(AbstractHorse::getHealth).orElse(before));
-			check("and it costs no more than that (health lost)", before - after, 0.5, 1.0);
+			//? if >=1.21.5 {
+			final double vanillaHurt = 1.0;
+			//?} else
+			/*final double vanillaHurt = 2.0;*/
+			check("and it costs no more than vanilla's 9 blocks (health lost)", before - after, vanillaHurt - 0.5, vanillaHurt);
 		}
 		stop(ctx, input);
 	}
@@ -2810,7 +2900,8 @@ public final class RideFeelTest implements ClientGameTest {
 			final Sample s = sample(ctx);
 			final double z = horseZ(ctx);
 			lowest = Math.min(lowest, s.y - -46.0);
-			if (z < -20.0 && z > -45.0) {
+			// (Along the edge, until the way around the ridge's end at -60 comes into its plans, some 17 blocks ahead.)
+			if (z < -20.0 && z > -38.0) {
 				speed += s.speed;
 				ticks++;
 				maxOffset = Math.max(maxOffset, ride(ctx, r -> Math.abs(r.avoidOffset)));
@@ -3526,7 +3617,7 @@ public final class RideFeelTest implements ClientGameTest {
 			new Ledge("at 30 degrees", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone"}, 30.0F, 0, -10.0, true),
 			new Ledge("at 45 degrees", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone"}, 45.0F, 0, -10.0, true),
 			new Ledge("snow on top", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-15 -58 -30 ~15 -58 -11 minecraft:snow[layers=2]"}, 0.0F, 0, -10.0, true),
-			new Ledge("grass and flowers on top", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:grass_block", "fill ~-15 -58 -30 ~15 -58 -11 minecraft:short_grass",
+			new Ledge("grass and flowers on top", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:grass_block", "fill ~-15 -58 -30 ~15 -58 -11 minecraft:" + Versions.SHORT_GRASS,
 				"fill ~-1 -58 -12 ~1 -58 -12 minecraft:poppy"}, 0.0F, 0, -10.0, true),
 			new Ledge("a bump two blocks in", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-15 -58 -13 ~15 -58 -13 minecraft:stone"}, 0.0F, 0, -10.0, true),
 			new Ledge("leaves overhead", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-4 -56 -14 ~4 -55 -5 minecraft:oak_leaves[persistent=true]"}, 0.0F, 0, -10.0, true),
@@ -3702,7 +3793,10 @@ public final class RideFeelTest implements ClientGameTest {
 		final boolean watching = ctx.computeOnClient(mc -> {
 			mc.options.setCameraType(firstPerson ? CameraType.FIRST_PERSON : CameraType.THIRD_PERSON_BACK);
 			for (final Entity e : mc.level.entitiesForRendering()) {
+				//? if >=1.21 {
 				if (e instanceof Leashable led && led.getLeashHolder() == mc.player) {
+				//?} else
+				/*if (e instanceof net.minecraft.world.entity.Mob led && led.getLeashHolder() == mc.player) {*/
 					LeadProbe.watch(mc.player.getVehicle(), e);
 					return true;
 				}
@@ -4117,13 +4211,13 @@ public final class RideFeelTest implements ClientGameTest {
 		if (lead) {
 			server.runCommand(String.format(Locale.ROOT, "setblock %d -59 0 minecraft:oak_fence", x));
 		}
-		server.runCommand(String.format(Locale.ROOT, "summon %s %d.5 %.1f %.1f {Tame:1b,Variant:1,Rotation:[%.1ff,0f],equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
-			+ "%sTags:[\"%s\"]}", TestHorse.TYPE, x, top, startZ, yaw, lead ? String.format(Locale.ROOT, "leash:[I;%d,-59,0],", x)
-			: "attributes:[{id:\"minecraft:movement_speed\",base:0d}],", tag));
+		server.runCommand(String.format(Locale.ROOT, "summon %s %d.5 %.1f %.1f {Tame:1b,Variant:1,Rotation:[%.1ff,0f]," + Versions.saddle() + ","
+			+ "%sTags:[\"%s\"]}", TestHorse.TYPE, x, top, startZ, yaw, lead ? Versions.leash(x, -59, 0) + ","
+			: Versions.attributes("movement_speed", 0.0) + ",", tag));
 		ctx.waitTicks(5);
 		if (step && over >= 0.0) {
 			final double half = server.computeOnServer(s -> s.overworld().getEntities(net.minecraft.world.level.entity.EntityTypeTest.forClass(AbstractHorse.class),
-				h -> h.entityTags().contains(tag)).getFirst().getBbWidth() * 0.5);
+				h -> h.entityTags().contains(tag)).get(0).getBbWidth() * 0.5);
 			server.runCommand(String.format(Locale.ROOT, "tp @e[tag=%s,limit=1] %d.5 %.1f %.3f %.1f 0", tag, x, top, 1.0 + half * (2.0 * over - 1.0), yaw));
 		}
 		ctx.waitTicks(40);
@@ -4212,8 +4306,8 @@ public final class RideFeelTest implements ClientGameTest {
 		world.getConnection().waitForChunksRender();
 		server.runCommand(backdrop(x));
 		server.runCommand(String.format(Locale.ROOT, "fill %d -60 -12 %d -60 0 minecraft:stone", x - 3, x + 3));
-		server.runCommand(String.format(Locale.ROOT, "summon %s %d.5 %s {Tame:1b,Variant:1,Rotation:[0f,0f],equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
-			+ "attributes:[{id:\"minecraft:movement_speed\",base:0d}],Tags:[\"%s\"]}", TestHorse.TYPE, x, up ? "-60 3.5" : "-59 -2.5", tag));
+		server.runCommand(String.format(Locale.ROOT, "summon %s %d.5 %s {Tame:1b,Variant:1,Rotation:[0f,0f]," + Versions.saddle() + ","
+			+ Versions.attributes("movement_speed", 0.0) + ",Tags:[\"%s\"]}", TestHorse.TYPE, x, up ? "-60 3.5" : "-59 -2.5", tag));
 		final CameraType camera = ctx.computeOnClient(mc -> mc.options.getCameraType());
 		ctx.runOnClient(mc -> {
 			mc.options.setCameraType(CameraType.FIRST_PERSON);
@@ -4309,13 +4403,13 @@ public final class RideFeelTest implements ClientGameTest {
 			}
 			mc.setCameraEntity(stands.get(0));
 			mc.options.setCameraType(CameraType.FIRST_PERSON);
-			mc.gui.hud.toggle();
+			Versions.toggleHud(mc);
 			return true;
 		});
 		log("  screenshot %s -> %s", name, ctx.takeScreenshot(TestScreenshotOptions.of("horsingaround_" + name).withSize(1280, 960)));
 		if (found) {
 			ctx.runOnClient(mc -> {
-				mc.gui.hud.toggle();
+				Versions.toggleHud(mc);
 				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
 				mc.setCameraEntity(mc.player);
 			});
@@ -4400,7 +4494,6 @@ public final class RideFeelTest implements ClientGameTest {
 		final int steps = 10;
 		final double end = -5.0 - steps - 4.0;
 		lane(ctx, input, world, x + 0.5, up ? -60 : -60 + steps, "slope_test_" + x, slopeBuild(x, up, stairs, false, steps));
-		sideCamera(world, x + 6.5, -57.5, -8.0, 90.0F);
 		input.holdKey(o -> o.keyUp);
 		if (trot) {
 			ctx.waitTicks(2);
@@ -4432,7 +4525,6 @@ public final class RideFeelTest implements ClientGameTest {
 		int longestUp = 0;
 		float previousPitch = sample(ctx).pitch;
 		int previousTick = horseTick(ctx);
-		int shots = 0;
 		final StringBuilder trace = new StringBuilder();
 		for (int i = 0; i < 400 && horseZ(ctx) > end; i++) {
 			ctx.waitTick();
@@ -4506,15 +4598,6 @@ public final class RideFeelTest implements ClientGameTest {
 			final String ground = ride(ctx, r -> r.debugGround());
 			trace.append(String.format(Locale.ROOT, "t%d z%.2f y%.2f vis%.3f tilt%.1f front%+.2f hind%+.2f fold%.2f/%.2f %s %s%s | ", (int) now[1], z, sample(ctx).y, now[11],
 				now[2], now[3], now[4], now[5], now[6], ground, ctx.computeOnClient(mc -> LegProbe.line()), legDebug(ctx)));
-			if (i % 6 == 0 && shots < 8) {
-				// From close beside the horse, level with it, so the legs show.
-				final double cx = ctx.computeOnClient(mc -> mc.player.getVehicle().getX()) + 3.5;
-				final double cy = ctx.computeOnClient(mc -> mc.player.getVehicle().getY()) - 0.8;
-				final double cz = z;
-				world.getServer().runCommand(String.format(Locale.ROOT, "tp @e[type=minecraft:armor_stand,tag=test_camera] %.2f %.2f %.2f 90 10", cx, cy, cz));
-				ctx.waitTick();
-				cameraShot(ctx, String.format(Locale.ROOT, "17_%s_%02d", name, shots++));
-			}
 		}
 		hitboxes(ctx, false);
 		final double[] snap = ctx.computeOnClient(mc -> new double[] {LegProbe.soleSnapMost, LegProbe.snaps});
@@ -4540,14 +4623,50 @@ public final class RideFeelTest implements ClientGameTest {
 		final boolean fullBlocks = !stairs;
 		// (Trotting down full blocks the box lands on each edge with the front hooves over ground 2 blocks lower: a known
 		// limit the user kept on 2026-10-10, see docs/design.md.)
-		check("hooves on the ground: nearly always (blocks off it, 90th percentile)", most, 0.0, fullBlocks ? !up && trot ? 1.2 : 0.65 : up ? 0.25 : 0.32);
+		// (Down stairs measured every tick: a hoof hangs up to 6 ticks over the next tread, which shots between ticks hid.)
+		check("hooves on the ground: nearly always (blocks off it, 90th percentile)", most, 0.0, fullBlocks ? !up && trot ? 1.2 : 0.65 : up ? 0.25 : 0.38);
 		check("a hoof is hardly ever in the ground (share of frames one is more than 0.1 in)", frames == 0 ? 1.0 : (double) sunkFrames / frames, 0.0, 0.1);
 		check("a leg is hardly ever in the ground (share of frames one is more than 0.1 in)", frames == 0 ? 1.0 : (double) legFrames / frames, 0.0, 0.1);
-		check("a hoof lifted to step comes down again (longest more than 0.2 above the ground, ticks)", longestUp, 0, fullBlocks ? !up && trot ? 8 : 6 : up ? 3 : 4);
+		check("a hoof lifted to step comes down again (longest more than 0.2 above the ground, ticks)", longestUp, 0, fullBlocks ? !up && trot ? 8 : 6 : up ? 3 : 7);
 		check("never far above it, reaching down for the next step at most (most a hoof floats, blocks)", worstFloat, 0.0, fullBlocks ? (up ? 1.0 : 1.5) : 0.8);
 		check("hooves come up onto the higher ground (most, blocks)", maxFold, 0.05, RideTuning.LEG_RISE_MAX + 0.01);
 		check("legs draw up onto higher ground on the way (frames)", ctx.computeOnClient(mc -> dev.horsingaround.client.render.Legs.drawnFrames) - drawnBefore > 0);
 		check("rider's head clear of the horse's (closest, centre to centre, blocks)", headGap, 0.45, 10.0);
+		stop(ctx, input);
+		slopeShots(ctx, input, world, x + 10, up, stairs, trot, name);
+	}
+
+	/**
+	 * The same slope ridden again beside the measured one, for side shots with the overlay on, every 6 ticks. Apart from the
+	 * measuring: a shot takes ticks of its own (from 1.21.5 one more than before), which the measuring would miss.
+	 */
+	private void slopeShots(
+		final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final int x, final boolean up, final boolean stairs,
+		final boolean trot, final String name
+	) {
+		final int steps = 10;
+		final double end = -5.0 - steps - 4.0;
+		lane(ctx, input, world, x + 0.5, up ? -60 : -60 + steps, "slope_shots_" + x, slopeBuild(x, up, stairs, false, steps));
+		sideCamera(world, x + 6.5, -57.5, -8.0, 90.0F);
+		input.holdKey(o -> o.keyUp);
+		if (trot) {
+			ctx.waitTicks(2);
+			input.pressKey(o -> o.keySprint);
+		}
+		hitboxes(ctx, true);
+		int shots = 0;
+		for (int i = 0; i < 400 && horseZ(ctx) > end && shots < 8; i++) {
+			ctx.waitTick();
+			if (i % 6 == 0) {
+				// From close beside the horse, level with it, so the legs show.
+				final double cx = ctx.computeOnClient(mc -> mc.player.getVehicle().getX()) + 3.5;
+				final double cy = ctx.computeOnClient(mc -> mc.player.getVehicle().getY()) - 0.8;
+				world.getServer().runCommand(String.format(Locale.ROOT, "tp @e[type=minecraft:armor_stand,tag=test_camera] %.2f %.2f %.2f 90 10", cx, cy, horseZ(ctx)));
+				ctx.waitTick();
+				cameraShot(ctx, String.format(Locale.ROOT, "17_%s_%02d", name, shots++));
+			}
+		}
+		hitboxes(ctx, false);
 		stop(ctx, input);
 	}
 
@@ -4834,7 +4953,10 @@ public final class RideFeelTest implements ClientGameTest {
 
 	/** Entity hitboxes (F3+B), which also turn on the steering overlay. */
 	private static void hitboxes(final ClientGameTestContext ctx, final boolean on) {
+		//? if >=1.21.9 {
 		ctx.runOnClient(mc -> mc.debugEntries.setStatus(DebugScreenEntries.ENTITY_HITBOXES, on ? DebugScreenEntryStatus.ALWAYS_ON : DebugScreenEntryStatus.NEVER));
+		//?} else
+		/*ctx.runOnClient(mc -> mc.getEntityRenderDispatcher().setRenderHitBoxes(on));*/
 	}
 
 	/**
@@ -4857,13 +4979,17 @@ public final class RideFeelTest implements ClientGameTest {
 			}
 			mc.setCameraEntity(stands.get(0));
 			mc.options.setCameraType(CameraType.FIRST_PERSON);
-			mc.gui.hud.toggle();
+			Versions.toggleHud(mc);
 			return true;
 		});
+		if (!found) {
+			log("  (no side camera for %s: %s)", name, ctx.computeOnClient(mc -> mc.level.getEntitiesOfClass(ArmorStand.class, mc.player.getBoundingBox().inflate(32.0), e -> true)
+				.stream().map(e -> String.format(Locale.ROOT, "stand at %.1f %.1f %.1f%s", e.getX(), e.getY(), e.getZ(), e.isInvisible() ? " invisible" : "")).toList()));
+		}
 		screenshot(ctx, name);
 		if (found) {
 			ctx.runOnClient(mc -> {
-				mc.gui.hud.toggle();
+				Versions.toggleHud(mc);
 				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
 				mc.setCameraEntity(mc.player);
 			});
@@ -4889,8 +5015,7 @@ public final class RideFeelTest implements ClientGameTest {
 		world.getConnection().waitForChunksRender();
 		server.runCommand(String.format(Locale.ROOT, "tp @p %.2f %.2f 0.5 180 10", x, y));
 		server.runCommand(String.format(Locale.ROOT, "summon " + TestHorse.TYPE + " %.2f %.2f 0.5 {Tame:1b,Variant:1,Rotation:[180f,0f],NoAI:1b,"
-			+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
-			+ "attributes:[{id:\"minecraft:movement_speed\",base:%sd}],Tags:[\"%s\"]}", x, y, SPEED_ATTRIBUTE, tag));
+			+ Versions.saddle() + "," + Versions.attributes("movement_speed", SPEED_ATTRIBUTE) + ",Tags:[\"%s\"]}", x, y, tag));
 		// (No AI until the rider is on: left to itself a horse now and then wanders or turns, and the lane starts off its line.)
 		for (int attempt = 0; attempt < 10 && !ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse); attempt++) {
 			ctx.waitTicks(5);

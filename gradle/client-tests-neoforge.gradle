@@ -1,7 +1,7 @@
 // The client tests on NeoForge: the same tests on the same harness (src/gametest) as on Fabric, in ModDevGradle's runs.
 // ./gradlew :<version>-neoforge:runClientGameTest, or :<version>-neoforge:runClientGameTestParallel --continue for the
 // shards; reports and screenshots in build/run/clientGameTest-<version>-neoforge/. The flags are Fabric's
-// (client-tests-common.gradle). Applied by build.neoforge.gradle on the versions whose tests run here.
+// (client-tests-common.gradle). Applied by build.neoforge.gradle on every NeoForge version.
 
 // (A local: the runs below and the common script need the same folder name.)
 def testFolder = "clientGameTest-${project.name}"
@@ -15,10 +15,23 @@ sourceSets {
 	// (Fabric's: its metadata, the bare-server test on Fabric's game test API, and the compat games' play scene.)
 	gametest.java.exclude 'dev/horsingaround/gametest/DedicatedServerTest.java', 'dev/horsingaround/gametest/PlayScene.java'
 	gametest.resources.exclude 'fabric.mod.json'
+	// (26.3's alone until their compat packs move, issue 127: as on Fabric, client-tests.gradle.)
+	if (!sc.current.parsed.matches('>=26.3')) {
+		gametest.java.exclude(['StoreMediaTest', 'GalleryTest', 'ClipCursor', 'IcyFeaturesTest', 'RealCameraTest'].collect { "dev/horsingaround/gametest/${it}.java".toString() })
+	}
+}
+// The mixin configs carry this node's Java version.
+def testMixinJava = project.ext.javaVersion.toString()
+tasks.named("processGametestResources") {
+	inputs.property "mixinJava", testMixinJava
+	filesMatching("*.mixins.json") {
+		expand mixinJava: testMixinJava
+	}
 }
 
-// Light test games load these performance mods, as on Fabric (NeoForge builds of the same versions), unless -PplainGame.
-if (!project.hasProperty("plainGame")) {
+// Light test games on 26.3 load these performance mods, as on Fabric (NeoForge builds of the same versions), unless
+// -PplainGame; the other versions run without for now.
+if (sc.current.parsed.matches('>=26.3') && !project.hasProperty("plainGame")) {
 	dependencies {
 		gametestRuntimeOnly "maven.modrinth:sodium:zqgcaQxE"          // mc26.3-0.9.3-beta.4-neoforge (0.9.2 fails on this NeoForge)
 		gametestRuntimeOnly "maven.modrinth:lithium:1rb9wI5K"         // mc26.3-0.26.2-neoforge

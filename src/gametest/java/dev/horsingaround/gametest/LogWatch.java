@@ -52,12 +52,13 @@ final class LogWatch extends AbstractAppender implements AutoCloseable {
 	}
 
 	/**
-	 * Another mod's online service failing (Emotecraft's emote server and account token, seen in the compatibility runs):
-	 * the test machine's network, not something a ride does. Lines naming this mod always count.
+	 * An online service failing: another mod's (Emotecraft's emote server and account token, seen in the compatibility
+	 * runs), or the game's own account service turning away the tests' offline player (26.2 logs it on joining a
+	 * server). The test machine's network and account, not something a ride does. Lines naming this mod always count.
 	 */
 	private static final String[] OFFLINE = {
 		"java.net.", "UnknownHostException", "WebSocket", "Bad Gateway", "AuthFailed", "ForbiddenOperationException",
-		"com.mojang.realmsclient", "Online Emotes handshake"
+		"com.mojang.realmsclient", "Online Emotes handshake", "Failed to retrieve profile key pair"
 	};
 
 	private static boolean offline(final String line) {

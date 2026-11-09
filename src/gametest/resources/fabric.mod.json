@@ -6,7 +6,7 @@
 	"environment": "*",
 	"entrypoints": {
 		"fabric-gametest": [
-			"dev.horsingaround.gametest.DedicatedServerTest"
+			${serverTests}
 		],
 		"client": [
 			"dev.horsingaround.gametest.harness.impl.ClientGameTestSetup"

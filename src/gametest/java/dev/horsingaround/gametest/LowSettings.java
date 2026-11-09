@@ -31,16 +31,22 @@ public final class LowSettings {
 		options.simulationDistance().set(5);
 		options.entityDistanceScaling().set(0.5);
 		options.mipmapLevels().set(0);
-		options.maxAnisotropyBit().set(0);
 		options.biomeBlendRadius().set(0);
 		options.ambientOcclusion().set(false);
 		options.entityShadows().set(false);
-		options.improvedTransparency().set(false);
-		options.cutoutLeaves().set(false);
 		options.particles().set(ParticleStatus.MINIMAL);
 		options.cloudStatus().set(CloudStatus.OFF);
+		//? if >=1.21.11 {
+		options.maxAnisotropyBit().set(0);
+		options.improvedTransparency().set(false);
+		options.cutoutLeaves().set(false);
 		options.weatherRadius().set(3);
-		options.menuBackgroundBlurriness().set(0);
 		options.chunkSectionFadeInTime().set(0.0);
+		//?} else
+		/*options.graphicsMode().set(net.minecraft.client.GraphicsStatus.FAST);*/
+		//? if >=1.21 {
+		options.menuBackgroundBlurriness().set(0);
+		//?} elif >=1.20.5
+		/*options.menuBackgroundBlurriness().set(0.0);*/
 	}
 }

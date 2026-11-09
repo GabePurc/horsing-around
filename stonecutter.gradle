@@ -11,6 +11,41 @@ stonecutter.parameters {
 	// The loader this node builds for, for //? if neoforge (the NeoForge nodes are named <version>-neoforge, the Forge one
 	// <version>-forge).
 	constants.match(current.project.endsWith('-neoforge') ? 'neoforge' : current.project.endsWith('-forge') ? 'forge' : 'fabric', 'fabric', 'neoforge', 'forge')
+	// The tests' harness (src/gametest/.../harness) hooks the GPU layer, which 26.3 moved from com.mojang.blaze3d to
+	// com.mojang.renderpearl, and the keyboard, whose keys went from GLFW key codes to SDL scancodes.
+	replacements.string(current.parsed.matches('<26.3')) {
+		replace 'com.mojang.renderpearl.api.textures.', 'com.mojang.blaze3d.textures.'
+		replace 'com.mojang.renderpearl.backend.opengl.', 'com.mojang.blaze3d.opengl.'
+		replace 'com/mojang/renderpearl/backend/opengl/', 'com/mojang/blaze3d/opengl/'
+		replace 'com.mojang.renderpearl.backend.vulkan.', 'com.mojang.blaze3d.vulkan.'
+		replace 'com.mojang.renderpearl.api.device.GpuBackend', 'com.mojang.blaze3d.systems.GpuBackend'
+		replace 'com/mojang/renderpearl/api/device/GpuBackend', 'com/mojang/blaze3d/systems/GpuBackend'
+		replace 'InputConstants.Type.KEYBOARD', 'InputConstants.Type.KEYSYM'
+	}
+	replacements.string(current.parsed.matches('>=1.21.9 <26.3')) {
+		replace 'InputConstants.KEY_LGUI', 'InputConstants.KEY_LSUPER'
+	}
+	// 26.2 moved the open screen into Gui (minecraft.gui.screen()); before, Minecraft held it.
+	replacements.regex(current.parsed.matches('<26.2')) {
+		replace '\\.gui\\.screen\\(\\)', '.screen', '(?!)', 'unused'
+		replace '\\.gui\\.setScreen\\(', '.setScreen(', '(?!)', 'unused'
+		replace '\\bgameRenderer\\.mainRenderTarget\\(\\)', 'getMainRenderTarget()', '(?!)', 'unused'
+		replace '(?<=gameRenderer\\.)mainCamera\\(\\)', 'getMainCamera()', '(?!)', 'unused'
+		// (The HUD was Gui itself; hiding it is Versions.toggleHud in the tests.)
+		replace '\\.gui\\.hud\\b', '.gui', '(?!)', 'unused'
+	}
+	// 1.21.9 renamed the Windows key (the left GUI key on 26.3) to super.
+	replacements.regex(current.parsed.matches('<1.21.9')) {
+		replace 'InputConstants\\.KEY_LGUI\\b', 'InputConstants.KEY_LWIN', '(?!)', 'unused'
+		// (And the window's handle was getWindow().)
+		replace 'getWindow\\(\\)\\.handle\\(\\)', 'getWindow().getWindow()', '(?!)', 'unused'
+	}
+	// 26.1 renamed a few members the tests use.
+	replacements.regex(current.parsed.matches('<26.1')) {
+		replace '\\.entityTags\\(\\)', '.getTags()', '(?!)', 'unused'
+		replace '\\.resizeGui\\(\\)', '.resizeDisplay()', '(?!)', 'unused'
+		replace '\\bChunkPos\\.pack\\(', 'ChunkPos.asLong(', '(?!)', 'unused'
+	}
 	// 26.2 split the HUD out of Gui (the HUD class was Gui) and dropped "Renderer" from the contextual bars.
 	replacements.regex(current.parsed.matches('<26.2')) {
 		// (No way back: 26.2 kept the name Gui for the class around the HUD, so src/ names it too; docs/porting.md.)
@@ -41,6 +76,15 @@ stonecutter.parameters {
 		replace 'renderer.state.level.CameraRenderState', 'renderer.state.CameraRenderState'
 		replace 'renderer/state/level/CameraRenderState', 'renderer/state/CameraRenderState'
 	}
+	// 1.21.11 renamed the camera's position and look vector getters.
+	replacements.regex(current.parsed.matches('<1.21.11')) {
+		replace '(?<=ainCamera\\(\\))\\.position\\(\\)', '.getPosition()', '(?!)', 'unused'
+	}
+	// 1.21.11 moved Util into net.minecraft.util.
+	replacements.regex(current.parsed.matches('<1.21.11')) {
+		replace 'net\\.minecraft\\.util\\.Util\\b', 'net.minecraft.Util', '(?!)', 'unused'
+		replace 'net/minecraft/util/Util;', 'net/minecraft/Util;', '(?!)', 'unused'
+	}
 	// 1.21.11 renamed ResourceLocation to Identifier, moved the horses into an "equine" package and the chicken into its
 	// own, and started annotating with JSpecify.
 	replacements.regex(current.parsed.matches('<1.21.11')) {
@@ -65,6 +109,24 @@ stonecutter.parameters {
 		replace 'net/minecraft/world/entity/Avatar;', 'net/minecraft/client/player/AbstractClientPlayer;', '(?!)', 'unused'
 		replace 'final Avatar entity', 'final AbstractClientPlayer entity', '(?!)', 'unused'
 		replace '\\(\\(Model<\\?>\\) \\(Object\\) this\\)', '((Model) (Object) this)', '(?!)', 'unused'
+	}
+	// 1.21.2 moved the particle setting's values to the server package, added the ARGB colour helpers (FastColor's before), and
+	// renamed the level's lowest height and an image's pixel read (the same ABGR pixels).
+	replacements.regex(current.parsed.matches('<1.21.2')) {
+		replace 'net\\.minecraft\\.server\\.level\\.ParticleStatus\\b', 'net.minecraft.client.ParticleStatus', '(?!)', 'unused'
+		replace 'import net\\.minecraft\\.util\\.ARGB;', 'import net.minecraft.util.FastColor;', '(?!)', 'unused'
+		replace '\\bARGB\\.(red|green|blue|alpha)\\(', 'FastColor.ARGB32.$1(', '(?!)', 'unused'
+		replace '\\.getMinY\\(\\)', '.getMinBuildHeight()', '(?!)', 'unused'
+		replace '\\bgetPixelsABGR\\b', 'getPixelsRGBA', '(?!)', 'unused'
+	}
+	// 1.20.3 renamed grass to short grass.
+	replacements.regex(current.parsed.matches('<1.20.3')) {
+		replace '\\bBlocks\\.SHORT_GRASS\\b', 'Blocks.GRASS', '(?!)', 'unused'
+	}
+	// 1.20.5 moved chunk status into its own package and renamed the plain message screen.
+	replacements.regex(current.parsed.matches('<1.20.5')) {
+		replace 'world\\.level\\.chunk\\.status\\.ChunkStatus\\b', 'world.level.chunk.ChunkStatus', '(?!)', 'unused'
+		replace '\\bGenericMessageScreen\\b', 'GenericDirtMessageScreen', '(?!)', 'unused'
 	}
 	// Before 1.21.2 there are no entity render states: the mod's own stand-ins (client/render/state/) take their place, filled
 	// from the entity by the renderer mixin. One way only, like the Avatar ones.
@@ -108,5 +170,10 @@ stonecutter.parameters {
 	// answer as the older name.
 	replacements.string(current.parsed.matches('<1.21.5')) {
 		replace 'isLocalInstanceAuthoritative', 'isControlledByLocalInstance'
+	}
+	// 1.21.5 renamed placing an entity, and the hotbar's selected slot became private.
+	replacements.regex(current.parsed.matches('<1.21.5')) {
+		replace '\\.snapTo\\(', '.moveTo(', '(?!)', 'unused'
+		replace '\\.getSelectedSlot\\(\\)', '.selected', '(?!)', 'unused'
 	}
 }

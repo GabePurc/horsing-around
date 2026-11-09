@@ -6,7 +6,11 @@ import java.nio.file.Path;
 import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
+//? if >=1.20.5 {
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+//?} else
+/*import net.fabricmc.fabric.api.networking.v1.FabricPacket;*/
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.damagesource.DamageSource;
@@ -22,8 +26,6 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
-import net.neoforged.neoforge.client.gui.modlist.ModListScreen;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import net.neoforged.neoforge.common.NeoForge;
 import net.minecraft.server.MinecraftServer;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
@@ -60,20 +62,31 @@ public final class TestEnv {
 		void hurt(LivingEntity entity, DamageSource source, float taken);
 	}
 
+	//? if fabric && <1.21 {
+	/*// (Called by LivingEntityHurtMixin: Fabric API has no after-damage event before 1.21.)
+	public static final java.util.List<Hurt> HURT = new java.util.concurrent.CopyOnWriteArrayList<>();
+	*///?}
+
 	/** After a living thing on the server takes damage (what it took, armour and the like counted). */
 	public static void afterDamage(final Hurt listener) {
-		//? if fabric {
+		//? if fabric && >=1.21 {
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> listener.hurt(entity, source, taken));
-		//?} else
-		/*NeoForge.EVENT_BUS.addListener(LivingDamageEvent.Post.class, event -> listener.hurt(event.getEntity(), event.getSource(), event.getInflictedDamage()));*/
+		//?} elif fabric {
+		/*HURT.add(listener);
+		*///?} elif >=26.1 {
+		/*NeoForge.EVENT_BUS.addListener(LivingDamageEvent.Post.class, event -> listener.hurt(event.getEntity(), event.getSource(), event.getInflictedDamage()));
+		*///?} else
+		/*NeoForge.EVENT_BUS.addListener(LivingDamageEvent.Post.class, event -> listener.hurt(event.getEntity(), event.getSource(), event.getNewDamage()));*/
 	}
 
 	/** The loader's list of mods, where a mod's settings open (Mod Menu on Fabric). */
 	public static Screen modsScreen(final Screen parent) {
 		//? if fabric {
 		return com.terraformersmc.modmenu.api.ModMenuApi.createModsScreen(parent);
-		//?} else
-		/*return ModListScreen.create(parent);*/
+		//?} elif >=26.2 {
+		/*return net.neoforged.neoforge.client.gui.modlist.ModListScreen.create(parent);
+		*///?} else
+		/*return new net.neoforged.neoforge.client.gui.ModListScreen(parent);*/
 	}
 
 	/** Whether the loader's list of mods opens this mod's settings. */
@@ -89,13 +102,13 @@ public final class TestEnv {
 	public static ServerGamePacketListenerImpl silentConnection(final ServerPlayer player) {
 		//? if fabric {
 		try {
-			return FakePlayer.get(player.level()).connection.getClass().getConstructor(ServerPlayer.class).newInstance(player);
+			return FakePlayer.get((ServerLevel) player.level()).connection.getClass().getConstructor(ServerPlayer.class).newInstance(player);
 		} catch (final ReflectiveOperationException e) {
 			throw new IllegalStateException(e);
 		}
 		//?} else {
 		/*try {
-			final var constructor = FakePlayerFactory.getMinecraft(player.level()).connection.getClass().getDeclaredConstructor(MinecraftServer.class, ServerPlayer.class);
+			final var constructor = FakePlayerFactory.getMinecraft((ServerLevel) player.level()).connection.getClass().getDeclaredConstructor(MinecraftServer.class, ServerPlayer.class);
 			constructor.setAccessible(true);
 			return (ServerGamePacketListenerImpl) constructor.newInstance(player.level().getServer(), player);
 		} catch (final ReflectiveOperationException e) {
@@ -105,10 +118,15 @@ public final class TestEnv {
 	}
 
 	/** Sends a payload to the server, from the client thread. */
+	//? if >=1.20.5 {
 	public static void sendToServer(final CustomPacketPayload payload) {
+	//?} else
+	/*public static void sendToServer(final FabricPacket payload) {*/
 		//? if fabric {
 		ClientPlayNetworking.send(payload);
-		//?} else
-		/*ClientPacketDistributor.sendToServer(payload);*/
+		//?} elif >=26.1 {
+		/*net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(payload);
+		*///?} else
+		/*net.neoforged.neoforge.network.PacketDistributor.sendToServer(payload);*/
 	}
 }

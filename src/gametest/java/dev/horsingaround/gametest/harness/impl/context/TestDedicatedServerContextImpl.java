@@ -43,8 +43,14 @@ public class TestDedicatedServerContextImpl extends TestServerContextImpl implem
 		ThreadingImpl.checkOnGametestThread("connect");
 
 		context.runOnClient(client -> {
+			//? if >=1.20.2 {
 			final var serverInfo = new ServerData("localhost", getConnectionAddress(), ServerData.Type.OTHER);
+			//?} else
+			/*final var serverInfo = new ServerData("localhost", getConnectionAddress(), false);*/
+			//? if >=1.20.5 {
 			ConnectScreen.startConnecting(client.gui.screen(), client, ServerAddress.parseString(getConnectionAddress()), serverInfo, false, null);
+			//?} else
+			/*ConnectScreen.startConnecting(client.gui.screen(), client, ServerAddress.parseString(getConnectionAddress()), serverInfo, false);*/
 		});
 
 		ClientGameTestImpl.waitForWorldLoad(context);

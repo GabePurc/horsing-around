@@ -19,6 +19,7 @@
 
 package dev.horsingaround.gametest.harness.impl;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -48,9 +49,23 @@ public class ClientGameTestMixinConfigPlugin implements IMixinConfigPlugin {
 	public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) {
 	}
 
+	/** The hooks only some versions have (the config lists the rest). */
 	@Override
 	public List<String> getMixins() {
-		return null;
+		List<String> mixins = new ArrayList<>();
+		//? if >=26.3 {
+		mixins.add("input.SDLEventHandlerMixin");
+		//?} else
+		/*mixins.add("input.MonitorManagerMixin");*/
+		//? if >=26.2
+		mixins.add("input.VulkanGpuSurfaceMixin");
+		//? if >=1.21.6
+		mixins.add("input.GlCommandEncoderMixin");
+		//? if >=26.1
+		mixins.add("world.GameRulesAccessor");
+		//? if >=1.21
+		mixins.add("screenshot.DeltaTrackerDefaultValueAccessor");
+		return mixins;
 	}
 
 	@Override

@@ -24,6 +24,7 @@ import net.minecraft.client.Minecraft;
 //? if fabric {
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+//? if >=1.20.5
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 //?}
@@ -48,10 +49,15 @@ public class ClientGameTestSetup implements ClientModInitializer {
 		}
 
 		init();
+		//? if >=1.20.5 {
 		PayloadTypeRegistry.serverboundPlay().register(GameTestSyncPayload.TYPE, GameTestSyncPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(GameTestSyncPayload.TYPE, GameTestSyncPayload.CODEC);
-		ClientPlayNetworking.registerGlobalReceiver(GameTestSyncPayload.TYPE, (_, _) -> ThreadingImpl.networkSyncReceived = true);
-		ServerPlayNetworking.registerGlobalReceiver(GameTestSyncPayload.TYPE, (_, _) -> ThreadingImpl.networkSyncReceived = true);
+		ClientPlayNetworking.registerGlobalReceiver(GameTestSyncPayload.TYPE, (payload, context) -> ThreadingImpl.networkSyncReceived = true);
+		ServerPlayNetworking.registerGlobalReceiver(GameTestSyncPayload.TYPE, (payload, context) -> ThreadingImpl.networkSyncReceived = true);
+		//?} else {
+		/*ClientPlayNetworking.registerGlobalReceiver(GameTestSyncPayload.TYPE, (packet, player, sender) -> ThreadingImpl.networkSyncReceived = true);
+		ServerPlayNetworking.registerGlobalReceiver(GameTestSyncPayload.TYPE, (packet, player, sender) -> ThreadingImpl.networkSyncReceived = true);
+		*///?}
 	}
 	//?}
 

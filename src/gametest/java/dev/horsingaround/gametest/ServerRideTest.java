@@ -64,7 +64,7 @@ public final class ServerRideTest implements ClientGameTest {
 		try (LogWatch watch = LogWatch.begin(); TestDedicatedServerContext server = ctx.worldBuilder().createServer()) {
 			server.runCommand("time set noon");
 			check("a dedicated server writes the settings file its riding style goes in, with Icy's Better Horses installed", Files.exists(settings) == IcyCompat.LOADED);
-			server.runCommand("gamerule spawn_mobs false");
+			server.runCommand(Versions.rule("spawn_mobs") + " false");
 			server.runCommand("difficulty peaceful");
 
 			try (TestDedicatedServerConnection connection = server.connect()) {
@@ -192,21 +192,22 @@ public final class ServerRideTest implements ClientGameTest {
 		}
 		this.stopAndCompare(ctx, input, server, connection, watch, "steps, ledge and ditch");
 
-		// Deep water: swim across and climb out.
-		x = this.nextLane();
-		server.runCommand(String.format(Locale.ROOT, "fill %d %d -10 %d %d -30 minecraft:air", x - 3, GROUND - 4, x + 3, GROUND - 1));
-		server.runCommand(String.format(Locale.ROOT, "fill %d %d -10 %d %d -30 minecraft:water", x - 3, GROUND - 4, x + 3, GROUND - 1));
-		this.mount(ctx, server, connection, x);
-		input.lookAt(180.0F, 10.0F);
-		input.holdKey(o -> o.keyUp);
-		input.pressKey(o -> o.keySprint);
-		ctx.waitTicks(400);
-		final double across = -ctx.computeOnClient(mc -> mc.player.getVehicle() == null ? 0.0 : mc.player.getVehicle().getZ());
+		// Deep water: swim across and climb out. (With the mod only: before 26.1 a vanilla horse throws its rider in deep water,
+		// who then drowns.)
 		if (modded) {
+			x = this.nextLane();
+			server.runCommand(String.format(Locale.ROOT, "fill %d %d -10 %d %d -30 minecraft:air", x - 3, GROUND - 4, x + 3, GROUND - 1));
+			server.runCommand(String.format(Locale.ROOT, "fill %d %d -10 %d %d -30 minecraft:water", x - 3, GROUND - 4, x + 3, GROUND - 1));
+			this.mount(ctx, server, connection, x);
+			input.lookAt(180.0F, 10.0F);
+			input.holdKey(o -> o.keyUp);
+			input.pressKey(o -> o.keySprint);
+			ctx.waitTicks(400);
+			final double across = -ctx.computeOnClient(mc -> mc.player.getVehicle() == null ? 0.0 : mc.player.getVehicle().getZ());
 			check("swims across deep water and climbs out (blocks along)", across, 32.0, 400.0);
 			check("rider still mounted after the water", ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse));
+			this.stopAndCompare(ctx, input, server, connection, watch, "deep water");
 		}
-		this.stopAndCompare(ctx, input, server, connection, watch, "deep water");
 
 		// Trampling (decided by the server): chickens in the way of a gallop.
 		x = this.nextLane();
@@ -282,7 +283,7 @@ public final class ServerRideTest implements ClientGameTest {
 		ctx.waitTicks(10);
 		connection.waitForChunksRender();
 		server.runCommand(String.format(Locale.ROOT, "summon " + TestHorse.TYPE + " %d.5 %d 0.5 {Tame:1b,Rotation:[180f,0f],"
-			+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},attributes:[{id:\"minecraft:movement_speed\",base:0.225d}],Tags:[\"server_test\"]}", x, GROUND));
+			+ Versions.saddle() + "," + Versions.attributes("movement_speed", 0.225) + ",Tags:[\"server_test\"]}", x, GROUND));
 		for (int attempt = 0; attempt < 10 && !ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse); attempt++) {
 			ctx.waitTicks(5);
 			server.runCommand("ride @p mount @e[type=" + TestHorse.TYPE + ",tag=server_test,limit=1]");

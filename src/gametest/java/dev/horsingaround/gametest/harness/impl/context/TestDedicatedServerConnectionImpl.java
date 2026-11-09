@@ -40,8 +40,11 @@ public class TestDedicatedServerConnectionImpl extends TestServerConnectionImpl 
 				throw new AssertionError("Disconnected from server before closing the test server connection");
 			}
 
+			//? if >=1.21.6 {
 			client.level.disconnect(Component.literal("Disconnecting"));
 			client.disconnectWithSavingScreen();
+			//?} else
+			/*dev.horsingaround.gametest.harness.impl.util.ClientGameTestImpl.leaveWorld(client, Component.literal("Disconnecting"), new net.minecraft.client.gui.screens.GenericMessageScreen(Component.translatable("menu.savingLevel")));*/
 		});
 
 		context.waitFor(client -> client.level == null);

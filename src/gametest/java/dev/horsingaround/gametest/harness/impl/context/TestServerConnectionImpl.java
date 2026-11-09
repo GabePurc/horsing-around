@@ -59,7 +59,30 @@ public class TestServerConnectionImpl implements TestServerConnection {
 	public int waitForChunksRender(boolean waitForDownload, int timeout) {
 		ThreadingImpl.checkOnGametestThread("waitForChunksRender");
 
-		return context.waitFor(client -> (!waitForDownload || areChunksLoaded(client)) && areChunksRendered(client), timeout);
+		try {
+			return context.waitFor(client -> (!waitForDownload || areChunksLoaded(client)) && areChunksRendered(client), timeout);
+		} catch (AssertionError e) {
+			// (Say which part never finished.)
+			throw new AssertionError("Timed out waiting for chunks to render: " + context.computeOnClient(client -> {
+				int missing = 0;
+				int renderDistance = client.options.getEffectiveRenderDistance();
+				int viewCenterX = SectionPos.blockToSectionCoord(client.player.getBlockX());
+				int viewCenterZ = SectionPos.blockToSectionCoord(client.player.getBlockZ());
+				for (int dz = -renderDistance; dz <= renderDistance; dz++) {
+					for (int dx = -renderDistance; dx <= renderDistance; dx++) {
+						if (dx * dx + dz * dz <= renderDistance * renderDistance && client.level.getChunk(viewCenterX + dx, viewCenterZ + dz, ChunkStatus.FULL, false) == null) {
+							missing++;
+						}
+					}
+				}
+				//? if >=1.20.2 {
+				boolean sections = client.levelRenderer.hasRenderedAllSections();
+				//?} else
+				/*boolean sections = client.levelRenderer.hasRenderedAllChunks();*/
+				return missing + " chunks missing within " + renderDistance + " of " + viewCenterX + "," + viewCenterZ
+					+ ", light updates queued " + ((ClientLevelAccessor) client.level).getLightUpdateQueue().size() + ", sections compiled " + sections;
+			}), e);
+		}
 	}
 
 	private static boolean areChunksLoaded(Minecraft client) {
@@ -69,9 +92,10 @@ public class TestServerConnectionImpl implements TestServerConnection {
 		int viewCenterX = SectionPos.blockToSectionCoord(Objects.requireNonNull(client.player).getBlockX());
 		int viewCenterZ = SectionPos.blockToSectionCoord(client.player.getBlockZ());
 
+		// (Within the view distance as a circle: some versions' servers never send the square's corners.)
 		for (int dz = -renderDistance; dz <= renderDistance; dz++) {
 			for (int dx = -renderDistance; dx <= renderDistance; dx++) {
-				if (level.getChunk(viewCenterX + dx, viewCenterZ + dz, ChunkStatus.FULL, false) == null) {
+				if (dx * dx + dz * dz <= renderDistance * renderDistance && level.getChunk(viewCenterX + dx, viewCenterZ + dz, ChunkStatus.FULL, false) == null) {
 					return false;
 				}
 			}
@@ -82,7 +106,10 @@ public class TestServerConnectionImpl implements TestServerConnection {
 
 	private static boolean areChunksRendered(Minecraft client) {
 		ClientLevel level = Objects.requireNonNull(client.level);
+		//? if >=1.20.2 {
 		return ((ClientLevelAccessor) level).getLightUpdateQueue().isEmpty() && client.levelRenderer.hasRenderedAllSections();
+		//?} else
+		/*return ((ClientLevelAccessor) level).getLightUpdateQueue().isEmpty() && client.levelRenderer.hasRenderedAllChunks();*/
 	}
 
 	@Override
@@ -92,7 +119,7 @@ public class TestServerConnectionImpl implements TestServerConnection {
 		serverContext.runOnServer(server -> dev.horsingaround.Platform.send(getServerPlayer(), GameTestSyncPayload.INSTANCE));
 
 		try {
-			context.waitFor(_ -> ThreadingImpl.networkSyncReceived);
+			context.waitFor(ignored -> ThreadingImpl.networkSyncReceived);
 		} finally {
 			ThreadingImpl.networkSyncReceived = false;
 		}
@@ -102,10 +129,10 @@ public class TestServerConnectionImpl implements TestServerConnection {
 	public void waitForServerboundPackets() {
 		ThreadingImpl.checkOnGametestThread("waitForServerboundPackets");
 
-		context.runOnClient(_ -> dev.horsingaround.gametest.TestEnv.sendToServer(GameTestSyncPayload.INSTANCE));
+		context.runOnClient(ignored -> dev.horsingaround.gametest.TestEnv.sendToServer(GameTestSyncPayload.INSTANCE));
 
 		try {
-			serverContext.waitFor(_ -> ThreadingImpl.networkSyncReceived);
+			serverContext.waitFor(ignored -> ThreadingImpl.networkSyncReceived);
 		} finally {
 			ThreadingImpl.networkSyncReceived = false;
 		}
@@ -149,7 +176,12 @@ public class TestServerConnectionImpl implements TestServerConnection {
 	public ServerPlayer getServerPlayer() {
 		ThreadingImpl.checkOnServerThread("getServerPlayer", serverContext.server);
 
+		//? if >=1.21.9 {
 		UUID uuid = Minecraft.getInstance().getGameProfile().id();
+		//?} elif >=1.20.2 {
+		/*UUID uuid = Minecraft.getInstance().getGameProfile().getId();
+		*///?} else
+		/*UUID uuid = Minecraft.getInstance().getUser().getProfileId();*/
 		return Objects.requireNonNull(serverContext.server.getPlayerList().getPlayer(uuid), "No corresponding player on server!");
 	}
 

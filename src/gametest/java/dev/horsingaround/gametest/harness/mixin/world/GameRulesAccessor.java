@@ -19,6 +19,7 @@
 
 package dev.horsingaround.gametest.harness.mixin.world;
 
+//? if >=26.1 {
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
@@ -30,3 +31,4 @@ public interface GameRulesAccessor {
 	@Accessor
 	GameRuleMap getRules();
 }
+//?}

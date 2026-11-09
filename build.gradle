@@ -4,8 +4,8 @@ plugins {
 }
 
 // Built once per Minecraft version (Stonecutter node, see settings.gradle); this node's numbers come from
-// versions/<version>/gradle.properties. 26.3 is the main version: the client tests and compatibility runs live there
-// (gradle/client-tests.gradle), and its game and test folders are the repo's run/ and build/run/.
+// versions/<version>/gradle.properties. 26.3 is the main version: the compatibility runs live there (gradle/compat.gradle),
+// and its game and test folders are the repo's run/ and build/run/clientGameTest/.
 def mc = sc.current.version
 def mainVersion = mc == '26.3'
 def javaVersion = sc.current.parsed.matches('>=26') ? 25 : sc.current.parsed.matches('>=1.20.5') ? 21 : 17
@@ -95,9 +95,7 @@ ext.freshAnimationsTargets = [
 	repoDir.dir("${runFolder}/resourcepacks").asFile,
 	rootProject.layout.buildDirectory.dir("run/smoke/${mc}/resourcepacks").get().asFile
 ]
-if (mainVersion) {
-	ext.freshAnimationsTargets << rootProject.layout.buildDirectory.dir("run/clientGameTest/resourcepacks").get().asFile
-}
+ext.freshAnimationsTargets << rootProject.layout.buildDirectory.dir(mainVersion ? "run/clientGameTest/resourcepacks" : "run/clientGameTest-${mc}/resourcepacks").get().asFile
 apply from: repoDir.file('gradle/fresh-animations.gradle')
 tasks.matching { it.name == "runClient" }.configureEach { dependsOn "installFreshAnimations" }
 // Plain "runClient" would start every version's game: only the main version's answers to it, the others only by path
@@ -173,12 +171,12 @@ tasks.register("auditMixins") {
 // Release to Modrinth and CurseForge (./gradlew publishModrinth publishCurseforge, run by .github/workflows/publish.yml on a GitHub release).
 apply from: repoDir.file('gradle/publish.gradle')
 
-// The smoke test (src/smoke) runs on every version, the client tests below on the main one only.
+// The smoke test (src/smoke) and the client tests (src/gametest) run on every version, the compatibility runs on the main one.
 apply from: repoDir.file('gradle/smoke-test.gradle')
 apply from: repoDir.file('gradle/x11-games.gradle')
-
+apply from: repoDir.file('gradle/client-tests.gradle')
 if (mainVersion) {
-	apply from: repoDir.file('gradle/client-tests.gradle')
+	apply from: repoDir.file('gradle/compat.gradle')
 }
 
 // fabric.mod.json and the mixin configs carry this node's Minecraft range and Java version.

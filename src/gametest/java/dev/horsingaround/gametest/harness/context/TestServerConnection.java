@@ -28,7 +28,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LinearInterpolationHandler;
 
 /**
  * Context for a client gametest containing various helpful functions while a connection to a server is open.
@@ -141,7 +140,7 @@ public interface TestServerConnection {
 	 *
 	 * <p>Some entities interpolate on the client when they are moved, rather than snapping immediately to the right
 	 * position. If you encounter issues with this, you may need to wait for the interpolation to finish after calling
-	 * this method. Living entities interpolate for {@link LinearInterpolationHandler#DEFAULT_INTERPOLATION_STEPS} ticks.
+	 * this method. Living entities interpolate for the interpolation handler's default steps (3 ticks).
 	 *
 	 * @param entityType The entity type to wait for
 	 * @param moreEntityTypes Additional entity types to wait for

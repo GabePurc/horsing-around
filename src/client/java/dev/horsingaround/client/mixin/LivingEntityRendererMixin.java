@@ -170,6 +170,12 @@ public abstract class LivingEntityRendererMixin {
 		final RideState ride = state == null ? null : ((RidePoseState) state).horsingaround$rideState();
 		// (Not from a shader pack's shadow pass: its pose stack has the sun's view in it.)
 		if (ride != null && !ShaderShadows.drawing()) {
+			//? if <1.20.5 {
+			/*// (Before 1.20.5 the stack starts with the camera's turn, which the world frame the legs work in mustn't have.)
+			final net.minecraft.client.Camera view = Minecraft.getInstance().gameRenderer.getMainCamera();
+			ride.drawnPose.rotationY((-view.getYRot() - 180.0F) * net.minecraft.util.Mth.DEG_TO_RAD).rotateX(-view.getXRot() * net.minecraft.util.Mth.DEG_TO_RAD)
+				.mul(poseStack.last().pose());
+			*///?} else
 			ride.drawnPose.set(poseStack.last().pose());
 			//? if >=1.21.9 {
 			ride.drawnCameraX = camera.pos.x;
