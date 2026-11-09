@@ -19,9 +19,9 @@ main version: `src/` reads as 26.3 code, and the compat runs exist only there.
   packages or `//? if fabric {} elif neoforge {} else {}`; `mods.toml`. It runs on SRG names: the mixin annotation processor writes
   refmaps (any name it can't map fails the compile), the manifest lists the mixin configs, `checkRefmaps` checks both in `reobfJar`'s
   jar (the release one). The jar carries MixinExtras and a `pack.mcmeta` (Forge warns about a mod without one). Its dev games load Realistic
-  Horse Genetics (`-PnoGenetics` not) but not EMF or ETF, whose Forge jars name SRG names with no refmap. Its audit runs dev classes, as
-  NeoForge's does: after changing mixins or Forge calls, check the release jar by hand in a game Forge's installer makes (`--installServer`,
-  `--installClient`), run with `-Dhorsingaround.audit=true`.
+  Horse Genetics (`-PnoGenetics` not) but not EMF or ETF, whose Forge jars name SRG names with no refmap. Its audit runs the dev classes,
+  then the release jar with Realistic Horse Genetics in a production client and server that Forge's installer makes, once per Forge
+  version (`installReleaseGames`, `build/run/audit/1.20.1-forge-release/`).
 
 ## Version-specific code
 
@@ -89,7 +89,7 @@ Data pack tag folders are plural (`processResources` renames them), resource loc
 
 - `./gradlew :<version>:build`; `./gradlew build` builds them all. Jars: `versions/<version>/build/libs/`.
 - `./gradlew :<version>:auditMixins`: the jar in a production client and dedicated server, on that version's minimum Fabric Loader; any injection that finds
-  nothing fails. About 20 s, one game at a time per loader. Logs in `build/run/audit/<version>/`. NeoForge's audit runs the mod's dev classes, not the jar.
+  nothing fails. About 20 s, one game at a time per loader. Logs in `build/run/audit/<version>/`. NeoForge's audit runs the mod's dev classes, not the jar (Forge's: both).
 - `./gradlew :<version>:runSmoke`: see `testing.md`.
 - `./gradlew :<version>:runClient`: play it (game folder `run/versions/<version>/`; NeoForge `run/neoforge/<version>/`, and `runServer` too).
 - `./gradlew :<version>:genSources`: decompiled Minecraft (`.gradle/loom-cache/minecraftMaven/net/minecraft/*/<version>/*-sources.jar`).

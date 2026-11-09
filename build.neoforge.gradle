@@ -23,6 +23,8 @@ base.archivesName = "horsing-around-${loader}"
 // Repo-level folders (each node's own project folder is versions/<node>/).
 def repoDir = rootProject.layout.projectDirectory
 def runFolder = "run/${loader}/${mc}"
+// (Forge: the production games the release jar is audited in, below.)
+def releaseAuditDir = rootProject.layout.buildDirectory.dir("run/audit/${project.name}-release").get().asFile
 // The extension both plugins share (the Forge add-on's is legacyForge).
 def modDev = forge ? legacyForge : neoForge
 
@@ -204,6 +206,46 @@ if (forge) {
 			details.path = details.path.replace('/tags/entity_type/', '/tags/entity_types/').replace('/tags/block/', '/tags/blocks/')
 		}
 	}
+
+	// The dev games run Mojang names, so the audit also runs the release jar (SRG names, the refmaps) with Realistic Horse
+	// Genetics in a production client and dedicated server that Forge's installer makes (InstallForgeGames, below).
+	configurations.register("forgeInstaller") { transitive = false }
+	configurations.register("releaseAuditMods") { transitive = false }
+	dependencies {
+		forgeInstaller "net.minecraftforge:forge:${mc}-${project.forge_version}:installer"
+		releaseAuditMods "maven.modrinth:realistic-horse-genetics:${project.rhg_version}"
+	}
+	def installReleaseGames = tasks.register("installReleaseGames", InstallForgeGames) {
+		installer.from(configurations.named("forgeInstaller"))
+		minecraftVersion = mc
+		forgeVersion = project.forge_version
+		javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(javaVersion) }
+		clientLaunch = new File(releaseAuditDir, "client/launch.json")
+		serverLaunch = new File(releaseAuditDir, "server/launch.json")
+	}
+	def releaseMods = files(releaseJar, configurations.named("releaseAuditMods"))
+	def assets = tasks.named("downloadAssets").flatMap { it.assetPropertiesFile }
+	["Client", "Server"].each { side ->
+		def gameDir = new File(releaseAuditDir, side.toLowerCase())
+		def launch = installReleaseGames.flatMap { side == "Client" ? it.clientLaunch : it.serverLaunch }
+		tasks.register("runAuditRelease${side}", JavaExec) {
+			description = "Runs the release jar's mixin audit in a production Forge ${side.toLowerCase()}."
+			javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(javaVersion) }
+			workingDir = gameDir
+			mainClass = launch.map { new groovy.json.JsonSlurper().parse(it.asFile).mainClass as String }
+			classpath(launch.map { new groovy.json.JsonSlurper().parse(it.asFile).classpath })
+			jvmArgs "-Dhorsingaround.audit=true", "-Dmixin.debug.countInjections=true"
+			jvmArgumentProviders.add(new ForgeLaunchArgs(launch: launch, part: "jvm"))
+			argumentProviders.add(new ForgeLaunchArgs(launch: launch, part: "game", assets: side == "Client" ? assets : null))
+			inputs.files(releaseMods)
+			doFirst {
+				def mods = new File(gameDir, "mods")
+				mods.deleteDir()
+				mods.mkdirs()
+				releaseMods.each { java.nio.file.Files.copy(it.toPath(), new File(mods, it.name).toPath()) }
+			}
+		}
+	}
 }
 
 ext.freshAnimationsTargets = [
@@ -231,13 +273,22 @@ tasks.matching { it.name in ["runClient", "runServer"] }.configureEach { task ->
 
 // ./gradlew :<node>:auditMixins (plain auditMixins runs every version's): every class the mixins patch loaded in a
 // NeoForge (Forge) client and dedicated server (MixinAudit), which then quit; fails unless both say so and nothing in the log
-// names a mixin failure. One NeoForge or Forge game at a time.
+// names a mixin failure. Forge's runs the release jar too, in production games (above). One NeoForge or Forge game at a time.
 abstract class NeoForgeAuditGame implements org.gradle.api.services.BuildService<org.gradle.api.services.BuildServiceParameters.None> {}
 def auditGame = gradle.sharedServices.registerIfAbsent("neoforgeAuditGame", NeoForgeAuditGame) { maxParallelUsages = 1 }
-["Client", "Server"].each { side ->
-	def auditDir = rootProject.layout.buildDirectory.dir("run/audit/${project.name}/${side.toLowerCase()}").get().asFile
-	tasks.named("runAudit${side}") {
+def auditRuns = ["Client", "Server"].collect { side ->
+	[task: "runAudit${side}".toString(), side: side, what: side.toLowerCase(), dir: rootProject.layout.buildDirectory.dir("run/audit/${project.name}/${side.toLowerCase()}").get().asFile]
+} + (!forge ? [] : ["Client", "Server"].collect { side ->
+	[task: "runAuditRelease${side}".toString(), side: side, what: "release jar, ${side.toLowerCase()}", dir: new File(releaseAuditDir, side.toLowerCase())]
+})
+auditRuns.eachWithIndex { run, i ->
+	def side = run.side
+	def what = run.what
+	def auditDir = run.dir
+	tasks.named(run.task) {
 		group = "verification"
+		// (In one fixed order.)
+		if (i > 0) mustRunAfter auditRuns[i - 1].task
 		usesService(auditGame)
 		doFirst {
 			new File(auditDir, "logs").deleteDir()
@@ -256,17 +307,180 @@ def auditGame = gradle.sharedServices.registerIfAbsent("neoforgeAuditGame", NeoF
 			def text = log.exists() ? log.text : ""
 			def problems = text.readLines().findAll { it =~ /Mixin apply for mod|Mixin apply failed|Injection validation failed|could not find any targets|InvalidInjectionException|InvalidMixinException|MixinApplyError|MixinTransformerError|Critical injection failure/ }
 			if (!text.contains("Horsing Around mixin audit passed") || !problems.isEmpty()) {
-				throw new GradleException("Mixin audit failed on ${mc} ${loaderName} (${side.toLowerCase()}); see ${log}\n" + problems.take(20).join("\n"))
+				throw new GradleException("Mixin audit failed on ${mc} ${loaderName} (${what}); see ${log}\n" + problems.take(20).join("\n"))
 			}
-			logger.lifecycle("Mixin audit passed on ${mc} ${loaderName} (${side.toLowerCase()}).")
+			logger.lifecycle("Mixin audit passed on ${mc} ${loaderName} (${what}).")
 		}
 	}
 }
 tasks.register("auditMixins") {
 	group = "verification"
-	dependsOn "runAuditClient", "runAuditServer"
+	dependsOn auditRuns.collect { it.task }
 }
-tasks.named("runAuditServer") { mustRunAfter "runAuditClient" }
+
+// Forge's installer makes a production client and dedicated server, once per Forge version, and each side's launch.json
+// says how to start it: the server's comes from Forge's own argument file, the client's is built from the version JSONs as a
+// launcher builds it (the installer leaves the vanilla libraries to the launcher: fetched here, by sha1).
+abstract class InstallForgeGames extends DefaultTask {
+	@InputFiles @PathSensitive(PathSensitivity.NONE) abstract ConfigurableFileCollection getInstaller()
+	@Input abstract Property<String> getMinecraftVersion()
+	@Input abstract Property<String> getForgeVersion()
+	@Nested abstract Property<JavaLauncher> getJavaLauncher()
+	@OutputFile abstract RegularFileProperty getClientLaunch()
+	@OutputFile abstract RegularFileProperty getServerLaunch()
+	@javax.inject.Inject abstract ExecOperations getExec()
+
+	@TaskAction
+	void install() {
+		def mc = minecraftVersion.get()
+		def forge = "${mc}-${forgeVersion.get()}"
+		def id = "${mc}-forge-${forgeVersion.get()}".toString()
+		def client = clientLaunch.get().asFile.parentFile
+		def server = serverLaunch.get().asFile.parentFile
+		[client, server].each { it.deleteDir(); it.mkdirs() }
+		// (The client install adds itself to a launcher's profile list.)
+		new File(client, "launcher_profiles.json").text = '{"profiles":{}}\n'
+		runInstaller("--installServer", server)
+		runInstaller("--installClient", client)
+
+		// Forge's argument file has an option (and its value) per line, then the main class, then the game's arguments.
+		def serverLine = [mainClass: null, jvm: [], classpath: [], game: []]
+		def windows = System.getProperty("os.name").startsWith("Windows")
+		new File(server, "libraries/net/minecraftforge/forge/${forge}/${windows ? 'win' : 'unix'}_args.txt").readLines()*.trim().findAll { it && !it.startsWith("#") }.each { line ->
+			if (serverLine.mainClass == null && !line.startsWith("-")) {
+				serverLine.mainClass = line
+			} else {
+				serverLine[serverLine.mainClass == null ? "jvm" : "game"].addAll((line =~ /"([^"]*)"|(\S+)/).collect { it[1] != null ? it[1] : it[2] })
+			}
+		}
+		serverLine.game << "nogui"
+		serverLaunch.get().asFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(serverLine))
+
+		def libraries = new File(client, "libraries")
+		def forgeJson = new groovy.json.JsonSlurper().parse(new File(client, "versions/${id}/${id}.json"))
+		def vanillaFile = new File(client, "versions/${mc}/${mc}.json")
+		if (!vanillaFile.exists()) {
+			def manifest = new groovy.json.JsonSlurper().parse(URI.create("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json").toURL())
+			def entry = manifest.versions.find { it.id == mc }
+			download(entry.url, entry.sha1, vanillaFile)
+		}
+		def vanilla = new groovy.json.JsonSlurper().parse(vanillaFile)
+		def gameJar = new File(client, "versions/${mc}/${mc}.jar")
+		if (!gameJar.exists()) download(vanilla.downloads.client.url, vanilla.downloads.client.sha1, gameJar)
+		// Forge's libraries first: one of each (group, name and classifier).
+		def classpath = []
+		def seen = [] as Set
+		(forgeJson.libraries + vanilla.libraries).findAll { allowed(it.rules) && it.downloads?.artifact }.each { lib ->
+			def coordinates = lib.name.split(":") as List
+			if (!seen.add((coordinates.take(2) + coordinates.drop(3)).join(":"))) return
+			def artifact = lib.downloads.artifact
+			def file = new File(libraries, artifact.path)
+			if (!file.exists()) {
+				if (!artifact.url) throw new GradleException("Forge's installer didn't make ${file}")
+				download(artifact.url, artifact.sha1, file)
+			}
+			classpath << file.absolutePath
+		}
+		// The game jar goes last, under the Forge version's name, which Forge's ignoreList keeps off the module path.
+		def versionJar = new File(client, "versions/${id}/${id}.jar")
+		java.nio.file.Files.copy(gameJar.toPath(), versionJar.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+		classpath << versionJar.absolutePath
+		def natives = new File(client, "natives")
+		natives.mkdirs()
+		def values = [library_directory: libraries.absolutePath, classpath_separator: File.pathSeparator, version_name: id,
+			natives_directory: natives.absolutePath, launcher_name: "horsingaround-audit", launcher_version: "1", classpath: '${classpath}',
+			auth_player_name: "Dev", game_directory: client.absolutePath, auth_uuid: "0" * 32, auth_access_token: "0", clientid: "0",
+			auth_xuid: "0", user_type: "legacy", version_type: "release",
+			// (At run time, from ModDevGradle's assets: ForgeLaunchArgs.)
+			assets_root: '${assets_root}', assets_index_name: '${assets_index_name}']
+		def jvm = arguments(vanilla.arguments.jvm + forgeJson.arguments.jvm, values)
+		// (The classpath is the task's own.)
+		def cp = jvm.indexOf("-cp")
+		if (cp < 0 || jvm[cp + 1] != '${classpath}') throw new GradleException("${vanillaFile} has no -cp \${classpath}")
+		jvm = jvm.take(cp) + jvm.drop(cp + 2)
+		def game = arguments(vanilla.arguments.game + forgeJson.arguments.game, values)
+		def unknown = ((jvm + game).join(" ").findAll(/\$\{\w+\}/) as Set) - ['${assets_root}', '${assets_index_name}']
+		if (unknown) throw new GradleException("The client's arguments ask for ${unknown}, which this task doesn't fill in")
+		def clientLine = [mainClass: forgeJson.mainClass, jvm: jvm, classpath: classpath, game: game]
+		clientLaunch.get().asFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(clientLine))
+	}
+
+	void runInstaller(String mode, File dir) {
+		def log = new File(dir.parentFile, "install-${dir.name}.log")
+		def result = log.withOutputStream { out ->
+			exec.exec { spec ->
+				spec.executable(javaLauncher.get().executablePath.asFile.absolutePath)
+				spec.args("-jar", installer.singleFile.absolutePath, mode, dir.absolutePath)
+				spec.workingDir(dir)
+				spec.standardOutput = out
+				spec.errorOutput = out
+				spec.ignoreExitValue = true
+			}
+		}
+		if (result.exitValue != 0) throw new GradleException("Forge's installer (${mode}) failed; see ${log}")
+	}
+
+	// A version JSON's arguments, those whose rules this system passes, with the values filled in.
+	static List<String> arguments(List args, Map values) {
+		args.collectMany { arg ->
+			if (arg instanceof Map) {
+				if (!allowed(arg.rules)) return []
+				arg = arg.value
+			}
+			(arg instanceof List ? arg : [arg]).collect { String s -> s.replaceAll(/\$\{(\w+)\}/) { all, key -> values.containsKey(key) ? values[key].toString() : all } }
+		}
+	}
+
+	// A launcher's rules: the last that fits this system decides; none, allowed. (No launcher features: no demo, no quick play.)
+	static boolean allowed(List rules) {
+		if (!rules) return true
+		def os = System.getProperty("os.name").toLowerCase()
+		def name = os.startsWith("windows") ? "windows" : os.contains("mac") ? "osx" : "linux"
+		def allow = false
+		rules.each { rule ->
+			if (!rule.features && (!rule.os?.name || rule.os.name == name) && (!rule.os?.arch || rule.os.arch == System.getProperty("os.arch"))) {
+				allow = rule.action == "allow"
+			}
+		}
+		allow
+	}
+
+	static void download(String url, String sha1, File to) {
+		to.parentFile.mkdirs()
+		def part = new File(to.parentFile, "${to.name}.part")
+		def digest = java.security.MessageDigest.getInstance("SHA-1")
+		URI.create(url).toURL().openStream().withCloseable { input ->
+			part.withOutputStream { out ->
+				input.eachByte(65536) { byte[] buffer, int n ->
+					digest.update(buffer, 0, n)
+					out.write(buffer, 0, n)
+				}
+			}
+		}
+		def got = HexFormat.of().formatHex(digest.digest())
+		if (sha1 && got != sha1) {
+			part.delete()
+			throw new GradleException("${url} came with sha1 ${got}, not ${sha1}")
+		}
+		java.nio.file.Files.move(part.toPath(), to.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+	}
+}
+
+// One part of a launch.json (jvm or game) as arguments, with the client's assets: ModDevGradle's download, which its dev
+// games use too.
+class ForgeLaunchArgs implements CommandLineArgumentProvider {
+	@InputFile @PathSensitive(PathSensitivity.NONE) Provider<RegularFile> launch
+	@Input String part
+	@InputFile @PathSensitive(PathSensitivity.NONE) @Optional Provider<RegularFile> assets
+
+	Iterable<String> asArguments() {
+		List<String> args = new groovy.json.JsonSlurper().parse(launch.get().asFile)[part]
+		if (assets == null) return args
+		def found = new Properties()
+		assets.get().asFile.withInputStream { found.load(it) }
+		args.collect { it.replace('${assets_root}', found.getProperty("assets_root")).replace('${assets_index_name}', found.getProperty("asset_index")) }
+	}
+}
 
 // The mods.toml and the mixin configs carry this node's Minecraft range and Java version.
 // (The cowboy hat is done with the render state from 1.21.2; before, two mixins keep a helmet off the supporter's head.)
