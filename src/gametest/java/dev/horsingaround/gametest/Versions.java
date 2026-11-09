@@ -38,7 +38,8 @@ public final class Versions {
 
 	/**
 	 * Base attribute values, as pairs of name and value ({@code "movement_speed", 0.225}): the names 1.21.2 gives them
-	 * (movement_speed, jump_strength, max_health).
+	 * (movement_speed, jump_strength, max_health). (The keys went lower case in 1.21: before, a summon with the new ones keeps
+	 * the defaults without a word.)
 	 */
 	public static String attributes(final Object... nameAndValue) {
 		final StringBuilder list = new StringBuilder();
@@ -46,12 +47,12 @@ public final class Versions {
 			final String name = (String) nameAndValue[i];
 			final String value = java.math.BigDecimal.valueOf(((Number) nameAndValue[i + 1]).doubleValue()).toPlainString();
 			list.append(i == 0 ? "" : ",");
-			//? if >=1.20.5 {
+			//? if >=1.21 {
 			list.append("{id:\"").append(attribute(name)).append("\",base:").append(value).append("d}");
 			//?} else
 			/*list.append("{Name:\"").append(attribute(name)).append("\",Base:").append(value).append("d}");*/
 		}
-		//? if >=1.20.5 {
+		//? if >=1.21 {
 		return "attributes:[" + list + "]";
 		//?} else
 		/*return "Attributes:[" + list + "]";*/

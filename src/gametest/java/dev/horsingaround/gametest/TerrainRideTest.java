@@ -298,7 +298,8 @@ public final class TerrainRideTest implements ClientGameTest {
 				break;
 			}
 			final double speed = now[0];
-			// How fast the body tilts on the ground model (jump tilt is separate), per game tick.
+			// How fast the drawn body tilts, per game tick: steadily from one tick on the ground to the next; a jump's tilt
+			// easing off as it crests a ledge counts only towards the most.
 			if (now[11] > previousTick && previousTick >= 0) {
 				final double rate = Math.abs(now[10] - previousPitch) / (now[11] - previousTick);
 				if (rate > maxTiltRate) {
@@ -307,7 +308,9 @@ public final class TerrainRideTest implements ClientGameTest {
 					worstTilt = String.format(Locale.ROOT, "tick %d: %.1f deg in a tick; the last ticks:%s", ticks, rate, lines);
 				}
 				maxTiltRate = Math.max(maxTiltRate, rate);
-				tiltRates.add(rate);
+				if (previousGrounded && now[14] > 0) {
+					tiltRates.add(rate);
+				}
 			}
 			if (now[11] > previousTick && previousTick >= 0 && !Double.isNaN(previousVisual)) {
 				final double elapsed = now[11] - previousTick;
@@ -409,13 +412,12 @@ public final class TerrainRideTest implements ClientGameTest {
 		check("never carried by leaves (ticks standing on them)", onLeaves, 0, 0);
 		check("dead ends the rider had to turn away from", stuck, 0, scenario.maxStuck());
 		tiltRates.sort(null);
-		log("  body tilt change per tick: 99th percentile %.2f deg, most %.2f deg",
-			tiltRates.isEmpty() ? 0.0 : tiltRates.get((int) (tiltRates.size() * 0.99)), maxTiltRate);
+		final double steadyTilt = tiltRates.isEmpty() ? 0.0 : tiltRates.get((int) (tiltRates.size() * 0.99));
+		log("  body tilt change per tick on the ground: 99th percentile %.2f deg; most, flights too, %.2f deg", steadyTilt, maxTiltRate);
 		log("  sharpest change in the body's tilt: %s", worstTilt);
 		// (The body tilts as fast as its legs carry it up a block: about 8 degrees a tick at a gallop over a 1-block step, more
 		// landing a drop of a few blocks onto a slope.)
-		check("smooth: the body tilts steadily (99th percentile change per tick, deg)", tiltRates.isEmpty() ? 0.0 : tiltRates.get((int) (tiltRates.size() * 0.99)),
-			0.0, 10.0);
+		check("smooth: the body tilts steadily on the ground (99th percentile change per tick, deg)", steadyTilt, 0.0, 10.0);
 		check("smooth: the body never snaps into a tilt (max change per tick, landings included, deg)", maxTiltRate, 0.0, 18.0);
 		log("  sharpest pick-up in the drawn horse's rise: %s", worstStep);
 		check("smooth: the drawn horse climbs steps, never pops up them (sharpest pick-up in rise, blocks/tick a tick)", maxVisualStep, 0.0, 0.3);
