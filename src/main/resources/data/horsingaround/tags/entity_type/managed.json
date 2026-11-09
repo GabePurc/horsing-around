@@ -6,6 +6,9 @@
 		"minecraft:mule",
 		"minecraft:skeleton_horse",
 		"minecraft:zombie_horse",
-		{ "id": "#icys-better-horses:breed_horses", "required": false }
+		{ "id": "#icys-better-horses:breed_horses", "required": false },
+		{ "id": "horse_colors:horse_felinoid", "required": false },
+		{ "id": "horse_colors:donkey", "required": false },
+		{ "id": "horse_colors:mule", "required": false }
 	]
 }

@@ -33,20 +33,21 @@ Each needs a look: a real fault, or a limit to set from what the stride itself d
 - "Trotting up a slope of full blocks": in Icy's, median 0.116-0.135 against 0.12, failing over half of runs (Icy's trot lifts the hooves
   higher). Without Icy's it's 0.096-0.133, failing 2 of 28 runs of that shard.
   Its "never far above": 0.94-0.98 against 1.0 everywhere; 1.20.4 went 1.004-1.005 in 2 of 3 runs.
-- Once each in a parallel run, passing alone: 1.21.5 "down a mountain, layout 2" stuck under leaves; 26.2-neoforge's 9-block drop
-  cost no health; 1.21.8's chunk-render wait timed out.
+- Once each in a parallel run, passing alone: 1.21.5 "down a mountain, layout 2" stuck under leaves; 1.21.8's chunk-render wait
+  timed out.
 - Icy's "up a 1-block step at a walk", no hoof in the step: -0.081 to -0.091 against -0.08 in about a quarter of runs.
 - The nautilus in a pack rides little now and then: 0.54 in the horses pack; in Icy's 0.945 or 2.258, the low one more often on the frame
   clock (3 of 4 runs, against 0 of 2 at normal speed); about 3.7 with no pack. Limit 0.4, from 1.
-- Icy's cart "room", "the rider's seat is well clear of the horse's hindquarters": one breed's seat 0.9-1.5 instead of 1.9-2.1 in 2 of
-  14 runs, a different breed each time; perhaps read before the rider settles on the bench (5 ticks after boarding).
+- Icy's cart "room", "the rider's seat is well clear of the horse's hindquarters": one breed's seat 0.4-1.5 instead of 1.9-2.1 in 3 of
+  16 runs, a different breed each time; perhaps read before the rider settles on the bench (5 ticks after boarding).
+- "Galloping at a 9-block drop, healthy": landed below with no health lost (target 0.5-1) once in Icy's, once on 26.2-neoforge,
+  passing on reruns.
 - Making the legs snap into their pose in the air (the blend in `AirLegs`) fails no check: the blend isn't really tested.
 
 ## Known issues
 
 - Hoof soles meeting a bank's top mid-heave still jump up to 0.34 blocks in a frame (logged by `exits`).
 - Galloping up a ragged hillside, the head can dip 0.31-0.39 blocks into a step for a moment (`hill`, limit 0.4).
-
 - Icy's carts don't collide going forward: they pass through a trunk or cliff if the horse cuts close.
 
 Outside this mod's control:

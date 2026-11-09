@@ -16,11 +16,16 @@ import java.util.function.Consumer;
 //? if fabric {
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-//?} else {
+//?} elif neoforge {
 /*import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.common.NeoForge;
+*///?} else {
+/*import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.fml.common.Mod;
 *///?}
 import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
@@ -50,8 +55,11 @@ import org.slf4j.Logger;
  */
 //? if fabric {
 public final class SmokeTest implements ClientModInitializer {
-//?} else {
+//?} elif neoforge {
 /*@Mod(value = "horsingaround_smoke", dist = Dist.CLIENT)
+public final class SmokeTest {
+*///?} else {
+/*@Mod("horsingaround_smoke")
 public final class SmokeTest {
 *///?}
 	private static final Logger LOGGER = LogUtils.getLogger();
@@ -139,11 +147,23 @@ public final class SmokeTest {
 			ClientTickEvents.END_CLIENT_TICK.register(this::tick);
 		}
 	}
-	//?} else {
+	//?} elif neoforge {
 	/*public SmokeTest() {
 		if (Boolean.getBoolean("horsingaround.smoke")) {
 			NeoForge.EVENT_BUS.addListener(ClientTickEvent.Pre.class, event -> turnBack(Minecraft.getInstance()));
 			NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, event -> tick(Minecraft.getInstance()));
+		}
+	}
+	*///?} else {
+	/*public SmokeTest() {
+		if (Boolean.getBoolean("horsingaround.smoke")) {
+			MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, TickEvent.ClientTickEvent.class, event -> {
+				if (event.phase == TickEvent.Phase.START) {
+					turnBack(Minecraft.getInstance());
+				} else {
+					tick(Minecraft.getInstance());
+				}
+			});
 		}
 	}
 	*///?}

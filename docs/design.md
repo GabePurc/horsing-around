@@ -73,7 +73,6 @@ gallop clip after five steps whatever the speed, no stamina and no visual weight
 - Steps in two beats (user): front legs up first, then the hind; one leg at a time at a walk, nearly together at speed; at
   a run a step comes in through the stride without a pop.
 - No clipping between horse and rider (user): the horse reaches its neck forward, then the rider folds less.
-- Judge legs by `LegProbe` measurements and close shots, not formulas.
 - Known limits: on a slope of full blocks a leg can't reach a 1-block riser, so the horse scrambles; trotting down one, a
   hoof hangs a tick or two after each landing (user, 2026-10-10: kept unless a better way turns up).
 
@@ -102,6 +101,8 @@ gallop clip after five steps whatever the speed, no stamina and no visual weight
   camera. Every move must be accepted by the server (no rubber-banding).
 - A plain install needs only the loader and, on Fabric, Fabric API. Mod Menu and the animation stack stay optional.
 - Compatible with popular mods: no crashes, log errors or silently disabled features, theirs or ours (`runCompat`).
+- Realistic Horse Genetics (user, 2026-11-07: "needs to be" compatible; it's Forge 1.20.1 only, hence that build): its horses
+  ride as vanilla's, and its model gets what vanilla's does, at the horse's own size.
 
 ## Icy's Better Horses (user, 2026-10-31)
 
@@ -136,8 +137,7 @@ On this mod's setting, the default:
   rider isn't in its hindquarters (user). The shafts swing and stretch to stay on the horse whatever the cart does (user).
 - Its jump clip poses the legs fore and aft only: across the body, it swung the hind legs sideways for a moment (user).
 - Its free-look key shares Left Ctrl with sprint, so it does nothing here.
-- Icy's mod has no switch for its riding, so the hooks reach into its code and miss quietly when it changes; the `icys`
-  compat pack rides a breed through the horse tests to catch that.
+- Icy's mod has no switch for its riding, so the hooks reach into its code and miss quietly when it changes (`runCompat` catches it).
 
 ## Settings and the hat
 

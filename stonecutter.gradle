@@ -8,8 +8,9 @@ stonecutter.active '26.3'
 
 // Class renames that only differ by name; real differences use //? conditionals (docs/porting.md).
 stonecutter.parameters {
-	// The loader this node builds for, for //? if neoforge (the NeoForge nodes are named <version>-neoforge).
-	constants.match(current.project.endsWith('-neoforge') ? 'neoforge' : 'fabric', 'fabric', 'neoforge')
+	// The loader this node builds for, for //? if neoforge (the NeoForge nodes are named <version>-neoforge, the Forge one
+	// <version>-forge).
+	constants.match(current.project.endsWith('-neoforge') ? 'neoforge' : current.project.endsWith('-forge') ? 'forge' : 'fabric', 'fabric', 'neoforge', 'forge')
 	// The tests' harness (src/gametest/.../harness) hooks the GPU layer, which 26.3 moved from com.mojang.blaze3d to
 	// com.mojang.renderpearl, and the keyboard, whose keys went from GLFW key codes to SDL scancodes.
 	replacements.string(current.parsed.matches('<26.3')) {
