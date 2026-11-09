@@ -172,6 +172,14 @@ public final class LegProbe {
 		final PoseStack stack = new PoseStack();
 		stack.last().pose().set(pose.pose());
 		stack.last().normal().set(pose.normal());
+		//? if <1.20.5 {
+		/*// (Before 1.20.5 the pose starts with the camera's turn: taken off, as the mod does for the legs.)
+		final net.minecraft.client.Camera view = mc.gameRenderer.getMainCamera();
+		final float viewYaw = (-view.getYRot() - 180.0F) * Mth.DEG_TO_RAD;
+		final float viewPitch = -view.getXRot() * Mth.DEG_TO_RAD;
+		stack.last().pose().set(new org.joml.Matrix4f().rotationY(viewYaw).rotateX(viewPitch).mul(pose.pose()));
+		stack.last().normal().set(new org.joml.Matrix3f().rotationY(viewYaw).rotateX(viewPitch).mul(pose.normal()));
+		*///?}
 		walk(root(model), "root", stack, -1, false, false, cam, dumping, 0);
 		if (dumping) {
 			tree = dump.toString();

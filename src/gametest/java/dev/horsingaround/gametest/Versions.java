@@ -46,12 +46,10 @@ public final class Versions {
 			final String name = (String) nameAndValue[i];
 			final String value = java.math.BigDecimal.valueOf(((Number) nameAndValue[i + 1]).doubleValue()).toPlainString();
 			list.append(i == 0 ? "" : ",");
-			//? if >=1.21.2 {
-			list.append("{id:\"minecraft:").append(name).append("\",base:").append(value).append("d}");
-			//?} elif >=1.20.5 {
-			/*list.append("{id:\"minecraft:").append(oldAttribute(name)).append("\",base:").append(value).append("d}");
-			*///?} else
-			/*list.append("{Name:\"minecraft:").append(oldAttribute(name)).append("\",Base:").append(value).append("d}");*/
+			//? if >=1.20.5 {
+			list.append("{id:\"").append(attribute(name)).append("\",base:").append(value).append("d}");
+			//?} else
+			/*list.append("{Name:\"").append(attribute(name)).append("\",Base:").append(value).append("d}");*/
 		}
 		//? if >=1.20.5 {
 		return "attributes:[" + list + "]";
@@ -59,9 +57,12 @@ public final class Versions {
 		/*return "Attributes:[" + list + "]";*/
 	}
 
-	/** An attribute's name before 1.21.2 (its group in front). */
-	private static String oldAttribute(final String name) {
-		return name.equals("jump_strength") ? "horse.jump_strength" : "generic." + name;
+	/** An attribute's id from the name 1.21.2 gives it ({@code max_health}): before, its group is in front. */
+	public static String attribute(final String name) {
+		//? if >=1.21.2 {
+		return "minecraft:" + name;
+		//?} else
+		/*return "minecraft:" + (name.equals("jump_strength") ? "horse.jump_strength" : "generic." + name);*/
 	}
 
 	/** Tied by a lead to the fence knot at (x, y, z). */

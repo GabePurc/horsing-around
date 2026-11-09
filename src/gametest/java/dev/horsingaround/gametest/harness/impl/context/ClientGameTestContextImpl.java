@@ -387,12 +387,19 @@ public final class ClientGameTestContextImpl implements ClientGameTestContext {
 				client.gameRenderer.update(deltaTracker);
 				//? if >=26.1
 				client.gameRenderer.extract(deltaTracker, true);
+				//? if <1.21.2 {
+				/*// (Before 1.21.2 the game binds its main target around the frame itself: drawn outside of that, it went to the
+				// window and the shot read the frame before.)
+				client.getMainRenderTarget().bindWrite(true);
+				*///?}
 				//? if >=26.3 {
 				client.gameRenderer.render();
 				//?} elif >=1.21 {
 				/*client.gameRenderer.render(deltaTracker, true);
 				*///?} else
 				/*client.gameRenderer.render(options.deltaTicks, net.minecraft.Util.getNanos(), true);*/
+				//? if <1.21.2
+				/*client.getMainRenderTarget().unbindWrite();*/
 				//? if >=26.2
 				RenderSystem.getDevice().createCommandEncoder().submit();
 				CompletableFuture<T> resultFuture = new CompletableFuture<>();

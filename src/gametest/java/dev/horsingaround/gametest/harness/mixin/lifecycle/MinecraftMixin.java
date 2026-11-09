@@ -46,12 +46,12 @@ public class MinecraftMixin {
 		}
 	}
 
-	/**
-	 * Failed tests end the game with an error code. (Some versions' main, 1.20.1's, logs what the game threw and shuts down
-	 * as if all went well.)
-	 */
+	//? if <26.2 {
+	/*// Failed tests end the game with an error code. (Before 26.2 the game exits from destroy(), and some versions' main,
+	// 1.20.1's, logs what the game threw and shuts down as if all went well.)
 	@org.spongepowered.asm.mixin.injection.ModifyArg(method = "destroy", at = @At(value = "INVOKE", target = "Ljava/lang/System;exit(I)V", remap = false))
 	private int exitWithFailure(int code) {
 		return dev.horsingaround.gametest.harness.impl.threading.ThreadingImpl.testFailureException != null ? 1 : code;
 	}
+	*///?}
 }

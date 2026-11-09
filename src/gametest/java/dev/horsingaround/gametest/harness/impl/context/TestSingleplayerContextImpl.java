@@ -63,6 +63,11 @@ public class TestSingleplayerContextImpl implements TestSingleplayerContext {
 	@Override
 	public void close() {
 		ThreadingImpl.checkOnGametestThread("close");
+		//? if <1.21.2 {
+		/*// Before 1.21.2 a server stopping while chunks are still generating can go round unloading them for ever (vanilla
+		// puts a chunk that isn't ready back in the queue it is emptying): let what the test set going finish first.
+		context.waitTicks(200);
+		*///?}
 
 		context.runOnClient(client -> {
 			if (client.level == null) {

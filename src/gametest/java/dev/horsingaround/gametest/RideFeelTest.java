@@ -1839,6 +1839,16 @@ public final class RideFeelTest implements ClientGameTest {
 		float peakUpError = 0.0F;
 		boolean top = false;
 		for (int i = 0; i < 60; i++) {
+			//? if <1.21.6 {
+			/*if (i == 20) {
+				// (Before 1.21.6 a rear started from outside the horse lasts until stopped: stopped where 1.21.6's ends.)
+				world.getServer().runOnServer(server -> {
+					if (server.getPlayerList().getPlayers().get(0).getVehicle() instanceof AbstractHorse horse) {
+						horse.setStanding(false);
+					}
+				});
+			}
+			*///?}
 			ctx.waitTick();
 			final float[] now = ctx.computeOnClient(mc -> {
 				final AbstractHorse horse = (AbstractHorse) mc.player.getVehicle();
@@ -1994,15 +2004,13 @@ public final class RideFeelTest implements ClientGameTest {
 	}
 
 	/**
-	 * Swings the main hand and watches the arm (index {@code arm}: 0 right, 3 left) frame by frame: it should start from
-	 * where it is held, rise, and come back to exactly there, with no jump between frames. A shot every other tick.
+	 * Swings the main hand and watches the arm (index {@code arm}: 0 right, 3 left) tick by tick: it should start from
+	 * where it is held, rise, and come back to exactly there, with no jump between ticks. Then a second swing, with a shot
+	 * every other tick (a shot can take ticks of its own, which would hide ticks from the first).
 	 */
 	private void swing(final ClientGameTestContext ctx, final String name, final int arm) {
 		final float[] before = riderArms(ctx);
-		//? if >=26.3 {
-		ctx.runOnClient(mc -> mc.player.swing(InteractionHand.MAIN_HAND, net.minecraft.world.item.component.SwingAnimation.DEFAULT, true));
-		//?} else
-		/*ctx.runOnClient(mc -> mc.player.swing(InteractionHand.MAIN_HAND, true));*/
+		swingMainHand(ctx);
 		float highest = 0.0F;
 		float jump = 0.0F;
 		float last = before[arm];
@@ -2012,14 +2020,27 @@ public final class RideFeelTest implements ClientGameTest {
 			highest = Math.max(highest, before[arm] - now[arm]);
 			jump = Math.max(jump, Math.abs(now[arm] - last));
 			last = now[arm];
-			if (i % 2 == 0 && i < 6) {
-				riderShot(ctx, name + "_" + i);
-			}
 		}
 		final float[] after = riderArms(ctx);
 		check(name + ": the swing raises the arm from where it is held (rad)", highest, 0.6, 3.0);
 		check(name + ": and brings it back to where it was held (rad)", Math.abs(after[arm] - before[arm]) + Math.abs(after[arm + 2] - before[arm + 2]), 0.0, 0.08);
-		check(name + ": no jump between ticks (most the arm turned in a tick, rad)", jump, 0.0, 1.2);
+		// (Vanilla's whack rises nearly all the way in its first tick, about 1.4 rad looking level: more is a jump of ours.)
+		check(name + ": no jump between ticks (most the arm turned in a tick, rad)", jump, 0.0, 1.55);
+		swingMainHand(ctx);
+		for (int i = 0; i < 6; i++) {
+			ctx.waitTick();
+			if (i % 2 == 0) {
+				riderShot(ctx, name + "_" + i);
+			}
+		}
+		ctx.waitTicks(6);
+	}
+
+	private static void swingMainHand(final ClientGameTestContext ctx) {
+		//? if >=26.3 {
+		ctx.runOnClient(mc -> mc.player.swing(InteractionHand.MAIN_HAND, net.minecraft.world.item.component.SwingAnimation.DEFAULT, true));
+		//?} else
+		/*ctx.runOnClient(mc -> mc.player.swing(InteractionHand.MAIN_HAND, true));*/
 	}
 
 	/**
@@ -2678,14 +2699,17 @@ public final class RideFeelTest implements ClientGameTest {
 		stop(ctx, input);
 	}
 
-	/** A sheer 9-block drop: one fall-damage point for the horse (horses take half damage past 6 blocks). Healthy, it takes it; hurt, it won't. */
+	/**
+	 * A sheer 9-block drop: horses take half damage past 6 blocks, 1.5, which vanilla rounds down to one point from 1.21.5
+	 * and up to two before. Healthy, it takes it; hurt, it won't.
+	 */
 	private void hurtingDrop(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final boolean hurt) {
 		section(hurt ? "Galloping at a 9-block drop, horse at 30% health" : "Galloping at a 9-block drop, healthy");
 		final int x = hurt ? 740 : 720;
 		final String tag = hurt ? "drop7_hurt_test" : "drop7_test";
 		lane(ctx, input, world, x + 0.5, -51, tag, "fill " + (x - 5) + " -60 -40 " + (x + 5) + " -52 6 minecraft:stone");
 		final TestServerContext server = world.getServer();
-		server.runCommand("attribute @e[tag=" + tag + ",limit=1] minecraft:max_health base set 20");
+		server.runCommand("attribute @e[tag=" + tag + ",limit=1] " + Versions.attribute("max_health") + " base set 20");
 		server.runCommand("data merge entity @e[tag=" + tag + ",limit=1] {Health:" + (hurt ? 6 : 20) + "f}");
 		ctx.waitTicks(5);
 		log("  horse health %.1f / %.1f, will fall up to %.2f blocks",
@@ -2707,11 +2731,15 @@ public final class RideFeelTest implements ClientGameTest {
 		if (hurt) {
 			check("a hurt horse won't take a fall that hurts (still on top)", sample(ctx).y > -51.05);
 		} else {
-			check("a healthy horse takes a fall that costs half a heart (landed below)", sample(ctx).y < -59.9);
+			check("a healthy horse takes a fall that hurts a little (landed below)", sample(ctx).y < -59.9);
 			// Read on the server, where the damage is done (the client's copy can lag a busy machine).
 			final float after = server.computeOnServer(sv -> sv.overworld().getEntities(net.minecraft.world.level.entity.EntityTypeTest.forClass(AbstractHorse.class),
 				e -> e.entityTags().contains(tag)).stream().findFirst().map(AbstractHorse::getHealth).orElse(before));
-			check("and it costs no more than that (health lost)", before - after, 0.5, 1.0);
+			//? if >=1.21.5 {
+			final double vanillaHurt = 1.0;
+			//?} else
+			/*final double vanillaHurt = 2.0;*/
+			check("and it costs no more than vanilla's 9 blocks (health lost)", before - after, vanillaHurt - 0.5, vanillaHurt);
 		}
 		stop(ctx, input);
 	}
@@ -4906,6 +4934,10 @@ public final class RideFeelTest implements ClientGameTest {
 			Versions.toggleHud(mc);
 			return true;
 		});
+		if (!found) {
+			log("  (no side camera for %s: %s)", name, ctx.computeOnClient(mc -> mc.level.getEntitiesOfClass(ArmorStand.class, mc.player.getBoundingBox().inflate(32.0), e -> true)
+				.stream().map(e -> String.format(Locale.ROOT, "stand at %.1f %.1f %.1f%s", e.getX(), e.getY(), e.getZ(), e.isInvisible() ? " invisible" : "")).toList()));
+		}
 		screenshot(ctx, name);
 		if (found) {
 			ctx.runOnClient(mc -> {

@@ -326,23 +326,28 @@ public final class MountsTest implements ClientGameTest {
 		server.runCommand("difficulty easy");
 		final int x = nextLane();
 		server.runCommand(String.format(Locale.ROOT, "tp @p %d %d 7 180 15", x, GROUND));
-		// Glass between them: a zombie horseman's spear knocks whatever it hits off its mount (vanilla), and wandering into the
-		// skeleton horseman it did, now and then.
-		server.runCommand(String.format(Locale.ROOT, "fill %d %d -12 %d %d 6 minecraft:glass", x - 2, GROUND, x - 2, GROUND + 3));
-		server.runCommand(String.format(Locale.ROOT, "fill %d %d -12 %d %d 6 minecraft:glass", x + 2, GROUND, x + 2, GROUND + 3));
+		// A glass pen each, closed in front of the player: riders that meet fight (a zombie horseman's spear knocks whatever
+		// it hits off its mount, and a skeleton's stray arrow starts a fight it can lose), and through glass none sees the
+		// player to go for them.
+		for (final int wall : new int[] {x - 6, x - 2, x + 2, x + 6}) {
+			server.runCommand(String.format(Locale.ROOT, "fill %d %d -12 %d %d 5 minecraft:glass", wall, GROUND, wall, GROUND + 3));
+		}
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d -12 %d %d -12 minecraft:glass", x - 6, GROUND, x + 6, GROUND + 3));
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d 5 %d %d 5 minecraft:glass", x - 6, GROUND, x + 6, GROUND + 3));
 		ctx.waitTicks(10);
-		// (Helmets on the riders and fire resistance on the horses: the undead burn, and flee, in the sun.)
+		// (Helmets on the riders and fire resistance on the horses: the undead burn, and flee, in the sun. Tame, as vanilla's
+		// horsemen are: before 26.2 an untamed horse throws even a mob off now and then.)
 		server.runCommand(String.format(Locale.ROOT,
-			"summon minecraft:zombie_horse %d %d 0 {Tags:[\"horseman\"],PersistenceRequired:1b,%s,Passengers:[{id:\"minecraft:zombie\",PersistenceRequired:1b,%s,"
+			"summon minecraft:zombie_horse %d %d 0 {Tags:[\"horseman\"],Tame:1b,PersistenceRequired:1b,%s,Passengers:[{id:\"minecraft:zombie\",PersistenceRequired:1b,%s,"
 				+ Versions.gear(Versions.hasItem("iron_spear") ? "iron_spear" : "iron_sword", "iron_helmet") + "}]}", x - 4, GROUND, FIREPROOF, FIREPROOF));
 		server.runCommand(String.format(Locale.ROOT,
-			"summon minecraft:skeleton_horse %d %d 0 {Tags:[\"horseman\"],PersistenceRequired:1b,%s,Passengers:[{id:\"minecraft:skeleton\",PersistenceRequired:1b,%s,"
+			"summon minecraft:skeleton_horse %d %d 0 {Tags:[\"horseman\"],Tame:1b,PersistenceRequired:1b,%s,Passengers:[{id:\"minecraft:skeleton\",PersistenceRequired:1b,%s,"
 				+ Versions.gear("bow", "iron_helmet") + "}]}", x, GROUND, FIREPROOF, FIREPROOF));
 		// (Camel husks are 1.21.11 on.)
 		final int pairs = Versions.hasEntity("camel_husk") ? 3 : 2;
 		if (pairs == 3) {
 			server.runCommand(String.format(Locale.ROOT,
-				"summon minecraft:camel_husk %d %d 0 {Tags:[\"horseman\"],PersistenceRequired:1b,Passengers:[{id:\"minecraft:husk\",PersistenceRequired:1b}]}", x + 4, GROUND));
+				"summon minecraft:camel_husk %d %d 0 {Tags:[\"horseman\"],Tame:1b,PersistenceRequired:1b,Passengers:[{id:\"minecraft:husk\",PersistenceRequired:1b}]}", x + 4, GROUND));
 		}
 		ctx.waitTicks(100);
 		ctx.runOnClient(mc -> mc.gui.hud.getChat().clearMessages(false));

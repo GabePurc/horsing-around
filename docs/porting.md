@@ -103,4 +103,7 @@ Build and pass the audit: 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9), 
   adjusted. Its neck is (`EmfNeck`, after the pack has run): through EMF's hook on 1.20.1 (`EmfNeckHook`), by wrapping the model's animation on 1.20.2-1.20.6
   (`EmfNeckAfterPack`, `client/mixin/emf/`).
 
-Different underneath, not a gap: before 1.21.11 vanilla horses sink in deep water, so the ride floats all but the skeleton horse (`Mounts.floats`).
+Different underneath, not gaps (each handled where named):
+- Before 1.21.11 vanilla horses sink in deep water, so the ride floats all but the skeleton horse (`Mounts.floats`).
+- Before 1.21.5 vanilla slows a ridden horse 2% a tick on its rider's client: the ride takes that off (`LivingEntityMixin`).
+- Before 1.20.5 the pose stack entities are drawn with starts with the camera's turn: `LivingEntityRendererMixin` takes it off the drawn pose.
