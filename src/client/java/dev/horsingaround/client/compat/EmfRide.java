@@ -5,15 +5,12 @@ import dev.horsingaround.ride.RideStateHolder;
 import dev.horsingaround.client.render.AnimatedHorseModel;
 import dev.horsingaround.client.render.PartData;
 import dev.horsingaround.client.render.SaddleMotion;
-import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.world.entity.Entity;
 import org.jspecify.annotations.Nullable;
-//? if >=1.21 || =1.20.1 {
+//? if >=1.21 || =1.20.1
 import traben.entity_model_features.models.parts.EMFModelPartRoot;
-//?} else
-/*import java.util.HashMap;*/
 
 /**
  * What the ride adds to a horse an animation pack (e.g. Fresh Animations) animates through Entity Model Features, once the
@@ -53,22 +50,27 @@ public final class EmfRide {
 	 * of its own, and this is left empty in the body's).
 	 */
 	private final @Nullable ModelPart bridleNeck;
+	//? if >=1.21.2 && <1.21.4 {
+	/*// Whether the pack puts this model's root where 1.21.4 has it (seen once, on land; see apply), and where the root was
+	// last put back to (the pack hasn't set it again while it's still there).
+	private boolean scaledRoot;
+	private float rootPutBack = Float.NaN;
+	*///?}
 
 	/** Looks up the model's parts: once the pack has set them (on 1.20.2 to 1.20.6, those of the variant in force). */
 	public EmfRide(final ModelPart root) {
-		final Map<String, ? extends ModelPart> vanilla = vanillaParts(root);
-		this.leftFront = vanilla.get("left_front_leg");
-		this.rightFront = vanilla.get("right_front_leg");
-		this.leftHind = vanilla.get("left_hind_leg");
-		this.rightHind = vanilla.get("right_hind_leg");
+		this.leftFront = vanilla(root, "left_front_leg");
+		this.rightFront = vanilla(root, "right_front_leg");
+		this.leftHind = vanilla(root, "left_hind_leg");
+		this.rightHind = vanilla(root, "right_hind_leg");
 		final ModelPart tail = AnimatedHorseModel.find(root, "tail2");
-		this.tail = tail != null ? tail : vanilla.get("tail");
+		this.tail = tail != null ? tail : vanilla(root, "tail");
 		ModelPart neck = AnimatedHorseModel.find(root, "neck2");
 		if (neck == null) {
-			neck = vanilla.get("head_parts");
+			neck = vanilla(root, "head_parts");
 		}
-		this.neck = neck != null ? neck : vanilla.get("neck");
-		this.body = vanilla.get("body");
+		this.neck = neck != null ? neck : vanilla(root, "neck");
+		this.body = vanilla(root, "body");
 		this.leftStirrup = AnimatedHorseModel.find(root, "left_saddle");
 		this.rightStirrup = AnimatedHorseModel.find(root, "right_saddle");
 		this.bridleNeck = AnimatedHorseModel.find(root, "headpiece_neck");
@@ -106,9 +108,15 @@ public final class EmfRide {
 		//? if >=1.21.2 && <1.21.4 {
 		/*// Fresh Animations' horse files for 1.21.2 on put the root where 1.21.4 has it, 2.4 pixels up as 1.21.4 builds the
 		// horse's 1.1 size into the model; 1.21.2 and 1.21.3 scale the horse as they draw it and keep the root at 0, so there
-		// the pack's horse floats a sixth of a block off the ground. Back down onto it.
-		if (root.yScale == 1.0F && Math.abs(root.y - SCALED_ROOT_Y) < 0.01F) {
-			root.y = 0.0F;
+		// the pack's horse floats a sixth of a block off the ground. Back down onto it, always once seen: the pack adds to the
+		// root as the horse swims, and the horse mustn't pop up when it starts. (Not its skeleton and zombie horses, nor
+		// donkeys and mules: their roots sit elsewhere.)
+		if (root.yScale == 1.0F) {
+			this.scaledRoot |= Math.abs(root.y - SCALED_ROOT_Y) < 0.01F;
+			if (this.scaledRoot && root.y != this.rootPutBack) {
+				root.y -= SCALED_ROOT_Y;
+				this.rootPutBack = root.y;
+			}
 		}
 		*///?}
 		AnimatedHorseModel.legs(root, 16.0F / root.yScale, this.leftFront, this.rightFront, this.leftHind, this.rightHind, ride, partialTicks);
@@ -135,27 +143,11 @@ public final class EmfRide {
 		ride.animatedWholeRear = true;
 	}
 
-	/** The model's vanilla parts, by name. */
-	private static Map<String, ? extends ModelPart> vanillaParts(final ModelPart root) {
+	/** The model's own (vanilla) part named {@code name}, not the pack's. */
+	private static @Nullable ModelPart vanilla(final ModelPart root, final String name) {
 		//? if >=1.21 || =1.20.1 {
-		return ((EMFModelPartRoot) root).getAllVanillaPartsByNameEMF();
-		//?} else {
-		/*// (Entity Model Features 3.0 has no list of them: they're the parts under their vanilla names, the pack's own being
-		// named "EMF_...".)
-		final Map<String, ModelPart> parts = new HashMap<>();
-		collect(root, parts);
-		return parts;
-		*///?}
+		return ((EMFModelPartRoot) root).getAllVanillaPartsByNameEMF().get(name);
+		//?} else
+		/*return AnimatedHorseModel.find(root, name, false);*/
 	}
-
-	//? if >=1.20.2 && <1.21 {
-	/*private static void collect(final ModelPart part, final Map<String, ModelPart> parts) {
-		for (final Map.Entry<String, ModelPart> child : ((PartData) (Object) part).horsingaround$children().entrySet()) {
-			if (!child.getKey().startsWith("EMF")) {
-				parts.putIfAbsent(child.getKey(), child.getValue());
-				collect(child.getValue(), parts);
-			}
-		}
-	}
-	*///?}
 }

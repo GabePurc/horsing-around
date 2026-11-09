@@ -32,7 +32,7 @@ Each needs a look: a real fault, or a limit to set from what the stride itself d
   glass, so probably not the spear.
 - "Trotting up a slope of full blocks": in Icy's, median 0.116-0.135 against 0.12, failing over half of runs (Icy's trot lifts the hooves
   higher). Without Icy's it's 0.096-0.133, failing 2 of 28 runs of that shard.
-  Its "never far above": 0.94-0.97 against 1.0 everywhere (1.004 once).
+  Its "never far above": 0.94-0.98 against 1.0 everywhere; 1.20.4 went 1.004-1.005 in 2 of 3 runs.
 - Once each in a parallel run, passing alone: 1.21.5 "down a mountain, layout 2" stuck under leaves; 26.2-neoforge's 9-block drop
   cost no health; 1.21.8's chunk-render wait timed out.
 - Icy's "up a 1-block step at a walk", no hoof in the step: -0.081 to -0.091 against -0.08 in about a quarter of runs.
