@@ -1637,15 +1637,9 @@ public final class RideFeelTest implements ClientGameTest {
 	) {
 		section((deep ? "Swimming" : "Wading") + " out onto a bank " + (rise == 0.0 ? "level with the water" : rise == 0.5 ? "a slab above the water"
 			: "a block above the water"));
-		// The ground's top layer is y=-61 (its top at -60); the water's top layer takes its place from z=-2 to the bank.
 		final int bankZ = deep ? -25 : -13;
 		final double top = -60.0 + rise;
-		final List<String> build = new ArrayList<>();
-		build.add(String.format(Locale.ROOT, "fill %d %d -2 %d -61 %d minecraft:water", x - 4, deep ? -63 : -61, x + 4, bankZ + 1));
-		if (rise > 0.0) {
-			build.add(String.format(Locale.ROOT, "fill %d -60 %d %d -60 %d minecraft:%s", x - 4, bankZ, x + 4, bankZ - 12, rise < 1.0 ? "stone_slab" : "stone"));
-		}
-		lane(ctx, input, world, x + 0.5, -60, "exit_" + x, build.toArray(String[]::new));
+		lane(ctx, input, world, x + 0.5, -60, "exit_" + x, waterExitBuild(x, deep, rise));
 		sideCamera(world, x + 6.5, top + 0.8, bankZ + 0.5, 90.0F);
 		ctx.runOnClient(mc -> LegProbe.reset());
 		input.holdKey(o -> o.keyUp);
@@ -1656,8 +1650,6 @@ public final class RideFeelTest implements ClientGameTest {
 		double jolt = 0.0;
 		double sunk = 0.0;
 		double drawn = 0.0;
-		int climbStart = -1;
-		int shots = 0;
 		final List<double[]> history = new ArrayList<>();
 		final StringBuilder trace = new StringBuilder();
 		for (int i = 0; i < 400 && horseZ(ctx) > bankZ - 6.0; i++) {
@@ -1693,12 +1685,6 @@ public final class RideFeelTest implements ClientGameTest {
 			if (now[1] < bankZ && now[6] > 0.0 && now[7] == 0.0 && !Double.isNaN(now[10])) {
 				sunk = Math.min(sunk, now[10]);
 			}
-			if (climbStart < 0 && (now[8] > 0.0 || now[2] > (deep ? -61.0 : -60.95))) {
-				climbStart = i;
-			}
-			if (climbStart >= 0 && shots < 6 && (i - climbStart) % 3 == 0) {
-				cameraShot(ctx, String.format(Locale.ROOT, "19b_exit_%s_%.1f_%d", deep ? "swim" : "wade", rise, shots++));
-			}
 			trace.append(String.format(Locale.ROOT, "%n    t%d z%.2f y%.3f drawn%.3f tilt%.1f fit%.3f %s%s%s heave%d gap%+.3f", (int) now[0], now[1], now[2] - top,
 				now[3] - top, now[4], now[5], now[6] > 0.0 ? "g" : "a", now[7] > 0.0 ? " wet" : "", now[9] > 0.0 ? " swim" : "", (int) now[8], now[10]));
 		}
@@ -1715,6 +1701,48 @@ public final class RideFeelTest implements ClientGameTest {
 			+ " jumping (%d frames of %d):%s", peakBox, ctx.computeOnClient(mc -> LegProbe.soleSnapMost), ctx.computeOnClient(mc -> LegProbe.snapLog.toString()),
 			ctx.computeOnClient(mc -> LegProbe.spikeCount), ctx.computeOnClient(mc -> LegProbe.frames), ctx.computeOnClient(mc -> LegProbe.spikes.toString()));
 		log("  every tick (heights against the bank's top):%s", trace);
+		input.releaseKey(o -> o.keyUp);
+		stop(ctx, input);
+		waterExitShots(ctx, input, world, x + 10, deep, rise);
+	}
+
+	/** The water and bank of {@link #waterExit}: the ground's top layer is y=-61 (its top at -60), the water's from z=-2 to the bank. */
+	private static String[] waterExitBuild(final int x, final boolean deep, final double rise) {
+		final int bankZ = deep ? -25 : -13;
+		final List<String> build = new ArrayList<>();
+		build.add(String.format(Locale.ROOT, "fill %d %d -2 %d -61 %d minecraft:water", x - 4, deep ? -63 : -61, x + 4, bankZ + 1));
+		if (rise > 0.0) {
+			build.add(String.format(Locale.ROOT, "fill %d -60 %d %d -60 %d minecraft:%s", x - 4, bankZ, x + 4, bankZ - 12, rise < 1.0 ? "stone_slab" : "stone"));
+		}
+		return build.toArray(String[]::new);
+	}
+
+	/**
+	 * Films {@link #waterExit}'s climb out on a copy of its lane, in a pass of its own: a screenshot takes a tick on some
+	 * versions, and the measuring pass must see every tick.
+	 */
+	private void waterExitShots(
+		final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final int x, final boolean deep, final double rise
+	) {
+		final int bankZ = deep ? -25 : -13;
+		lane(ctx, input, world, x + 0.5, -60, "exit_shots_" + x, waterExitBuild(x, deep, rise));
+		sideCamera(world, x + 6.5, -60.0 + rise + 0.8, bankZ + 0.5, 90.0F);
+		input.holdKey(o -> o.keyUp);
+		hitboxes(ctx, true);
+		int climbStart = -1;
+		int shots = 0;
+		for (int i = 0; i < 400 && horseZ(ctx) > bankZ - 6.0 && shots < 6; i++) {
+			ctx.waitTick();
+			final boolean climbing = horseZ(ctx) <= bankZ + 4.0 && ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().bankTicks > 0
+				|| mc.player.getVehicle().getY() > (deep ? -61.0 : -60.95));
+			if (climbStart < 0 && climbing) {
+				climbStart = i;
+			}
+			if (climbStart >= 0 && (i - climbStart) % 3 == 0) {
+				cameraShot(ctx, String.format(Locale.ROOT, "19b_exit_%s_%.1f_%d", deep ? "swim" : "wade", rise, shots++));
+			}
+		}
+		hitboxes(ctx, false);
 		input.releaseKey(o -> o.keyUp);
 		stop(ctx, input);
 	}
