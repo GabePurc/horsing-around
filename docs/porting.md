@@ -14,14 +14,14 @@ main version: `src/` reads as 26.3 code, and the compat runs exist only there.
 - `fabric.mod.json` and the mixin configs get `${minecraft}` and `${java}` per version. Below loader 0.16, MixinExtras is bundled.
 - NeoForge: `<version>-neoforge` projects (26.3, 26.2, 26.1.2, 1.21.1) build the same `src/` with `build.neoforge.gradle`. Code for one loader
   sits in `fabric/` or `neoforge/` packages or behind `//? if neoforge`; common code goes through `Platform`. Mojang names, so no refmap.
-  `neoforge.mods.toml` is its `fabric.mod.json`. Client tests are Fabric's only.
+  `neoforge.mods.toml` is its `fabric.mod.json`.
 - Forge: `1.20.1-forge` (Realistic Horse Genetics' version), also `build.neoforge.gradle`, with ModDevGradle's legacy add-on; `forge/`
   packages or `//? if fabric {} elif neoforge {} else {}`; `mods.toml`. It runs on SRG names: the mixin annotation processor writes
   refmaps (any name it can't map fails the compile), the manifest lists the mixin configs, `checkRefmaps` checks both in `reobfJar`'s
   jar (the release one). The jar carries MixinExtras and a `pack.mcmeta` (Forge warns about a mod without one). Its dev games load Realistic
   Horse Genetics (`-PnoGenetics` not) but not EMF or ETF, whose Forge jars name SRG names with no refmap. Its audit runs the dev classes,
   then the release jar with Realistic Horse Genetics in a production client and server that Forge's installer makes, once per Forge
-  version (`installReleaseGames`, `build/run/audit/1.20.1-forge-release/`).
+  version (`installReleaseGames`, `build/run/audit/1.20.1-forge-release/`). It doesn't run the client tests yet.
 
 ## Version-specific code
 

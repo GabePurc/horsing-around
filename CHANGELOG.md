@@ -2,6 +2,25 @@
 
 Each version's notes are written to paste straight into the store version pages.
 
+## 0.7.0
+
+Horsing Around now runs on Forge for Minecraft 1.20.1, and works with Realistic Horse Genetics.
+
+### New
+- **Forge.** Horsing Around now runs on Forge for Minecraft 1.20.1, with Forge 47.1.0 or newer. Open the settings from the Mods screen.
+- **Works with Realistic Horse Genetics** (Forge, Minecraft 1.20.1). Its horses, donkeys and mules ride with this mod, keeping their own look, and their hooves find the ground at whatever size their genes give them.
+
+### Fixed
+- **Leads:** a lead tied to your horse stays on its neck, and one you hold stays in your hand, as your horse steps up and down, tilts on slopes and leans into turns. In first person, the end in your hand no longer jumps in your view on a step.
+- **With Entity Culling:** a horse that moved while you weren't looking (a leashed horse pulled down a step behind you, say) no longer floats above the ground or stands sunk into it when you look back.
+- **With a shader pack** (Iris, or Oculus on Forge), on Minecraft 1.21.11 or older: horses' legs fit stairs and slopes properly.
+- **Riding over the shoulder,** on Minecraft older than 26.3: you hit and use what's under the crosshair, not a block beside it.
+- **On Minecraft older than 1.21.5:** your horse no longer runs a little slow and jumps short.
+- **On Minecraft older than 1.20.5:** your horse's hooves find steps and slopes whichever way the camera faces.
+- **With Fresh Animations:**
+  - On Minecraft 1.20.1 to 1.20.6, your horse's legs, tail and stirrups fit the ground, and you move with the pack's own gait.
+  - On Minecraft 1.21.2 and 1.21.3, horses no longer float a little above the ground.
+
 ## 0.6.1
 
 Fixes the crash on launch in 0.6.0 (Fabric, Minecraft 1.20.1 to 1.21.11), and makes carts from Icy's Better Horses feel much more real.
