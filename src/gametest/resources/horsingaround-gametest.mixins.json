@@ -2,6 +2,9 @@
 	"required": true,
 	"package": "dev.horsingaround.gametest.mixin",
 	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"PlatformMixin"
+	],
 	"client": [
 		"DeltaTrackerTimerAccessor",
 		"EntityRendererMixin",

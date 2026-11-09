@@ -8,7 +8,6 @@ import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
 import dev.horsingaround.gametest.harness.context.TestServerContext;
 import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import dev.horsingaround.gametest.harness.screenshot.TestScreenshotOptions;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.core.BlockPos;
@@ -127,7 +126,7 @@ public final class GalleryTest implements ClientGameTest {
 
 	private void shot(final ClientGameTestContext ctx, final String name) {
 		ctx.takeScreenshot(TestScreenshotOptions.of(name).withSize(1920, 1080).disableCounterPrefix()
-			.withDestinationDir(FabricLoader.getInstance().getGameDir().resolve("gallery")));
+			.withDestinationDir(TestEnv.gameDir().resolve("gallery")));
 	}
 
 	static void enableFreshAnimations(final ClientGameTestContext ctx) {

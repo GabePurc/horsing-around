@@ -27,6 +27,7 @@ import net.minecraft.client.KeyMapping;
 
 @Mixin(KeyMapping.class)
 public interface KeyMappingAccessor {
-	@Accessor
-	InputConstants.Key getKey();
+	// (Not getKey: NeoForge adds a public KeyMapping.getKey().)
+	@Accessor("key")
+	InputConstants.Key horsingaround$getKey();
 }

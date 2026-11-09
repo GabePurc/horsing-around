@@ -370,7 +370,7 @@ public final class TestInputImpl implements TestInput {
 	}
 
 	private static InputConstants.Key getBoundKey(KeyMapping keyMapping, String action) {
-		InputConstants.Key boundKey = ((KeyMappingAccessor) keyMapping).getKey();
+		InputConstants.Key boundKey = ((KeyMappingAccessor) keyMapping).horsingaround$getKey();
 
 		if (boundKey == InputConstants.UNKNOWN) {
 			throw new AssertionError("Cannot %s binding '%s' because it isn't bound to a key".formatted(action, keyMapping.getName()));

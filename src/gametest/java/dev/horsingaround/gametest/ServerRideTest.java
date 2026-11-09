@@ -1,9 +1,7 @@
 package dev.horsingaround.gametest;
 
-import dev.horsingaround.client.HorsingAroundClient;
 import dev.horsingaround.client.cosmetic.Hats;
 import dev.horsingaround.client.cosmetic.Supporters;
-import dev.horsingaround.net.RulesPayload;
 import dev.horsingaround.Platform;
 import dev.horsingaround.ride.HorseConfig;
 import dev.horsingaround.ride.IcyCompat;
@@ -22,8 +20,6 @@ import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
 import dev.horsingaround.gametest.harness.context.TestDedicatedServerConnection;
 import dev.horsingaround.gametest.harness.context.TestDedicatedServerContext;
 import dev.horsingaround.gametest.harness.context.TestServerConnection;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -42,6 +38,9 @@ import net.minecraft.world.phys.Vec3;
  * <p>Run with {@code ./gradlew runClientGameTest -Ptests=server}.
  */
 public final class ServerRideTest implements ClientGameTest {
+	/** While set, the server finds none of the mod's channels on a player (test mixin PlatformMixin). */
+	public static volatile boolean withoutMod;
+
 	private static final int GROUND = -60;
 
 	private final List<String> report = new ArrayList<>();
@@ -92,15 +91,15 @@ public final class ServerRideTest implements ClientGameTest {
 				course(ctx, server, connection, watch, true);
 			}
 
-			// The same server joined by a player without the mod (simulated by not listening for the server's rules).
-			ClientPlayNetworking.unregisterGlobalReceiver(RulesPayload.TYPE.id());
+			// The same server joined by a player without the mod (simulated: the server finds none of the mod's channels on it).
+			withoutMod = true;
 			try (TestDedicatedServerConnection connection = server.connect()) {
 				section("Joining the same server without the mod");
 				connection.waitForChunksRender();
 				check("the client doesn't hear from the server's mod", !ctx.computeOnClient(mc -> ServerRules.present));
 				course(ctx, server, connection, watch, false);
 			} finally {
-				ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, context) -> HorsingAroundClient.acceptRules(rules));
+				withoutMod = false;
 			}
 
 			section("Log");
@@ -331,7 +330,7 @@ public final class ServerRideTest implements ClientGameTest {
 	}
 
 	private void writeReport() {
-		final Path file = FabricLoader.getInstance().getGameDir().resolve("horsingaround-server-report.txt");
+		final Path file = TestEnv.gameDir().resolve("horsingaround-server-report.txt");
 		try {
 			Files.write(file, this.report);
 		} catch (final IOException e) {

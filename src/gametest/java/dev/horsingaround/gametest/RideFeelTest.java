@@ -19,7 +19,6 @@ import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
 import dev.horsingaround.gametest.harness.context.TestServerContext;
 import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import dev.horsingaround.gametest.harness.screenshot.TestScreenshotOptions;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.components.debug.DebugScreenEntries;
@@ -77,7 +76,7 @@ public final class RideFeelTest implements ClientGameTest {
 		}
 		screenshot(ctx, "00a_title_screen");
 		final boolean fresh = TestPacks.enable(ctx);
-		log("Fresh Animations pack: %s, EMF loaded: %s", fresh ? "enabled" : "not found", FabricLoader.getInstance().isModLoaded("entity_model_features"));
+		log("Fresh Animations pack: %s, EMF loaded: %s", fresh ? "enabled" : "not found", TestEnv.modLoaded("entity_model_features"));
 
 		try (LogWatch watch = LogWatch.begin();
 			TestSingleplayerContext world = ctx.worldBuilder()
@@ -332,7 +331,7 @@ public final class RideFeelTest implements ClientGameTest {
 		check("walk speed (blocks/tick)", averageSpeed(ctx, 10), WALK_SPEED * 0.85, WALK_SPEED * 1.15);
 		check("gait is walk", sample(ctx).gait == RideTuning.WALK);
 		check("walk leg-animation speed (Fresh Animations walk < 0.4)", sample(ctx).limbSpeed, 0.25, 0.39);
-		if (FabricLoader.getInstance().isModLoaded("entity_model_features")) {
+		if (TestEnv.modLoaded("entity_model_features")) {
 			// (Fresh Animations' walk sways the body side to side; another mod's horse model may only bob it, as Icy's does.)
 			final boolean sways = TestHorse.TYPE.equals("minecraft:horse");
 			float low = Float.MAX_VALUE;
@@ -807,7 +806,7 @@ public final class RideFeelTest implements ClientGameTest {
 		frontScreenshot(ctx, "07a_head_shake");
 		ctx.waitTicks(3);
 		frontScreenshot(ctx, "07b_head_shake");
-		if (FabricLoader.getInstance().isModLoaded("entity_model_features")) {
+		if (TestEnv.modLoaded("entity_model_features")) {
 			check("head shake drawn on the Fresh Animations model (frames)",
 				ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().animatedShakeFrames), 5, 100000);
 		}
@@ -954,7 +953,7 @@ public final class RideFeelTest implements ClientGameTest {
 	}
 
 	private void saddleSync(final ClientGameTestContext ctx) {
-		if (!FabricLoader.getInstance().isModLoaded("entity_model_features")) {
+		if (!TestEnv.modLoaded("entity_model_features")) {
 			return;
 		}
 		float low = Float.MAX_VALUE;
@@ -2459,18 +2458,17 @@ public final class RideFeelTest implements ClientGameTest {
 	}
 
 	private void horseSettings(final ClientGameTestContext ctx) {
-		section("Horse settings (Mod Menu)");
+		section("Horse settings (the mods list)");
 		ctx.setScreen(() -> new net.minecraft.client.gui.screens.PauseScreen(true));
 		ctx.waitTicks(3);
 		screenshot(ctx, "10a_pause_menu");
-		ctx.setScreen(() -> com.terraformersmc.modmenu.api.ModMenuApi.createModsScreen(null));
+		ctx.setScreen(() -> TestEnv.modsScreen(null));
 		ctx.waitTicks(3);
 		ctx.getInput().typeChars("Horsing");
 		ctx.waitTicks(3);
 		screenshot(ctx, "10b_mod_menu_list");
 		ctx.setScreen(() -> null);
-		check("Mod Menu lists the horse settings", FabricLoader.getInstance().getEntrypointContainers("modmenu", Object.class).stream()
-			.anyMatch(entry -> entry.getProvider().getMetadata().getId().equals("horsingaround")));
+		check("the mods list opens the horse settings", TestEnv.modsListOpensSettings());
 		ctx.runOnClient(mc -> {
 			HorseConfig.get().cameraDistance = 1.2F;
 			HorseConfig.apply();
@@ -5067,7 +5065,7 @@ public final class RideFeelTest implements ClientGameTest {
 	}
 
 	private void writeReport() {
-		final Path file = FabricLoader.getInstance().getGameDir().resolve("horsingaround-ride-report.txt");
+		final Path file = TestEnv.gameDir().resolve("horsingaround-ride-report.txt");
 		try {
 			Files.write(file, this.report);
 		} catch (final IOException e) {

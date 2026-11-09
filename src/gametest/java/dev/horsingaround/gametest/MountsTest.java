@@ -21,7 +21,6 @@ import dev.horsingaround.gametest.harness.TestInput;
 import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
 import dev.horsingaround.gametest.harness.context.TestServerContext;
 import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
@@ -719,7 +718,7 @@ public final class MountsTest implements ClientGameTest {
 	}
 
 	private void writeReport() {
-		final Path file = FabricLoader.getInstance().getGameDir().resolve("horsingaround-mounts-report.txt");
+		final Path file = TestEnv.gameDir().resolve("horsingaround-mounts-report.txt");
 		try {
 			Files.write(file, this.report);
 		} catch (final IOException e) {
