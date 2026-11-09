@@ -45,7 +45,7 @@ public final class PerfTest implements ClientGameTest {
 			.create()) {
 			final TestServerContext server = world.getServer();
 			server.runCommand("time set noon");
-			server.runCommand("gamerule advance_time false");
+			server.runCommand(Versions.rule("advance_time") + " false");
 			server.runCommand(String.format(Locale.ROOT, "tp @a %d %d 0 180 10", RADIUS, GROUND));
 			world.getConnection().waitForChunksRender();
 
@@ -68,7 +68,7 @@ public final class PerfTest implements ClientGameTest {
 			}
 
 			server.runCommand(String.format(Locale.ROOT, "summon minecraft:horse %d.5 %d 0.5 {Tame:1b,Rotation:[180f,0f],"
-				+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},attributes:[{id:\"minecraft:movement_speed\",base:0.225d}],Tags:[\"perf\"]}", RADIUS, GROUND));
+				+ Versions.saddle() + "," + Versions.attributes("movement_speed", 0.225) + ",Tags:[\"perf\"]}", RADIUS, GROUND));
 			for (int attempt = 0; attempt < 10 && !ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse); attempt++) {
 				ctx.waitTicks(5);
 				server.runCommand("ride @p mount @e[tag=perf,limit=1]");
@@ -98,7 +98,10 @@ public final class PerfTest implements ClientGameTest {
 				input.lookAt(yaw, 10.0F);
 				ctx.waitTick();
 				if (i % 20 == 19) {
+					//? if >=1.20.3 {
 					tickNanos += server.computeOnServer(s -> s.getAverageTickTimeNanos());
+					//?} else
+					/*tickNanos += server.computeOnServer(s -> (long) (s.getAverageTickTime() * 1_000_000.0F));*/
 					fps += ctx.computeOnClient(mc -> mc.getFps());
 					samples++;
 				}

@@ -1,7 +1,7 @@
 # Building for several Minecraft versions
 
 One jar per group of versions, 1.20.1 to 26.3, all from the one `src/` with [Stonecutter](https://stonecutter.kikugie.dev/). 26.3 is the
-main version: `src/` reads as 26.3 code, and the client tests and compat runs exist only there.
+main version: `src/` reads as 26.3 code, and the compat runs exist only there.
 
 ## Layout
 
@@ -31,7 +31,10 @@ victim.knockback(power, x, z, source, damage);
   them; `versions/<version>/build/generated/stonecutter/` shows what a version compiles.
 - A class or package that was only renamed goes in `stonecutter.gradle` as a string replacement. Replacements also run backwards on newer
   versions, so the new text mustn't occur in `src/` for them; where it could, use a regex whose way back is `(?!)`.
+- Replacements whose matches overlap don't both apply: one is silently dropped. Anchor one with a lookbehind so they match apart.
 - Inside a whole-file `/* */` conditional there's no room for another comment, so a difference there is a replacement too.
+- The tests (`src/gametest`) follow the same rules. A test mixin only some versions have is a whole-file conditional that its config's
+  plugin adds (`getMixins`), since a config can't list a class a version doesn't compile.
 - A mixin whose target changed gets its `@Mixin` target, method names and parameters in conditionals.
 - Mixin can drop a field initialiser on older versions (it crashed the riding camera before 26.1); the audit checks patched constructors
   set every field that has a starting value.
@@ -84,7 +87,8 @@ Data pack tag folders are plural (`processResources` renames them), resource loc
 - `./gradlew :<version>:runClient`: play it (game folder `run/versions/<version>/`; NeoForge `run/neoforge/<version>/`, and `runServer` too).
 - `./gradlew :<version>:genSources`: decompiled Minecraft (`.gradle/loom-cache/minecraftMaven/net/minecraft/*/<version>/*-sources.jar`).
 
-A change to version-specific code is checked by building and auditing every version, the smoke test on each, and playing the ones it touches.
+A change to version-specific code is checked by building and auditing every version, the smoke test and client tests on each, and playing
+the ones it touches.
 
 ## Status
 

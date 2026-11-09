@@ -40,7 +40,7 @@ final class HorseTrace {
 			TestEnv.onClientTickEnd(mc -> {
 				final Entity horse = armed && mc.player != null ? mc.player.getVehicle() : null;
 				// (Paused, the level doesn't tick: nothing new to add.)
-				if (horse != null && (TICKS.isEmpty() || TICKS.getLast().count() != horse.tickCount)) {
+				if (horse != null && (TICKS.isEmpty() || TICKS.get(TICKS.size() - 1).count() != horse.tickCount)) {
 					TICKS.add(new Tick(horse.tickCount, horse.xo, horse.yo, horse.zo, horse.getX(), horse.getY(), horse.getZ(), horse.onGround()));
 				}
 			});

@@ -130,18 +130,33 @@ public final class LegProbe {
 	}
 
 	/** After a model is drawn: if it is the ridden horse's body, measures its legs. */
-	public static void measure(final Model<?> model, final Object state, final PoseStack.Pose pose) {
+	public static void measure(final Object model, final Object state, final PoseStack.Pose pose) {
+		if (state instanceof LivingEntityRenderState s) {
+			measure(model, s.x, s.y, s.z, s.bodyRot, pose);
+		}
+	}
+
+	/** After a model is drawn for an entity drawn at (x, y, z) turned bodyRot: if it is the ridden horse's body, measures its legs. */
+	public static void measure(final Object model, final double x, final double y, final double z, final float bodyRot, final PoseStack.Pose pose) {
 		// (Not a shader pack's shadow pass: its pose has the sun's view in it.)
-		if (!armed || !(state instanceof LivingEntityRenderState s) || dev.horsingaround.client.compat.ShaderShadows.drawing()) {
+		if (!armed || dev.horsingaround.client.compat.ShaderShadows.drawing()) {
 			return;
 		}
 		final Minecraft mc = Minecraft.getInstance();
 		final AbstractHorse horse = target != null ? target : mc.player != null && mc.player.getVehicle() instanceof AbstractHorse ridden ? ridden : null;
-		if (horse == null || Math.abs(s.x - horse.getX()) > 1.0
-			|| Math.abs(s.z - horse.getZ()) > 1.0 || !(mc.getEntityRenderDispatcher().getRenderer(horse) instanceof LivingEntityRenderer<?, ?, ?> renderer)
+		//? if >=1.21.2 {
+		if (horse == null || Math.abs(x - horse.getX()) > 1.0
+			|| Math.abs(z - horse.getZ()) > 1.0 || !(mc.getEntityRenderDispatcher().getRenderer(horse) instanceof LivingEntityRenderer<?, ?, ?> renderer)
 			|| renderer.getModel() != model) {
 			return;
 		}
+		//?} else {
+		/*if (horse == null || Math.abs(x - horse.getX()) > 1.0
+			|| Math.abs(z - horse.getZ()) > 1.0 || !(mc.getEntityRenderDispatcher().getRenderer(horse) instanceof LivingEntityRenderer<?, ?> renderer)
+			|| renderer.getModel() != model || !(model instanceof net.minecraft.client.model.HorseModel<?>) || horse.isBaby()) {
+			return;
+		}
+		*///?}
 		final Vec3 cam = mc.gameRenderer.mainCamera().position();
 		Arrays.fill(lowest, Double.MAX_VALUE);
 		Arrays.fill(soleY, Double.MAX_VALUE);
@@ -155,8 +170,9 @@ public final class LegProbe {
 			dump.setLength(0);
 		}
 		final PoseStack stack = new PoseStack();
-		stack.last().set(pose);
-		walk(model.root(), "root", stack, -1, false, false, cam, dumping, 0);
+		stack.last().pose().set(pose.pose());
+		stack.last().normal().set(pose.normal());
+		walk(root(model), "root", stack, -1, false, false, cam, dumping, 0);
 		if (dumping) {
 			tree = dump.toString();
 			wantTree = false;
@@ -173,7 +189,7 @@ public final class LegProbe {
 			final double middle = (belly[0] + belly[3] + belly[6] + belly[9]) * 0.25 * hx + (belly[2] + belly[5] + belly[8] + belly[11]) * 0.25 * hz;
 			rump = 0.0;
 			for (int i = 0; i < 4; i++) {
-				rump = Math.max(rump, -((belly[i * 3] - s.x) * hx + (belly[i * 3 + 2] - s.z) * hz));
+				rump = Math.max(rump, -((belly[i * 3] - x) * hx + (belly[i * 3 + 2] - z) * hz));
 			}
 			for (int i = 0; i < 4; i++) {
 				final double in = insideAt(level, belly[i * 3], belly[i * 3 + 2], belly[i * 3 + 1]);
@@ -235,9 +251,9 @@ public final class LegProbe {
 		}
 		// Snaps: where the sole is against the horse, from the last frame.
 		for (int leg = 0; leg < 4; leg++) {
-			final double rx = sole[leg][0] - s.x, ry = sole[leg][1] - s.y, rz = sole[leg][2] - s.z;
+			final double rx = sole[leg][0] - x, ry = sole[leg][1] - y, rz = sole[leg][2] - z;
 			if (!Double.isNaN(gap[leg])) {
-				final double side = rx * Mth.cos(s.bodyRot * Mth.DEG_TO_RAD) + rz * Mth.sin(s.bodyRot * Mth.DEG_TO_RAD);
+				final double side = rx * Mth.cos(bodyRot * Mth.DEG_TO_RAD) + rz * Mth.sin(bodyRot * Mth.DEG_TO_RAD);
 				soleSideLow[leg] = Math.min(soleSideLow[leg], side);
 				soleSideHigh[leg] = Math.max(soleSideHigh[leg], side);
 			}
@@ -250,7 +266,7 @@ public final class LegProbe {
 						final dev.horsingaround.ride.RideState ride = ((dev.horsingaround.ride.RideStateHolder) horse).horsingaround$ride();
 						snapLog.append(String.format(Locale.ROOT, "[t%d %s sole %.2f drawn up %.2f (was %.2f) back %.2f (was %.2f) pack lift %.2f (was %.2f) ground %+.2f (was %+.2f) tilt %.1f air %.2f] ",
 							horse.tickCount, new String[] {"FL", "FR", "HL", "HR"}[leg], dSole, ride.legRise[leg], lastLeg[leg][0], ride.legBack[leg], lastLeg[leg][1],
-							dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[leg], lastLeg[leg][2], dev.horsingaround.client.render.GroundLegs.TARGETS[leg * 5 + 1] - s.y,
+							dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[leg], lastLeg[leg][2], dev.horsingaround.client.render.GroundLegs.TARGETS[leg * 5 + 1] - y,
 							lastLeg[leg][3], ride.pitch(1.0F), ride.airLegs(1.0F)));
 					}
 				}
@@ -259,7 +275,7 @@ public final class LegProbe {
 			lastLeg[leg][0] = rideNow.legRise[leg];
 			lastLeg[leg][1] = rideNow.legBack[leg];
 			lastLeg[leg][2] = dev.horsingaround.client.render.GroundLegs.PACK_LIFTS[leg];
-			lastLeg[leg][3] = dev.horsingaround.client.render.GroundLegs.TARGETS[leg * 5 + 1] - s.y;
+			lastLeg[leg][3] = dev.horsingaround.client.render.GroundLegs.TARGETS[leg * 5 + 1] - y;
 			lastSole[leg][0] = rx;
 			lastSole[leg][1] = ry;
 			lastSole[leg][2] = rz;
@@ -303,6 +319,57 @@ public final class LegProbe {
 		}
 	}
 
+	/** The model's root part (before 1.21.2 a horse model has none: an adult's parts under a stand-in). */
+	private static ModelPart root(final Object model) {
+		//? if >=1.21.9 {
+		return ((Model<?>) model).root();
+		//?} elif >=1.21.2 {
+		/*return ((Model) model).root();
+		*///?} else {
+		/*final dev.horsingaround.gametest.mixin.HorseModelAccessor horse = (dev.horsingaround.gametest.mixin.HorseModelAccessor) model;
+		// (An adult's parts sit straight in the model's space: the root stand-in for them is left as it is.)
+		return new ModelPart(java.util.List.of(), Map.of("body", horse.horsingaroundtest$body(), "head_parts", horse.horsingaroundtest$headParts(),
+			"left_front_leg", horse.horsingaroundtest$leftFrontLeg(), "right_front_leg", horse.horsingaroundtest$rightFrontLeg(),
+			"left_hind_leg", horse.horsingaroundtest$leftHindLeg(), "right_hind_leg", horse.horsingaroundtest$rightHindLeg(), "tail", horse.horsingaroundtest$tail()));
+		*///?}
+	}
+
+	// A box's faces, each its corners (x, y, z in the model's pixels). Before 1.21.2 the faces are private (on NeoForge their
+	// classes too): made from the box's corners in turn, as vanilla makes them.
+	private static float[][][] faces(final ModelPart.Cube cube) {
+		//? if >=1.21.2 {
+		final float[][][] faces = new float[cube.polygons.length][][];
+		for (int f = 0; f < faces.length; f++) {
+			final ModelPart.Vertex[] vertices = cube.polygons[f].vertices();
+			faces[f] = new float[vertices.length][];
+			for (int v = 0; v < vertices.length; v++) {
+				faces[f][v] = xyz(vertices[v]);
+			}
+		}
+		return faces;
+		//?} else {
+		/*final float x0 = cube.minX, y0 = cube.minY, z0 = cube.minZ, x1 = cube.maxX, y1 = cube.maxY, z1 = cube.maxZ;
+		return new float[][][] {
+			{{x1, y0, z1}, {x0, y0, z1}, {x0, y0, z0}, {x1, y0, z0}},
+			{{x1, y1, z0}, {x0, y1, z0}, {x0, y1, z1}, {x1, y1, z1}},
+			{{x0, y0, z0}, {x0, y0, z1}, {x0, y1, z1}, {x0, y1, z0}},
+			{{x1, y0, z0}, {x0, y0, z0}, {x0, y1, z0}, {x1, y1, z0}},
+			{{x1, y0, z1}, {x1, y0, z0}, {x1, y1, z0}, {x1, y1, z1}},
+			{{x0, y0, z1}, {x1, y0, z1}, {x1, y1, z1}, {x0, y1, z1}}
+		};
+		*///?}
+	}
+
+	//? if >=1.21.9 {
+	private static float[] xyz(final ModelPart.Vertex vertex) {
+		return new float[] {vertex.x(), vertex.y(), vertex.z()};
+	}
+	//?} elif >=1.21.2 {
+	/*private static float[] xyz(final ModelPart.Vertex vertex) {
+		return new float[] {vertex.pos().x(), vertex.pos().y(), vertex.pos().z()};
+	}
+	*///?}
+
 	private static void walk(
 		final ModelPart part, final String name, final PoseStack stack, final int legOf, final boolean inBody, final boolean inHead, final Vec3 cam,
 		final boolean dumping, final int depth
@@ -330,15 +397,15 @@ public final class LegProbe {
 				initial.xRot() * Mth.RAD_TO_DEG, initial.yRot() * Mth.RAD_TO_DEG, initial.zRot() * Mth.RAD_TO_DEG));
 			for (final ModelPart.Cube cube : access.horsingaround$cubes()) {
 				float minY = Float.MAX_VALUE, maxY = -Float.MAX_VALUE, minZ = Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
-				for (final ModelPart.Polygon polygon : cube.polygons) {
-					for (final ModelPart.Vertex vertex : polygon.vertices()) {
-						minY = Math.min(minY, vertex.y());
-						maxY = Math.max(maxY, vertex.y());
-						minZ = Math.min(minZ, vertex.z());
-						maxZ = Math.max(maxZ, vertex.z());
+				for (final float[][] polygon : faces(cube)) {
+					for (final float[] vertex : polygon) {
+						minY = Math.min(minY, vertex[1]);
+						maxY = Math.max(maxY, vertex[1]);
+						minZ = Math.min(minZ, vertex[2]);
+						maxZ = Math.max(maxZ, vertex[2]);
 					}
 				}
-				dump.append(String.format(Locale.ROOT, " cube[%d faces y %.2f..%.2f z %.2f..%.2f]", cube.polygons.length, minY, maxY, minZ, maxZ));
+				dump.append(String.format(Locale.ROOT, " cube[%d faces y %.2f..%.2f z %.2f..%.2f]", faces(cube).length, minY, maxY, minZ, maxZ));
 			}
 			dump.append('\n');
 		}
@@ -376,21 +443,21 @@ public final class LegProbe {
 	private static void leg(final ModelPart.Cube cube, final Matrix4f matrix, final int leg, final Vec3 cam) {
 		float minY = Float.MAX_VALUE;
 		float maxY = -Float.MAX_VALUE;
-		for (final ModelPart.Polygon polygon : cube.polygons) {
-			for (final ModelPart.Vertex vertex : polygon.vertices()) {
-				minY = Math.min(minY, vertex.y());
-				maxY = Math.max(maxY, vertex.y());
+		for (final float[][] polygon : faces(cube)) {
+			for (final float[] vertex : polygon) {
+				minY = Math.min(minY, vertex[1]);
+				maxY = Math.max(maxY, vertex[1]);
 			}
 		}
-		for (final ModelPart.Polygon polygon : cube.polygons) {
-			final ModelPart.Vertex[] vertices = polygon.vertices();
+		for (final float[][] polygon : faces(cube)) {
+			final float[][] vertices = polygon;
 			boolean atTop = vertices.length == 4;
 			boolean atBottom = vertices.length == 4;
 			double centreY = 0.0;
-			for (final ModelPart.Vertex vertex : vertices) {
-				atTop &= vertex.y() == minY;
-				atBottom &= vertex.y() == maxY;
-				matrix.transformPosition(vertex.worldX(), vertex.worldY(), vertex.worldZ(), point);
+			for (final float[] vertex : vertices) {
+				atTop &= vertex[1] == minY;
+				atBottom &= vertex[1] == maxY;
+				matrix.transformPosition(vertex[0] / 16.0F, vertex[1] / 16.0F, vertex[2] / 16.0F, point);
 				lowest[leg] = Math.min(lowest[leg], point.y + cam.y);
 				centreY += (point.y + cam.y) / vertices.length;
 			}
@@ -404,10 +471,10 @@ public final class LegProbe {
 			}
 			if (atBottom) {
 				// Up each corner edge from the sole.
-				for (final ModelPart.Vertex vertex : vertices) {
+				for (final float[] vertex : vertices) {
 					for (int k = 1; k <= 3; k++) {
 						final float y = (maxY + (minY - maxY) * k * 0.25F) / 16.0F;
-						matrix.transformPosition(vertex.worldX(), y, vertex.worldZ(), point);
+						matrix.transformPosition(vertex[0] / 16.0F, y, vertex[2] / 16.0F, point);
 						legInside[leg] = Math.max(legInside[leg], insideAt(level, point.x + cam.x, point.z + cam.z, point.y + cam.y));
 					}
 				}
@@ -422,27 +489,27 @@ public final class LegProbe {
 			return;
 		}
 		float maxY = -Float.MAX_VALUE;
-		for (final ModelPart.Polygon polygon : cube.polygons) {
-			for (final ModelPart.Vertex vertex : polygon.vertices()) {
-				maxY = Math.max(maxY, vertex.y());
+		for (final float[][] polygon : faces(cube)) {
+			for (final float[] vertex : polygon) {
+				maxY = Math.max(maxY, vertex[1]);
 			}
 		}
-		for (final ModelPart.Polygon polygon : cube.polygons) {
-			boolean under = polygon.vertices().length == 4;
-			for (final ModelPart.Vertex vertex : polygon.vertices()) {
-				under &= vertex.y() == maxY;
+		for (final float[][] polygon : faces(cube)) {
+			boolean under = polygon.length == 4;
+			for (final float[] vertex : polygon) {
+				under &= vertex[1] == maxY;
 			}
 			if (under) {
 				bellyVolume = Math.abs(volume);
-				corners(polygon.vertices(), matrix, cam, belly);
+				corners(polygon, matrix, cam, belly);
 				return;
 			}
 		}
 	}
 
-	private static void corners(final ModelPart.Vertex[] vertices, final Matrix4f matrix, final Vec3 cam, final double[] out) {
+	private static void corners(final float[][] vertices, final Matrix4f matrix, final Vec3 cam, final double[] out) {
 		for (int i = 0; i < 4; i++) {
-			matrix.transformPosition(vertices[i].worldX(), vertices[i].worldY(), vertices[i].worldZ(), point);
+			matrix.transformPosition(vertices[i][0] / 16.0F, vertices[i][1] / 16.0F, vertices[i][2] / 16.0F, point);
 			out[i * 3] = point.x + cam.x;
 			out[i * 3 + 1] = point.y + cam.y;
 			out[i * 3 + 2] = point.z + cam.z;

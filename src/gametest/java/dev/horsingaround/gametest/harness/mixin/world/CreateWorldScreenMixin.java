@@ -34,36 +34,63 @@ import net.minecraft.core.LayeredRegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.server.RegistryLayer;
+import net.minecraft.world.level.storage.PrimaryLevelData;
+//? if >=26.1 {
 import net.minecraft.util.datafix.DataFixers;
 import net.minecraft.world.level.gamerules.GameRuleMap;
 import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.levelgen.WorldGenSettings;
-import net.minecraft.world.level.storage.PrimaryLevelData;
 import net.minecraft.world.level.storage.SavedDataStorage;
+//?}
 
 import dev.horsingaround.gametest.harness.impl.util.ClientGameTestImpl;
 import dev.horsingaround.gametest.harness.impl.util.DedicatedServerImplUtil;
 
 @Mixin(CreateWorldScreen.class)
 public class CreateWorldScreenMixin {
+	//? if <1.21.2 {
+	/*@org.spongepowered.asm.mixin.Shadow
+	private net.minecraft.world.level.LevelSettings createLevelSettings(boolean debug) {
+		throw new AssertionError();
+	}
+
+	*///?}
 	@Inject(method = "onCreate", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/worldselection/WorldOpenFlows;confirmWorldCreation(Lnet/minecraft/client/Minecraft;Lnet/minecraft/client/gui/screens/worldselection/CreateWorldScreen;Lcom/mojang/serialization/Lifecycle;Ljava/lang/Runnable;Z)V"), cancellable = true)
+	//? if >=26.1 {
 	private void createLevelDataForServers(CallbackInfo ci, @Local(name = "finalLayers") LayeredRegistryAccess<RegistryLayer> finalLayers, @Local(name = "worldData") PrimaryLevelData worldData, @Local(name = "worldGenSettings") WorldGenSettings worldGenSettings, @Local(name = "gameRules") GameRules gameRules) {
+	//?} elif >=1.21.2 {
+	/*private void createLevelDataForServers(CallbackInfo ci, @Local LayeredRegistryAccess<RegistryLayer> finalLayers, @Local PrimaryLevelData worldData) {
+	*///?} else {
+	/*private void createLevelDataForServers(CallbackInfo ci, @Local LayeredRegistryAccess<RegistryLayer> finalLayers, @Local net.minecraft.world.level.levelgen.WorldDimensions.Complete complete, @Local(ordinal = 2) com.mojang.serialization.Lifecycle lifecycle) {
+		// (Before 1.21.2 the level data is made once the world is confirmed: made here the same way.)
+		PrimaryLevelData worldData = new PrimaryLevelData(this.createLevelSettings(complete.specialWorldProperty() == PrimaryLevelData.SpecialWorldProperty.DEBUG),
+			((CreateWorldScreen) (Object) this).getUiState().getSettings().options(), complete.specialWorldProperty(), lifecycle);
+	*///?}
 		if (DedicatedServerImplUtil.saveLevelDataTo != null) {
 			try {
 				Path worldPath = DedicatedServerImplUtil.saveLevelDataTo;
 
+				//? if >=26.1 {
 				CompoundTag levelDatInner = worldData.createTag(null);
+				//?} else
+				/*CompoundTag levelDatInner = worldData.createTag(finalLayers.compositeAccess(), null);*/
 				var levelDat = new CompoundTag();
 				levelDat.put("Data", levelDatInner);
 
 				Files.createDirectories(worldPath);
+				//? if >=1.20.3 {
 				NbtIo.writeCompressed(levelDat, worldPath.resolve("level.dat"));
+				//?} else
+				/*NbtIo.writeCompressed(levelDat, worldPath.resolve("level.dat").toFile());*/
 
+				// (Before 26.1 level.dat holds the world settings and game rules too.)
+				//? if >=26.1 {
 				try (var savedDataStorage = new SavedDataStorage(worldPath.resolve("data"), DataFixers.getDataFixer(), finalLayers.compositeAccess())) {
 					savedDataStorage.set(WorldGenSettings.TYPE, worldGenSettings);
 					savedDataStorage.set(GameRuleMap.TYPE, ((GameRulesAccessor) gameRules).getRules());
 					savedDataStorage.saveAndJoin();
 				}
+				//?}
 			} catch (IOException e) {
 				ClientGameTestImpl.LOGGER.error("Failed to save dedicated server level data", e);
 			}

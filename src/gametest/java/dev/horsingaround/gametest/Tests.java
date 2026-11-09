@@ -12,9 +12,12 @@ public final class Tests {
 	}
 
 	public static List<ClientGameTest> all() {
+		// (Icy's, Real Camera's and the store's and gallery's are 26.3's alone until their compat packs move, issue 127.)
 		return List.of(
 			new RideFeelTest(), new TerrainRideTest(), new PerfTest(), new MountsTest(), new ServerRideTest(), new HatTest(),
-			new IcyFeaturesTest(), new RealCameraTest(), new GalleryTest(), new StoreMediaTest(), new TestSummary()
+			//? if >=26.3
+			new IcyFeaturesTest(), new RealCameraTest(), new GalleryTest(), new StoreMediaTest(),
+			new TestSummary()
 		);
 	}
 }

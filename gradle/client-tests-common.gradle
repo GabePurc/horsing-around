@@ -38,7 +38,10 @@ def lowSettings = !project.hasProperty("fullGraphics") && !clientTests.contains(
 // The server test starts a local dedicated server in the test run folder; the user accepted the Minecraft EULA
 // (https://aka.ms/MinecraftEULA) for it on 2026-10-07.
 def gameTestEula = rootProject.layout.buildDirectory.file("run/${runBase}/eula.txt").get().asFile
+// On the Java players run this version with (the old loaders' Mixin can't read a newer Java's classes).
+def testGameJava = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(project.ext.javaVersion) }
 def lightTestGame = { task ->
+	task.javaLauncher = testGameJava
 	task.systemProperty "horsingaround.lowSettings", lowSettings
 	task.systemProperty "horsingaround.frameClock", lowSettings && !clientTests.contains("perf") && !project.hasProperty("realTime")
 	task.maxHeapSize = "2G"

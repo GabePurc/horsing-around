@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.Main;
 import net.minecraft.server.dedicated.DedicatedServer;
+//? if >=1.21.9
 import net.minecraft.server.players.NameAndId;
 import net.minecraft.server.players.UserWhiteListEntry;
 import net.minecraft.util.Util;
@@ -77,7 +78,14 @@ public final class DedicatedServerImplUtil {
 		setupServer(serverProperties);
 		serverFuture = new CompletableFuture<>();
 
-		new Thread(() -> Main.main(new String[]{})).start();
+		// (NeoForge 1.21.1's server main declares that it throws.)
+		new Thread(() -> {
+			try {
+				Main.main(new String[]{});
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		}).start();
 
 		DedicatedServer server;
 
@@ -95,8 +103,14 @@ public final class DedicatedServerImplUtil {
 	}
 
 	private static void whitelistClient(ClientGameTestContext context, DedicatedServer server) {
+		//? if >=1.20.2 {
 		GameProfile clientProfile = context.computeOnClient(Minecraft::getGameProfile);
+		//?} else
+		/*GameProfile clientProfile = context.computeOnClient(client -> client.getUser().getGameProfile());*/
+		//? if >=1.21.9 {
 		ThreadingImpl.runOnServer(() -> server.getPlayerList().getWhiteList().add(new UserWhiteListEntry(new NameAndId(clientProfile))));
+		//?} else
+		/*ThreadingImpl.runOnServer(() -> server.getPlayerList().getWhiteList().add(new UserWhiteListEntry(clientProfile)));*/
 	}
 
 	private static void setupServer(Properties customServerProperties) {

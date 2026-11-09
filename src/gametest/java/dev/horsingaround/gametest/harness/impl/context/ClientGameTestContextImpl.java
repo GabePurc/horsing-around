@@ -48,6 +48,7 @@ import org.slf4j.LoggerFactory;
 
 import net.minecraft.Optionull;
 import net.minecraft.client.CloudStatus;
+//? if >=1.21
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
@@ -59,6 +60,7 @@ import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.layouts.LayoutElement;
 import net.minecraft.client.gui.screens.Screen;
+//? if >=1.21.9
 import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.client.tutorial.TutorialSteps;
@@ -81,6 +83,7 @@ import dev.horsingaround.gametest.harness.impl.world.TestWorldBuilderImpl;
 import dev.horsingaround.gametest.harness.mixin.gui.CycleButtonAccessor;
 import dev.horsingaround.gametest.harness.mixin.gui.ScreenAccessor;
 import dev.horsingaround.gametest.harness.impl.OptionsSnapshot;
+//? if >=1.21
 import dev.horsingaround.gametest.harness.mixin.screenshot.DeltaTrackerDefaultValueAccessor;
 
 public final class ClientGameTestContextImpl implements ClientGameTestContext {
@@ -97,8 +100,10 @@ public final class ClientGameTestContextImpl implements ClientGameTestContext {
 		// Messes with the consistency of gametests
 		options.tutorialStep = TutorialSteps.NONE;
 		options.cloudStatus().set(CloudStatus.OFF);
+		//? if >=1.21.11 {
 		options.maxAnisotropyBit().set(0);
 		options.chunkSectionFadeInTime().set(0D);
+		//?}
 
 		// Messes with game tests starting
 		options.onboardAccessibility = false;
@@ -242,11 +247,15 @@ public final class ClientGameTestContextImpl implements ClientGameTestContext {
 	}
 
 	private static boolean pressMatchingButton(AbstractWidget widget, String text) {
+		//? if >=1.21.9
 		var clickEvent = new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0);
 
 		if (widget instanceof Button button) {
 			if (text.equals(button.getMessage().getString())) {
+				//? if >=1.21.9 {
 				button.onPress(clickEvent);
+				//?} else
+				/*button.onPress();*/
 				return true;
 			}
 		}
@@ -255,7 +264,10 @@ public final class ClientGameTestContextImpl implements ClientGameTestContext {
 			CycleButtonAccessor accessor = (CycleButtonAccessor) button;
 
 			if (text.equals(accessor.getName().getString())) {
+				//? if >=1.21.9 {
 				button.onPress(clickEvent);
+				//?} else
+				/*button.onPress();*/
 				return true;
 			}
 		}
@@ -356,7 +368,12 @@ public final class ClientGameTestContextImpl implements ClientGameTestContext {
 			if (prevWidth != screenshotSize.x || prevHeight != screenshotSize.y) {
 				client.getWindow().setWidth(screenshotSize.x);
 				client.getWindow().setHeight(screenshotSize.y);
+				//? if >=26.3 {
 				client.gameRenderer.resize(screenshotSize.x, screenshotSize.y);
+				//?} elif >=1.21.2 {
+				/*client.gameRenderer.mainRenderTarget().resize(screenshotSize.x, screenshotSize.y);
+				*///?} else
+				/*client.gameRenderer.mainRenderTarget().resize(screenshotSize.x, screenshotSize.y, Minecraft.ON_OSX);*/
 			}
 
 			return new Vector2i(prevWidth, prevHeight);
@@ -364,13 +381,23 @@ public final class ClientGameTestContextImpl implements ClientGameTestContext {
 
 		try {
 			CompletableFuture<T> future = computeOnClient(client -> {
+				//? if >=1.21
 				DeltaTracker.DefaultValue deltaTracker = DeltaTrackerDefaultValueAccessor.create(options.deltaTicks);
+				//? if >=26.2
 				client.gameRenderer.update(deltaTracker);
+				//? if >=26.1
 				client.gameRenderer.extract(deltaTracker, true);
+				//? if >=26.3 {
 				client.gameRenderer.render();
+				//?} elif >=1.21 {
+				/*client.gameRenderer.render(deltaTracker, true);
+				*///?} else
+				/*client.gameRenderer.render(options.deltaTicks, net.minecraft.Util.getNanos(), true);*/
+				//? if >=26.2
 				RenderSystem.getDevice().createCommandEncoder().submit();
 				CompletableFuture<T> resultFuture = new CompletableFuture<>();
 
+				//? if >=1.21.5 {
 				Screenshot.takeScreenshot(client.gameRenderer.mainRenderTarget(), screenshot -> {
 					try {
 						resultFuture.complete(screenshotConsumer.apply(screenshot));
@@ -378,6 +405,14 @@ public final class ClientGameTestContextImpl implements ClientGameTestContext {
 						resultFuture.completeExceptionally(e);
 					}
 				});
+				//?} else {
+				/*// (Read back at once before 1.21.5.)
+				try {
+					resultFuture.complete(screenshotConsumer.apply(Screenshot.takeScreenshot(client.gameRenderer.mainRenderTarget())));
+				} catch (Throwable e) {
+					resultFuture.completeExceptionally(e);
+				}
+				*///?}
 
 				return resultFuture;
 			});
@@ -395,7 +430,12 @@ public final class ClientGameTestContextImpl implements ClientGameTestContext {
 				computeOnClient(client -> {
 					client.getWindow().setWidth(prevSize.x);
 					client.getWindow().setHeight(prevSize.y);
+					//? if >=26.3 {
 					client.gameRenderer.resize(prevSize.x, prevSize.y);
+					//?} elif >=1.21.2 {
+					/*client.gameRenderer.mainRenderTarget().resize(prevSize.x, prevSize.y);
+					*///?} else
+					/*client.gameRenderer.mainRenderTarget().resize(prevSize.x, prevSize.y, Minecraft.ON_OSX);*/
 					return null;
 				});
 			}

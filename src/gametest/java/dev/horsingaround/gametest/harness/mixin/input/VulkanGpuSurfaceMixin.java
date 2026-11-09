@@ -19,6 +19,7 @@
 
 package dev.horsingaround.gametest.harness.mixin.input;
 
+//? if >=26.2 {
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -48,3 +49,4 @@ public class VulkanGpuSurfaceMixin {
 		return original.call(blitRegion, dstOffsets);
 	}
 }
+//?}

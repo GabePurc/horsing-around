@@ -23,16 +23,23 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
 import net.minecraft.client.MouseHandler;
+//? if >=1.21.9
 import net.minecraft.client.input.MouseButtonInfo;
 
 @Mixin(MouseHandler.class)
 public interface MouseHandlerAccessor {
+	//? if >=1.21.9 {
 	@Invoker
 	void invokeOnButton(long window, MouseButtonInfo arg, int action);
+	//?} else
+	/*@Invoker("onPress") void invokeOnButton(long window, int button, int action, int modifiers);*/
 
 	@Invoker
 	void invokeOnScroll(long window, double horizontal, double vertical);
 
 	@Invoker
+	//? if >=26.3 {
 	void invokeOnMove(long window, double x, double y, double deltaX, double deltaY);
+	//?} else
+	/*void invokeOnMove(long window, double x, double y);*/
 }

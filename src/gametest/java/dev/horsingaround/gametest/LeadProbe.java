@@ -1,6 +1,7 @@
 package dev.horsingaround.gametest;
 
 import dev.horsingaround.ride.RideState;
+//? if >=1.21.2
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
@@ -30,14 +31,27 @@ public final class LeadProbe {
 		onHolder = null;
 	}
 
+	//? if >=1.21.2 {
 	public static void extracted(final Entity entity, final EntityRenderState state) {
+		//? if >=1.21.6 {
 		if (state.leashStates == null || state.leashStates.isEmpty()) {
 			return;
 		}
-		if (entity.getId() == horseId) {
-			onHorse = state.leashStates.get(0).start;
-		} else if (entity.getId() == ledId) {
-			onHolder = state.leashStates.get(0).end;
+		drawn(entity, state.leashStates.get(0).start, state.leashStates.get(0).end);
+		//?} else {
+		/*if (state.leashState != null) {
+			drawn(entity, state.leashState.start, state.leashState.end);
+		}
+		*///?}
+	}
+	//?}
+
+	/** A lead drawn from {@code leashed} ({@code start} on it) to whoever holds it ({@code end}). */
+	public static void drawn(final Entity leashed, final Vec3 start, final Vec3 end) {
+		if (leashed.getId() == horseId) {
+			onHorse = start;
+		} else if (leashed.getId() == ledId) {
+			onHolder = end;
 		}
 	}
 

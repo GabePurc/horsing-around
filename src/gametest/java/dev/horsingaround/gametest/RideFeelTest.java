@@ -21,8 +21,10 @@ import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import dev.horsingaround.gametest.harness.screenshot.TestScreenshotOptions;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
+//? if >=1.21.9 {
 import net.minecraft.client.gui.components.debug.DebugScreenEntries;
 import net.minecraft.client.gui.components.debug.DebugScreenEntryStatus;
+//?}
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
@@ -33,6 +35,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
+//? if >=1.21
 import net.minecraft.world.entity.Leashable;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
@@ -87,8 +90,7 @@ public final class RideFeelTest implements ClientGameTest {
 			server.runCommand("time set noon");
 			server.runCommand("tp @a 0.5 -60 0.5 180 10");
 			server.runCommand("summon " + TestHorse.TYPE + " 0.5 -60 0.5 {Tame:1b,Variant:0,Rotation:[180f,0f],"
-				+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
-				+ "attributes:[{id:\"minecraft:movement_speed\",base:" + SPEED_ATTRIBUTE + "d},{id:\"minecraft:jump_strength\",base:" + JUMP_ATTRIBUTE + "d}],"
+				+ Versions.saddle() + "," + Versions.attributes("movement_speed", SPEED_ATTRIBUTE, "jump_strength", JUMP_ATTRIBUTE) + ","
 				+ "Tags:[\"ride_test\"]}");
 			// (Another camera mod may already have the view in third person: dismounting should restore whatever it was.)
 			this.cameraBeforeMounting = ctx.computeOnClient(mc -> mc.options.getCameraType());
@@ -262,7 +264,10 @@ public final class RideFeelTest implements ClientGameTest {
 			for (int slot = 0; slot < 9; slot++) {
 				this.server.runCommand("item replace entity @p hotbar." + slot + " with minecraft:" + (slot % 2 == 0 ? "shulker_box" : "red_shulker_box"));
 			}
+			//? if >=1.21.5 {
 			ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+			//?} else
+			/*ctx.runOnClient(mc -> mc.player.getInventory().selected = 0);*/
 			ctx.waitTicks(20);
 			ctx.runOnClient(mc -> mc.gui.hud.getChat().clearMessages(false));
 			screenshot(ctx, "00b_shulker_boxes");
@@ -331,7 +336,9 @@ public final class RideFeelTest implements ClientGameTest {
 		check("walk speed (blocks/tick)", averageSpeed(ctx, 10), WALK_SPEED * 0.85, WALK_SPEED * 1.15);
 		check("gait is walk", sample(ctx).gait == RideTuning.WALK);
 		check("walk leg-animation speed (Fresh Animations walk < 0.4)", sample(ctx).limbSpeed, 0.25, 0.39);
-		if (TestEnv.modLoaded("entity_model_features")) {
+		if (TestEnv.modLoaded("entity_model_features") && !Versions.PACK_SADDLE) {
+			log("  (not here: the rider reads a pack-animated body from 1.21)");
+		} else if (TestEnv.modLoaded("entity_model_features")) {
 			// (Fresh Animations' walk sways the body side to side; another mod's horse model may only bob it, as Icy's does.)
 			final boolean sways = TestHorse.TYPE.equals("minecraft:horse");
 			float low = Float.MAX_VALUE;
@@ -399,8 +406,13 @@ public final class RideFeelTest implements ClientGameTest {
 		ctx.waitTicks(10);
 		final String[] blocks = ctx.computeOnClient(mc -> {
 			final net.minecraft.client.Camera camera = mc.gameRenderer.mainCamera();
+			//? if >=1.21.11 {
 			final net.minecraft.world.phys.Vec3 from = camera.position();
 			final org.joml.Vector3fc f = camera.forwardVector();
+			//?} else {
+			/*final net.minecraft.world.phys.Vec3 from = camera.getPosition();
+			final org.joml.Vector3fc f = camera.getLookVector();
+			*///?}
 			final net.minecraft.world.phys.Vec3 to = from.add(f.x() * 32.0, f.y() * 32.0, f.z() * 32.0);
 			final net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition(1.0F);
 			final net.minecraft.world.phys.Vec3 look = mc.player.getViewVector(1.0F).scale(32.0);
@@ -516,7 +528,14 @@ public final class RideFeelTest implements ClientGameTest {
 	 * the latest tick, while the camera still shows the frame before.
 	 */
 	static float framePartialTicks(final net.minecraft.client.Minecraft mc) {
+		//? if >=26.3 {
 		return mc.gameRenderer.gameRenderState().levelRenderState.cameraRenderState.cameraEntityPartialTicks;
+		//?} elif >=26.1 {
+		/*return mc.gameRenderer.mainCamera().getCameraEntityPartialTicks(mc.getDeltaTracker());
+		*///?} elif >=1.20.3 {
+		/*return mc.gameRenderer.mainCamera().getPartialTickTime();
+		*///?} else
+		/*return mc.getFrameTime();*/
 	}
 
 	/**
@@ -555,17 +574,26 @@ public final class RideFeelTest implements ClientGameTest {
 		ctx.waitTicks(30);
 	}
 
-	/** Simple name of the bar in the experience bar's slot (jump bar, experience, locator). */
+	/**
+	 * Simple name of the bar in the experience bar's slot (jump bar, experience, locator). Before 1.21.6 the jump bar takes
+	 * it whenever the vehicle jumps.
+	 */
 	private static String contextualBar(final ClientGameTestContext ctx) {
+		//? if >=1.21.6 {
 		return ctx.computeOnClient(mc -> {
 			try {
 				final java.lang.reflect.Field field = net.minecraft.client.gui.Hud.class.getDeclaredField("contextualInfoBar");
 				field.setAccessible(true);
-				return ((com.mojang.datafixers.util.Pair<?, ?>) field.get(mc.gui.hud)).getSecond().getClass().getSimpleName();
+				final Object pair = field.get(mc.gui.hud);
+				// (A DataFixerUpper pair from 26.2, Apache's before.)
+				final Object bar = pair instanceof com.mojang.datafixers.util.Pair<?, ?> p ? p.getSecond() : ((org.apache.commons.lang3.tuple.Pair<?, ?>) pair).getRight();
+				return bar.getClass().getSimpleName();
 			} catch (final ReflectiveOperationException e) {
 				return e.toString();
 			}
 		});
+		//?} else
+		/*return ctx.computeOnClient(mc -> mc.player.jumpableVehicle() != null ? "JumpableVehicleBar" : "experience");*/
 	}
 
 	/** How far the riding camera is above the rider's (smoothed) eyes this frame. */
@@ -806,7 +834,7 @@ public final class RideFeelTest implements ClientGameTest {
 		frontScreenshot(ctx, "07a_head_shake");
 		ctx.waitTicks(3);
 		frontScreenshot(ctx, "07b_head_shake");
-		if (TestEnv.modLoaded("entity_model_features")) {
+		if (TestEnv.modLoaded("entity_model_features") && Versions.PACK_SADDLE) {
 			check("head shake drawn on the Fresh Animations model (frames)",
 				ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().animatedShakeFrames), 5, 100000);
 		}
@@ -956,6 +984,10 @@ public final class RideFeelTest implements ClientGameTest {
 		if (!TestEnv.modLoaded("entity_model_features")) {
 			return;
 		}
+		if (!Versions.PACK_SADDLE) {
+			log("  (not here: the rider reads a pack-animated body from 1.21)");
+			return;
+		}
 		float low = Float.MAX_VALUE;
 		float high = -Float.MAX_VALUE;
 		boolean fresh = true;
@@ -1046,8 +1078,7 @@ public final class RideFeelTest implements ClientGameTest {
 		server.runCommand("fill 97 -60 -30 104 -57 -16 minecraft:stone");
 		server.runCommand("tp @p 100.5 -60 0.5 180 10");
 		server.runCommand("summon " + TestHorse.TYPE + " 100.5 -60 0.5 {Tame:1b,Variant:2,Rotation:[180f,0f],"
-			+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
-			+ "attributes:[{id:\"minecraft:movement_speed\",base:" + SPEED_ATTRIBUTE + "d}],Tags:[\"stairs_test\"]}");
+			+ Versions.saddle() + "," + Versions.attributes("movement_speed", SPEED_ATTRIBUTE) + ",Tags:[\"stairs_test\"]}");
 		// The horse spawns in a chunk the player only just reached; give it a moment before mounting.
 		for (int attempt = 0; attempt < 10 && !ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse); attempt++) {
 			ctx.waitTicks(5);
@@ -1794,7 +1825,10 @@ public final class RideFeelTest implements ClientGameTest {
 		final boolean wholeRear = measured && ride(ctx, r -> r.animatedWholeRear);
 		world.getServer().runOnServer(server -> {
 			if (server.getPlayerList().getPlayers().get(0).getVehicle() instanceof AbstractHorse horse) {
+				//? if >=1.21.6 {
 				horse.setStanding(20);
+				//?} else
+				/*horse.setStanding(true);*/
 			}
 		});
 		// The back the rider rides, at the top of the rear (where it holds still, so a frame's lag between the saddle and the
@@ -1886,7 +1920,10 @@ public final class RideFeelTest implements ClientGameTest {
 		bowDraw(ctx, input, 60.0F, "20g_bow_aim_right");
 
 		// A loaded crossbow: square to the aim, both arms along it.
+		//? if >=1.20.5 {
 		this.server.runCommand("item replace entity @p weapon.mainhand with minecraft:crossbow[minecraft:charged_projectiles=[{id:\"minecraft:arrow\"}]]");
+		//?} else
+		/*this.server.runCommand("item replace entity @p weapon.mainhand with minecraft:crossbow{Charged:1b,ChargedProjectiles:[{id:\"minecraft:arrow\",Count:1b}]}");*/
 		input.lookAt(180.0F + 40.0F, 10.0F);
 		ctx.waitTicks(5);
 		arms = riderArms(ctx);
@@ -1950,10 +1987,10 @@ public final class RideFeelTest implements ClientGameTest {
 	private void riderShot(final ClientGameTestContext ctx, final String name) {
 		ctx.runOnClient(mc -> {
 			mc.gui.hud.getChat().clearMessages(false);
-			mc.gui.hud.toggle();
+			Versions.toggleHud(mc);
 		});
 		screenshot(ctx, name);
-		ctx.runOnClient(mc -> mc.gui.hud.toggle());
+		ctx.runOnClient(mc -> Versions.toggleHud(mc));
 	}
 
 	/**
@@ -1962,7 +1999,10 @@ public final class RideFeelTest implements ClientGameTest {
 	 */
 	private void swing(final ClientGameTestContext ctx, final String name, final int arm) {
 		final float[] before = riderArms(ctx);
+		//? if >=26.3 {
 		ctx.runOnClient(mc -> mc.player.swing(InteractionHand.MAIN_HAND, net.minecraft.world.item.component.SwingAnimation.DEFAULT, true));
+		//?} else
+		/*ctx.runOnClient(mc -> mc.player.swing(InteractionHand.MAIN_HAND, true));*/
 		float highest = 0.0F;
 		float jump = 0.0F;
 		float last = before[arm];
@@ -3526,7 +3566,7 @@ public final class RideFeelTest implements ClientGameTest {
 			new Ledge("at 30 degrees", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone"}, 30.0F, 0, -10.0, true),
 			new Ledge("at 45 degrees", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone"}, 45.0F, 0, -10.0, true),
 			new Ledge("snow on top", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-15 -58 -30 ~15 -58 -11 minecraft:snow[layers=2]"}, 0.0F, 0, -10.0, true),
-			new Ledge("grass and flowers on top", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:grass_block", "fill ~-15 -58 -30 ~15 -58 -11 minecraft:short_grass",
+			new Ledge("grass and flowers on top", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:grass_block", "fill ~-15 -58 -30 ~15 -58 -11 minecraft:" + Versions.SHORT_GRASS,
 				"fill ~-1 -58 -12 ~1 -58 -12 minecraft:poppy"}, 0.0F, 0, -10.0, true),
 			new Ledge("a bump two blocks in", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-15 -58 -13 ~15 -58 -13 minecraft:stone"}, 0.0F, 0, -10.0, true),
 			new Ledge("leaves overhead", new String[] {"fill ~-15 -60 -30 ~15 -59 -11 minecraft:stone", "fill ~-4 -56 -14 ~4 -55 -5 minecraft:oak_leaves[persistent=true]"}, 0.0F, 0, -10.0, true),
@@ -3702,7 +3742,10 @@ public final class RideFeelTest implements ClientGameTest {
 		final boolean watching = ctx.computeOnClient(mc -> {
 			mc.options.setCameraType(firstPerson ? CameraType.FIRST_PERSON : CameraType.THIRD_PERSON_BACK);
 			for (final Entity e : mc.level.entitiesForRendering()) {
+				//? if >=1.21 {
 				if (e instanceof Leashable led && led.getLeashHolder() == mc.player) {
+				//?} else
+				/*if (e instanceof net.minecraft.world.entity.Mob led && led.getLeashHolder() == mc.player) {*/
 					LeadProbe.watch(mc.player.getVehicle(), e);
 					return true;
 				}
@@ -4117,13 +4160,13 @@ public final class RideFeelTest implements ClientGameTest {
 		if (lead) {
 			server.runCommand(String.format(Locale.ROOT, "setblock %d -59 0 minecraft:oak_fence", x));
 		}
-		server.runCommand(String.format(Locale.ROOT, "summon %s %d.5 %.1f %.1f {Tame:1b,Variant:1,Rotation:[%.1ff,0f],equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
-			+ "%sTags:[\"%s\"]}", TestHorse.TYPE, x, top, startZ, yaw, lead ? String.format(Locale.ROOT, "leash:[I;%d,-59,0],", x)
-			: "attributes:[{id:\"minecraft:movement_speed\",base:0d}],", tag));
+		server.runCommand(String.format(Locale.ROOT, "summon %s %d.5 %.1f %.1f {Tame:1b,Variant:1,Rotation:[%.1ff,0f]," + Versions.saddle() + ","
+			+ "%sTags:[\"%s\"]}", TestHorse.TYPE, x, top, startZ, yaw, lead ? Versions.leash(x, -59, 0) + ","
+			: Versions.attributes("movement_speed", 0.0) + ",", tag));
 		ctx.waitTicks(5);
 		if (step && over >= 0.0) {
 			final double half = server.computeOnServer(s -> s.overworld().getEntities(net.minecraft.world.level.entity.EntityTypeTest.forClass(AbstractHorse.class),
-				h -> h.entityTags().contains(tag)).getFirst().getBbWidth() * 0.5);
+				h -> h.entityTags().contains(tag)).get(0).getBbWidth() * 0.5);
 			server.runCommand(String.format(Locale.ROOT, "tp @e[tag=%s,limit=1] %d.5 %.1f %.3f %.1f 0", tag, x, top, 1.0 + half * (2.0 * over - 1.0), yaw));
 		}
 		ctx.waitTicks(40);
@@ -4212,8 +4255,8 @@ public final class RideFeelTest implements ClientGameTest {
 		world.getConnection().waitForChunksRender();
 		server.runCommand(backdrop(x));
 		server.runCommand(String.format(Locale.ROOT, "fill %d -60 -12 %d -60 0 minecraft:stone", x - 3, x + 3));
-		server.runCommand(String.format(Locale.ROOT, "summon %s %d.5 %s {Tame:1b,Variant:1,Rotation:[0f,0f],equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
-			+ "attributes:[{id:\"minecraft:movement_speed\",base:0d}],Tags:[\"%s\"]}", TestHorse.TYPE, x, up ? "-60 3.5" : "-59 -2.5", tag));
+		server.runCommand(String.format(Locale.ROOT, "summon %s %d.5 %s {Tame:1b,Variant:1,Rotation:[0f,0f]," + Versions.saddle() + ","
+			+ Versions.attributes("movement_speed", 0.0) + ",Tags:[\"%s\"]}", TestHorse.TYPE, x, up ? "-60 3.5" : "-59 -2.5", tag));
 		final CameraType camera = ctx.computeOnClient(mc -> mc.options.getCameraType());
 		ctx.runOnClient(mc -> {
 			mc.options.setCameraType(CameraType.FIRST_PERSON);
@@ -4309,13 +4352,13 @@ public final class RideFeelTest implements ClientGameTest {
 			}
 			mc.setCameraEntity(stands.get(0));
 			mc.options.setCameraType(CameraType.FIRST_PERSON);
-			mc.gui.hud.toggle();
+			Versions.toggleHud(mc);
 			return true;
 		});
 		log("  screenshot %s -> %s", name, ctx.takeScreenshot(TestScreenshotOptions.of("horsingaround_" + name).withSize(1280, 960)));
 		if (found) {
 			ctx.runOnClient(mc -> {
-				mc.gui.hud.toggle();
+				Versions.toggleHud(mc);
 				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
 				mc.setCameraEntity(mc.player);
 			});
@@ -4834,7 +4877,10 @@ public final class RideFeelTest implements ClientGameTest {
 
 	/** Entity hitboxes (F3+B), which also turn on the steering overlay. */
 	private static void hitboxes(final ClientGameTestContext ctx, final boolean on) {
+		//? if >=1.21.9 {
 		ctx.runOnClient(mc -> mc.debugEntries.setStatus(DebugScreenEntries.ENTITY_HITBOXES, on ? DebugScreenEntryStatus.ALWAYS_ON : DebugScreenEntryStatus.NEVER));
+		//?} else
+		/*ctx.runOnClient(mc -> mc.getEntityRenderDispatcher().setRenderHitBoxes(on));*/
 	}
 
 	/**
@@ -4857,13 +4903,13 @@ public final class RideFeelTest implements ClientGameTest {
 			}
 			mc.setCameraEntity(stands.get(0));
 			mc.options.setCameraType(CameraType.FIRST_PERSON);
-			mc.gui.hud.toggle();
+			Versions.toggleHud(mc);
 			return true;
 		});
 		screenshot(ctx, name);
 		if (found) {
 			ctx.runOnClient(mc -> {
-				mc.gui.hud.toggle();
+				Versions.toggleHud(mc);
 				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
 				mc.setCameraEntity(mc.player);
 			});
@@ -4889,8 +4935,7 @@ public final class RideFeelTest implements ClientGameTest {
 		world.getConnection().waitForChunksRender();
 		server.runCommand(String.format(Locale.ROOT, "tp @p %.2f %.2f 0.5 180 10", x, y));
 		server.runCommand(String.format(Locale.ROOT, "summon " + TestHorse.TYPE + " %.2f %.2f 0.5 {Tame:1b,Variant:1,Rotation:[180f,0f],NoAI:1b,"
-			+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
-			+ "attributes:[{id:\"minecraft:movement_speed\",base:%sd}],Tags:[\"%s\"]}", x, y, SPEED_ATTRIBUTE, tag));
+			+ Versions.saddle() + "," + Versions.attributes("movement_speed", SPEED_ATTRIBUTE) + ",Tags:[\"%s\"]}", x, y, tag));
 		// (No AI until the rider is on: left to itself a horse now and then wanders or turns, and the lane starts off its line.)
 		for (int attempt = 0; attempt < 10 && !ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse); attempt++) {
 			ctx.waitTicks(5);

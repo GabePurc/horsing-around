@@ -8,6 +8,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+//? if >=26.1
 import net.neoforged.neoforge.client.network.event.RegisterClientPayloadHandlersEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 
@@ -19,9 +20,11 @@ public final class HorsingAroundTestsNeoForge {
 			return;
 		}
 		modBus.addListener(FMLClientSetupEvent.class, event -> ClientGameTestSetup.init());
-		// (The server's handler here, the client's on the client's own event, as NeoForge asks.)
+		// (The server's handler here, the client's on the client's own event, as NeoForge asks from 26.1; one handler for both
+		// before.)
 		modBus.addListener(RegisterPayloadHandlersEvent.class, event -> event.registrar("1").optional()
 			.playBidirectional(GameTestSyncPayload.TYPE, GameTestSyncPayload.CODEC, (payload, context) -> ThreadingImpl.networkSyncReceived = true));
+		//? if >=26.1
 		modBus.addListener(RegisterClientPayloadHandlersEvent.class, event -> event.register(GameTestSyncPayload.TYPE, (payload, context) -> ThreadingImpl.networkSyncReceived = true));
 	}
 }

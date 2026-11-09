@@ -25,13 +25,18 @@ import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.mojang.blaze3d.platform.DisplayData;
 import com.mojang.blaze3d.platform.Monitor;
+//? if >=26.2 {
 import com.mojang.blaze3d.platform.MonitorManager;
+//?} else
+/*import com.mojang.blaze3d.platform.ScreenManager;*/
 import com.mojang.blaze3d.platform.VideoMode;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.platform.WindowEventHandler;
-import com.mojang.renderpearl.api.device.GpuBackend;
+import com.llamalad7.mixinextras.sugar.Local;
+//? if >=26.3 {
 import org.lwjgl.sdl.SDLEvents;
 import org.lwjgl.sdl.SDL_Event;
+//?}
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -71,15 +76,20 @@ public abstract class WindowMixin implements WindowHooks {
 	private WindowEventHandler eventHandler;
 	@Shadow
 	@Final
+	//? if >=26.2 {
 	private MonitorManager monitorManager;
+	//?} else
+	/*private ScreenManager screenManager;*/
 	@Shadow
 	private Optional<VideoMode> preferredFullscreenVideoMode;
 
 	@Shadow
 	protected abstract void setMode();
 
+	//? if >=26.1 {
 	@Shadow
 	private boolean focused;
+	//?}
 	@Unique
 	private int defaultWidth;
 	@Unique
@@ -93,10 +103,18 @@ public abstract class WindowMixin implements WindowHooks {
 	@Unique
 	private int realFramebufferHeight;
 
+	//? if >=26.3 {
 	@Inject(method = "<init>(Lcom/mojang/blaze3d/platform/WindowEventHandler;Lcom/mojang/blaze3d/platform/DisplayData;Ljava/lang/String;ZLjava/lang/String;Lcom/mojang/blaze3d/platform/MonitorManager;Lcom/mojang/renderpearl/api/device/GpuBackend;I)V", at = @At("RETURN"))
-	private void onInit(WindowEventHandler eventHandler, DisplayData displayData, String fullscreenVideoModeString, boolean exclusiveFullscreen, String title, MonitorManager monitorManager, GpuBackend backend, int maximumSize, CallbackInfo ci) {
+	//?} else
+	/*@Inject(method = "<init>", at = @At("RETURN"))*/
+	private void onInit(CallbackInfo ci, @Local(argsOnly = true) DisplayData displayData) {
+		//? if >=1.21.5 {
 		this.defaultWidth = displayData.width();
 		this.defaultHeight = displayData.height();
+		//?} else {
+		/*this.defaultWidth = displayData.width;
+		this.defaultHeight = displayData.height;
+		*///?}
 		this.realWidth = this.width;
 		this.realHeight = this.height;
 		this.realFramebufferWidth = this.framebufferWidth;
@@ -106,6 +124,7 @@ public abstract class WindowMixin implements WindowHooks {
 		this.height = this.windowedHeight = this.framebufferHeight = defaultHeight;
 	}
 
+	//? if >=26.3 {
 	@Inject(method = {"onFocus", "onIconified"}, at = @At("HEAD"), cancellable = true)
 	private void cancelEvents(CallbackInfo ci) {
 		ci.cancel();
@@ -118,16 +137,33 @@ public abstract class WindowMixin implements WindowHooks {
 			ci.cancel();
 		}
 	}
+	//?} elif >=1.21.2 {
+	/*@Inject(method = {"onFocus", "onEnter", "onIconify"}, at = @At("HEAD"), cancellable = true)
+	private void cancelEvents(CallbackInfo ci) {
+		ci.cancel();
+	}
+	*///?} else {
+	/*@Inject(method = {"onFocus", "onEnter"}, at = @At("HEAD"), cancellable = true)
+	private void cancelEvents(CallbackInfo ci) {
+		ci.cancel();
+	}
+	*///?}
 
 	@Inject(method = "onResize", at = @At("HEAD"), cancellable = true)
+	//? if >=26.3 {
 	private void cancelResize(int width, int height, CallbackInfo ci) {
+	//?} else
+	/*private void cancelResize(long window, int width, int height, CallbackInfo ci) {*/
 		realWidth = width;
 		realHeight = height;
 		ci.cancel();
 	}
 
 	@Inject(method = "onFramebufferResize", at = @At("HEAD"), cancellable = true)
+	//? if >=26.3 {
 	private void cancelFramebufferResize(int width, int height, CallbackInfo ci) {
+	//?} else
+	/*private void cancelFramebufferResize(long window, int width, int height, CallbackInfo ci) {*/
 		realFramebufferWidth = width;
 		realFramebufferHeight = height;
 		ci.cancel();
@@ -197,28 +233,41 @@ public abstract class WindowMixin implements WindowHooks {
 
 		// Move the top left corner of the window so that the window expands/contracts from its center, while also
 		// trying to keep the window within the monitor's bounds
+		//? if >=26.2 {
 		Monitor monitor = this.monitorManager.findBestMonitor((Window) (Object) this);
+		//?} else
+		/*Monitor monitor = this.screenManager.findBestMonitor((Window) (Object) this);*/
 
 		if (monitor != null) {
+			//? if >=26.3 {
 			VideoMode videoMode = monitor.getPreferredVideoMode(this.preferredFullscreenVideoMode);
+			//?} else
+			/*VideoMode videoMode = monitor.getPreferredVidMode(this.preferredFullscreenVideoMode);*/
+			//? if >=26.2 {
+			int monitorX = monitor.x();
+			int monitorY = monitor.y();
+			//?} else {
+			/*int monitorX = monitor.getX();
+			int monitorY = monitor.getY();
+			*///?}
 
 			this.x += (this.windowedWidth - width) / 2;
 			this.y += (this.windowedHeight - height) / 2;
 
-			if (this.x + width > monitor.x() + videoMode.getWidth()) {
-				this.x = monitor.x() + videoMode.getWidth() - width;
+			if (this.x + width > monitorX + videoMode.getWidth()) {
+				this.x = monitorX + videoMode.getWidth() - width;
 			}
 
-			if (this.x < monitor.x()) {
-				this.x = monitor.x();
+			if (this.x < monitorX) {
+				this.x = monitorX;
 			}
 
-			if (this.y + height > monitor.y() + videoMode.getHeight()) {
-				this.y = monitor.y() + videoMode.getHeight() - height;
+			if (this.y + height > monitorY + videoMode.getHeight()) {
+				this.y = monitorY + videoMode.getHeight() - height;
 			}
 
-			if (this.y < monitor.y()) {
-				this.y = monitor.y();
+			if (this.y < monitorY) {
+				this.y = monitorY;
 			}
 
 			this.windowedX = this.x;
@@ -234,6 +283,9 @@ public abstract class WindowMixin implements WindowHooks {
 
 	@Override
 	public void fabric_focus() {
+		//? if >=26.1 {
 		this.focused = true;
+		//?} else
+		/*net.minecraft.client.Minecraft.getInstance().setWindowActive(true);*/
 	}
 }

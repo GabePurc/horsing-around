@@ -69,8 +69,7 @@ public class TestSingleplayerContextImpl implements TestSingleplayerContext {
 				throw new IllegalStateException("Exited the world before closing singleplayer context");
 			}
 
-			client.level.disconnect(Component.translatable("menu.savingLevel"));
-			client.disconnect(new GenericMessageScreen(Component.translatable("menu.savingLevel")), false);
+			dev.horsingaround.gametest.harness.impl.util.ClientGameTestImpl.leaveWorld(client, Component.translatable("menu.savingLevel"), new GenericMessageScreen(Component.translatable("menu.savingLevel")));
 		});
 
 		context.waitFor(client -> !ThreadingImpl.isServerRunning && client.level == null, SharedConstants.TICKS_PER_MINUTE);

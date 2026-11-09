@@ -154,9 +154,8 @@ public final class TerrainRideTest implements ClientGameTest {
 		server.runCommand("effect give @p minecraft:instant_health 1 10 true");
 		server.runCommand("effect give @p minecraft:saturation infinite 0 true");
 		server.runCommand("execute at @p run summon " + TestHorse.TYPE + " ~ ~ ~ {Tame:1b,Variant:2,Health:20f,"
-			+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
-			+ "attributes:[{id:\"minecraft:movement_speed\",base:" + SPEED_ATTRIBUTE + "d},{id:\"minecraft:jump_strength\",base:0.7d},"
-			+ "{id:\"minecraft:max_health\",base:20d}],Tags:[\"" + TAG + "\"]}");
+			+ Versions.saddle() + "," + Versions.attributes("movement_speed", SPEED_ATTRIBUTE, "jump_strength", 0.7, "max_health", 20.0)
+			+ ",Tags:[\"" + TAG + "\"]}");
 		for (int attempt = 0; attempt < 10 && !ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse); attempt++) {
 			ctx.waitTicks(5);
 			server.runCommand("ride @p mount @e[tag=" + TAG + ",limit=1]");
@@ -262,7 +261,7 @@ public final class TerrainRideTest implements ClientGameTest {
 				final Entity horse = mc.player.getVehicle();
 				return horse != null && horse.onGround() && horse.mainSupportingBlockPos.filter(p -> mc.level.getBlockState(p).is(BlockTags.LEAVES)).isPresent() ? "client" : "";
 			}) + server.computeOnServer(s -> {
-				final Entity horse = s.getPlayerList().getPlayers().getFirst().getVehicle();
+				final Entity horse = s.getPlayerList().getPlayers().get(0).getVehicle();
 				return horse != null && horse.onGround() && horse.mainSupportingBlockPos.filter(p -> s.overworld().getBlockState(p).is(BlockTags.LEAVES)).isPresent() ? " server" : "";
 			});
 			if (!leafFooting.isEmpty() && onLeaves++ < 3) {

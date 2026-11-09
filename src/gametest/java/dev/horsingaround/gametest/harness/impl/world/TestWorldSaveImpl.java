@@ -53,9 +53,16 @@ public final class TestWorldSaveImpl implements TestWorldSave {
 		Preconditions.checkState(!ThreadingImpl.isServerRunning, "Cannot open a world when a server is running");
 
 		context.runOnClient(client -> {
+			//? if >=1.20.5 {
 			client.createWorldOpenFlows().openWorld(saveDirectory.getFileName().toString(), () -> {
 				throw new AssertionError("World opening should not be canceled");
 			});
+			//?} elif >=1.20.3 {
+			/*client.createWorldOpenFlows().checkForBackupAndLoad(saveDirectory.getFileName().toString(), () -> {
+				throw new AssertionError("World opening should not be canceled");
+			});
+			*///?} else
+			/*client.createWorldOpenFlows().loadLevel(client.gui.screen(), saveDirectory.getFileName().toString());*/
 		});
 
 		ClientGameTestImpl.waitForWorldLoad(context);
