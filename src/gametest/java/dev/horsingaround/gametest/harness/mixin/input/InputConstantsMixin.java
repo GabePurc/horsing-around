@@ -31,12 +31,29 @@ import dev.horsingaround.gametest.harness.impl.TestInputImpl;
 @Mixin(InputConstants.class)
 public class InputConstantsMixin {
 	@Inject(method = "isKeyDown", at = @At("HEAD"), cancellable = true)
+	//? if >=26.3 {
 	private static void useGameTestInputForKeyDown(int keyCode, CallbackInfoReturnable<Boolean> cir) {
+	//?} elif >=1.21.9 {
+	/*private static void useGameTestInputForKeyDown(com.mojang.blaze3d.platform.Window window, int keyCode, CallbackInfoReturnable<Boolean> cir) {
+	*///?} else
+	/*private static void useGameTestInputForKeyDown(long window, int keyCode, CallbackInfoReturnable<Boolean> cir) {*/
 		cir.setReturnValue(TestInputImpl.isKeyDown(keyCode));
 	}
 
+	//? if >=26.3 {
 	@Inject(method = {"grabMouse", "releaseMouse"}, at = @At("HEAD"), cancellable = true)
 	private static void disableCursorGrabbing(CallbackInfo ci) {
 		ci.cancel();
 	}
+	//?} else {
+	/*@Inject(method = {"setupKeyboardCallbacks", "setupMouseCallbacks"}, at = @At("HEAD"), cancellable = true)
+	private static void dontAttachCallbacks(CallbackInfo ci) {
+		ci.cancel();
+	}
+
+	@Inject(method = "grabOrReleaseMouse", at = @At("HEAD"), cancellable = true)
+	private static void disableCursorGrabbing(CallbackInfo ci) {
+		ci.cancel();
+	}
+	*///?}
 }

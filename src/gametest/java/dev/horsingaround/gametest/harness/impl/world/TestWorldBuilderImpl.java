@@ -37,7 +37,10 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.dedicated.DedicatedServer;
+//? if >=1.21.11 {
 import net.minecraft.world.level.gamerules.GameRules;
+//?} else
+/*import net.minecraft.world.level.GameRules;*/
 import net.minecraft.world.level.levelgen.presets.WorldPreset;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
 
@@ -115,7 +118,10 @@ public class TestWorldBuilderImpl implements TestWorldBuilder {
 	private Path navigateCreateWorldScreen() {
 		Path saveDirectory = context.computeOnClient(client -> {
 			Screen oldScreen = client.gui.screen();
+			//? if >=1.21.9 {
 			CreateWorldScreen.openFresh(client, () -> client.gui.setScreen(oldScreen));
+			//?} else
+			/*CreateWorldScreen.openFresh(client, oldScreen);*/
 
 			if (!(client.gui.screen() instanceof CreateWorldScreen createWorldScreen)) {
 				throw new AssertionError("CreateWorldScreen.show did not set the current screen");
@@ -143,10 +149,17 @@ public class TestWorldBuilderImpl implements TestWorldBuilder {
 		creator.setWorldType(new WorldCreationUiState.WorldTypeEntry(flatPreset));
 		creator.setSeed("1");
 		creator.setGenerateStructures(false);
+		//? if >=1.21.11 {
 		creator.getGameRules().set(GameRules.ADVANCE_TIME, false, null);
 		creator.getGameRules().set(GameRules.ADVANCE_WEATHER, false, null);
 		creator.getGameRules().set(GameRules.SPAWN_MOBS, false, null);
 		creator.getGameRules().set(GameRules.RESPAWN_RADIUS, 0, null);
+		//?} else {
+		/*creator.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, null);
+		creator.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, null);
+		creator.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, null);
+		creator.getGameRules().getRule(GameRules.RULE_SPAWN_RADIUS).set(0, null);
+		*///?}
 		// When adding to the list of default world creation options, remember to update the list in module documentation
 	}
 }

@@ -19,14 +19,22 @@
 
 package dev.horsingaround.gametest.harness.impl.util;
 
+//? if >=1.20.5 {
 import io.netty.buffer.ByteBuf;
 
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+//?} else {
+/*import net.fabricmc.fabric.api.networking.v1.FabricPacket;
+import net.fabricmc.fabric.api.networking.v1.PacketType;
+import net.minecraft.network.FriendlyByteBuf;
+*///?}
 import net.minecraft.resources.Identifier;
 
 import dev.horsingaround.gametest.harness.impl.ClientGameTestSetup;
 
+// (Before 1.20.5 there are no payload types: Fabric API's packet type, as the mod's own packets use there.)
+//? if >=1.20.5 {
 public enum GameTestSyncPayload implements CustomPacketPayload {
 	INSTANCE;
 
@@ -38,3 +46,19 @@ public enum GameTestSyncPayload implements CustomPacketPayload {
 		return TYPE;
 	}
 }
+//?} else {
+/*public enum GameTestSyncPayload implements FabricPacket {
+	INSTANCE;
+
+	public static final PacketType<GameTestSyncPayload> TYPE = PacketType.create(Identifier.fromNamespaceAndPath(ClientGameTestSetup.MOD_ID, "gametest_sync"), buf -> INSTANCE);
+
+	@Override
+	public void write(FriendlyByteBuf buf) {
+	}
+
+	@Override
+	public PacketType<?> getType() {
+		return TYPE;
+	}
+}
+*///?}

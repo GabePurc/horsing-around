@@ -19,6 +19,7 @@
 
 package dev.horsingaround.gametest.harness.mixin.screenshot;
 
+//? if >=1.21 {
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
@@ -31,3 +32,4 @@ public interface DeltaTrackerDefaultValueAccessor {
 		throw new UnsupportedOperationException("Implemented via mixin");
 	}
 }
+//?}

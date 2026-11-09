@@ -15,7 +15,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(value = ClientNeoForgeMod.class, remap = false)
 abstract class ClientNeoForgeModMixin {
+	//? if >=26.1 {
 	@Inject(method = "lambda$new$0(Lnet/neoforged/neoforge/client/event/ClientPlayerNetworkEvent$LoggingOut;)V", at = @At("HEAD"), cancellable = true)
+	//?} else
+	/*@Inject(method = "lambda$new$1(Lnet/neoforged/neoforge/client/event/ClientPlayerNetworkEvent$LoggingOut;)V", at = @At("HEAD"), cancellable = true)*/
 	private static void horsingaroundTest$keepTheServersConfigs(final ClientPlayerNetworkEvent.LoggingOut event, final CallbackInfo ci) {
 		if (ThreadingImpl.isServerRunning && ThreadingImpl.unsafeClientInstance != null && ThreadingImpl.unsafeClientInstance.getSingleplayerServer() == null) {
 			ci.cancel();

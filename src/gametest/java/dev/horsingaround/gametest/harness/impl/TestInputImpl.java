@@ -26,14 +26,17 @@ import java.util.function.Function;
 
 import com.google.common.base.Preconditions;
 import com.mojang.blaze3d.platform.InputConstants;
+//? if >=26.3
 import org.lwjgl.sdl.SDLKeyboard;
 
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
+//? if >=1.21.9 {
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonInfo;
+//?}
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Util;
@@ -192,8 +195,19 @@ public final class TestInputImpl implements TestInput {
 
 	private static void pressOrReleaseKey(Minecraft client, InputConstants.Key key, int action) {
 		switch (key.getType()) {
+			//? if >=26.3 {
 			case KEYBOARD -> ((KeyboardHandlerAccessor) client.keyboardHandler).invokeKeyPress(client.getWindow().handle(), action, new KeyEvent(key.getValue(), SDLKeyboard.SDL_GetKeyFromScancode(key.getValue(), (short) 0, false), 0));
+			//?} elif >=1.21.9 {
+			/*case KEYSYM -> ((KeyboardHandlerAccessor) client.keyboardHandler).invokeKeyPress(client.getWindow().handle(), action, new KeyEvent(key.getValue(), 0, 0));
+			case SCANCODE -> ((KeyboardHandlerAccessor) client.keyboardHandler).invokeKeyPress(client.getWindow().handle(), action, new KeyEvent(-1, key.getValue(), 0));
+			*///?} else {
+			/*case KEYSYM -> ((KeyboardHandlerAccessor) client.keyboardHandler).invokeKeyPress(client.getWindow().handle(), key.getValue(), 0, action, 0);
+			case SCANCODE -> ((KeyboardHandlerAccessor) client.keyboardHandler).invokeKeyPress(client.getWindow().handle(), -1, key.getValue(), action, 0);
+			*///?}
+			//? if >=1.21.9 {
 			case MOUSE -> ((MouseHandlerAccessor) client.mouseHandler).invokeOnButton(client.getWindow().handle(), new MouseButtonInfo(key.getValue(), 0), action);
+			//?} else
+			/*case MOUSE -> ((MouseHandlerAccessor) client.mouseHandler).invokeOnButton(client.getWindow().handle(), key.getValue(), action, 0);*/
 		}
 	}
 
@@ -308,11 +322,20 @@ public final class TestInputImpl implements TestInput {
 		});
 	}
 
+	private static void typeOne(Minecraft client, int codePoint) {
+		//? if >=26.1 {
+		((KeyboardHandlerAccessor) client.keyboardHandler).invokeCharTyped(client.getWindow().handle(), new CharacterEvent(codePoint));
+		//?} elif >=1.21.9 {
+		/*((KeyboardHandlerAccessor) client.keyboardHandler).invokeCharTyped(client.getWindow().handle(), new CharacterEvent(codePoint, 0));
+		*///?} else
+		/*((KeyboardHandlerAccessor) client.keyboardHandler).invokeCharTyped(client.getWindow().handle(), codePoint, 0);*/
+	}
+
 	@Override
 	public void typeChar(int codePoint) {
 		ThreadingImpl.checkOnGametestThread("typeChar");
 
-		context.runOnClient(client -> ((KeyboardHandlerAccessor) client.keyboardHandler).invokeCharTyped(client.getWindow().handle(), new CharacterEvent(codePoint)));
+		context.runOnClient(client -> typeOne(client, codePoint));
 	}
 
 	@Override
@@ -320,9 +343,7 @@ public final class TestInputImpl implements TestInput {
 		ThreadingImpl.checkOnGametestThread("typeChars");
 
 		context.runOnClient(client -> {
-			chars.chars().forEach(codePoint -> {
-				((KeyboardHandlerAccessor) client.keyboardHandler).invokeCharTyped(client.getWindow().handle(), new CharacterEvent(codePoint));
-			});
+			chars.chars().forEach(codePoint -> typeOne(client, codePoint));
 		});
 	}
 
@@ -344,9 +365,12 @@ public final class TestInputImpl implements TestInput {
 	public void setCursorPos(double x, double y) {
 		ThreadingImpl.checkOnGametestThread("setCursorPos");
 
+		//? if >=26.3 {
 		context.runOnClient(client -> ((MouseHandlerAccessor) client.mouseHandler).invokeOnMove(
 				client.getWindow().handle(), x, y, x - client.mouseHandler.xpos(), y - client.mouseHandler.ypos()
 		));
+		//?} else
+		/*context.runOnClient(client -> ((MouseHandlerAccessor) client.mouseHandler).invokeOnMove(client.getWindow().handle(), x, y));*/
 	}
 
 	@Override
@@ -356,7 +380,10 @@ public final class TestInputImpl implements TestInput {
 		context.runOnClient(client -> {
 			double newX = client.mouseHandler.xpos() + deltaX;
 			double newY = client.mouseHandler.ypos() + deltaY;
+			//? if >=26.3 {
 			((MouseHandlerAccessor) client.mouseHandler).invokeOnMove(client.getWindow().handle(), newX, newY, deltaX, deltaY);
+			//?} else
+			/*((MouseHandlerAccessor) client.mouseHandler).invokeOnMove(client.getWindow().handle(), newX, newY);*/
 		});
 	}
 

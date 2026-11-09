@@ -38,6 +38,20 @@ public final class ClientGameTestImpl {
 	private ClientGameTestImpl() {
 	}
 
+	/** Leaves the world or server, as the pause menu's button does, showing {@code screen} until it is closed. */
+	public static void leaveWorld(Minecraft client, net.minecraft.network.chat.Component reason, Screen screen) {
+		//? if >=1.21.6 {
+		client.level.disconnect(reason);
+		//?} else
+		/*client.level.disconnect();*/
+		//? if >=1.20.5 {
+		client.disconnect(screen, false);
+		//?} elif >=1.20.2 {
+		/*client.disconnect(screen);
+		*///?} else
+		/*client.clearLevel(screen);*/
+	}
+
 	public static void waitForWorldLoad(ClientGameTestContext context) {
 		for (int i = 0; i < SharedConstants.TICKS_PER_MINUTE; i++) {
 			if (context.computeOnClient(client -> isExperimentalWarningScreen(client.gui.screen()))) {

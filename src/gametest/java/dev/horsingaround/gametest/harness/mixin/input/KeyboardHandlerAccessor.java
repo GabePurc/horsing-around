@@ -23,14 +23,24 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
 import net.minecraft.client.KeyboardHandler;
+//? if >=1.21.9 {
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
+//?}
 
 @Mixin(KeyboardHandler.class)
 public interface KeyboardHandlerAccessor {
+	//? if >=1.21.9 {
 	@Invoker
 	void invokeKeyPress(long window, int key, KeyEvent arg);
 
 	@Invoker
 	void invokeCharTyped(long window, CharacterEvent arg);
+	//?} else {
+	/*@Invoker
+	void invokeKeyPress(long window, int key, int scancode, int action, int modifiers);
+
+	@Invoker
+	void invokeCharTyped(long window, int codePoint, int modifiers);
+	*///?}
 }

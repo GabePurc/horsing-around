@@ -128,11 +128,19 @@ public final class AnimatedHorseModel {
 
 	/** The first part named {@code name} under {@code part} (an Entity Model Features copy of it too), or null. */
 	public static @Nullable ModelPart find(final ModelPart part, final String name) {
+		return find(part, name, true);
+	}
+
+	/**
+	 * The first part named {@code name} under {@code part}, or null; with {@code copies}, an Entity Model Features copy of it
+	 * ("EMF_..._name") too. Without, only a model's own part (the pack's are all "EMF_...").
+	 */
+	public static @Nullable ModelPart find(final ModelPart part, final String name, final boolean copies) {
 		for (final Map.Entry<String, ModelPart> child : ((PartData) (Object) part).horsingaround$children().entrySet()) {
-			if (child.getKey().equals(name) || child.getKey().endsWith("_" + name) && child.getKey().startsWith("EMF")) {
+			if (child.getKey().equals(name) || copies && child.getKey().endsWith("_" + name) && child.getKey().startsWith("EMF")) {
 				return child.getValue();
 			}
-			final ModelPart found = find(child.getValue(), name);
+			final ModelPart found = find(child.getValue(), name, copies);
 			if (found != null) {
 				return found;
 			}

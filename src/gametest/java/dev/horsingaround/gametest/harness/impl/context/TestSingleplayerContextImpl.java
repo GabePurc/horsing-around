@@ -63,14 +63,18 @@ public class TestSingleplayerContextImpl implements TestSingleplayerContext {
 	@Override
 	public void close() {
 		ThreadingImpl.checkOnGametestThread("close");
+		//? if <1.21.2 {
+		/*// Before 1.21.2 a server stopping while chunks are still generating can go round unloading them for ever (vanilla
+		// puts a chunk that isn't ready back in the queue it is emptying): let what the test set going finish first.
+		context.waitTicks(200);
+		*///?}
 
 		context.runOnClient(client -> {
 			if (client.level == null) {
 				throw new IllegalStateException("Exited the world before closing singleplayer context");
 			}
 
-			client.level.disconnect(Component.translatable("menu.savingLevel"));
-			client.disconnect(new GenericMessageScreen(Component.translatable("menu.savingLevel")), false);
+			dev.horsingaround.gametest.harness.impl.util.ClientGameTestImpl.leaveWorld(client, Component.translatable("menu.savingLevel"), new GenericMessageScreen(Component.translatable("menu.savingLevel")));
 		});
 
 		context.waitFor(client -> !ThreadingImpl.isServerRunning && client.level == null, SharedConstants.TICKS_PER_MINUTE);

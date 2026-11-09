@@ -1,7 +1,7 @@
 # Building for several Minecraft versions
 
 One jar per group of versions, 1.20.1 to 26.3, all from the one `src/` with [Stonecutter](https://stonecutter.kikugie.dev/). 26.3 is the
-main version: `src/` reads as 26.3 code, and the client tests and compat runs exist only there.
+main version: `src/` reads as 26.3 code, and the compat runs exist only there.
 
 ## Layout
 
@@ -31,7 +31,10 @@ victim.knockback(power, x, z, source, damage);
   them; `versions/<version>/build/generated/stonecutter/` shows what a version compiles.
 - A class or package that was only renamed goes in `stonecutter.gradle` as a string replacement. Replacements also run backwards on newer
   versions, so the new text mustn't occur in `src/` for them; where it could, use a regex whose way back is `(?!)`.
+- Replacements whose matches overlap don't both apply: one is silently dropped. Anchor one with a lookbehind so they match apart.
 - Inside a whole-file `/* */` conditional there's no room for another comment, so a difference there is a replacement too.
+- The tests (`src/gametest`) follow the same rules. A test mixin only some versions have is a whole-file conditional that its config's
+  plugin adds (`getMixins`), since a config can't list a class a version doesn't compile.
 - A mixin whose target changed gets its `@Mixin` target, method names and parameters in conditionals.
 - Mixin can drop a field initialiser on older versions (it crashed the riding camera before 26.1); the audit checks patched constructors
   set every field that has a starting value.
@@ -84,7 +87,8 @@ Data pack tag folders are plural (`processResources` renames them), resource loc
 - `./gradlew :<version>:runClient`: play it (game folder `run/versions/<version>/`; NeoForge `run/neoforge/<version>/`, and `runServer` too).
 - `./gradlew :<version>:genSources`: decompiled Minecraft (`.gradle/loom-cache/minecraftMaven/net/minecraft/*/<version>/*-sources.jar`).
 
-A change to version-specific code is checked by building and auditing every version, the smoke test on each, and playing the ones it touches.
+A change to version-specific code is checked by building and auditing every version, the smoke test and client tests on each, and playing
+the ones it touches.
 
 ## Status
 
@@ -95,8 +99,12 @@ Build and pass the audit: 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9), 
 
 - 1.21.10 and older: no spears, so no spear stab pose. The settings screen's section headings each take a row of their own. No F3+B steering overlay (gizmos came in 1.21.11).
 - 1.21.1 and older: a horse's leg box is found by its size alone (box faces are private there).
-- 1.20.6 and older: `EmfSaddleTracker` isn't built, so on a pack-animated horse the rider follows the generated gait motion and the pack's legs and tail aren't
-  adjusted. Its neck is (`EmfNeck`, after the pack has run): through EMF's hook on 1.20.1 (`EmfNeckHook`), by wrapping the model's animation on 1.20.2-1.20.6
-  (`EmfNeckAfterPack`, `client/mixin/emf/`).
 
-Different underneath, not a gap: before 1.21.11 vanilla horses sink in deep water, so the ride floats all but the skeleton horse (`Mounts.floats`).
+Different underneath, not gaps (each handled where named):
+- Before 1.21.11 vanilla horses sink in deep water, so the ride floats all but the skeleton horse (`Mounts.floats`).
+- Before 1.21.5 vanilla slows a ridden horse 2% a tick on its rider's client: the ride takes that off (`LivingEntityMixin`).
+- Before 1.20.5 the pose stack entities are drawn with starts with the camera's turn: `LivingEntityRendererMixin` takes it off the drawn pose.
+- Entity Model Features 3.0 (1.20.2-1.20.6) has no animation hook: the ride runs after the pack by wrapping the model's animation
+  (`EmfAfterPack`, `client/mixin/emf/`).
+- 1.21.2-1.21.3 scale a horse as they draw it; Fresh Animations' files for 1.21.2 on lift the root to where 1.21.4's scaled model
+  has it, so its horses float there: `EmfRide` sets them back down.

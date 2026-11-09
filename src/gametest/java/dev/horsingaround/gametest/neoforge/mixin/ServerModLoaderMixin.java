@@ -15,8 +15,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(value = ServerModLoader.class, remap = false)
 abstract class ServerModLoaderMixin {
 	@Inject(method = "load", at = @At("HEAD"), cancellable = true)
+	//? if >=26.1 {
 	private static void horsingaroundTest$loadedByTheClient(final boolean dataGen, final CallbackInfo ci) {
 		if (FMLEnvironment.getDist() == Dist.CLIENT) {
+	//?} else {
+	/*private static void horsingaroundTest$loadedByTheClient(final CallbackInfo ci) {
+		if (FMLEnvironment.dist == Dist.CLIENT) {
+	*///?}
 			ci.cancel();
 		}
 	}
