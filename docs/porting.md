@@ -99,11 +99,12 @@ Build and pass the audit: 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9), 
 
 - 1.21.10 and older: no spears, so no spear stab pose. The settings screen's section headings each take a row of their own. No F3+B steering overlay (gizmos came in 1.21.11).
 - 1.21.1 and older: a horse's leg box is found by its size alone (box faces are private there).
-- 1.20.6 and older: `EmfSaddleTracker` isn't built, so on a pack-animated horse the rider follows the generated gait motion and the pack's legs and tail aren't
-  adjusted. Its neck is (`EmfNeck`, after the pack has run): through EMF's hook on 1.20.1 (`EmfNeckHook`), by wrapping the model's animation on 1.20.2-1.20.6
-  (`EmfNeckAfterPack`, `client/mixin/emf/`).
 
 Different underneath, not gaps (each handled where named):
 - Before 1.21.11 vanilla horses sink in deep water, so the ride floats all but the skeleton horse (`Mounts.floats`).
 - Before 1.21.5 vanilla slows a ridden horse 2% a tick on its rider's client: the ride takes that off (`LivingEntityMixin`).
 - Before 1.20.5 the pose stack entities are drawn with starts with the camera's turn: `LivingEntityRendererMixin` takes it off the drawn pose.
+- Entity Model Features 3.0 (1.20.2-1.20.6) has no animation hook: the ride runs after the pack by wrapping the model's animation
+  (`EmfAfterPack`, `client/mixin/emf/`).
+- 1.21.2-1.21.3 scale a horse as they draw it; Fresh Animations' files for 1.21.2 on lift the root to where 1.21.4's scaled model
+  has it, so its horses float there: `EmfRide` sets them back down.

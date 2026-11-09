@@ -336,9 +336,7 @@ public final class RideFeelTest implements ClientGameTest {
 		check("walk speed (blocks/tick)", averageSpeed(ctx, 10), WALK_SPEED * 0.85, WALK_SPEED * 1.15);
 		check("gait is walk", sample(ctx).gait == RideTuning.WALK);
 		check("walk leg-animation speed (Fresh Animations walk < 0.4)", sample(ctx).limbSpeed, 0.25, 0.39);
-		if (TestEnv.modLoaded("entity_model_features") && !Versions.PACK_SADDLE) {
-			log("  (not here: the rider reads a pack-animated body from 1.21)");
-		} else if (TestEnv.modLoaded("entity_model_features")) {
+		if (TestEnv.modLoaded("entity_model_features")) {
 			// (Fresh Animations' walk sways the body side to side; another mod's horse model may only bob it, as Icy's does.)
 			final boolean sways = TestHorse.TYPE.equals("minecraft:horse");
 			float low = Float.MAX_VALUE;
@@ -834,7 +832,7 @@ public final class RideFeelTest implements ClientGameTest {
 		frontScreenshot(ctx, "07a_head_shake");
 		ctx.waitTicks(3);
 		frontScreenshot(ctx, "07b_head_shake");
-		if (TestEnv.modLoaded("entity_model_features") && Versions.PACK_SADDLE) {
+		if (TestEnv.modLoaded("entity_model_features")) {
 			check("head shake drawn on the Fresh Animations model (frames)",
 				ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().animatedShakeFrames), 5, 100000);
 		}
@@ -982,10 +980,6 @@ public final class RideFeelTest implements ClientGameTest {
 
 	private void saddleSync(final ClientGameTestContext ctx) {
 		if (!TestEnv.modLoaded("entity_model_features")) {
-			return;
-		}
-		if (!Versions.PACK_SADDLE) {
-			log("  (not here: the rider reads a pack-animated body from 1.21)");
 			return;
 		}
 		float low = Float.MAX_VALUE;

@@ -97,15 +97,6 @@ public final class Versions {
 		return net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.containsKey(Identifier.withDefaultNamespace(id));
 	}
 
-	/**
-	 * Whether the rider reads a pack-animated horse's body (the mod's EmfSaddleTracker, 1.21 on). Before, the rider follows
-	 * the generated gait motion: a gap the porting doc lists.
-	 */
-	//? if >=1.21 {
-	public static final boolean PACK_SADDLE = true;
-	//?} else
-	/*public static final boolean PACK_SADDLE = false;*/
-
 	/** Short grass's id (just grass before 1.20.3). */
 	//? if >=1.20.3 {
 	public static final String SHORT_GRASS = "short_grass";
