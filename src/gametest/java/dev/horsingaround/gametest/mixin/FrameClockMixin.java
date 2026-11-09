@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /** Test-only: the mod's frame-to-frame easing keeps pace with the sped-up game ({@code TestClock}). */
-@Mixin({RideCamera.class, SaddleMotion.class})
+@Mixin(value = {RideCamera.class, SaddleMotion.class}, remap = false)
 abstract class FrameClockMixin {
 	@Redirect(method = {"updateFrame", "measure"}, at = @At(value = "INVOKE", target = "Ljava/lang/System;nanoTime()J"), require = 1)
 	private static long horsingaroundtest$nanoTime() {

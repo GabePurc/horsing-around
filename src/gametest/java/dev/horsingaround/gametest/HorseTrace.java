@@ -2,7 +2,6 @@ package dev.horsingaround.gametest;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.world.entity.Entity;
 
 /**
@@ -38,10 +37,10 @@ final class HorseTrace {
 	static void arm(final boolean on) {
 		if (!registered) {
 			registered = true;
-			ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+			TestEnv.onClientTickEnd(mc -> {
 				final Entity horse = armed && mc.player != null ? mc.player.getVehicle() : null;
 				// (Paused, the level doesn't tick: nothing new to add.)
-				if (horse != null && (TICKS.isEmpty() || TICKS.getLast().count() != horse.tickCount)) {
+				if (horse != null && (TICKS.isEmpty() || TICKS.get(TICKS.size() - 1).count() != horse.tickCount)) {
 					TICKS.add(new Tick(horse.tickCount, horse.xo, horse.yo, horse.zo, horse.getX(), horse.getY(), horse.getZ(), horse.onGround()));
 				}
 			});

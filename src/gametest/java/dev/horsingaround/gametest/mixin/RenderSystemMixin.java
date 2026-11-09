@@ -1,6 +1,7 @@
 package dev.horsingaround.gametest.mixin;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+//? if >=26.3
 import org.lwjgl.sdl.SDLStdinc;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -17,9 +18,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 abstract class RenderSystemMixin {
 	@Inject(method = "initBackendSystem", at = @At("HEAD"))
 	private static void horsingaroundtest$useX11(final CallbackInfoReturnable<?> cir) {
+		// (Before 26.3 the window is GLFW's: the compat games, the only ones without x11-games.gradle, are 26.3's.)
+		//? if >=26.3 {
 		if (System.getProperty("os.name").startsWith("Linux") && System.getenv("DISPLAY") != null) {
 			SDLStdinc.SDL_unsetenv_unsafe("WAYLAND_DISPLAY");
 			SDLStdinc.SDL_setenv_unsafe("XDG_SESSION_TYPE", "x11", 1);
 		}
+		//?}
 	}
 }

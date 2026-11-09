@@ -9,12 +9,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.fabricmc.loader.api.FabricLoader;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.TestInput;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestServerContext;
+import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
 
@@ -26,7 +25,7 @@ import net.minecraft.world.entity.animal.equine.AbstractHorse;
  *
  * <p>Run with {@code ./gradlew runClientGameTest -Ptests=perf -Pprofile}.
  */
-public final class PerfTest implements FabricClientGameTest {
+public final class PerfTest implements ClientGameTest {
 	private static final int GROUND = -60;
 	private static final String[] KINDS = {"horse", "horse", "horse", "horse", "horse", "donkey", "mule", "skeleton_horse"};
 	private static final int HERD = 56;
@@ -46,7 +45,7 @@ public final class PerfTest implements FabricClientGameTest {
 			.create()) {
 			final TestServerContext server = world.getServer();
 			server.runCommand("time set noon");
-			server.runCommand("gamerule advance_time false");
+			server.runCommand(Versions.rule("advance_time") + " false");
 			server.runCommand(String.format(Locale.ROOT, "tp @a %d %d 0 180 10", RADIUS, GROUND));
 			world.getConnection().waitForChunksRender();
 
@@ -69,7 +68,7 @@ public final class PerfTest implements FabricClientGameTest {
 			}
 
 			server.runCommand(String.format(Locale.ROOT, "summon minecraft:horse %d.5 %d 0.5 {Tame:1b,Rotation:[180f,0f],"
-				+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},attributes:[{id:\"minecraft:movement_speed\",base:0.225d}],Tags:[\"perf\"]}", RADIUS, GROUND));
+				+ Versions.saddle() + "," + Versions.attributes("movement_speed", 0.225) + ",Tags:[\"perf\"]}", RADIUS, GROUND));
 			for (int attempt = 0; attempt < 10 && !ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse); attempt++) {
 				ctx.waitTicks(5);
 				server.runCommand("ride @p mount @e[tag=perf,limit=1]");
@@ -99,7 +98,10 @@ public final class PerfTest implements FabricClientGameTest {
 				input.lookAt(yaw, 10.0F);
 				ctx.waitTick();
 				if (i % 20 == 19) {
+					//? if >=1.20.3 {
 					tickNanos += server.computeOnServer(s -> s.getAverageTickTimeNanos());
+					//?} else
+					/*tickNanos += server.computeOnServer(s -> (long) (s.getAverageTickTime() * 1_000_000.0F));*/
 					fps += ctx.computeOnClient(mc -> mc.getFps());
 					samples++;
 				}
@@ -124,7 +126,7 @@ public final class PerfTest implements FabricClientGameTest {
 	}
 
 	private void writeReport() {
-		final Path file = FabricLoader.getInstance().getGameDir().resolve("horsingaround-perf-report.txt");
+		final Path file = TestEnv.gameDir().resolve("horsingaround-perf-report.txt");
 		try {
 			Files.write(file, this.report);
 		} catch (final IOException e) {

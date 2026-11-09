@@ -356,7 +356,8 @@ public final class RideTuning {
 	 * Falls: the horse takes any fall that doesn't hurt it (vanilla horses: up to ~8 blocks), and beyond that one that
 	 * costs it up to FALL_HURT_ALLOWANCE health points (2 hearts) and its rider up to RIDER_FALL_HURT_ALLOWANCE (3). The
 	 * allowances are full above CONFIDENT_HEALTH and shrink to nothing at CAUTIOUS_HEALTH (fractions of max health), so
-	 * a hurt horse or rider is careful. At full health that is drops up to ~10 blocks.
+	 * a hurt horse or rider is careful. At full health that is drops up to ~10 blocks (~14 before 1.21.5, where riders
+	 * take the horse's own halved damage).
 	 */
 	static final float FALL_HURT_ALLOWANCE = 4.0F;
 	/** The rider takes the fall too (at full damage from 3 blocks), so any fall that hurts the horse costs them more. */

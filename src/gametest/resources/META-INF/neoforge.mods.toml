@@ -1,0 +1,26 @@
+# The client tests' mod metadata on NeoForge (fabric.mod.json is Fabric's). Test only, never shipped.
+modLoader = "javafml"
+loaderVersion = "[1,)"
+license = "LGPL-3.0-only"
+
+[[mods]]
+modId = "horsingaround_gametest"
+version = "1.0.0"
+displayName = "Horsing Around tests"
+description = "Test only, never shipped: the client tests and their harness, run by ./gradlew runClientGameTest."
+
+[[mixins]]
+config = "horsingaround-gametest.mixins.json"
+
+[[mixins]]
+config = "horsingaround-gametest-harness.mixins.json"
+
+[[mixins]]
+config = "horsingaround-gametest-neoforge.mixins.json"
+
+[[dependencies.horsingaround_gametest]]
+modId = "horsingaround"
+type = "required"
+versionRange = "*"
+ordering = "AFTER"
+side = "BOTH"

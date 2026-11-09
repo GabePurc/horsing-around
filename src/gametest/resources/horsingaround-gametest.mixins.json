@@ -1,16 +1,19 @@
 {
 	"required": true,
 	"package": "dev.horsingaround.gametest.mixin",
-	"compatibilityLevel": "JAVA_25",
+	"compatibilityLevel": "JAVA_${mixinJava}",
+	"mixins": [
+		"PlatformMixin"
+	],
 	"client": [
-		"DeltaTrackerTimerAccessor",
+		"EntityRendererMixin",
 		"EventLoopMixin",
 		"FilmCameraMixin",
 		"FrameClockMixin",
 		"FramerateLimitTrackerMixin",
 		"GameRendererMixin",
 		"GuiMixin",
-		"ModelFeatureRendererMixin",
+		"LegProbeMixin",
 		"MouseHandlerMixin",
 		"OptionsMixin",
 		"RenderSystemMixin",
@@ -20,6 +23,7 @@
 		"TestClockMixin",
 		"UtilAccessor"
 	],
+	"plugin": "dev.horsingaround.gametest.mixin.TestMixinPlugin",
 	"injectors": {
 		"defaultRequire": 1
 	}

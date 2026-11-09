@@ -1,6 +1,7 @@
 package dev.horsingaround.gametest;
 
 import dev.horsingaround.client.config.HorseSettingsScreen;
+//? if >=1.21.2
 import dev.horsingaround.client.cosmetic.HatState;
 import dev.horsingaround.client.cosmetic.Hats;
 import dev.horsingaround.client.cosmetic.Supporters;
@@ -13,16 +14,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.fabricmc.loader.api.FabricLoader;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestServerContext;
+import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
+//? if >=1.21.2 {
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+//?}
 import com.mojang.authlib.GameProfile;
 import dev.horsingaround.net.PlayerHatPayload;
 import net.minecraft.client.player.RemotePlayer;
@@ -36,7 +38,7 @@ import net.minecraft.world.entity.animal.equine.AbstractHorse;
  * server, gone when switched off, and never drawn for players who aren't supporters. Writes
  * {@code horsingaround-hat-report.txt} and screenshots. Run with {@code ./gradlew runClientGameTest -Ptests=hat}.
  */
-public final class HatTest implements FabricClientGameTest {
+public final class HatTest implements ClientGameTest {
 	private static final int RED = 0x8E2B2B;
 
 	private final List<String> report = new ArrayList<>();
@@ -126,7 +128,10 @@ public final class HatTest implements FabricClientGameTest {
 				other.yHeadRot = 180.0F;
 				other.yBodyRot = 180.0F;
 				other.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET));
+				//? if >=1.20.2 {
 				mc.level.addEntity(other);
+				//?} else
+				/*mc.level.putNonPlayerEntity(other.getId(), other);*/
 			});
 			for (final int color : new int[] {0x8B5A2B, RED, 0x2B2B2B, 0xF4F1EA, 0x2F4A6E, 0xC8A27A}) {
 				ctx.runOnClient(mc -> {
@@ -134,8 +139,8 @@ public final class HatTest implements FabricClientGameTest {
 					mc.setCameraEntity(mc.level.getEntitiesOfClass(net.minecraft.world.entity.decoration.ArmorStand.class,
 						new net.minecraft.world.phys.AABB(-4, -64, -4, 5, -55, 5), net.minecraft.world.entity.decoration.ArmorStand::isInvisible).get(0));
 					mc.options.setCameraType(CameraType.FIRST_PERSON);
-					if (!mc.gui.hud.isHidden()) {
-						mc.gui.hud.toggle();
+					if (!Versions.hudHidden(mc)) {
+						Versions.toggleHud(mc);
 					}
 				});
 				ctx.waitTicks(1);
@@ -162,7 +167,7 @@ public final class HatTest implements FabricClientGameTest {
 			ctx.runOnClient(mc -> {
 				Hats.receive(new PlayerHatPayload(friend, HatPayload.NONE));
 				mc.setCameraEntity(mc.player);
-				mc.gui.hud.toggle();
+				Versions.toggleHud(mc);
 				final net.minecraft.world.entity.player.Player other = mc.level.getPlayerByUUID(friend);
 				if (other != null) {
 					other.discard();
@@ -178,7 +183,7 @@ public final class HatTest implements FabricClientGameTest {
 			ctx.setScreen(() -> null);
 
 			section("Riding in the hat");
-			server.runCommand("summon minecraft:horse ~ ~ ~2 {Tame:1b,equipment:{saddle:{id:\"minecraft:saddle\",count:1}},Tags:[\"hat_horse\"]}");
+			server.runCommand("summon minecraft:horse ~ ~ ~2 {Tame:1b," + Versions.saddle() + ",Tags:[\"hat_horse\"]}");
 			server.runCommand("ride @p mount @e[tag=hat_horse,limit=1]");
 			ctx.waitFor(mc -> mc.player.getVehicle() instanceof AbstractHorse);
 			ctx.waitTicks(10);
@@ -229,17 +234,33 @@ public final class HatTest implements FabricClientGameTest {
 
 	private static Drawn drawn(final ClientGameTestContext ctx) {
 		return ctx.computeOnClient(mc -> {
+			//? if >=1.21.2 {
 			final EntityRenderer renderer = mc.getEntityRenderDispatcher().getRenderer(mc.player);
 			final AvatarRenderState state = (AvatarRenderState) renderer.createRenderState(mc.player, 1.0F);
+			//? if >=1.21.4 {
 			return new Drawn(((HatState) state).horsingaround$hatColor(), !state.headEquipment.isEmpty());
+			//?} else
+			/*return new Drawn(((HatState) state).horsingaround$hatColor(), !state.headItem.isEmpty());*/
+			//?} else {
+			/*// (No render states: the hat layer draws the player's hat unless they are invisible, and the armour layer then leaves
+			// the helmet off, as the mod's layer hooks decide.)
+			final int hat = mc.player.isInvisible() ? HatPayload.NONE : Hats.colorFor(mc.player);
+			return new Drawn(hat, !mc.player.getItemBySlot(EquipmentSlot.HEAD).isEmpty() && hat == HatPayload.NONE);
+			*///?}
 		});
 	}
 
 	private static void scrollSettingsToBottom(final ClientGameTestContext ctx) {
 		ctx.runOnClient(mc -> mc.gui.screen().children().forEach(child -> {
+			//? if >=1.21.4 {
 			if (child instanceof net.minecraft.client.gui.components.AbstractScrollArea area) {
 				area.setScrollAmount(area.maxScrollAmount());
 			}
+			//?} else {
+			/*if (child instanceof net.minecraft.client.gui.components.AbstractSelectionList<?> list) {
+				list.setScrollAmount(list.getMaxScroll());
+			}
+			*///?}
 		}));
 		ctx.waitTicks(1);
 	}
@@ -266,7 +287,7 @@ public final class HatTest implements FabricClientGameTest {
 	}
 
 	private void writeReport() {
-		final Path file = FabricLoader.getInstance().getGameDir().resolve("horsingaround-hat-report.txt");
+		final Path file = TestEnv.gameDir().resolve("horsingaround-hat-report.txt");
 		try {
 			Files.write(file, this.report);
 		} catch (final IOException e) {

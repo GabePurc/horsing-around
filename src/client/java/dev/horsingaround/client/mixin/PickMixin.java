@@ -32,10 +32,15 @@ public abstract class PickMixin {
 		final float xRot = player.getXRot();
 		final float yRotO = player.yRotO;
 		final float xRotO = player.xRotO;
+		final float yHeadRot = player.yHeadRot;
+		final float yHeadRotO = player.yHeadRotO;
 		player.setYRot(RideAim.yaw());
 		player.setXRot(RideAim.pitch());
 		player.yRotO = RideAim.yaw();
 		player.xRotO = RideAim.pitch();
+		// (Before 26.3 a passenger's view turns with its head, not its body.)
+		player.yHeadRot = RideAim.yaw();
+		player.yHeadRotO = RideAim.yaw();
 		try {
 			original.call(partialTicks);
 			final Entity picked = minecraft.crosshairPickEntity;
@@ -55,6 +60,8 @@ public abstract class PickMixin {
 			player.setXRot(xRot);
 			player.yRotO = yRotO;
 			player.xRotO = xRotO;
+			player.yHeadRot = yHeadRot;
+			player.yHeadRotO = yHeadRotO;
 		}
 	}
 }

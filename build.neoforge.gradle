@@ -7,9 +7,9 @@ plugins {
 // The NeoForge build of a Minecraft version (Stonecutter node <version>-neoforge, see settings.gradle), and the Forge one
 // (<version>-forge: 1.20.1, with ModDevGradle's add-on for Forge), from the same src/ as the Fabric one (build.gradle).
 // Code for one loader only sits in fabric/, neoforge/ or forge/ packages, each left out of the other loaders' builds, or in
-// //? if neoforge comments. This node's numbers come from versions/<node>/gradle.properties. The client tests stay on
-// Fabric (the ride code is the same); here auditMixins loads every mixin target in a client and dedicated server, and
-// runSmoke rides the smoke test's course (gradle/smoke-test.gradle).
+// //? if neoforge comments. This node's numbers come from versions/<node>/gradle.properties. auditMixins loads every mixin
+// target in a client and dedicated server, runSmoke rides the smoke test's course (gradle/smoke-test.gradle), and on
+// NeoForge the client tests run as on Fabric (gradle/client-tests-neoforge.gradle; Forge's are to come, issue 127).
 def forge = project.name.endsWith('-forge')
 def loader = forge ? 'forge' : 'neoforge'
 def loaderName = forge ? 'Forge' : 'NeoForge'
@@ -252,12 +252,19 @@ ext.freshAnimationsTargets = [
 	repoDir.dir("${runFolder}/resourcepacks").asFile,
 	rootProject.layout.buildDirectory.dir("run/smoke/${project.name}/resourcepacks").get().asFile
 ]
+// The client tests run on every NeoForge version too (gradle/client-tests-neoforge.gradle); not yet on Forge (issue 127).
+if (!forge) {
+	ext.freshAnimationsTargets << rootProject.layout.buildDirectory.dir("run/clientGameTest-${project.name}/resourcepacks").get().asFile
+}
 apply from: repoDir.file('gradle/fresh-animations.gradle')
 tasks.named("runClient") { dependsOn "installFreshAnimations" }
 
 // The in-game smoke test, as on Fabric: ./gradlew :<node>:runSmoke.
 apply from: repoDir.file('gradle/smoke-test.gradle')
 apply from: repoDir.file('gradle/x11-games.gradle')
+if (!forge) {
+	apply from: repoDir.file('gradle/client-tests-neoforge.gradle')
+}
 // Plain "runClient" starts only the main version's (Fabric) game: these answer by path (./gradlew :26.3-neoforge:runClient).
 tasks.matching { it.name in ["runClient", "runServer"] }.configureEach { task ->
 	def plainEverywhere = gradle.startParameter.taskNames.contains(task.name) && (gradle.startParameter.projectDir ?: gradle.startParameter.currentDir) != projectDir

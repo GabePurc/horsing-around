@@ -14,13 +14,11 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
-import net.fabricmc.loader.api.FabricLoader;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.TestInput;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestServerContext;
+import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -48,7 +46,7 @@ import net.minecraft.world.level.block.state.BlockState;
  *
  * <p>Run with {@code ./gradlew runClientGameTest} (or {@code -Ptests=terrain} for just this one).
  */
-public final class TerrainRideTest implements FabricClientGameTest {
+public final class TerrainRideTest implements ClientGameTest {
 	private static final String TAG = "terrain_test";
 	/** Top block of the flat test world; horses stand at GROUND + 1. */
 	private static final int GROUND = -61;
@@ -156,9 +154,8 @@ public final class TerrainRideTest implements FabricClientGameTest {
 		server.runCommand("effect give @p minecraft:instant_health 1 10 true");
 		server.runCommand("effect give @p minecraft:saturation infinite 0 true");
 		server.runCommand("execute at @p run summon " + TestHorse.TYPE + " ~ ~ ~ {Tame:1b,Variant:2,Health:20f,"
-			+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},"
-			+ "attributes:[{id:\"minecraft:movement_speed\",base:" + SPEED_ATTRIBUTE + "d},{id:\"minecraft:jump_strength\",base:0.7d},"
-			+ "{id:\"minecraft:max_health\",base:20d}],Tags:[\"" + TAG + "\"]}");
+			+ Versions.saddle() + "," + Versions.attributes("movement_speed", SPEED_ATTRIBUTE, "jump_strength", 0.7, "max_health", 20.0)
+			+ ",Tags:[\"" + TAG + "\"]}");
 		for (int attempt = 0; attempt < 10 && !ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse); attempt++) {
 			ctx.waitTicks(5);
 			server.runCommand("ride @p mount @e[tag=" + TAG + ",limit=1]");
@@ -264,7 +261,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 				final Entity horse = mc.player.getVehicle();
 				return horse != null && horse.onGround() && horse.mainSupportingBlockPos.filter(p -> mc.level.getBlockState(p).is(BlockTags.LEAVES)).isPresent() ? "client" : "";
 			}) + server.computeOnServer(s -> {
-				final Entity horse = s.getPlayerList().getPlayers().getFirst().getVehicle();
+				final Entity horse = s.getPlayerList().getPlayers().get(0).getVehicle();
 				return horse != null && horse.onGround() && horse.mainSupportingBlockPos.filter(p -> s.overworld().getBlockState(p).is(BlockTags.LEAVES)).isPresent() ? " server" : "";
 			});
 			if (!leafFooting.isEmpty() && onLeaves++ < 3) {
@@ -301,7 +298,8 @@ public final class TerrainRideTest implements FabricClientGameTest {
 				break;
 			}
 			final double speed = now[0];
-			// How fast the body tilts on the ground model (jump tilt is separate), per game tick.
+			// How fast the drawn body tilts, per game tick: steadily from one tick on the ground to the next; a jump's tilt
+			// easing off as it crests a ledge counts only towards the most.
 			if (now[11] > previousTick && previousTick >= 0) {
 				final double rate = Math.abs(now[10] - previousPitch) / (now[11] - previousTick);
 				if (rate > maxTiltRate) {
@@ -310,7 +308,9 @@ public final class TerrainRideTest implements FabricClientGameTest {
 					worstTilt = String.format(Locale.ROOT, "tick %d: %.1f deg in a tick; the last ticks:%s", ticks, rate, lines);
 				}
 				maxTiltRate = Math.max(maxTiltRate, rate);
-				tiltRates.add(rate);
+				if (previousGrounded && now[14] > 0) {
+					tiltRates.add(rate);
+				}
 			}
 			if (now[11] > previousTick && previousTick >= 0 && !Double.isNaN(previousVisual)) {
 				final double elapsed = now[11] - previousTick;
@@ -412,13 +412,12 @@ public final class TerrainRideTest implements FabricClientGameTest {
 		check("never carried by leaves (ticks standing on them)", onLeaves, 0, 0);
 		check("dead ends the rider had to turn away from", stuck, 0, scenario.maxStuck());
 		tiltRates.sort(null);
-		log("  body tilt change per tick: 99th percentile %.2f deg, most %.2f deg",
-			tiltRates.isEmpty() ? 0.0 : tiltRates.get((int) (tiltRates.size() * 0.99)), maxTiltRate);
+		final double steadyTilt = tiltRates.isEmpty() ? 0.0 : tiltRates.get((int) (tiltRates.size() * 0.99));
+		log("  body tilt change per tick on the ground: 99th percentile %.2f deg; most, flights too, %.2f deg", steadyTilt, maxTiltRate);
 		log("  sharpest change in the body's tilt: %s", worstTilt);
 		// (The body tilts as fast as its legs carry it up a block: about 8 degrees a tick at a gallop over a 1-block step, more
 		// landing a drop of a few blocks onto a slope.)
-		check("smooth: the body tilts steadily (99th percentile change per tick, deg)", tiltRates.isEmpty() ? 0.0 : tiltRates.get((int) (tiltRates.size() * 0.99)),
-			0.0, 10.0);
+		check("smooth: the body tilts steadily on the ground (99th percentile change per tick, deg)", steadyTilt, 0.0, 10.0);
 		check("smooth: the body never snaps into a tilt (max change per tick, landings included, deg)", maxTiltRate, 0.0, 18.0);
 		log("  sharpest pick-up in the drawn horse's rise: %s", worstStep);
 		check("smooth: the drawn horse climbs steps, never pops up them (sharpest pick-up in rise, blocks/tick a tick)", maxVisualStep, 0.0, 0.3);
@@ -955,7 +954,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 			return;
 		}
 		listening = true;
-		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
+		TestEnv.afterDamage((entity, source, taken) -> {
 			if (taken <= 0.0F) {
 				return;
 			}
@@ -996,7 +995,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 	}
 
 	private void writeReport() {
-		final Path file = FabricLoader.getInstance().getGameDir().resolve("horsingaround-terrain-report.txt");
+		final Path file = TestEnv.gameDir().resolve("horsingaround-terrain-report.txt");
 		this.report.add("");
 		this.report.add(this.failures == 0 ? "ALL TERRAIN RIDE CHECKS PASSED" : this.failures + " TERRAIN RIDE CHECKS FAILED");
 		try {

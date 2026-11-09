@@ -2,13 +2,12 @@ package dev.horsingaround.gametest;
 
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
-import net.fabricmc.loader.api.FabricLoader;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.TestInput;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestServerContext;
+import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
+import dev.horsingaround.gametest.harness.screenshot.TestScreenshotOptions;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.core.BlockPos;
@@ -20,7 +19,7 @@ import net.minecraft.world.entity.animal.equine.AbstractHorse;
  * Not a check: rides the natural-terrain scenery with Fresh Animations and takes clean 1080p shots (no HUD) for the
  * store page, into {@code build/run/clientGameTest/gallery/}. Run with {@code ./gradlew runClientGameTest -Ptests=gallery}.
  */
-public final class GalleryTest implements FabricClientGameTest {
+public final class GalleryTest implements ClientGameTest {
 	private record Scene(String name, TerrainRideTest.Kind kind, long seed, int time, int variant) {
 	}
 
@@ -127,7 +126,7 @@ public final class GalleryTest implements FabricClientGameTest {
 
 	private void shot(final ClientGameTestContext ctx, final String name) {
 		ctx.takeScreenshot(TestScreenshotOptions.of(name).withSize(1920, 1080).disableCounterPrefix()
-			.withDestinationDir(FabricLoader.getInstance().getGameDir().resolve("gallery")));
+			.withDestinationDir(TestEnv.gameDir().resolve("gallery")));
 	}
 
 	static void enableFreshAnimations(final ClientGameTestContext ctx) {
