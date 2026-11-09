@@ -9,8 +9,12 @@ import java.util.Map;
 import java.util.UUID;
 //? if fabric {
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-//?} else
-/*import net.minecraft.client.multiplayer.ClientPacketListener;*/
+//?} elif neoforge {
+/*import net.minecraft.client.multiplayer.ClientPacketListener;
+*///?} else {
+/*import dev.horsingaround.forge.HorsingAroundForge;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+*///?}
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -75,10 +79,15 @@ public final class Hats {
 		if (ServerRules.present && ClientPlayNetworking.canSend(HatPayload.TYPE)) {
 			ClientPlayNetworking.send(new HatPayload(canWear() ? ownHat() : HatPayload.NONE));
 		}
-		//?} else {
+		//?} elif neoforge {
 		/*final ClientPacketListener connection = Minecraft.getInstance().getConnection();
 		if (ServerRules.present && connection != null && connection.hasChannel(HatPayload.TYPE)) {
 			connection.send(new HatPayload(canWear() ? ownHat() : HatPayload.NONE));
+		}
+		*///?} else {
+		/*final ClientPacketListener connection = Minecraft.getInstance().getConnection();
+		if (ServerRules.present && connection != null && HorsingAroundForge.CHANNEL.isRemotePresent(connection.getConnection())) {
+			HorsingAroundForge.CHANNEL.sendToServer(new HatPayload(canWear() ? ownHat() : HatPayload.NONE));
 		}
 		*///?}
 	}

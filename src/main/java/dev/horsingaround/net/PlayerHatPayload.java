@@ -8,11 +8,12 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-//?} else {
+//?} elif fabric {
 /*import net.fabricmc.fabric.api.networking.v1.FabricPacket;
 import net.fabricmc.fabric.api.networking.v1.PacketType;
 import net.minecraft.network.FriendlyByteBuf;
-*///?}
+*///?} else
+/*import net.minecraft.network.FriendlyByteBuf;*/
 import net.minecraft.resources.Identifier;
 
 /**
@@ -33,7 +34,7 @@ public record PlayerHatPayload(UUID player, int color) implements CustomPacketPa
 		return TYPE;
 	}
 }
-//?} else {
+//?} elif fabric {
 /*public record PlayerHatPayload(UUID player, int color) implements FabricPacket {
 	public static final PacketType<PlayerHatPayload> TYPE = PacketType.create(
 		Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "player_hat"), buf -> new PlayerHatPayload(buf.readUUID(), buf.readInt()));
@@ -47,6 +48,20 @@ public record PlayerHatPayload(UUID player, int color) implements CustomPacketPa
 	@Override
 	public PacketType<PlayerHatPayload> getType() {
 		return TYPE;
+	}
+}
+*///?} else {
+/*// (Forge: one channel carries every payload, forge/HorsingAroundForge; TYPE names it to Platform.canSend.)
+public record PlayerHatPayload(UUID player, int color) {
+	public static final Class<PlayerHatPayload> TYPE = PlayerHatPayload.class;
+
+	public static PlayerHatPayload read(final FriendlyByteBuf buf) {
+		return new PlayerHatPayload(buf.readUUID(), buf.readInt());
+	}
+
+	public void write(final FriendlyByteBuf buf) {
+		buf.writeUUID(player);
+		buf.writeInt(color);
 	}
 }
 *///?}

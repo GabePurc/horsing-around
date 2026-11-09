@@ -1,11 +1,13 @@
 // Release to Modrinth and CurseForge: ./gradlew publishModrinth (publishCurseforge) uploads every version's jar as a
 // version (file) of its own (its game versions from game_versions in versions/<version>/gradle.properties; Fabric with
-// Fabric API required and Mod Menu optional, or NeoForge for the <version>-neoforge nodes; the release notes from the top
+// Fabric API required and Mod Menu optional, or NeoForge (Forge) for the <version>-neoforge (-forge) nodes; the release notes from the top
 // entry of CHANGELOG.md). .github/workflows/publish.yml
 // runs both when a GitHub release is published. -PpublishDryRun, or neither MODRINTH_TOKEN nor CURSEFORGE_TOKEN in the
 // environment, uploads nothing: what would go up is written to each version's build/publishMods/ instead.
 
-def neoforge = project.name.endsWith('-neoforge')
+// The loader of a NeoForge or Forge node, or null on Fabric.
+def otherLoader = project.name.endsWith('-neoforge') ? 'neoforge' : project.name.endsWith('-forge') ? 'forge' : null
+def neoforge = otherLoader != null
 def baseVersion = project.version.toString().split('\\+')[0]
 def gameVersions = project.game_versions.split(',')*.trim()
 def shownVersions = gameVersions.size() == 1 ? gameVersions[0] : "${gameVersions.first()}–${gameVersions.last()}"
@@ -25,13 +27,14 @@ def notesEnd = notesStart < 0 ? -1 : changelogLines.findIndexOf(notesStart + 1) 
 def notes = notesStart < 0 ? '' : changelogLines.subList(notesStart + 1, notesEnd < 0 ? changelogLines.size() : notesEnd).join('\n').trim()
 
 publishMods {
-	file = neoforge ? tasks.named('jar').flatMap { it.archiveFile } : loomx.modJar.flatMap { it.archiveFile }
-	// (Version numbers are unique per project: the NeoForge jar of a Minecraft version gets its own.)
-	version = project.version.toString() + (neoforge ? '-neoforge' : '')
-	displayName = "Horsing Around ${baseVersion} for Minecraft ${shownVersions}${neoforge ? ' (NeoForge)' : ''}"
+	// (Forge's jar is the one reobfuscated to its runtime names.)
+	file = otherLoader == 'forge' ? tasks.named('reobfJar').flatMap { it.archiveFile } : neoforge ? tasks.named('jar').flatMap { it.archiveFile } : loomx.modJar.flatMap { it.archiveFile }
+	// (Version numbers are unique per project: the NeoForge or Forge jar of a Minecraft version gets its own.)
+	version = project.version.toString() + (neoforge ? "-${otherLoader}" : '')
+	displayName = "Horsing Around ${baseVersion} for Minecraft ${shownVersions}${neoforge ? " (${project.ext.loaderName})" : ''}"
 	changelog = notes
 	type = isAlpha ? ALPHA : isBeta ? BETA : STABLE
-	modLoaders.add(neoforge ? 'neoforge' : 'fabric')
+	modLoaders.add(otherLoader ?: 'fabric')
 	dryRun = dry
 	modrinth {
 		accessToken = providers.environmentVariable('MODRINTH_TOKEN')

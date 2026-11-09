@@ -1,10 +1,7 @@
 package dev.horsingaround.client.mixin;
 
-import dev.horsingaround.client.render.AirLegs;
-import dev.horsingaround.client.render.GroundLegs;
+import dev.horsingaround.client.render.HorseModelPose;
 import dev.horsingaround.client.render.RidePoseState;
-import dev.horsingaround.ride.RideState;
-import dev.horsingaround.ride.RideTuning;
 //? if >=1.21.2
 import net.minecraft.client.model.Model;
 //? if >=1.21.2
@@ -27,10 +24,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Neck reaching forward on climbs, hooves on the ground on steps and slopes (legs upright, folding onto higher ground),
- * legs in the shape of a jump in the air, the tail swinging with the horse's motion, and the head toss
- * when the horse runs out of stamina, on the neck so Fresh Animations' animated head and neck (its children) carry it
- * too. The motion matches Fresh Animations' own idle head shake.
+ * What the ride adds to the vanilla horse model (HorseModelPose: the neck and head toss, hooves on the ground, the jump's
+ * legs, the tail), the neck's on its head parts so Fresh Animations' animated head and neck (its children) carry it too.
+ * The head toss matches Fresh Animations' own idle head shake.
  */
 //? if >=1.21.2 {
 @Mixin(AbstractEquineModel.class)
@@ -119,34 +115,12 @@ public abstract class AbstractEquineModelMixin {
 
 	@Unique
 	private void horsingaround$pose(final RidePoseState pose) {
-		this.headParts.xRot += pose.horsingaround$neckPitch();
-		final float yaw = pose.horsingaround$headShakeYaw();
-		if (yaw != 0.0F) {
-			this.headParts.yRot += yaw;
-			this.headParts.zRot += pose.horsingaround$headShakeRoll();
-		}
-		// (Legs an animation pack poses get all of this in its hook, after it has run; here they come with nothing to do,
-		// and must leave the ride's leg state alone.)
-		if (pose.horsingaround$legsHere()) {
-			final float air = pose.horsingaround$airLegs();
-			final RideState ride = pose.horsingaround$rideState();
-			//? if >=1.21.2 {
-			final ModelPart root = ((Model<?>) (Object) this).root();
-			//?} else
-			/*final ModelPart root = LegacyRenderState.horseRoot(((EntityModel<?>) (Object) this).young);*/
-			final float pixels = 16.0F / root.yScale;
-			final boolean footing = GroundLegs.pose(
-				this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, pose.horsingaround$legTilt(), pose.horsingaround$foreLeg(),
-				pose.horsingaround$hindLeg(), pixels, ride, root, air < RideTuning.AIR_GROUNDED || ride != null && !ride.leapt()
-			);
-			// (A step down is a short fall, not a jump: with the hooves finding their ground, no jump shape. Landing a jump,
-			// the jump's shape eases out, and any hoof it leaves in the ground comes up onto it.)
-			final float shaped = air * AirLegs.shape(ride, air <= 0.0F || footing && ride != null && !ride.leapLegs());
-			if (shaped > 0.0F) {
-				AirLegs.pose(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, shaped, pose.horsingaround$airRise());
-				GroundLegs.floor(this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, pixels, ride, root);
-			}
-		}
-		this.tail.xRot += pose.horsingaround$tail();
+		HorseModelPose.neck(this.headParts, pose);
+		//? if >=1.21.2 {
+		final ModelPart root = ((Model<?>) (Object) this).root();
+		//?} else
+		/*final ModelPart root = LegacyRenderState.horseRoot(((EntityModel<?>) (Object) this).young);*/
+		HorseModelPose.legs(pose, this.leftFrontLeg, this.rightFrontLeg, this.leftHindLeg, this.rightHindLeg, root);
+		HorseModelPose.tail(this.tail, pose);
 	}
 }

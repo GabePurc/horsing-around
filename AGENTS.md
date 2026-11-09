@@ -1,7 +1,8 @@
 # Horsing Around
 
-A Minecraft mod (Fabric and NeoForge, 1.20.1 to 26.3, Mojang names) that makes horse riding feel weighty and alive. Red
-Dead Redemption 2 is the feel target; vanilla is the style boundary. The user guides the feel; Claude is the sole developer.
+A Minecraft mod (Fabric and NeoForge 1.20.1 to 26.3, Forge 1.20.1, Mojang names) that makes horse riding feel weighty and
+alive. Red Dead Redemption 2 is the feel target; vanilla is the style boundary. The user guides the feel; Claude is the sole
+developer.
 
 ## How to decide
 
@@ -82,7 +83,7 @@ Before merging, run the real tests:
 - Version-specific code changed: `./gradlew :<version>:runSmoke`.
 - Mixins changed: `./gradlew runCompat --continue`.
 
-Play: `./gradlew :26.3:runClient` (plain `runClient` matches every version and fails Gradle validation). Dev runs load Mod
+Play: `./gradlew :26.3:runClient` (plain `runClient` matches every version and fails). Dev runs load Mod
 Menu, Entity Model Features, Entity Texture Features and Fresh Animations, the user's target setup.
 
 Don't start a second test game yourself: two games at once make ride checks flaky. Keep test output out of the conversation:
