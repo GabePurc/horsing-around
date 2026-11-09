@@ -8,13 +8,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.world.TestWorldBuilder;
-import net.fabricmc.loader.api.FabricLoader;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.TestInput;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestServerContext;
+import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
+import dev.horsingaround.gametest.harness.world.TestWorldBuilder;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
@@ -29,7 +28,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * Riding over steps in first person with Real Camera, which puts the view on the rider's drawn head: the view has to stay on
  * that head (drawn eased over each step), never inside the horse or a block. Runs in the realcamera compat pack.
  */
-public final class RealCameraTest implements FabricClientGameTest {
+public final class RealCameraTest implements ClientGameTest {
 	private static final String SPEED_ATTRIBUTE = "0.225d";
 	/** Lanes start here and head north; the first step is this far along, once up to speed. */
 	private static final int FIRST_STEP = -30;
@@ -61,7 +60,7 @@ public final class RealCameraTest implements FabricClientGameTest {
 			ctx.runOnClient(mc -> mc.options.chatVisibility().set(ChatVisiblity.HIDDEN));
 
 			// (Without Real Camera, as a look at another first-person mod in its pack: only the plain first-person lanes.)
-			if (FabricLoader.getInstance().isModLoaded("realcamera")) {
+			if (TestEnv.modLoaded("realcamera")) {
 				setConfig("enabled", true);
 				setConfig("isClassic", false);
 				section("Bound to the rider's head (Real Camera's default mode)");
@@ -287,7 +286,7 @@ public final class RealCameraTest implements FabricClientGameTest {
 	}
 
 	private void writeReport() {
-		final Path file = FabricLoader.getInstance().getGameDir().resolve("horsingaround-realcamera-report.txt");
+		final Path file = TestEnv.gameDir().resolve("horsingaround-realcamera-report.txt");
 		try {
 			Files.write(file, this.report);
 		} catch (final IOException e) {

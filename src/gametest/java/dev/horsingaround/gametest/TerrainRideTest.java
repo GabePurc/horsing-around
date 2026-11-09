@@ -14,13 +14,11 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
-import net.fabricmc.loader.api.FabricLoader;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.TestInput;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestServerContext;
+import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -48,7 +46,7 @@ import net.minecraft.world.level.block.state.BlockState;
  *
  * <p>Run with {@code ./gradlew runClientGameTest} (or {@code -Ptests=terrain} for just this one).
  */
-public final class TerrainRideTest implements FabricClientGameTest {
+public final class TerrainRideTest implements ClientGameTest {
 	private static final String TAG = "terrain_test";
 	/** Top block of the flat test world; horses stand at GROUND + 1. */
 	private static final int GROUND = -61;
@@ -955,7 +953,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 			return;
 		}
 		listening = true;
-		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
+		TestEnv.afterDamage((entity, source, taken) -> {
 			if (taken <= 0.0F) {
 				return;
 			}
@@ -996,7 +994,7 @@ public final class TerrainRideTest implements FabricClientGameTest {
 	}
 
 	private void writeReport() {
-		final Path file = FabricLoader.getInstance().getGameDir().resolve("horsingaround-terrain-report.txt");
+		final Path file = TestEnv.gameDir().resolve("horsingaround-terrain-report.txt");
 		this.report.add("");
 		this.report.add(this.failures == 0 ? "ALL TERRAIN RIDE CHECKS PASSED" : this.failures + " TERRAIN RIDE CHECKS FAILED");
 		try {

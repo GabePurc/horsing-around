@@ -1,0 +1,14 @@
+{
+	"required": true,
+	"package": "dev.horsingaround.gametest.neoforge.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"ClientNeoForgeModMixin",
+		"ConfigSyncMixin",
+		"RegistryManagerMixin",
+		"ServerModLoaderMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

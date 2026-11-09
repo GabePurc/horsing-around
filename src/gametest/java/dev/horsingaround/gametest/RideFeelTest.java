@@ -13,13 +13,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
-import net.fabricmc.loader.api.FabricLoader;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.TestInput;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestServerContext;
+import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
+import dev.horsingaround.gametest.harness.screenshot.TestScreenshotOptions;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.components.debug.DebugScreenEntries;
@@ -50,7 +49,7 @@ import org.joml.Vector3f;
  *
  * <p>Run with {@code ./gradlew runClientGameTest}.
  */
-public final class RideFeelTest implements FabricClientGameTest {
+public final class RideFeelTest implements ClientGameTest {
 	/** Fixed test horse: average speed and jump. */
 	private static final double SPEED_ATTRIBUTE = 0.225;
 	private static final double JUMP_ATTRIBUTE = 0.7;
@@ -77,7 +76,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		}
 		screenshot(ctx, "00a_title_screen");
 		final boolean fresh = TestPacks.enable(ctx);
-		log("Fresh Animations pack: %s, EMF loaded: %s", fresh ? "enabled" : "not found", FabricLoader.getInstance().isModLoaded("entity_model_features"));
+		log("Fresh Animations pack: %s, EMF loaded: %s", fresh ? "enabled" : "not found", TestEnv.modLoaded("entity_model_features"));
 
 		try (LogWatch watch = LogWatch.begin();
 			TestSingleplayerContext world = ctx.worldBuilder()
@@ -332,7 +331,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		check("walk speed (blocks/tick)", averageSpeed(ctx, 10), WALK_SPEED * 0.85, WALK_SPEED * 1.15);
 		check("gait is walk", sample(ctx).gait == RideTuning.WALK);
 		check("walk leg-animation speed (Fresh Animations walk < 0.4)", sample(ctx).limbSpeed, 0.25, 0.39);
-		if (FabricLoader.getInstance().isModLoaded("entity_model_features")) {
+		if (TestEnv.modLoaded("entity_model_features")) {
 			// (Fresh Animations' walk sways the body side to side; another mod's horse model may only bob it, as Icy's does.)
 			final boolean sways = TestHorse.TYPE.equals("minecraft:horse");
 			float low = Float.MAX_VALUE;
@@ -807,7 +806,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 		frontScreenshot(ctx, "07a_head_shake");
 		ctx.waitTicks(3);
 		frontScreenshot(ctx, "07b_head_shake");
-		if (FabricLoader.getInstance().isModLoaded("entity_model_features")) {
+		if (TestEnv.modLoaded("entity_model_features")) {
 			check("head shake drawn on the Fresh Animations model (frames)",
 				ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().animatedShakeFrames), 5, 100000);
 		}
@@ -954,7 +953,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 	}
 
 	private void saddleSync(final ClientGameTestContext ctx) {
-		if (!FabricLoader.getInstance().isModLoaded("entity_model_features")) {
+		if (!TestEnv.modLoaded("entity_model_features")) {
 			return;
 		}
 		float low = Float.MAX_VALUE;
@@ -2459,18 +2458,17 @@ public final class RideFeelTest implements FabricClientGameTest {
 	}
 
 	private void horseSettings(final ClientGameTestContext ctx) {
-		section("Horse settings (Mod Menu)");
+		section("Horse settings (the mods list)");
 		ctx.setScreen(() -> new net.minecraft.client.gui.screens.PauseScreen(true));
 		ctx.waitTicks(3);
 		screenshot(ctx, "10a_pause_menu");
-		ctx.setScreen(() -> com.terraformersmc.modmenu.api.ModMenuApi.createModsScreen(null));
+		ctx.setScreen(() -> TestEnv.modsScreen(null));
 		ctx.waitTicks(3);
 		ctx.getInput().typeChars("Horsing");
 		ctx.waitTicks(3);
 		screenshot(ctx, "10b_mod_menu_list");
 		ctx.setScreen(() -> null);
-		check("Mod Menu lists the horse settings", FabricLoader.getInstance().getEntrypointContainers("modmenu", Object.class).stream()
-			.anyMatch(entry -> entry.getProvider().getMetadata().getId().equals("horsingaround")));
+		check("the mods list opens the horse settings", TestEnv.modsListOpensSettings());
 		ctx.runOnClient(mc -> {
 			HorseConfig.get().cameraDistance = 1.2F;
 			HorseConfig.apply();
@@ -3762,7 +3760,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 			check(view + ": the rider's end of the cow's lead stays put in the view (most it moved, blocks)", holderMost, 0.0, 0.03);
 		} else {
 			check(view + ": the horse's end of its lead stays on its body as drawn (most it moved off, blocks)", horseMost, 0.0, 0.03);
-			check(view + ": the rider's end of the cow's lead keeps its height above the saddle as drawn (most it changed, blocks)", holderMost, 0.0, 0.1);
+			// (0.08-0.105 from run to run, from where the sampled frames fall; 0.585 when the lead ignored the drawn rider.)
+			check(view + ": the rider's end of the cow's lead keeps its height above the saddle as drawn (most it changed, blocks)", holderMost, 0.0, 0.15);
 		}
 		ctx.waitTicks(5);
 	}
@@ -5066,7 +5065,7 @@ public final class RideFeelTest implements FabricClientGameTest {
 	}
 
 	private void writeReport() {
-		final Path file = FabricLoader.getInstance().getGameDir().resolve("horsingaround-ride-report.txt");
+		final Path file = TestEnv.gameDir().resolve("horsingaround-ride-report.txt");
 		try {
 			Files.write(file, this.report);
 		} catch (final IOException e) {

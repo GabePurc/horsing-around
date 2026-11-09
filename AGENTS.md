@@ -73,7 +73,7 @@ then read that range.
 All versions build from the one `src/` with Stonecutter. `src/` reads as 26.3 code (Java 25); older versions' code sits in
 `//?` comments. Gradle picks the JDK. Jars land in `versions/<version>/build/libs/`.
 
-While developing (user, 2026-11-05), test only what you're changing: `./gradlew :26.3:build`, then `./gradlew runClientGameTest`
+While developing (user, 2026-11-05), test only what you're changing: `./gradlew :26.3:build`, then `./gradlew :26.3:runClientGameTest`
 narrowed with `-Ptests=`/`-Psections=`, or `./gradlew :<version>:runSmoke` for version-specific code.
 
 Before merging, run the real tests:

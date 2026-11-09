@@ -3,19 +3,22 @@
 If a check enforces something wrong, fix the check and say so in the PR. When feel numbers change on purpose, update the
 targets.
 
-## Client tests (26.3)
+## Client tests (26.3, Fabric and NeoForge)
 
-`./gradlew runClientGameTest` runs these; all fail on server corrections ("moved wrongly", meaning rubber-banding) and log warnings.
+`./gradlew :26.3:runClientGameTest` (or `:26.3-neoforge:`) runs these; all fail on server corrections ("moved wrongly", meaning
+rubber-banding) and log warnings. They run on this project's harness (`src/gametest/.../harness`: Fabric API's client game test code,
+ported for any loader); loader differences sit in `TestEnv` and `gametest/neoforge`.
 
-- `RideFeelTest` (`ride`): every mechanic in hand-built lanes, with simulated keys. Report: `build/run/clientGameTest/horsingaround-ride-report.txt`.
-- `TerrainRideTest` (`terrain`): built natural terrain ridden like a player would, with traces of any crash, hurt or dead end.
+- `RideFeelTest` (`ride`): every mechanic in hand-built lanes, with simulated keys.
+- `TerrainRideTest` (`terrain`): built natural terrain ridden as a player would, tracing any crash, hurt or dead end.
 - `MountsTest` (`mounts`): every vanilla mount and mob riders.
 - `ServerRideTest` (`server`): a real dedicated server accepts every move.
 - `HatTest` (`hat`): the supporter hat.
 
-Full runs: `./gradlew runClientGameTestParallel --continue` splits them into shards (`testShards` in `gradle/client-tests.gradle`,
-one alone with `runClientGameTest<Shard>`), runs two games at a time (`-PtestGames=N`) to leave the machine room, merges reports
-into `build/run/clientGameTest/` and lists failed checks. While iterating, run only the section that covers the change.
+Full runs: `./gradlew runClientGameTestParallel --continue` (both loaders) splits them into shards (`testShards` in
+`gradle/client-tests-common.gradle`, one alone with `runClientGameTest<Shard>`), runs two games at a time (`-PtestGames=N`), merges
+reports into `build/run/clientGameTest/` (`build/run/clientGameTest-26.3-neoforge/`) and lists failed checks. While iterating, run
+only the section a change touches.
 
 ### Choosing what runs
 
@@ -41,23 +44,22 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
 
 ### Reading results
 
-- A run's console output includes the game log, so send it to a file outside the repo and read only the tail. Failures, across
-  all reports: `grep -E 'FAIL|INCOMPLETE' build/run/clientGameTest/horsingaround-*-report.txt`. Open a report only for a failure's
-  context. Screenshots are in `build/run/clientGameTest/screenshots/`.
+- Send a run's output (game log included) to a file outside the repo and read only the tail. Failures, across
+  all reports: `grep -E 'FAIL|INCOMPLETE' build/run/clientGameTest/horsingaround-*-report.txt`.
+  Screenshots are in `build/run/clientGameTest/screenshots/`.
 - F3+B draws the ridden horse's box, line, heading, plan and look-ahead findings (1.21.11 and newer).
 - Test horses wear colour-coded legs (`src/gametest/debugpack`: upper leg blue, a white band, cannon orange, hoof black, sole
   magenta). `-PplainTextures` for real ones; `-PvanillaModel` for the plain model with no pack. `LegProbe` measures the legs as
-  drawn: judge leg work by those numbers and close shots, not formulas.
+  drawn: judge leg work by its numbers and close shots.
 - `TestInput.pressKey` runs a game tick of its own. In a loop sampling every tick, use `holdKey` then `releaseKey`, or trace with
   `HorseTrace`; otherwise a tick goes missing and looks like the horse moved two in one.
 - Test games make no sound, and run light: lowest settings, a 2 GB heap and performance mods. `-PplainGame` drops the mods; `-PfullGraphics` keeps
-  normal settings. Leg and body easing runs on game time.
+  normal settings.
 - Test games don't wait for real time (`TestClock`): the clock counts drawn frames, 5.9 to a tick (a game's default limit), so a run goes
   as fast as the machine draws and every tick gets the same frames. Checks sampling frames need several a tick, and not a whole number
   (it samples the same moments). `-PrealTime` runs at normal speed, to tell this clock's problems from real ones; perf, gallery and
   store always do. A game whose frames stop for 2 minutes logs its threads and exits.
-- Test games run the same in front, covered or minimized: no vsync or frame limit (out of sight on Ubuntu they crawled under 1%).
-  On Linux they use X11, even from a Wayland shell.
+- Test games run the same in front, covered or minimized (no vsync or frame limit), and use X11 on Linux, even from Wayland.
 - Lanes start from a horse with no AI until mounted (`lane()`): one that idled first sometimes starts off its line, failing checks far on.
 
 ## Other runs
@@ -66,8 +68,8 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
 - `-Ptests=gallery`: clean store screenshots.
 - `-Ptests=perf`: load, not pass/fail: horses of every kind in a pen, a gallop round them for 90 s; server tick time, frame rate and
   plan times in `horsingaround-perf-report.txt`.
-- `-Pprofile`, on any run: a Java Flight Recording at `build/run/clientGameTest/horsingaround-profile.jfr`. Count samples with a
-  `dev.horsingaround` frame for the mod's share.
+- `-Pprofile`, on any run: a Java Flight Recording, `horsingaround-profile.jfr` in the run folder. Samples with a `dev.horsingaround`
+  frame are the mod's share.
 - `-Ptests=store`: films the README's clips and stills in a generated world (`StoreMediaTest`, `FilmCamera`; `-Pscenario=gaits,river`
   for some), with ATMOSPHERICS for the sky. `scripts/store-media.sh` turns them into `docs/media/`, as MP4 and animated WebP. Every
   client test run clears `build/run/clientGameTest`, so encode before the next run. Stills may use shaders; the user wants clips

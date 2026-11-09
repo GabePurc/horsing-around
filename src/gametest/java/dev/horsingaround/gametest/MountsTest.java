@@ -16,12 +16,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.fabricmc.loader.api.FabricLoader;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.TestInput;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestServerContext;
+import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
@@ -43,7 +42,7 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>Run with {@code ./gradlew runClientGameTest -Ptests=mounts}.
  */
-public final class MountsTest implements FabricClientGameTest {
+public final class MountsTest implements ClientGameTest {
 	/** Superflat: grass at y -61, so feet at -60. */
 	private static final int GROUND = -60;
 
@@ -719,7 +718,7 @@ public final class MountsTest implements FabricClientGameTest {
 	}
 
 	private void writeReport() {
-		final Path file = FabricLoader.getInstance().getGameDir().resolve("horsingaround-mounts-report.txt");
+		final Path file = TestEnv.gameDir().resolve("horsingaround-mounts-report.txt");
 		try {
 			Files.write(file, this.report);
 		} catch (final IOException e) {

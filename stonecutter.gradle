@@ -13,7 +13,8 @@ stonecutter.parameters {
 	constants.match(current.project.endsWith('-neoforge') ? 'neoforge' : current.project.endsWith('-forge') ? 'forge' : 'fabric', 'fabric', 'neoforge', 'forge')
 	// 26.2 split the HUD out of Gui (the HUD class was Gui) and dropped "Renderer" from the contextual bars.
 	replacements.regex(current.parsed.matches('<26.2')) {
-		replace '\\bHud\\b', 'Gui', '\\bGui\\b', 'Hud'
+		// (No way back: 26.2 kept the name Gui for the class around the HUD, so src/ names it too; docs/porting.md.)
+		replace '\\bHud\\b', 'Gui', '(?!)', 'Hud'
 		replace '\\bContextualBar\\b', 'ContextualBarRenderer', '\\bContextualBarRenderer\\b', 'ContextualBar'
 		replace '\\bJumpableVehicleBar\\b', 'JumpableVehicleBarRenderer', '\\bJumpableVehicleBarRenderer\\b', 'JumpableVehicleBar'
 	}
