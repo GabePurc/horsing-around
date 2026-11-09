@@ -5,25 +5,16 @@
 	"name": "Horsing Around tests",
 	"environment": "*",
 	"entrypoints": {
-		"fabric-client-gametest": [
-			"dev.horsingaround.gametest.RideFeelTest",
-			"dev.horsingaround.gametest.TerrainRideTest",
-			"dev.horsingaround.gametest.PerfTest",
-			"dev.horsingaround.gametest.MountsTest",
-			"dev.horsingaround.gametest.ServerRideTest",
-			"dev.horsingaround.gametest.HatTest",
-			"dev.horsingaround.gametest.IcyFeaturesTest",
-			"dev.horsingaround.gametest.RealCameraTest",
-			"dev.horsingaround.gametest.GalleryTest",
-			"dev.horsingaround.gametest.StoreMediaTest",
-			"dev.horsingaround.gametest.TestSummary"
-		],
 		"fabric-gametest": [
 			"dev.horsingaround.gametest.DedicatedServerTest"
+		],
+		"client": [
+			"dev.horsingaround.gametest.harness.impl.ClientGameTestSetup"
 		]
 	},
 	"mixins": [
-		"horsingaround-gametest.mixins.json"
+		"horsingaround-gametest.mixins.json",
+		"horsingaround-gametest-harness.mixins.json"
 	],
 	"depends": {
 		"horsingaround": "*"

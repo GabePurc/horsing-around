@@ -16,12 +16,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerConnection;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.TestInput;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestDedicatedServerConnection;
+import dev.horsingaround.gametest.harness.context.TestDedicatedServerContext;
+import dev.horsingaround.gametest.harness.context.TestServerConnection;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.world.entity.Entity;
@@ -41,7 +41,7 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>Run with {@code ./gradlew runClientGameTest -Ptests=server}.
  */
-public final class ServerRideTest implements FabricClientGameTest {
+public final class ServerRideTest implements ClientGameTest {
 	private static final int GROUND = -60;
 
 	private final List<String> report = new ArrayList<>();

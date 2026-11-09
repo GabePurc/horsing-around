@@ -26,12 +26,12 @@ import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.TestInput;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestServerContext;
+import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
+import dev.horsingaround.gametest.harness.screenshot.TestScreenshotOptions;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.CloudStatus;
@@ -79,7 +79,7 @@ import org.slf4j.LoggerFactory;
  * {@code ./gradlew runClientGameTest -Ptests=store}, some shots with {@code -Pscenario=gaits,jump} ({@code scout} compares
  * seeds); {@code scripts/store-media.sh} turns the frames into {@code docs/media/}.
  */
-public final class StoreMediaTest implements FabricClientGameTest {
+public final class StoreMediaTest implements ClientGameTest {
 	private static final String SEED = "mustang";
 	private static final int WIDTH = 1280;
 	private static final int HEIGHT = 720;

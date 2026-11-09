@@ -5,7 +5,8 @@ check enforces something wrong, fix the check and say so in the PR. When feel nu
 
 ## Client tests (26.3)
 
-`./gradlew runClientGameTest` runs these; all fail on server corrections ("moved wrongly", meaning rubber-banding) and log warnings.
+`./gradlew runClientGameTest` runs these; all fail on server corrections ("moved wrongly", meaning rubber-banding) and log warnings. They run on
+this project's harness (`src/gametest/.../harness`: Fabric API's client game test code, ported for any loader).
 
 - `RideFeelTest` (`ride`): every mechanic in hand-built lanes, with simulated keys. Report: `build/run/clientGameTest/horsingaround-ride-report.txt`.
 - `TerrainRideTest` (`terrain`): built natural terrain ridden like a player would, with traces of any crash, hurt or dead end.
@@ -41,13 +42,13 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
 
 ### Reading results
 
-- A run's console output includes the game log, so send it to a file outside the repo and read only the tail. Failures, across
-  all reports: `grep -E 'FAIL|INCOMPLETE' build/run/clientGameTest/horsingaround-*-report.txt`. Open a report only for a failure's
-  context. Screenshots are in `build/run/clientGameTest/screenshots/`.
+- Send a run's output (it includes the game log) to a file outside the repo and read only the tail. Failures, across
+  all reports: `grep -E 'FAIL|INCOMPLETE' build/run/clientGameTest/horsingaround-*-report.txt`.
+  Screenshots are in `build/run/clientGameTest/screenshots/`.
 - F3+B draws the ridden horse's box, line, heading, plan and look-ahead findings (1.21.11 and newer).
 - Test horses wear colour-coded legs (`src/gametest/debugpack`: upper leg blue, a white band, cannon orange, hoof black, sole
   magenta). `-PplainTextures` for real ones; `-PvanillaModel` for the plain model with no pack. `LegProbe` measures the legs as
-  drawn: judge leg work by those numbers and close shots, not formulas.
+  drawn: judge leg work by its numbers and close shots.
 - `TestInput.pressKey` runs a game tick of its own. In a loop sampling every tick, use `holdKey` then `releaseKey`, or trace with
   `HorseTrace`; otherwise a tick goes missing and looks like the horse moved two in one.
 - Test games make no sound, and run light: lowest settings, a 2 GB heap and performance mods. `-PplainGame` drops the mods; `-PfullGraphics` keeps
@@ -56,8 +57,7 @@ into `build/run/clientGameTest/` and lists failed checks. While iterating, run o
   as fast as the machine draws and every tick gets the same frames. Checks sampling frames need several a tick, and not a whole number
   (it samples the same moments). `-PrealTime` runs at normal speed, to tell this clock's problems from real ones; perf, gallery and
   store always do. A game whose frames stop for 2 minutes logs its threads and exits.
-- Test games run the same in front, covered or minimized: no vsync or frame limit (out of sight on Ubuntu they crawled under 1%).
-  On Linux they use X11, even from a Wayland shell.
+- Test games run the same in front, covered or minimized (no vsync or frame limit), and use X11 on Linux, even from Wayland.
 - Lanes start from a horse with no AI until mounted (`lane()`): one that idled first sometimes starts off its line, failing checks far on.
 
 ## Other runs

@@ -1,0 +1,94 @@
+/*
+ * Copyright (c) 2016, 2017, 2018, 2019 FabricMC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Changed for Horsing Around (2026): moved into this project's test source set and made loader-neutral, so every
+ * loader and Minecraft version runs the same client tests. Originally from Fabric API's fabric-client-gametest-api-v1.
+ */
+
+package dev.horsingaround.gametest.harness.mixin.threading;
+
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.server.MinecraftServer;
+
+import dev.horsingaround.gametest.harness.impl.threading.ThreadingImpl;
+
+@Mixin(MinecraftServer.class)
+public class MinecraftServerMixin {
+	@WrapMethod(method = "runServer")
+	private void onRunServer(Operation<Void> original) {
+		if (ThreadingImpl.isServerRunning) {
+			throw new IllegalStateException("Server is already running");
+		}
+
+		ThreadingImpl.isServerRunning = true;
+		ThreadingImpl.PHASER.register();
+
+		try {
+			original.call();
+		} finally {
+			deregisterServer();
+		}
+	}
+
+	@Inject(method = "runServer", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;onServerCrash(Lnet/minecraft/CrashReport;)V", shift = At.Shift.AFTER))
+	protected void onCrash(CallbackInfo ci) {
+		if (ThreadingImpl.testFailureException == null) {
+			ThreadingImpl.testFailureException = new Throwable("The server crashed");
+		}
+
+		Minecraft.getInstance().stop();
+		ThreadingImpl.setGameCrashed();
+		deregisterServer();
+	}
+
+	@Inject(method = "runServer", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;waitUntilNextTick()V", shift = At.Shift.AFTER))
+	private void postRunTasks(CallbackInfo ci) {
+		ThreadingImpl.serverCanAcceptTasks = true;
+		ThreadingImpl.enterPhase(ThreadingImpl.PHASE_TEST);
+
+		if (ThreadingImpl.testThread != null) {
+			while (true) {
+				try {
+					ThreadingImpl.SERVER_SEMAPHORE.acquire();
+				} catch (InterruptedException e) {
+					throw new RuntimeException(e);
+				}
+
+				if (ThreadingImpl.taskToRun != null) {
+					ThreadingImpl.taskToRun.run();
+				} else {
+					break;
+				}
+			}
+		}
+
+		ThreadingImpl.enterPhase(ThreadingImpl.PHASE_TICK);
+	}
+
+	@Unique
+	private void deregisterServer() {
+		ThreadingImpl.serverCanAcceptTasks = false;
+		ThreadingImpl.PHASER.arriveAndDeregister();
+		ThreadingImpl.isServerRunning = false;
+	}
+}

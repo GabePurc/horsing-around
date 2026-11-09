@@ -9,11 +9,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.TestInput;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestServerContext;
+import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
@@ -26,7 +26,7 @@ import net.minecraft.world.entity.animal.equine.AbstractHorse;
  *
  * <p>Run with {@code ./gradlew runClientGameTest -Ptests=perf -Pprofile}.
  */
-public final class PerfTest implements FabricClientGameTest {
+public final class PerfTest implements ClientGameTest {
 	private static final int GROUND = -60;
 	private static final String[] KINDS = {"horse", "horse", "horse", "horse", "horse", "donkey", "mule", "skeleton_horse"};
 	private static final int HERD = 56;

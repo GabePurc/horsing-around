@@ -13,12 +13,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.TestInput;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestServerContext;
+import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
+import dev.horsingaround.gametest.harness.screenshot.TestScreenshotOptions;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
@@ -50,7 +50,7 @@ import org.joml.Vector3f;
  *
  * <p>Run with {@code ./gradlew runClientGameTest}.
  */
-public final class RideFeelTest implements FabricClientGameTest {
+public final class RideFeelTest implements ClientGameTest {
 	/** Fixed test horse: average speed and jump. */
 	private static final double SPEED_ATTRIBUTE = 0.225;
 	private static final double JUMP_ATTRIBUTE = 0.7;
@@ -3762,7 +3762,8 @@ public final class RideFeelTest implements FabricClientGameTest {
 			check(view + ": the rider's end of the cow's lead stays put in the view (most it moved, blocks)", holderMost, 0.0, 0.03);
 		} else {
 			check(view + ": the horse's end of its lead stays on its body as drawn (most it moved off, blocks)", horseMost, 0.0, 0.03);
-			check(view + ": the rider's end of the cow's lead keeps its height above the saddle as drawn (most it changed, blocks)", holderMost, 0.0, 0.1);
+			// (0.08-0.105 from run to run, from where the sampled frames fall; 0.585 when the lead ignored the drawn rider.)
+			check(view + ": the rider's end of the cow's lead keeps its height above the saddle as drawn (most it changed, blocks)", holderMost, 0.0, 0.15);
 		}
 		ctx.waitTicks(5);
 	}
