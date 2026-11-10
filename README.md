@@ -109,8 +109,8 @@ Entity Texture Features), and the rider follows the animated horse. If another m
 riders sit, Horsing Around handles its own horses and leaves the rest of that mod alone. Shoulder Surfing takes over the
 camera whenever it's on.
 
-With [Icy's Better Horses](https://modrinth.com/mod/icys-better-horses), pick whose riding horses use under **Riding** in
-the settings (on a server, the server picks). Pick Horsing Around's and Icy's breeds ride this way, with all of Icy's
+With [Icy's Better Horses](https://modrinth.com/mod/icys-better-horses), pick whose riding horses use under **Riding** on
+the settings' Compatibility tab (on a server, the server picks). Pick Horsing Around's and Icy's breeds ride this way, with all of Icy's
 features still working. Pick Icy's and Horsing Around leaves horses alone.
 
 With [Realistic Horse Genetics](https://www.curseforge.com/minecraft/mc-mods/realistic-horse-genetics) (Forge, Minecraft
