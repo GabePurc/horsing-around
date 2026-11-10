@@ -121,6 +121,7 @@ public final class RideFeelTest implements ClientGameTest {
 				coastStop(ctx, input);
 				brakeAndReverse(ctx, input);
 				runLock(ctx, input);
+				heldKeys(ctx, input);
 				freeAim(ctx, input);
 				standingJump(ctx);
 				dismount(ctx, input);
@@ -933,6 +934,59 @@ public final class RideFeelTest implements ClientGameTest {
 		ctx.waitTick();
 		check("taps 12 ticks apart don't lock", !runLocked(ctx) && sample(ctx).gait == RideTuning.STOP);
 		ticksUntilStopped(ctx, 40);
+		// (Or the next section's first W would make a double tap with the last one.)
+		ctx.waitTicks(10);
+		ctx.runOnClient(mc -> {
+			final RideState s = ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride();
+			s.stamina = stamina;
+			s.exhausted = exhausted;
+		});
+	}
+
+	/** Sprint and jump held down: the press counts, the OS key repeat after it (which vanilla also counts as clicks) doesn't. */
+	private void heldKeys(final ClientGameTestContext ctx, final TestInput input) {
+		section("Held keys: the key repeat is no press");
+		final float stamina = ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().stamina);
+		final boolean exhausted = ctx.computeOnClient(mc -> ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride().exhausted);
+		ctx.runOnClient(mc -> {
+			final RideState s = ((RideStateHolder) mc.player.getVehicle()).horsingaround$ride();
+			s.stamina = 1.0F;
+			s.exhausted = false;
+		});
+		input.holdKey(o -> o.keyUp);
+		ctx.waitTicks(20);
+		input.holdKey(o -> o.keySprint);
+		for (int i = 0; i < 10; i++) {
+			ctx.waitTick();
+			ctx.runOnClient(mc -> KeyMapping.click(mc.options.keySprint.getDefaultKey()));
+		}
+		ctx.waitTick();
+		input.releaseKey(o -> o.keySprint);
+		check("holding sprint (key repeat too) spurs up one gait, to a trot", sample(ctx).gait == RideTuning.TROT);
+		input.holdKey(o -> o.keyJump);
+		int jumps = 0;
+		boolean leapt = false;
+		for (int i = 0; i < 50; i++) {
+			ctx.waitTick();
+			ctx.runOnClient(mc -> KeyMapping.click(mc.options.keyJump.getDefaultKey()));
+			final boolean now = ride(ctx, RideState::leapt);
+			if (now && !leapt) {
+				jumps++;
+			}
+			leapt = now;
+		}
+		input.releaseKey(o -> o.keyJump);
+		check("holding jump (key repeat too) jumps once", jumps == 1);
+		// Let go and tapped again at once (down again by the next ride tick): a press.
+		input.holdKey(o -> o.keySprint);
+		ctx.waitTick();
+		input.releaseKey(o -> o.keySprint);
+		input.holdKey(o -> o.keySprint);
+		ctx.waitTick();
+		input.releaseKey(o -> o.keySprint);
+		check("two quick sprint taps spur up two gaits, to a gallop", sample(ctx).gait == RideTuning.GALLOP);
+		input.releaseKey(o -> o.keyUp);
+		ticksUntilStopped(ctx, 120);
 		// (Or the next section's first W would make a double tap with the last one.)
 		ctx.waitTicks(10);
 		ctx.runOnClient(mc -> {
@@ -2741,6 +2795,21 @@ public final class RideFeelTest implements ClientGameTest {
 			ctx.computeOnClient(mc -> ((AbstractHorse) mc.player.getVehicle()).getHealth()),
 			ctx.computeOnClient(mc -> ((AbstractHorse) mc.player.getVehicle()).getMaxHealth()),
 			ctx.computeOnClient(mc -> dev.horsingaround.ride.Awareness.acceptableFall((AbstractHorse) mc.player.getVehicle())));
+		if (!hurt) {
+			// From 1.21.5 a rider is hurt from 3 blocks, while the horse isn't under about 8; before, only with the horse.
+			//? if >=1.21.5 {
+			final double riderUnhurt = 3.95;
+			//?} else
+			/*final double riderUnhurt = 5.95;*/
+			final double careful = ctx.computeOnClient(mc -> {
+				final float riderHealth = mc.player.getHealth();
+				mc.player.setHealth(3.0F);
+				final double fall = dev.horsingaround.ride.Awareness.acceptableFall((AbstractHorse) mc.player.getVehicle());
+				mc.player.setHealth(riderHealth);
+				return fall;
+			});
+			check("with its rider low on health, it takes no fall that hurts the rider (blocks)", careful, 0.0, riderUnhurt + 0.001);
+		}
 		final float before = ctx.computeOnClient(mc -> ((AbstractHorse) mc.player.getVehicle()).getHealth());
 		gallopNorth(ctx, input);
 		boolean moving = false;

@@ -357,7 +357,8 @@ public final class RideTuning {
 	 * costs it up to FALL_HURT_ALLOWANCE health points (2 hearts) and its rider up to RIDER_FALL_HURT_ALLOWANCE (3). The
 	 * allowances are full above CONFIDENT_HEALTH and shrink to nothing at CAUTIOUS_HEALTH (fractions of max health), so
 	 * a hurt horse or rider is careful. At full health that is drops up to ~10 blocks (~14 before 1.21.5, where riders
-	 * take the horse's own halved damage).
+	 * take the horse's own halved damage). From 1.21.5 a fall that doesn't hurt the horse can hurt its rider: it takes
+	 * that only within the rider's allowance too (down to ~4 blocks with a rider low on health).
 	 */
 	static final float FALL_HURT_ALLOWANCE = 4.0F;
 	/** The rider takes the fall too (at full damage from 3 blocks), so any fall that hurts the horse costs them more. */
@@ -443,9 +444,13 @@ public final class RideTuning {
 	/** Crouching: the body sinks this far (blocks) and the nose lifts this much (degrees). */
 	static final float LEDGE_CROUCH = 0.16F;
 	static final float LEDGE_CROUCH_PITCH = 6.0F;
-	/** The heave: ticks the hind legs' push takes to build the climb, and the share of gravity that slows the rise. */
+	/**
+	 * The heave: ticks the hind legs' push takes to build the climb, and the share of gravity that slows the rise (of
+	 * LEDGE_GRAVITY_LEAST at least: vanilla's is 0.08, and a horse can be given none).
+	 */
 	static final int LEDGE_THRUST_TICKS = 3;
 	static final float LEDGE_LIFT_GRAVITY = 0.56F;
+	static final double LEDGE_GRAVITY_LEAST = 0.02;
 	static final float LEDGE_STAMINA_COST = 0.04F;
 	static final float CLIMB_SOUND_VOLUME_BASE = 0.35F;
 	static float CLIMB_SOUND_VOLUME = CLIMB_SOUND_VOLUME_BASE;
