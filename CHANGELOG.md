@@ -4,13 +4,28 @@ Each version's notes are written to paste straight into the store version pages.
 
 ## 0.7.0
 
-Horsing Around now runs on Forge for Minecraft 1.20.1, and works with Realistic Horse Genetics.
+Horsing Around now runs on Forge for Minecraft 1.20.1 and works with Realistic Horse Genetics. Landings have weight behind them, riding is smoother all round, and the settings have a new screen.
 
 ### New
 - **Forge.** Horsing Around now runs on Forge for Minecraft 1.20.1, with Forge 47.1.0 or newer. Open the settings from the Mods screen.
 - **Works with Realistic Horse Genetics** (Forge, Minecraft 1.20.1). Its horses, donkeys and mules ride with this mod, keeping their own look, and their hooves find the ground at whatever size their genes give them.
 
+### Changed
+- **Landings:** your horse takes its weight as it touches down after a jump or a drop. Its body sinks onto its legs and comes back up without a bounce, and its hindquarters come down after its forelegs. Walking off a drop, it lands front first.
+- **Smoother riding:**
+  - Your horse gathers speed over a moment as it takes off, instead of leaving the ground all at once.
+  - It tilts into slopes, bumps and jumps smoothly instead of snapping, and its nose no longer swings down in a single moment at the top of a standing jump.
+  - Its legs no longer jump into a pose now and then.
+  - You no longer sit up with a jolt at every jump at a gallop, and you sway more softly in the saddle.
+- **Settings:** a new screen, drawn as a tack room, with the options in tabs: Camera, Comfort, Cowboy hat, and Compatibility when Icy's Better Horses is installed.
+  - In a world, the Camera tab leaves the world clear behind it, so you see the camera move as you change it.
+  - On the Cowboy hat tab, a swatch shows the colour you're mixing.
+
 ### Fixed
+- **Held keys:** where your system repeats a held key, holding sprint no longer takes your horse up gait after gait, holding S no longer drops gaits as if tapped over and over, and holding jump no longer jumps again on every landing.
+- **Drops,** on Minecraft 1.21.5 and newer: your horse minds your health as well as its own. It no longer walks off a drop that's harmless to it but would hurt you badly, and the lower your health, the smaller the drops it takes with you.
+- **Jumping just after a landing:** if you press jump while your horse is still recovering from a landing, it no longer walks into danger or off a drop before it jumps.
+- **A horse with no gravity** (from a command or another mod) climbs onto a ledge instead of getting stuck at its face.
 - **Leads:** a lead tied to your horse stays on its neck, and one you hold stays in your hand, as your horse steps up and down, tilts on slopes and leans into turns. In first person, the end in your hand no longer jumps in your view on a step.
 - **With Entity Culling:** a horse that moved while you weren't looking (a leashed horse pulled down a step behind you, say) no longer floats above the ground or stands sunk into it when you look back.
 - **With a shader pack** (Iris, or Oculus on Forge), on Minecraft 1.21.11 or older: horses' legs fit stairs and slopes properly.
