@@ -1,5 +1,6 @@
 package dev.horsingaround.smoke;
 
+import dev.horsingaround.client.config.HorseSettingsScreen;
 import com.mojang.logging.LogUtils;
 import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideStateHolder;
@@ -98,13 +99,14 @@ public final class SmokeTest {
 	private static final int TAP_TICKS = 3;
 
 	private enum Phase {
-		TITLE, LOADING, BUILD, SETTLE, STAND, WALK, GALLOP, JUMP, STOP, REAR, RIDER, ROUGH, WILD, DISMOUNT, FENCE, LEAD, FINISH
+		TITLE, LOADING, BUILD, SETTLE, STAND, WALK, GALLOP, JUMP, STOP, REAR, RIDER, ROUGH, WILD, DISMOUNT, FENCE, LEAD, SETTINGS, FINISH
 	}
 
 	private static final String[] SHOTS = {
 		"01-stand.png", "02-walk.png", "03-gallop.png", "04-jump.png", "05-stopped.png", "06-first-person.png",
 		"07-third-person-back.png", "08-fence-front.png", "09-fence-side.png", "10-lead-cow.png", "11-lead-llama.png", "12-lead-horse.png",
-		"13-player-lead.png", "14-rough-slab.png", "15-rough-stairs.png", "16-rough-uneven.png", "17-rough-gallop.png", "18-rearing.png"
+		"13-player-lead.png", "14-rough-slab.png", "15-rough-stairs.png", "16-rough-uneven.png", "17-rough-gallop.png", "18-rearing.png",
+		"19-settings-camera.png", "20-settings-comfort.png", "21-settings-hat.png"
 	};
 
 	private final Meter meter = new Meter();
@@ -387,7 +389,21 @@ public final class SmokeTest {
 				} else if (t == 30) {
 					this.shoot(minecraft, SHOTS[12]);
 				} else if (t >= 33) {
+					this.next(Phase.SETTINGS);
+				}
+			}
+			case SETTINGS -> {
+				// The settings screen, a tab at a time: it draws its own controls, so every version is worth a look.
+				final HorseSettingsScreen.Tab[] tabs = {HorseSettingsScreen.Tab.CAMERA, HorseSettingsScreen.Tab.COMFORT, HorseSettingsScreen.Tab.HAT};
+				final int tab = t / 15;
+				if (tab >= tabs.length) {
 					this.next(Phase.FINISH);
+				} else if (t % 15 == 0) {
+					HorseSettingsScreen.open(minecraft, tabs[tab]);
+				} else if (t % 15 == 8) {
+					this.shoot(minecraft, SHOTS[18 + tab]);
+				} else if (t % 15 == 14) {
+					Compat.screen(minecraft).onClose();
 				}
 			}
 			case FINISH -> {

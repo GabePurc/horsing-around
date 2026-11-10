@@ -28,7 +28,7 @@ installDebugPack.configure { mustRunAfter "deleteClientGameTestRunDir" }
 // on a dedicated server; pick some with -Ptests=ride,terrain,mounts,server, one terrain scenario with
 // -Pscenario=<part of its name>, and only some sections of the ride test with -Psections=<names> (core, stairs,
 // picking, steps).
-def clientTests = project.findProperty("tests") ?: "ride,terrain,mounts,server,hat"
+def clientTests = project.findProperty("tests") ?: "ride,terrain,mounts,server,hat,settings"
 def terrainScenario = project.findProperty("scenario") ?: ""
 def rideSections = project.findProperty("sections") ?: ""
 // Test games run light, to keep the load on the machine down: the lowest settings, no sound (LowSettings in the tests),
@@ -78,7 +78,7 @@ def testShards = ext.testShards = [
 	RideB  : [tests: "ride", sections: "stairs,picking"],
 	RideC  : [tests: "ride", sections: "steps,climbs"],
 	Terrain: [tests: "terrain", sections: ""],
-	Others : [tests: "mounts,server,hat", sections: ""],
+	Others : [tests: "mounts,server,hat,settings", sections: ""],
 ]
 // At most this many test games at once (-PtestGames=N), whatever Gradle's own worker count.
 abstract class TestGameSlots implements org.gradle.api.services.BuildService<org.gradle.api.services.BuildServiceParameters.None> {}

@@ -20,9 +20,20 @@ final class LegacyOptionsList extends ContainerObjectSelectionList<LegacyOptions
 	private static final int ROW_WIDTH = 310;
 	private static final int GAP = 10;
 
-	LegacyOptionsList(final Minecraft minecraft, final int width, final int height) {
-		super(minecraft, width, height - 64, 32, 25);
+	LegacyOptionsList(final Minecraft minecraft, final int width, final int height, final int top) {
+		//? if >=1.20.3 {
+		super(minecraft, width, height, top, 25);
+		//?} else
+		/^super(minecraft, width, minecraft.getWindow().getGuiScaledHeight(), top, top + height, 25);^/
 		this.centerListVertically = false;
+		// (On the frame's boards.)
+		this.setRenderBackground(false);
+		//? if <1.20.2
+		/^this.setRenderTopAndBottom(false);^/
+	}
+
+	void clear() {
+		this.clearEntries();
 	}
 
 	void addBig(final OptionInstance<?> option) {

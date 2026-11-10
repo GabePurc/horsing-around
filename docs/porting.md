@@ -70,7 +70,7 @@ keeps them:
 ### Before 1.21
 
 Data pack tag folders are plural (`processResources` renames them), resource locations use a constructor, options screens keep their own list
-(`HorseSettingsScreen`), the camera moves in doubles, and model colours are floats.
+(`HorseSettingsScreen`; `Tack` draws the controls on every version), the camera moves in doubles, and model colours are floats.
 
 ### Before 1.20.5
 

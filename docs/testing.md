@@ -15,6 +15,7 @@ code, ported for any loader and version). Loader differences sit in `TestEnv` an
 - `MountsTest` (`mounts`): every vanilla mount and mob riders.
 - `ServerRideTest` (`server`): a real dedicated server accepts every move.
 - `HatTest` (`hat`): the supporter hat.
+- `SettingsTest` (`settings`): the settings screen, each tab clicked and photographed (with Icy's: `runCompatIcys -PcompatTests=settings`).
 
 Full runs: `./gradlew runClientGameTestParallel --continue` (every build; `:<version>:` for one) splits them into shards (`testShards`
 in `gradle/client-tests-common.gradle`, one alone with `runClientGameTest<Shard>`), runs two games at a time (`-PtestGames=N`), merges

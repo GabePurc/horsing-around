@@ -164,3 +164,6 @@ This area was reworked most. Read it before changing it.
 
 - 2026-10-08, user: nothing about how horses ride is a setting. The switches for the horse's behaviours and a planned config file
   for feel numbers went with that decision.
+- 2026-11-03, user: settings in tabs rather than sections on one list, and no longer bland. A flat dusk palette read as too plain
+  and not Minecraft; wood, stitched leather, strap sliders and brass buckles are what stuck. The hat tab says how to get the hat in
+  plain words for non-supporters, rather than only in a tooltip.
