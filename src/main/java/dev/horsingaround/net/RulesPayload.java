@@ -6,11 +6,12 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-//?} else {
+//?} elif fabric {
 /*import net.fabricmc.fabric.api.networking.v1.FabricPacket;
 import net.fabricmc.fabric.api.networking.v1.PacketType;
 import net.minecraft.network.FriendlyByteBuf;
-*///?}
+*///?} else
+/*import net.minecraft.network.FriendlyByteBuf;*/
 import net.minecraft.resources.Identifier;
 
 /** Server to client on join (and when the host changes settings): this server runs the mod, and its rules. */
@@ -29,7 +30,7 @@ public record RulesPayload(int protocol, String version, boolean rideThroughLeav
 		return TYPE;
 	}
 }
-//?} else {
+//?} elif fabric {
 /*public record RulesPayload(int protocol, String version, boolean rideThroughLeaves) implements FabricPacket {
 	public static final PacketType<RulesPayload> TYPE = PacketType.create(
 		Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "rules"), buf -> new RulesPayload(buf.readVarInt(), buf.readUtf(64), buf.readBoolean()));
@@ -44,6 +45,21 @@ public record RulesPayload(int protocol, String version, boolean rideThroughLeav
 	@Override
 	public PacketType<RulesPayload> getType() {
 		return TYPE;
+	}
+}
+*///?} else {
+/*// (Forge: one channel carries every payload, forge/HorsingAroundForge; TYPE names it to Platform.canSend.)
+public record RulesPayload(int protocol, String version, boolean rideThroughLeaves) {
+	public static final Class<RulesPayload> TYPE = RulesPayload.class;
+
+	public static RulesPayload read(final FriendlyByteBuf buf) {
+		return new RulesPayload(buf.readVarInt(), buf.readUtf(64), buf.readBoolean());
+	}
+
+	public void write(final FriendlyByteBuf buf) {
+		buf.writeVarInt(protocol);
+		buf.writeUtf(version, 64);
+		buf.writeBoolean(rideThroughLeaves);
 	}
 }
 *///?}

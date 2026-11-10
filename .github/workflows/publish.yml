@@ -18,6 +18,8 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # (A manual CurseForge upload waits for the author's approval: the hat service's token can start workflows.)
+    environment: ${{ inputs.curseforge && 'curseforge-manual' || '' }}
     permissions:
       contents: write
     env:
@@ -52,6 +54,13 @@ jobs:
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+      # (Only once every upload went up, so the post's download link has the new version.)
+      - name: Post the notes to Discord
+        if: github.event_name == 'release'
+        run: scripts/discord-release.sh "$TAG"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISCORD_RELEASES_WEBHOOK: ${{ secrets.DISCORD_RELEASES_WEBHOOK }}
       - name: Upload to CurseForge only
         if: github.event_name == 'workflow_dispatch' && inputs.curseforge
         run: ./gradlew publishCurseforge --continue

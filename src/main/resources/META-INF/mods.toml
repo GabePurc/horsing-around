@@ -1,0 +1,32 @@
+# The Forge jar's mod metadata (Forge for 1.20.1, which NeoForge for 1.20.1 reads too); filled in by build.neoforge.gradle.
+modLoader = "javafml"
+loaderVersion = "[47,)"
+license = "LGPL-3.0-only"
+issueTrackerURL = "https://github.com/GabePurc/horsing-around/issues/new?template=bug_report.yml"
+
+[[mods]]
+modId = "horsingaround"
+version = "${version}"
+displayName = "Horsing Around"
+authors = "GabePurc"
+displayURL = "https://github.com/GabePurc/horsing-around"
+logoFile = "assets/horsingaround/icon.png"
+# Optional on both sides: players without it join servers with it, and the other way round.
+displayTest = "IGNORE_ALL_VERSION"
+description = '''
+Horses finally ride like real animals: gaits, momentum, stamina, sure footing and an over-the-shoulder camera, on the vanilla horse with the keys you already know.
+'''
+
+[[dependencies.horsingaround]]
+modId = "forge"
+mandatory = true
+versionRange = "[${forge},)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.horsingaround]]
+modId = "minecraft"
+mandatory = true
+versionRange = "${minecraft}"
+ordering = "NONE"
+side = "BOTH"

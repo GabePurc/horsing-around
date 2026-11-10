@@ -1,11 +1,10 @@
 # Design
 
-What each part should feel like, and the shape of how it works now. "User" marks what the user asked for: keep the
-intent, and raise it with them before reversing it. "Now" and any number describe one way of doing it, so a better way is
-welcome. Current numbers are in `RideTuning`; why things are this way is in `design-log.md`.
+What each part should feel like, and how it works now. "User" marks what the user asked for: keep the intent, and raise
+it with them before reversing it. "Now" and any number describe one way of doing it.
 
-Vanilla horses feel static because of instant top speed and stops, a body snapped to the camera, one speed, strafing, a
-gallop clip after five steps whatever the speed, no stamina and no visual weight.
+Vanilla horses feel static because of instant top speed and stops, a body snapped to the camera, one speed, strafing, no
+stamina and no visual weight.
 
 ## Riding
 
@@ -16,7 +15,7 @@ gallop clip after five steps whatever the speed, no stamina and no visual weight
 - Momentum: gradual acceleration and coasting, harder braking. Roughly 2 s of spurring to a full gallop; from one, about
   2 s to coast to a stop and under 1 s braking. A head-on wall hit at speed sheds momentum; a graze slips past.
 - Turning (user): the horse shifts its weight before it turns; turn rate is grip-limited, so a gallop turn is wide. Now: a
-  weight commitment leads, head first, and the bank follows (about 15 degrees at most, low for blocky models).
+  weight commitment leads, head first, and the bank follows (up to 15 degrees).
 - Steering (user): the horse heads where the rider looks and never pulls the view. Standing still is free look. W+A/D
   ride 45 degrees off the view; A or D alone ride across it at the gait. No strafing.
 - Hard cuts (user): the further the rider turns the view, the harder the horse cuts, sitting back and slowing, then
@@ -46,6 +45,8 @@ gallop clip after five steps whatever the speed, no stamina and no visual weight
   slowing to a trot first from a canter or gallop, at any approach angle and in any neighbourhood. Never fences, walls or
   leaves; a ledge that only catches the flank is gone round.
 - Hurdles: fences and walls are jumped only when the rider presses jump, so pens still hold horses.
+- Takeoffs and landings have weight (user, 2026-11-09), drawn only: the body gathers speed off the ground over a few
+  ticks; landing, it sinks on its legs and rises without a bounce, hindquarters after forehand.
 
 ## The horse has a say (user: "super important" that it is never an annoyance)
 
@@ -68,14 +69,14 @@ gallop clip after five steps whatever the speed, no stamina and no visual weight
 - Physically right first (user): hooves on the ground actually under them, legs drawing up into the body over higher
   ground; the body is a mass carried on its legs, never falling faster than gravity; the tilt is the line between the ground
   under the front and the hind hooves.
-- Hooves move smoothly (user, 2026-10-22: avoid clipping "in a smooth and realistic way"). Now: a hoof moves to its height
-  on a short spring and looks ahead along its own path, so it is already up when it reaches higher ground.
+- Hooves move smoothly (user, 2026-10-22: avoid clipping "in a smooth and realistic way").
+- Nothing snaps, but it stays a horse (user, 2026-11-09): tilt, bank, height and the rider's seat never start, stop or
+  turn back within a tick; the gait's bounce stays.
 - Steps in two beats (user): front legs up first, then the hind; one leg at a time at a walk, nearly together at speed; at
   a run a step comes in through the stride without a pop.
 - No clipping between horse and rider (user): the horse reaches its neck forward, then the rider folds less.
-- Judge legs by `LegProbe` measurements and close shots, not formulas.
 - Known limits: on a slope of full blocks a leg can't reach a 1-block riser, so the horse scrambles; trotting down one, a
-  hoof hangs a tick or two after each landing (user, 2026-10-10: kept unless a better way turns up).
+  hoof hangs briefly after each landing (user: kept).
 
 ## Rider
 
@@ -102,6 +103,8 @@ gallop clip after five steps whatever the speed, no stamina and no visual weight
   camera. Every move must be accepted by the server (no rubber-banding).
 - A plain install needs only the loader and, on Fabric, Fabric API. Mod Menu and the animation stack stay optional.
 - Compatible with popular mods: no crashes, log errors or silently disabled features, theirs or ours (`runCompat`).
+- Realistic Horse Genetics (user, 2026-11-07: "needs to be" compatible; it's Forge 1.20.1 only, hence that build): its horses
+  ride as vanilla's, and its model gets what vanilla's does, at the horse's own size.
 
 ## Icy's Better Horses (user, 2026-10-31)
 
@@ -118,20 +121,31 @@ On this mod's setting, the default:
 - Its models are treated like an animation pack: the rider rides their measured motion, only this mod's lean banks them,
   the ride's legs, neck, tail and stirrups go on them, and the ride tilts on legs measured from the model.
 - Its gear works (user, 2026-11-02): a cart's riders sit on its bench, left to Icy's pose. A cart turns as a real one does
-  and the horse pulls it (`CartTrail`): wheels don't slide sideways, the shafts hold the horse close, so it turns wide,
-  makes no hard cuts and starts and stops slower; slopes feel smooth. In a working Glidewing Harness no drop is refused and
-  legs keep still in the air. In horseshoes powder snow is ground.
+  and the horse pulls it (`CartTrail`): wheels don't slide sideways, the shafts hold the horse close, so it turns wide, tighter
+  the slower it goes (user), makes no hard cuts and starts and stops slower. Backing up, the rig comes round to where the rider looks and stops at
+  walls. In a working Glidewing Harness no drop is refused and legs keep still in the air. In horseshoes powder snow is ground.
+- A cart lies on its wheels (user, 2026-11-06): each rolls on the ground under it and the cart leans by them, across too. A
+  wagon goes on its four, a two-wheeled cart on its two, so a horse's jump doesn't lift them; it tilts towards the hitch, only as
+  far as a cart tilts on a hill (42 degrees), and the shafts reach for the horse below or above it. Three wheels down,
+  the fourth stays in the air and the cart leans only slightly towards it; two a block below the other two lean it all the
+  way. Rises and drops along the cart roll as if they had ramps on, up to two blocks, so it doesn't fly up a ledge (user).
+  The body never goes into the ground: it comes up off what it would, and a wheel over a deep drop doesn't drag it down (user).
+  The third-person view backs off so all of a wagon is in view (user).
+- A cart has weight, not a rigid link or a float (user, 2026-11-06). Each corner rides on suspension: with nothing under it, it
+  falls at a horse's gravity; landing, it compresses and settles, the wheel going up into the cart. The body follows the ground
+  averaged along the cart, over more of it the faster it goes, so it rides over hills at speed instead of hopping at each block
+  (user); the wheels take each block. Icy's wheel animation no longer jolts the bed or riders. The horse comes up against
+  the shafts softly, and they give a little as it pulls or slows. The cart stands further back by the horse's size, so the
+  rider isn't in its hindquarters (user). The shafts swing and stretch to stay on the horse whatever the cart does (user).
+- Its jump clip poses the legs fore and aft only: across the body, it swung the hind legs sideways for a moment (user).
 - Its free-look key shares Left Ctrl with sprint, so it does nothing here.
-- Icy's mod has no switch for its riding, so the hooks reach into its code and miss quietly when it changes; the `icys`
-  compat pack rides a breed through the horse tests to catch that.
+- Icy's mod has no switch for its riding, so the hooks reach into its code and miss quietly when it changes (`runCompat` catches it).
 
 ## Settings and the hat
 
-- Settings are comfort and preference only (see `AGENTS.md`), reached from Mod Menu, the NeoForge Mods screen or a key.
-- The screen (user, 2026-11-03) is easy to find your way round, in tabs by what a player comes for, and not bland: colours from the
-  logo, calm, Minecraft, naturalistic. Now: a tack room at sunset (wood boards, stitched leather, strap sliders, brass buckles,
-  `client/config/Tack`). Controls subclass vanilla's and only redraw them, so clicks, keys and narration stay the game's.
+- Settings are comfort and preference only (`AGENTS.md`), reached from the Mods screen or a key. In tabs, drawn as a tack
+  room at sunset (user, 2026-11-03; `client/config/Tack`).
 - The supporter cowboy hat (user, 2026-10-08) is for people who buy the user a coffee (https://buymeacoffee.com/blintzbug).
-  Supporters are listed by UUID in `supporters.json`, which every client downloads at startup (disclosed in the README). The
+  `hats/` lists claimed supporters by UUID in `supporters.json`, which clients download (disclosed in the README). The
   colour goes through the server (`HatRelay`); clients draw hats only for players on their own copy of the list. While worn,
   head items aren't drawn but still protect. Shape: `art/cowboy_hat.bbmodel`, built into the code by `scripts/hat-model.py`.

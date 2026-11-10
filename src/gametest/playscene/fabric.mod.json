@@ -1,0 +1,13 @@
+{
+	"schemaVersion": 1,
+	"id": "horsingaround-playscene",
+	"version": "1.0.0",
+	"name": "Horsing Around play scene",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["dev.horsingaround.gametest.PlayScene"]
+	},
+	"depends": {
+		"horsingaround": "*"
+	}
+}

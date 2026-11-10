@@ -48,6 +48,7 @@
 	"options.horsingaround.hat": "Wear my cowboy hat",
 	"options.horsingaround.hat.tooltip": "Wear your supporter hat. Your helmet still protects you, it just isn't drawn while the hat is on. Everyone with the mod on the same server sees it.",
 	"options.horsingaround.hat_palette": "Hat colours",
+	"options.horsingaround.hat_color": "Your hat's colour now",
 	"options.horsingaround.hat_hue": "Hue",
 	"options.horsingaround.hat_hue.tooltip": "The colour of the hat, round the colour wheel.",
 	"options.horsingaround.hat_richness": "Richness",

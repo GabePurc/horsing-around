@@ -1,0 +1,63 @@
+# Adds a supporter to supporters.json or removes one, committing straight to main: started by the hat service (hats/) when
+# a supporter claims a hat or is refunded, or by hand (Actions > supporters > Run workflow). Installed copies of the mod read
+# the list from main, so it pushes with a deploy key (SUPPORTERS_DEPLOY_KEY), which the "Protect main" ruleset lets through; no
+# other workflow holds it. [skip ci]: a list change needs no build.
+name: supporters
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: What to do
+        type: choice
+        options: [add, remove]
+        required: true
+      uuid:
+        description: The player's UUID, with dashes
+        required: true
+      name:
+        description: The player's Minecraft username
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.SUPPORTERS_DEPLOY_KEY }}
+      - name: Change the list
+        env:
+          OPERATION: ${{ inputs.operation }}
+          PLAYER: ${{ inputs.uuid }}
+          NAME: ${{ inputs.name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # (Claims can arrive together: on a lost race, start again from the new main.)
+          for attempt in 1 2 3 4 5; do
+            git fetch -q origin main
+            git reset -q --hard origin/main
+            python3 scripts/update-supporters.py "$OPERATION" "$PLAYER" "$NAME"
+            if git diff --quiet; then
+              echo "The list already says this."
+              exit 0
+            fi
+            git commit -qam "Supporter $OPERATION: $NAME [skip ci]"
+            if git push -q origin HEAD:main; then
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          exit 1
+      - name: Tell the author it failed
+        if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.HATS_DISCORD_WEBHOOK }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          jq -n --arg content "A hat change failed, so a supporter is waiting: $RUN" '{content: $content, allowed_mentions: {parse: []}}' |
+            curl -fsS -H 'content-type: application/json' -d @- "$DISCORD_WEBHOOK"

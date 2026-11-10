@@ -1,0 +1,10 @@
+# The smoke test's mod metadata on Forge (fabric.mod.json is Fabric's, neoforge.mods.toml NeoForge's). Test only, never shipped.
+modLoader = "javafml"
+loaderVersion = "[47,)"
+license = "LGPL-3.0-only"
+
+[[mods]]
+modId = "horsingaround_smoke"
+version = "1.0.0"
+displayName = "Horsing Around smoke test"
+description = "Test only, never shipped: a scripted ride with screenshots, run by ./gradlew runSmoke."

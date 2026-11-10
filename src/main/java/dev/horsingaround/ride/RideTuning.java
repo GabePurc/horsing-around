@@ -356,7 +356,8 @@ public final class RideTuning {
 	 * Falls: the horse takes any fall that doesn't hurt it (vanilla horses: up to ~8 blocks), and beyond that one that
 	 * costs it up to FALL_HURT_ALLOWANCE health points (2 hearts) and its rider up to RIDER_FALL_HURT_ALLOWANCE (3). The
 	 * allowances are full above CONFIDENT_HEALTH and shrink to nothing at CAUTIOUS_HEALTH (fractions of max health), so
-	 * a hurt horse or rider is careful. At full health that is drops up to ~10 blocks.
+	 * a hurt horse or rider is careful. At full health that is drops up to ~10 blocks (~14 before 1.21.5, where riders
+	 * take the horse's own halved damage).
 	 */
 	static final float FALL_HURT_ALLOWANCE = 4.0F;
 	/** The rider takes the fall too (at full damage from 3 blocks), so any fall that hurts the horse costs them more. */
@@ -451,10 +452,13 @@ public final class RideTuning {
 
 	// ---- Visuals (client) ----
 
-	/** Visual bank into turns: degrees per (deg/tick of turn x (blocks/tick)^2 of speed), capped. */
+	/**
+	 * Visual bank into turns: degrees per (deg/tick of turn x (blocks/tick)^2 of speed), capped, on a critically damped
+	 * spring (radians a tick): it rolls into the bank and out of it, without starting or stopping at once.
+	 */
 	static final float LEAN_GAIN = 16.0F;
 	static final float LEAN_MAX = 15.0F;
-	static final float LEAN_SMOOTHING = 0.4F;
+	static final float LEAN_FREQUENCY = 1.4F;
 	/** Where the front and hind hooves stand, blocks ahead of and behind the horse's centre. */
 	public static final float FORE_HOOVES = 0.65F;
 	public static final float HIND_HOOVES = 0.5F;
@@ -488,11 +492,25 @@ public final class RideTuning {
 	/**
 	 * The legs give LEG_GIVE blocks: below that under the ground actually under either pair of hooves, they push that end
 	 * of the body up, by no more than LEG_PUSH blocks a tick (a hard stop all at once snapped the tilt; the legs draw up
-	 * into the body meanwhile). Touching down, the body keeps coming down as fast as it fell and the legs take it up: it
-	 * sinks a little and comes back up. Nothing pulls the body down faster than gravity (the horse's own).
+	 * into the body meanwhile). Nothing pulls the body down faster than gravity (the horse's own).
 	 */
 	static final double LEG_GIVE = 0.3;
 	static final double LEG_PUSH = 0.15;
+	/**
+	 * Landing from a jump or a fall, the legs cushion it (user, 2026-11-09: it "snaps a bit too fast to the ground", like "a
+	 * real horse cushions"). A horse here falls far faster than its legs have room to stop it (half a block a tick, a third of
+	 * a block of give), so the cushioning is what shows after the hooves meet the ground: from that moment in the tick the
+	 * body keeps LAND_KEEP of its fall speed (LAND_SPEED_MAX at most), and sinks on a softer spring than a step's
+	 * (LAND_FREQUENCY radians a tick) for a few ticks, slowing all the way, before the legs push it back up. (It came down
+	 * at its full fall speed to its lowest in the tick it touched down, and stopped dead there.)
+	 * A horse that walked off a drop comes down front first: drawn nose down by FORE_DOWN_TILT degrees or more, or
+	 * FORE_DOWN_BELOW blocks below where it is, its front hooves land as they reach the ground, ahead of the horse itself.
+	 */
+	static final float FORE_DOWN_TILT = 5.0F;
+	static final float FORE_DOWN_BELOW = 0.1F;
+	static final float LAND_KEEP = 0.6F;
+	static final float LAND_SPEED_MAX = 0.28F;
+	static final float LAND_FREQUENCY = 0.33F;
 	/** The body sits on the lower end, the legs at the other drawing up by no more than LEG_SIT blocks to fit. */
 	static final double LEG_SIT = 0.3;
 	/**
@@ -508,6 +526,16 @@ public final class RideTuning {
 	 * (touching down on a slope, the forehand still falling, and the flight's tilt letting go, together snapped it).
 	 */
 	static final float PITCH_RATE_MAX = 9.0F;
+	/**
+	 * The tilt has weight (user, 2026-11-09: a smoothness pass): how fast it turns may change by PITCH_KINK_FREE degrees a
+	 * tick from one tick to the next, as it does over ordinary steps; any more of a change (over a bump at a gallop it
+	 * went from full rate one way to full rate the other, and stopped dead) it takes over the next few ticks, carrying on
+	 * as it was turning and coming round on a critically damped spring (PITCH_SWAY_FREQUENCY radians a tick). Followed
+	 * with a plain spring instead, it lagged all the way down a slope and the hooves hung off the ground.
+	 */
+	static final float PITCH_KINK_FREE = 3.0F;
+	static final float PITCH_SWAY_FREQUENCY = 0.7F;
+	static final float PITCH_SWAY_DECAY = (float) Math.exp(-PITCH_SWAY_FREQUENCY);
 	public static final float LEG_LENGTH = 0.625F;
 	public static final float LEG_UPRIGHT = 1.0F;
 	/**
@@ -597,12 +625,20 @@ public final class RideTuning {
 	/**
 	 * Jumping (and any time in the air), the body tilts with its flight like a real horse's: nose up on takeoff as the
 	 * front legs lift and the hind legs push (pivoting on the hind hooves), level over the top, nose down to land front
-	 * feet first (pivoting on the front hooves). Degrees per degree of flight path, limits up and down, and response.
+	 * feet first (pivoting on the front hooves). Degrees per degree of flight path and limits up and down; it follows on a
+	 * critically damped spring (JUMP_PITCH_FREQUENCY radians a tick), so the nose comes up and over without a flick, and
+	 * the flight path is taken as going forward at JUMP_PITCH_PACE_MIN blocks a tick at least (a standing jump has none).
 	 */
 	static final float JUMP_PITCH_SCALE = 0.45F;
 	static final float JUMP_PITCH_UP = 25.0F;
 	static final float JUMP_PITCH_DOWN = 15.0F;
-	static final float JUMP_PITCH_SMOOTHING = 0.5F;
+	static final float JUMP_PITCH_FREQUENCY = 1.0F;
+	static final double JUMP_PITCH_PACE_MIN = 0.2;
+	/**
+	 * Back on the ground it levels on a critically damped spring (radians a tick): the hindquarters come down after the
+	 * forehand, starting gently, instead of half the tilt going in the tick it lands.
+	 */
+	static final float JUMP_PITCH_LAND = 0.8F;
 	/**
 	 * The legs take the jump's shape over AIR_SHAPE_IN_TIME seconds, and let it go as a hoof finds its ground over
 	 * AIR_SHAPE_OUT_TIME (see AirLegs.shape): slower in, so a step down (a short fall onto ground the hooves soon find)
@@ -612,11 +648,20 @@ public final class RideTuning {
 	public static final float AIR_SHAPE_OUT_TIME = 0.04F;
 	/** Taking off, the tilt it had on the ground eases out by at most this much a tick (degrees). */
 	static final float AIR_PITCH_RELEASE = 2.5F;
-	/** World-space follow rate for the body height afloat: turns climbing out of the water into a smooth rise. */
-	static final float WATER_HEIGHT_SMOOTHING = 0.35F;
-	/** Airborne, any leftover height offset fades this fast relative to the physics body (no lag in flight). */
+	/**
+	 * Afloat, the body follows the horse's height on a critically damped spring (radians a tick), from the speed it was
+	 * moving at: wading in, bobbing and climbing out are a smooth sink and rise.
+	 */
+	static final float WATER_HEIGHT_FREQUENCY = 1.0F;
+	/** Carried by another entity, any leftover height offset fades this fast. */
 	static final float AIR_OFFSET_DECAY = 0.5F;
-	/** ...but by no more than this per tick, so a lag built up climbing out of water eases out instead of snapping. */
+	/**
+	 * Taking off (user, 2026-11-09: a smoothness pass, "still keeping it feeling realistic"), the drawn body doesn't leave
+	 * the ground at full speed in one tick: it carries on as it was moving and comes up to the horse's flight on a
+	 * critically damped spring (radians a tick), the hind legs still pushing for a few ticks. Any lag it had (climbing out
+	 * of water, its forehand down over an edge) eases out the same way, by no more than AIR_OFFSET_MAX_STEP a tick.
+	 */
+	static final float AIR_OFFSET_FREQUENCY = 0.5F;
 	static final float AIR_OFFSET_MAX_STEP = 0.05F;
 	/**
 	 * Legs in the air (a jump, or a fall bigger than a step): the run cycle winds down (AIR_STRIDE_STOP of the way a tick)
@@ -703,7 +748,8 @@ public final class RideTuning {
 	 * stretches its neck forward (up to NECK_REACH_MAX degrees, as a jumping horse does), and if that isn't enough the
 	 * rider folds less over the neck (up to SIT_BACK_MAX degrees), each only as far as keeps the middle of the horse's
 	 * head HEAD_ROOM from the middle of the rider's head and CHEST_ROOM from their chest (blocks), tried in ROOM_STEPS
-	 * steps; quickly in (ROOM_IN_SECONDS), easing back (ROOM_OUT_SECONDS). The horse's head is NECK_BASE_FORWARD /
+	 * steps; on a critically damped spring, quickly in (ROOM_IN_SECONDS) and slowly back (ROOM_OUT_SECONDS), so neither
+	 * starts at once (the rider jerked back). The horse's head is NECK_BASE_FORWARD /
 	 * NECK_BASE_UP from the ground under its centre to the base of its neck, and HEAD_FORWARD / HEAD_UP from there to the
 	 * middle of its head; the rider's head and chest are RIDER_HEAD_ABOVE_SEAT and RIDER_CHEST_ABOVE_SEAT above the point
 	 * the rider leans about.
@@ -719,12 +765,19 @@ public final class RideTuning {
 	public static final float NECK_REACH_MAX = 35.0F;
 	public static final float SIT_BACK_MAX = 30.0F;
 	public static final int ROOM_STEPS = 7;
-	public static final float ROOM_IN_SECONDS = 0.05F;
-	public static final float ROOM_OUT_SECONDS = 0.35F;
+	public static final float ROOM_IN_SECONDS = 0.03F;
+	public static final float ROOM_OUT_SECONDS = 0.2F;
 	/** Forward fold over the neck, degrees: a little at any gait, crouched at a gallop (RDR2 riders: ~5-10 / 20-30). */
 	public static final float FORWARD_LEAN_STILL = 4.0F;
 	public static final float FORWARD_LEAN_MOVING = 6.0F;
 	public static final float FORWARD_LEAN_GALLOP = 18.0F;
+	/**
+	 * The rider comes into that fold, and into the pelvis' rock, on a critically damped spring (radians a tick, about half
+	 * a second): both go by how fast the legs are going, and read straight off that the rider snapped (user, 2026-11-09).
+	 * The legs stop within a tick of leaving the ground, so the rider sat up 12 degrees in a frame at every jump at a
+	 * gallop; reaching a gallop they tipped forward in two ticks and stopped dead.
+	 */
+	static final float SEAT_FREQUENCY = 0.45F;
 	/** The torso turns toward where the rider looks by this share of the head's turn, up to the max (degrees). */
 	public static final float TORSO_TWIST = 0.4F;
 	public static final float TORSO_TWIST_MAX = 40.0F;
@@ -785,10 +838,12 @@ public final class RideTuning {
 	/**
 	 * The rider's body answers the horse's surges: leaning back as it speeds up and forward as it slows, on a spring
 	 * so it settles naturally. Degrees per block/tick^2 of acceleration, spring stiffness and damping per tick, limit.
+	 * (Soft enough that a tick's change of pace, taking off or over a step, rocks the rider instead of whipping them:
+	 * at 0.25 and 0.45 the torso was thrown its full 12 degrees in three ticks; user, 2026-11-09.)
 	 */
 	public static final float INERTIA_GAIN = 250.0F;
-	public static final float INERTIA_STIFFNESS = 0.25F;
-	public static final float INERTIA_DAMPING = 0.45F;
+	public static final float INERTIA_STIFFNESS = 0.12F;
+	public static final float INERTIA_DAMPING = 0.5F;
 	public static final float INERTIA_MAX = 12.0F;
 	/**
 	 * Fresh Animations' stirrups are swung forward to meet the seated leg (its leathers hang from the saddle's front
@@ -824,6 +879,13 @@ public final class RideTuning {
 	 */
 	public static final float CAMERA_DISTANCE_STILL = 4.0F;
 	public static final float CAMERA_DISTANCE_GALLOP = 5.5F;
+	/**
+	 * Driving a wagon, the third-person view is further back, so all of it is in view (user, 2026-11-06), and higher, to see
+	 * the horse over its cover (higher still pushes the wagon down out of the frame). A two-wheeled cart needs only some more room.
+	 */
+	public static final float CAMERA_WAGON_RAISE = 1.5F;
+	public static final float CAMERA_WAGON_BACK = 7.0F;
+	public static final float CAMERA_CART_BACK = 2.0F;
 	public static float CAMERA_DISTANCE_SCALE = 1.0F;
 	/** Low value = the camera falls behind as the horse speeds up and catches up as it slows. */
 	public static final float CAMERA_DISTANCE_SMOOTHING = 0.08F;
@@ -926,10 +988,12 @@ public final class RideTuning {
 	static final float TRAMPLE_MAX_WIDTH = 0.8F;
 	static final float TRAMPLE_MAX_HEIGHT = 1.0F;
 	/**
-	 * The furthest one of Icy's Better Horses' carts angles off the horse pulling it, degrees (see CartTrail): the shafts
-	 * hold it, and past this the horse drags it round.
+	 * The furthest one of Icy's Better Horses' carts angles off the horse pulling it, degrees (see CartTrail): the shafts hold it,
+	 * and past this the horse drags it round. From CART_SWING_SLOW standing down to CART_SWING_MAX flat out, so it turns tighter
+	 * the slower it goes (user, 2026-11-06).
 	 */
-	static final float CART_SWING_MAX = 20.0F;
+	static final float CART_SWING_SLOW = 60.0F;
+	static final float CART_SWING_MAX = 28.0F;
 	/**
 	 * Pulling one of those carts, the horse gets going this much slower (its acceleration scale), and slows this much
 	 * more gently letting go or reined back, the cart rolling on behind it (braking for danger stays as hard).
@@ -937,15 +1001,100 @@ public final class RideTuning {
 	static final float CART_ACCEL = 0.55F;
 	static final float CART_DECEL = 0.6F;
 	/**
-	 * A cart's wheels roll up and down steps instead of jumping a block: its axle eases this share of the way to the
-	 * ground under it each tick, at most CART_AXLE_RISE blocks; its tilt (from the hitch, as the horse is drawn, down to
-	 * the axle) eases CART_TILT_EASE of the way, at most CART_TILT_RATE degrees a tick, up to CART_TILT_MAX.
+	 * Backing up, a cart swings away from where the horse points, so the horse does the steering a driver would: it points
+	 * off the cart's line, against the way the cart should come round, by CART_BACK_GAIN of how far the cart is off where
+	 * the rider looks, at most CART_BACK_SWING degrees, turning at most CART_BACK_TURN degrees a tick.
 	 */
-	static final float CART_AXLE_EASE = 0.5F;
-	static final float CART_AXLE_RISE = 0.2F;
-	static final float CART_TILT_EASE = 0.25F;
-	static final float CART_TILT_RATE = 2.5F;
-	static final float CART_TILT_MAX = 25.0F;
+	static final float CART_BACK_GAIN = 1.0F;
+	static final float CART_BACK_SWING = 15.0F;
+	static final float CART_BACK_TURN = 2.0F;
+	/** Backing up stops for anything too tall to roll over this far behind the rear axle (blocks), about where the bed ends. */
+	static final double CART_BACK_CLEAR = 1.1;
+	/**
+	 * A cart's wheels roll up and down steps instead of jumping a block: each eases this share of the way to the ground
+	 * under it each tick, at most CART_AXLE_RISE blocks up or CART_AXLE_DROP down, and takes nothing over CART_WHEEL_STEP above
+	 * itself for ground (a wall: it holds its height).
+	 */
+	static final float CART_AXLE_EASE = 0.7F;
+	static final float CART_AXLE_RISE = 0.35F;
+	static final float CART_AXLE_DROP = 0.8F;
+	static final double CART_WHEEL_STEP = 3.0;
+	/**
+	 * The cart has weight (user, 2026-11-06: not rigid, not floaty, no sudden stop). Each corner of it is carried by its wheel on
+	 * a spring and damper: its rate gains CART_SUSPENSION of how far it is below where the wheel would hold it, and CART_DAMPER of
+	 * how far its rate is from the ground's. They can only hold it up, so with nothing under it a corner falls at CART_GRAVITY a
+	 * tick (a horse's own), up to CART_FALL_MOST a tick, and coming down it compresses them and comes to rest, not all at once.
+	 */
+	static final double CART_SUSPENSION = 0.12;
+	static final double CART_DAMPER = 0.45;
+	/** (Of the ground's own rate it takes only this much at once: it comes through the spring, not as a kick.) */
+	static final double CART_DAMPER_GROUND = 0.15;
+	static final double CART_GRAVITY = 0.08;
+	static final double CART_FALL_MOST = 1.5;
+	/**
+	 * The body doesn't answer every block edge (user, 2026-11-06: going fast over hills was jerky): it rides on the ground averaged
+	 * along the cart, a stretch either way of CART_AVERAGE_PER_SPEED blocks for each block a tick it's going (its pace eased
+	 * CART_PACE_EASE a tick), from CART_AVERAGE_LEAST to CART_AVERAGE_MOST. An average has no lag on a steady slope, and turns each edge
+	 * into a slope as long as the stretch. The wheels still take every edge, on their suspension.
+	 */
+	static final double CART_AVERAGE_PER_SPEED = 4.0;
+	static final double CART_AVERAGE_LEAST = 0.5;
+	static final double CART_AVERAGE_MOST = 2.5;
+	static final double CART_PACE_EASE = 0.1;
+	static final float CART_TILT_MAX = 42.0F;
+	static final float CART_ROLL_MAX = 20.0F;
+	/**
+	 * Drawn, each wheel goes up to CART_WHEEL_BUMP blocks up into the cart where the ground is higher than the body has come to,
+	 * and hangs at most CART_WHEEL_DROOP below it, so a wheel over a drop stays in the air (user, 2026-11-06). They take
+	 * CART_WHEEL_TRAVEL_EASE of the way a tick.
+	 */
+	static final float CART_WHEEL_BUMP = 0.6F;
+	static final float CART_WHEEL_DROOP = 0.2F;
+	static final float CART_WHEEL_TRAVEL_EASE = 0.6F;
+	/**
+	 * The body never goes into the ground (user, 2026-11-06): it comes up off whatever it would, a wheel's ground once its
+	 * suspension is used up, at most CART_REST_RISE blocks a tick, and the ground under its bed (CART_BED_CLEAR above the wheels'
+	 * feet, reaching CART_BED_SIDE across, from CART_BED_FRONT behind the cart's origin to CART_BED_PAST past its rear axle) at most
+	 * CART_BED_RISE blocks.
+	 */
+	static final double CART_REST_RISE = 0.2;
+	static final double CART_BED_CLEAR = 0.75;
+	static final double CART_BED_SIDE = 1.0;
+	static final double CART_BED_FRONT = 1.0625;
+	static final double CART_BED_PAST = 0.9;
+	static final double CART_BED_RISE = 0.35;
+	/**
+	 * A wheel rolls over the ground as if every rise and drop along the cart had a ramp on it (user, 2026-11-06), CART_RAMP_SLOPE
+	 * blocks up for each block along, up to CART_RAMP_REACH blocks away: enough for a ramp up two blocks.
+	 */
+	static final double CART_RAMP_SLOPE = 0.75;
+	static final double CART_RAMP_REACH = 2.67;
+	/**
+	 * Over the last CART_SWING_SOFT degrees before the shafts stop it, a horse turning further off its cart
+	 * eases off, instead of stopping dead against them.
+	 */
+	static final float CART_SWING_SOFT = 8.0F;
+	/**
+	 * A cart stands this far further behind its horse than Icy's mod has it, by the horse's height (user, 2026-11-06: the
+	 * rider was in the horse's hindquarters, on the biggest most of all): CART_BEHIND_SCALE of its height less CART_BEHIND_LESS.
+	 */
+	static final double CART_BEHIND_SCALE = 0.6;
+	static final double CART_BEHIND_LESS = 0.46;
+	static final double CART_BEHIND_LEAST = 0.35;
+	/**
+	 * The shafts give a little: a cart hangs back as the horse gets it going and rolls up on it as it slows, CART_GIVE_GAIN
+	 * blocks for each block a tick its speed changes in a tick, at most CART_GIVE_MAX, on a slower spring of its own.
+	 */
+	static final double CART_GIVE_GAIN = 12.0;
+	static final double CART_GIVE_MAX = 0.12;
+	static final double CART_GIVE_SPRING = 0.05;
+	static final double CART_GIVE_DAMPING = 0.4;
+	/** (How much of its change in speed each tick that goes by: a horse's speed wavers over rough ground, and shouldn't shake the cart.) */
+	static final double CART_GIVE_SMOOTH = 0.15;
+	/** With three wheels on the ground, how far the fourth drawing away counts: the cart leans this share towards it (user, 2026-11-06). */
+	static final double CART_HANG_LEAN = 0.2;
+	/** How far above or below the horse a cart goes on its own wheels before the shafts bring it along (blocks). */
+	static final double CART_HITCH_SLACK = 2.5;
 
 	private RideTuning() {
 	}

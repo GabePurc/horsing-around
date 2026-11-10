@@ -16,12 +16,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.fabricmc.loader.api.FabricLoader;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.TestInput;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestServerContext;
+import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
@@ -43,7 +42,7 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>Run with {@code ./gradlew runClientGameTest -Ptests=mounts}.
  */
-public final class MountsTest implements FabricClientGameTest {
+public final class MountsTest implements ClientGameTest {
 	/** Superflat: grass at y -61, so feet at -60. */
 	private static final int GROUND = -60;
 
@@ -60,8 +59,8 @@ public final class MountsTest implements FabricClientGameTest {
 		GROUND, LAVA, WATER, SURFACE, AIR
 	}
 
-	private static final String SADDLE = "equipment:{saddle:{id:\"minecraft:saddle\",count:1}}";
-	private static final String FIREPROOF = "active_effects:[{id:\"minecraft:fire_resistance\",duration:-1,show_particles:0b}]";
+	private static final String SADDLE = Versions.saddle();
+	private static final String FIREPROOF = Versions.endlessEffect("fire_resistance");
 
 	private static final List<Mount> HORSES = List.of(
 		new Mount("horse", "Tame:1b," + SADDLE, null, Arena.GROUND),
@@ -75,8 +74,8 @@ public final class MountsTest implements FabricClientGameTest {
 	private static final List<Mount> VANILLA = List.of(
 		new Mount("camel", "Tame:1b," + SADDLE, null, Arena.GROUND),
 		new Mount("camel_husk", "Tame:1b," + SADDLE, null, Arena.GROUND),
-		new Mount("pig", SADDLE, "carrot_on_a_stick", Arena.GROUND),
-		new Mount("strider", SADDLE, "warped_fungus_on_a_stick", Arena.LAVA),
+		new Mount("pig", Versions.pigSaddle(), "carrot_on_a_stick", Arena.GROUND),
+		new Mount("strider", Versions.pigSaddle(), "warped_fungus_on_a_stick", Arena.LAVA),
 		new Mount("happy_ghast", "equipment:{body:{id:\"minecraft:white_harness\",count:1}}", null, Arena.AIR),
 		new Mount("nautilus", "Tame:1b," + SADDLE, null, Arena.WATER),
 		new Mount("zombie_nautilus", "Tame:1b," + SADDLE, null, Arena.WATER)
@@ -95,7 +94,7 @@ public final class MountsTest implements FabricClientGameTest {
 				.create()) {
 			final TestServerContext server = world.getServer();
 			server.runCommand("time set noon");
-			server.runCommand("gamerule spawn_mobs false");
+			server.runCommand(Versions.rule("spawn_mobs") + " false");
 			world.getConnection().waitForChunksRender();
 			final TestInput input = ctx.getInput();
 
@@ -106,8 +105,11 @@ public final class MountsTest implements FabricClientGameTest {
 				horseFamily(ctx, input, world, mount);
 			}
 			skeletonHorseUnderwater(ctx, input, world);
+			// (Every one this version has.)
 			for (final Mount mount : VANILLA) {
-				vanillaMount(ctx, input, world, mount);
+				if (Versions.hasEntity(mount.id)) {
+					vanillaMount(ctx, input, world, mount);
+				}
 			}
 			llama(ctx, input, world);
 			vehicles(ctx, input, world);
@@ -250,7 +252,8 @@ public final class MountsTest implements FabricClientGameTest {
 		sideScreenshot(ctx, "mount_" + mount.id + "_side_moving");
 		input.releaseKey(o -> o.keyUp);
 		final double travelled = ctx.computeOnClient(mc -> mc.player.getVehicle() == null ? 0.0 : mc.player.getVehicle().position().distanceTo(start));
-		check("rides forward with vanilla controls (blocks)", travelled, 1.0, 80.0);
+		// (A nautilus goes by dashes, and in a pack of mods some runs catch it after a short one.)
+		check("rides forward with vanilla controls (blocks)", travelled, mount.id.contains("nautilus") ? 0.4 : 1.0, 80.0);
 		check("rider still mounted", ctx.computeOnClient(mc -> mc.player.getVehicle() != null));
 		ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
 		ctx.waitTick();
@@ -298,7 +301,8 @@ public final class MountsTest implements FabricClientGameTest {
 
 	private void vehicles(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
 		section("Boats and minecarts");
-		for (final String id : new String[] {"oak_boat", "minecart"}) {
+		// (Boats were one type before 1.21.2.)
+		for (final String id : new String[] {Versions.hasEntity("oak_boat") ? "oak_boat" : "boat", "minecart"}) {
 			firstPerson(ctx);
 			mount(ctx, world, new Mount(id, "", null, Arena.GROUND), nextLane());
 			input.holdKey(o -> o.keyUp);
@@ -322,20 +326,29 @@ public final class MountsTest implements FabricClientGameTest {
 		server.runCommand("difficulty easy");
 		final int x = nextLane();
 		server.runCommand(String.format(Locale.ROOT, "tp @p %d %d 7 180 15", x, GROUND));
-		// Glass between them: a zombie horseman's spear knocks whatever it hits off its mount (vanilla), and wandering into the
-		// skeleton horseman it did, now and then.
-		server.runCommand(String.format(Locale.ROOT, "fill %d %d -12 %d %d 6 minecraft:glass", x - 2, GROUND, x - 2, GROUND + 3));
-		server.runCommand(String.format(Locale.ROOT, "fill %d %d -12 %d %d 6 minecraft:glass", x + 2, GROUND, x + 2, GROUND + 3));
+		// A glass pen each, closed in front of the player: riders that meet fight (a zombie horseman's spear knocks whatever
+		// it hits off its mount, and a skeleton's stray arrow starts a fight it can lose), and through glass none sees the
+		// player to go for them.
+		for (final int wall : new int[] {x - 6, x - 2, x + 2, x + 6}) {
+			server.runCommand(String.format(Locale.ROOT, "fill %d %d -12 %d %d 5 minecraft:glass", wall, GROUND, wall, GROUND + 3));
+		}
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d -12 %d %d -12 minecraft:glass", x - 6, GROUND, x + 6, GROUND + 3));
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d 5 %d %d 5 minecraft:glass", x - 6, GROUND, x + 6, GROUND + 3));
 		ctx.waitTicks(10);
-		// (Helmets on the riders and fire resistance on the horses: the undead burn, and flee, in the sun.)
+		// (Helmets on the riders and fire resistance on the horses: the undead burn, and flee, in the sun. Tame, as vanilla's
+		// horsemen are: before 26.2 an untamed horse throws even a mob off now and then.)
 		server.runCommand(String.format(Locale.ROOT,
-			"summon minecraft:zombie_horse %d %d 0 {Tags:[\"horseman\"],PersistenceRequired:1b,%s,Passengers:[{id:\"minecraft:zombie\",PersistenceRequired:1b,%s,"
-				+ "equipment:{mainhand:{id:\"minecraft:iron_spear\",count:1},head:{id:\"minecraft:iron_helmet\",count:1}}}]}", x - 4, GROUND, FIREPROOF, FIREPROOF));
+			"summon minecraft:zombie_horse %d %d 0 {Tags:[\"horseman\"],Tame:1b,PersistenceRequired:1b,%s,Passengers:[{id:\"minecraft:zombie\",PersistenceRequired:1b,%s,"
+				+ Versions.gear(Versions.hasItem("iron_spear") ? "iron_spear" : "iron_sword", "iron_helmet") + "}]}", x - 4, GROUND, FIREPROOF, FIREPROOF));
 		server.runCommand(String.format(Locale.ROOT,
-			"summon minecraft:skeleton_horse %d %d 0 {Tags:[\"horseman\"],PersistenceRequired:1b,%s,Passengers:[{id:\"minecraft:skeleton\",PersistenceRequired:1b,%s,"
-				+ "equipment:{mainhand:{id:\"minecraft:bow\",count:1},head:{id:\"minecraft:iron_helmet\",count:1}}}]}", x, GROUND, FIREPROOF, FIREPROOF));
-		server.runCommand(String.format(Locale.ROOT,
-			"summon minecraft:camel_husk %d %d 0 {Tags:[\"horseman\"],PersistenceRequired:1b,Passengers:[{id:\"minecraft:husk\",PersistenceRequired:1b}]}", x + 4, GROUND));
+			"summon minecraft:skeleton_horse %d %d 0 {Tags:[\"horseman\"],Tame:1b,PersistenceRequired:1b,%s,Passengers:[{id:\"minecraft:skeleton\",PersistenceRequired:1b,%s,"
+				+ Versions.gear("bow", "iron_helmet") + "}]}", x, GROUND, FIREPROOF, FIREPROOF));
+		// (Camel husks are 1.21.11 on.)
+		final int pairs = Versions.hasEntity("camel_husk") ? 3 : 2;
+		if (pairs == 3) {
+			server.runCommand(String.format(Locale.ROOT,
+				"summon minecraft:camel_husk %d %d 0 {Tags:[\"horseman\"],Tame:1b,PersistenceRequired:1b,Passengers:[{id:\"minecraft:husk\",PersistenceRequired:1b}]}", x + 4, GROUND));
+		}
 		ctx.waitTicks(100);
 		ctx.runOnClient(mc -> mc.gui.hud.getChat().clearMessages(false));
 		screenshot(ctx, "mount_mob_riders");
@@ -357,7 +370,7 @@ public final class MountsTest implements FabricClientGameTest {
 			return new int[] {ridden, narrow};
 		});
 		log("  %s", riders);
-		check("all three mob riders still mounted after 5 s", counts[0], 3, 3);
+		check("every mob rider still mounted after 5 s", counts[0], pairs, pairs);
 		check("mob-ridden horses keep their full box", counts[1], 0, 0);
 		server.runCommand("kill @e[tag=horseman]");
 		server.runCommand("kill @e[type=minecraft:zombie]");
@@ -383,7 +396,10 @@ public final class MountsTest implements FabricClientGameTest {
 		check("and the riding camera lets go", !ctx.computeOnClient(mc -> RideCamera.isRiding()));
 		// (Its own type's width, unnarrowed: with Icy's Better Horses the vanilla horse has become one of its breeds.)
 		check("and the box is the horse's own (width over its type's)",
+			//? if >=1.20.5 {
 			ctx.computeOnClient(mc -> (double) (mc.player.getVehicle().getBbWidth() / mc.player.getVehicle().getType().getDimensions().width())), 0.99, 1.01);
+			//?} else
+			/*ctx.computeOnClient(mc -> (double) (mc.player.getVehicle().getBbWidth() / mc.player.getVehicle().getType().getDimensions().width)), 0.99, 1.01);*/
 		input.lookAt(180.0F, 10.0F);
 		input.holdKey(o -> o.keyUp);
 		ctx.waitTicks(40);
@@ -573,7 +589,10 @@ public final class MountsTest implements FabricClientGameTest {
 
 	/** How far Icy's model of this horse banks, degrees (its root part's roll, as last drawn). */
 	private static float icyModelBank(final Entity horse) {
+		//? if >=1.21.2 {
 		final Object model = ((LivingEntityRenderer<?, ?, ?>) Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(horse)).getModel();
+		//?} else
+		/*final Object model = ((LivingEntityRenderer<?, ?>) Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(horse)).getModel();*/
 		try {
 			final Field root = Class.forName("icy.betterhorses.net.client.render.BhHorseModel").getDeclaredField("rootPart");
 			root.setAccessible(true);
@@ -718,7 +737,7 @@ public final class MountsTest implements FabricClientGameTest {
 	}
 
 	private void writeReport() {
-		final Path file = FabricLoader.getInstance().getGameDir().resolve("horsingaround-mounts-report.txt");
+		final Path file = TestEnv.gameDir().resolve("horsingaround-mounts-report.txt");
 		try {
 			Files.write(file, this.report);
 		} catch (final IOException e) {

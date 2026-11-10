@@ -117,6 +117,10 @@ This area was reworked most. Read it before changing it.
 - 2026-10-22, user: "legs jump up really quickly to avoid clipping"; avoid it smoothly and realistically. Dropped: a hoof following
   a moving height (it passed a step edge's flicker through), looking as far ahead when planted (animations slide planted hooves
   forward, so they hovered before every step), setting down as slowly as lifting (it hovered).
+- 2026-11-09, user: a smoothness pass, "still keeping it feeling realistic". Measured first, frame by frame (`SmoothProbe`): flat
+  riding was smooth already; the jolts were takeoffs, the tilt in the air and at its rate limit, and the legs' clock. Dropped: a
+  plain spring on the tilt (it lagged down slopes, hooves off the ground); a body-lifted hoof looking as far ahead as a swinging
+  one (more hover, same pops). Left alone: speed and turning (the plan models them), the hard cut's pivot, the dead stop at a gap.
 - 2026-10-31, user: go back to before the recent leg and animation work and keep the fixes. Removed or never merged: stepping legs
   near a step, the body-tilt rework, the medieval rider seat, procedural legs for the plain model, legs on bones, an always-seated
   rider (#66-#70). Kept on branches: `stride-climb`, `rider-seat`, `gait-cycles`, `footfall-legs`, `no-standing`.
@@ -128,6 +132,9 @@ This area was reworked most. Read it before changing it.
   push the rider back and bring a hand up, since going through them felt like phasing.
 - Issues #17, #18: hold a tool or weapon relaxed at the side, swings starting and returning there; a believable bow draw. First
   tries laid the sword along the neck or held it like a lance. Blocky and vanilla in style; first person untouched.
+- 2026-11-09, user: the rider "snaps a little bit". The half seat and the pelvis' rock went by leg-animation speed, which stops
+  within a tick in the air (12 degrees upright in a frame at every gallop jump, and a lurch at each change to or from a gallop);
+  the rider sat back while the neck was still reaching; the sway whipped at a tick's change of pace. Each is on a spring now.
 
 ## Water
 
@@ -135,6 +142,17 @@ This area was reworked most. Read it before changing it.
 - 2026-10-07, user: it climbed banks three blocks out of the water; one at most.
 - Issue #15: leaving water launched the body about 2.6 blocks, because the drawn body took the physics box's step as its own speed.
   The drawn body always carries its own speed.
+
+## Icy's carts
+
+2026-11-06, one day of play-tests with the user, each step fixing the last:
+
+- Icy's wheel animation bounced the bed and rider, and lean came only from the tilt. A first version on wheel heights, eased hard to keep them on the ground, felt "extremely rigid".
+- Soft springs on tilt and height felt floaty, and a body hung from the hitch flew up 2-block rises; wheels then roll as if on ramps.
+- Keeping the body out of the ground by tilting it tipped a two-wheeled cart nearly on end going downhill: it has to rise on its wheels, tilt capped, shafts reaching for the horse.
+- Gravity and suspension per corner gave weight, but at speed each block edge made an axle hop ("really jerky"): the body follows ground averaged along the cart, wider at speed.
+- Reading the horse's height for the cart's tilt shook it with every step; it reads the ground under the horse.
+- A field with an initializer plus a `static` one with an initializer in a mixin left the instance one unset (a crash): keep such statics in plain classes.
 
 ## Multiplayer and versions
 
@@ -149,3 +167,4 @@ This area was reworked most. Read it before changing it.
 - 2026-11-03, user: settings in tabs rather than sections on one list, and no longer bland. A flat dusk palette read as too plain
   and not Minecraft; wood, stitched leather, strap sliders and brass buckles are what stuck. The hat tab says how to get the hat in
   plain words for non-supporters, rather than only in a tooltip.
+- 2026-11-10, user: the camera tab shows the world behind, sharp; the solid panel hid camera changes.

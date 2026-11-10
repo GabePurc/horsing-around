@@ -1,13 +1,12 @@
 package dev.horsingaround.gametest.mixin;
 
+//? if >=26.3 {
 import net.minecraft.client.DeltaTracker;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-/**
- * Test-only: the game's own frame timer, so the store clips can draw each frame at its own moment. The mod's leg code and
- * Entity Model Features read the partial tick and frame time from this timer, not from the delta a frame is drawn with.
- */
+// Test-only: the game's own frame timer, so the store clips can draw each frame at its own moment. The mod's leg code and
+// Entity Model Features read the partial tick and frame time from this timer, not from the delta a frame is drawn with.
 @Mixin(DeltaTracker.Timer.class)
 public interface DeltaTrackerTimerAccessor {
 	@Accessor("deltaTicks")
@@ -34,3 +33,4 @@ public interface DeltaTrackerTimerAccessor {
 	@Accessor("realtimeDeltaTicks")
 	void horsingaroundtest$setRealtimeDeltaTicks(float ticks);
 }
+//?}

@@ -1,0 +1,11 @@
+// On Linux, games started from a Wayland session's shell use X11 (Xwayland), as the same command does from any other shell.
+// Otherwise the game tries Wayland, which fails with some drivers (NVIDIA on Ubuntu): it falls back to another graphics
+// backend, or crashes, so results would depend on where the command was typed. Other systems are left alone.
+tasks.withType(JavaExec).configureEach {
+	doFirst {
+		if (System.getProperty("os.name").startsWith("Linux") && System.getenv("DISPLAY") != null) {
+			environment.remove("WAYLAND_DISPLAY")
+			environment("XDG_SESSION_TYPE", "x11")
+		}
+	}
+}

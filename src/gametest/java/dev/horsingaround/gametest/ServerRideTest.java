@@ -1,9 +1,8 @@
 package dev.horsingaround.gametest;
 
-import dev.horsingaround.client.HorsingAroundClient;
 import dev.horsingaround.client.cosmetic.Hats;
 import dev.horsingaround.client.cosmetic.Supporters;
-import dev.horsingaround.net.RulesPayload;
+import dev.horsingaround.Platform;
 import dev.horsingaround.ride.HorseConfig;
 import dev.horsingaround.ride.IcyCompat;
 import dev.horsingaround.net.ServerRules;
@@ -15,14 +14,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerConnection;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.loader.api.FabricLoader;
+import dev.horsingaround.gametest.harness.ClientGameTest;
+import dev.horsingaround.gametest.harness.TestInput;
+import dev.horsingaround.gametest.harness.context.ClientGameTestContext;
+import dev.horsingaround.gametest.harness.context.TestDedicatedServerConnection;
+import dev.horsingaround.gametest.harness.context.TestDedicatedServerContext;
+import dev.horsingaround.gametest.harness.context.TestServerConnection;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -40,7 +37,10 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>Run with {@code ./gradlew runClientGameTest -Ptests=server}.
  */
-public final class ServerRideTest implements FabricClientGameTest {
+public final class ServerRideTest implements ClientGameTest {
+	/** While set, the server finds none of the mod's channels on a player (test mixin PlatformMixin). */
+	public static volatile boolean withoutMod;
+
 	private static final int GROUND = -60;
 
 	private final List<String> report = new ArrayList<>();
@@ -54,9 +54,17 @@ public final class ServerRideTest implements FabricClientGameTest {
 		}
 		TestPacks.enable(ctx);
 		boolean completed = false;
+		// (Nothing reads it again in this game: only a dedicated server with Icy's Better Horses has a reason to write it now.)
+		final Path settings = Platform.configDir().resolve("horsingaround.json");
+		try {
+			Files.deleteIfExists(settings);
+		} catch (final IOException e) {
+			throw new IllegalStateException(e);
+		}
 		try (LogWatch watch = LogWatch.begin(); TestDedicatedServerContext server = ctx.worldBuilder().createServer()) {
 			server.runCommand("time set noon");
-			server.runCommand("gamerule spawn_mobs false");
+			check("a dedicated server writes the settings file its riding style goes in, with Icy's Better Horses installed", Files.exists(settings) == IcyCompat.LOADED);
+			server.runCommand(Versions.rule("spawn_mobs") + " false");
 			server.runCommand("difficulty peaceful");
 
 			try (TestDedicatedServerConnection connection = server.connect()) {
@@ -83,15 +91,15 @@ public final class ServerRideTest implements FabricClientGameTest {
 				course(ctx, server, connection, watch, true);
 			}
 
-			// The same server joined by a player without the mod (simulated by not listening for the server's rules).
-			ClientPlayNetworking.unregisterGlobalReceiver(RulesPayload.TYPE.id());
+			// The same server joined by a player without the mod (simulated: the server finds none of the mod's channels on it).
+			withoutMod = true;
 			try (TestDedicatedServerConnection connection = server.connect()) {
 				section("Joining the same server without the mod");
 				connection.waitForChunksRender();
 				check("the client doesn't hear from the server's mod", !ctx.computeOnClient(mc -> ServerRules.present));
 				course(ctx, server, connection, watch, false);
 			} finally {
-				ClientPlayNetworking.registerGlobalReceiver(RulesPayload.TYPE, (rules, context) -> HorsingAroundClient.acceptRules(rules));
+				withoutMod = false;
 			}
 
 			section("Log");
@@ -184,21 +192,22 @@ public final class ServerRideTest implements FabricClientGameTest {
 		}
 		this.stopAndCompare(ctx, input, server, connection, watch, "steps, ledge and ditch");
 
-		// Deep water: swim across and climb out.
-		x = this.nextLane();
-		server.runCommand(String.format(Locale.ROOT, "fill %d %d -10 %d %d -30 minecraft:air", x - 3, GROUND - 4, x + 3, GROUND - 1));
-		server.runCommand(String.format(Locale.ROOT, "fill %d %d -10 %d %d -30 minecraft:water", x - 3, GROUND - 4, x + 3, GROUND - 1));
-		this.mount(ctx, server, connection, x);
-		input.lookAt(180.0F, 10.0F);
-		input.holdKey(o -> o.keyUp);
-		input.pressKey(o -> o.keySprint);
-		ctx.waitTicks(400);
-		final double across = -ctx.computeOnClient(mc -> mc.player.getVehicle() == null ? 0.0 : mc.player.getVehicle().getZ());
+		// Deep water: swim across and climb out. (With the mod only: before 26.1 a vanilla horse throws its rider in deep water,
+		// who then drowns.)
 		if (modded) {
+			x = this.nextLane();
+			server.runCommand(String.format(Locale.ROOT, "fill %d %d -10 %d %d -30 minecraft:air", x - 3, GROUND - 4, x + 3, GROUND - 1));
+			server.runCommand(String.format(Locale.ROOT, "fill %d %d -10 %d %d -30 minecraft:water", x - 3, GROUND - 4, x + 3, GROUND - 1));
+			this.mount(ctx, server, connection, x);
+			input.lookAt(180.0F, 10.0F);
+			input.holdKey(o -> o.keyUp);
+			input.pressKey(o -> o.keySprint);
+			ctx.waitTicks(400);
+			final double across = -ctx.computeOnClient(mc -> mc.player.getVehicle() == null ? 0.0 : mc.player.getVehicle().getZ());
 			check("swims across deep water and climbs out (blocks along)", across, 32.0, 400.0);
 			check("rider still mounted after the water", ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse));
+			this.stopAndCompare(ctx, input, server, connection, watch, "deep water");
 		}
-		this.stopAndCompare(ctx, input, server, connection, watch, "deep water");
 
 		// Trampling (decided by the server): chickens in the way of a gallop.
 		x = this.nextLane();
@@ -274,7 +283,7 @@ public final class ServerRideTest implements FabricClientGameTest {
 		ctx.waitTicks(10);
 		connection.waitForChunksRender();
 		server.runCommand(String.format(Locale.ROOT, "summon " + TestHorse.TYPE + " %d.5 %d 0.5 {Tame:1b,Rotation:[180f,0f],"
-			+ "equipment:{saddle:{id:\"minecraft:saddle\",count:1}},attributes:[{id:\"minecraft:movement_speed\",base:0.225d}],Tags:[\"server_test\"]}", x, GROUND));
+			+ Versions.saddle() + "," + Versions.attributes("movement_speed", 0.225) + ",Tags:[\"server_test\"]}", x, GROUND));
 		for (int attempt = 0; attempt < 10 && !ctx.computeOnClient(mc -> mc.player.getVehicle() instanceof AbstractHorse); attempt++) {
 			ctx.waitTicks(5);
 			server.runCommand("ride @p mount @e[type=" + TestHorse.TYPE + ",tag=server_test,limit=1]");
@@ -322,7 +331,7 @@ public final class ServerRideTest implements FabricClientGameTest {
 	}
 
 	private void writeReport() {
-		final Path file = FabricLoader.getInstance().getGameDir().resolve("horsingaround-server-report.txt");
+		final Path file = TestEnv.gameDir().resolve("horsingaround-server-report.txt");
 		try {
 			Files.write(file, this.report);
 		} catch (final IOException e) {

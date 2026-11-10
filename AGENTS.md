@@ -1,7 +1,8 @@
 # Horsing Around
 
-A Minecraft mod (Fabric and NeoForge, 1.20.1 to 26.3, Mojang names) that makes horse riding feel weighty and alive. Red
-Dead Redemption 2 is the feel target; vanilla is the style boundary. The user guides the feel; Claude is the sole developer.
+A Minecraft mod (Fabric and NeoForge 1.20.1 to 26.3, Forge 1.20.1, Mojang names) that makes horse riding feel weighty and
+alive. Red Dead Redemption 2 is the feel target; vanilla is the style boundary. The user guides the feel; Claude is the sole
+developer.
 
 ## How to decide
 
@@ -27,8 +28,11 @@ Everything else here is guidance; these hold because the user asked for them or 
 - Every version keeps building and passing its audit, on any machine: no machine-specific paths in the repo (a local JDK
   goes in `~/.gradle/gradle.properties`).
 - The supporter hat (user, 2026-10-08) stays cosmetic: never an item or a gameplay advantage. Mojang's usage guidelines
-  allow cosmetics, not capes. Add a supporter to `supporters.json` by PR when the user asks.
+  allow cosmetics, not capes. `hats/` adds supporters by itself; to add one by hand, run `supporters.yml`.
 - Public text (README, changelog, store descriptions) follows `docs/releasing.md`.
+- Every change, however small, starts from a GitHub issue (user, 2026-11-06): reuse one that fits or open one, assigned to
+  `@me`. Branch as `<n>-<slug>` from a just-fetched origin/main, not local main; in an app worktree, sync with main first.
+  The PR says `Closes #<n>`.
 
 ## Docs
 
@@ -62,21 +66,25 @@ then read that range.
 
 - `src/main/.../ride/`: the ride itself (`RideController`, `Awareness` for the horse's look-ahead and planning, `Footing`, `Mounts`).
 - `src/main/.../net/`: payloads. `src/client/.../render/`: legs, rider and body posing. `src/client/.../cosmetic/`: the hat.
-- `RideCamera`, `RideAim`, `RiderKeys` in `src/client/.../client/`. `src/gametest/`, `src/smoke/`: tests.
+- `src/gametest/`, `src/smoke/`: tests.
 
 ## Build and test
 
 All versions build from the one `src/` with Stonecutter. `src/` reads as 26.3 code (Java 25); older versions' code sits in
 `//?` comments. Gradle picks the JDK. Jars land in `versions/<version>/build/libs/`.
 
-- Shared code changed: `./gradlew build` and `./gradlew auditMixins` (every jar in a production client and server).
-- Gameplay changed: `./gradlew runClientGameTest` narrowed with `-Ptests=`/`-Psections=` while iterating, and
-  `./gradlew runClientGameTestParallel --continue` for full runs. Don't start a second test game yourself: two games at
-  once make ride checks flaky.
-- Version-specific code changed: `./gradlew :<version>:runSmoke`.
-- Mixins changed, or a release: `./gradlew runCompat --continue`.
-- Play: `./gradlew :26.3:runClient` (plain `runClient` matches every version and fails Gradle validation). Dev runs load Mod
-  Menu, Entity Model Features, Entity Texture Features and Fresh Animations, the user's target setup.
+While developing (user, 2026-11-05), test only what you're changing: `./gradlew :26.3:build`, then `./gradlew :26.3:runClientGameTest`
+narrowed with `-Ptests=`/`-Psections=`, or `./gradlew :<version>:runSmoke` for version-specific code.
 
-Keep test output out of the conversation: send a run to a file, read its tail, then the failures (`docs/testing.md`). View only
-the screenshots that matter.
+Before merging, run the real tests:
+
+- `./gradlew build auditMixins` (every jar in a production client and server).
+- `./gradlew runClientGameTestParallel --continue`.
+- Version-specific code changed: `./gradlew :<version>:runSmoke`.
+- Mixins changed: `./gradlew runCompat --continue`.
+
+Play: `./gradlew :26.3:runClient` (plain `runClient` matches every version and fails). Dev runs load Mod
+Menu, Entity Model Features, Entity Texture Features and Fresh Animations, the user's target setup.
+
+Don't start a second test game yourself: two games at once make ride checks flaky. Keep test output out of the conversation:
+send a run to a file, read its tail, then the failures (`docs/testing.md`). View only the screenshots that matter.

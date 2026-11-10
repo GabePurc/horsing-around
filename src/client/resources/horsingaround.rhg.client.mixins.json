@@ -1,0 +1,10 @@
+{
+	"required": false,
+	"package": "dev.horsingaround.client.mixin.rhg",
+	"plugin": "dev.horsingaround.client.forge.GeneticsMixinPlugin",
+	"compatibilityLevel": "JAVA_${mixinJava}",
+	"mixins": [],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}

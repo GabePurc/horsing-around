@@ -36,6 +36,7 @@ public final class HorsingAroundFabric implements ModInitializer {
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, joined) -> HorsingAround.joined(handler.player));
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, left) -> HatRelay.left(handler.player));
 		ServerTickEvents.END_SERVER_TICK.register(HatRelay::tick);
+		ServerLifecycleEvents.SERVER_STARTED.register(HorsingAround::serverStarted);
 		ServerLifecycleEvents.SERVER_STOPPED.register(stopped -> HatRelay.clear());
 		CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> Mounts.invalidate());
 		if (MixinAudit.ENABLED) {

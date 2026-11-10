@@ -1,0 +1,237 @@
+// Fabric 26.3 only (applied by build.gradle there): shader packs on the client test runs, and the compatibility runs.
+// Pinned by Modrinth version id, not version number: some mods reuse a number across Minecraft versions.
+
+// Shaders on any client test run (store stills, or legs with a pack's shadow pass): -PshaderPack=<path to a shader
+// pack zip> also loads Sodium and Iris (the compatibility pack's versions) and turns that pack on, with its settings
+// file (<pack>.txt) when there is one. Dev-only; nothing here ships.
+def storeShaderPack = project.findProperty("shaderPack")
+if (storeShaderPack) {
+	dependencies {
+		modLocalRuntime "maven.modrinth:sodium:v4PSXean"
+		modLocalRuntime "maven.modrinth:iris:vTN4NRGW"
+	}
+	def pack = file(storeShaderPack)
+	def packSettings = new File(pack.path + ".txt")
+	def shaderPacks = rootProject.layout.buildDirectory.dir("run/clientGameTest/shaderpacks").get().asFile
+	def irisConfig = rootProject.layout.buildDirectory.file("run/clientGameTest/config/iris.properties").get().asFile
+	tasks.matching { it.name == "runClientGameTest" }.configureEach {
+		doFirst {
+			shaderPacks.mkdirs()
+			java.nio.file.Files.copy(pack.toPath(), new File(shaderPacks, pack.name).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+			if (packSettings.exists()) {
+				java.nio.file.Files.copy(packSettings.toPath(), new File(shaderPacks, packSettings.name).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+			}
+			irisConfig.parentFile.mkdirs()
+			irisConfig.text = "enableShaders=true\nshaderPack=${pack.name}\ndisableUpdateMessage=true\n"
+		}
+	}
+}
+
+// Compatibility runs: the built mod in a real (production) game alongside packs of popular mods from Modrinth, running
+// the client tests (mounts, the dedicated-server ride and the core ride sections). Each pack runs on its own:
+//   ./gradlew runCompatPerformance (or Animation, Camera, Horses), or ./gradlew runCompat --continue for all of them.
+// Reports, screenshots and the game log land in build/run/compat/<pack>/. A run fails on failed checks, a crash, a
+// mixin conflict, or a warning or error that names this mod; compat-findings.txt lists every mixin and mod warning
+// for review.
+
+// Always present: what the test setup needs (Fabric API, Mod Menu) and the user's Fresh Animations stack. Modrinth
+// version ids, not version numbers: some mods reuse a number across Minecraft versions.
+def compatBaseMods = [
+	"fabric-api:v2j28coa",            // 0.162.0+26.3
+	"modmenu:kyy7dbrZ",               // 21.0.0
+	"placeholder-api:lXytLqWj",       // 3.2.0+26.3
+	"entity-model-features:N7d5LddE", // 3.3.11
+	"entitytexturefeatures:O8J3sxxp", // 7.2.5
+]
+
+// 26.3 Fabric versions with their required dependencies (checked on Modrinth 2026-10-07).
+def compatPacks = [
+	performance: [
+		"sodium:v4PSXean",         // 0.9.3-alpha.1
+		"lithium:xS0Q8LSi",        // 0.26.2
+		"iris:vTN4NRGW",           // 1.11.7
+		"ferrite-core:d5ddUdiB",   // 9.0.0
+		"immediatelyfast:3MP9UR23", // 1.17.1
+		"entityculling:F4loCvYt",  // 1.11.2
+		"c2me-fabric:ODMLK8M9",    // 0.4.2-alpha.0.90
+		"moreculling:t7vAlfgO",    // 1.9.0
+		"cloth-config:fg2uyxOW",   // 26.3.159
+	],
+	animation: [
+		"not-enough-animations:EhSk2OTD",    // 1.12.6
+		"emotecraft:M17ZQBUj",               // 3.5.0-a.build.171
+		"player-animation-library:xJ30QmpE", // 1.2.8
+		"better-combat:8Vyq1h9a",            // 3.2.2
+		"cloth-config:fg2uyxOW",             // 26.3.159
+		"first-person-model:Z05WZTy2",       // 2.7.3
+	],
+	camera: [
+		"shoulder-surfing-reloaded:sEg9bfXx", // 5.2.0
+		"forge-config-api-port:JpKvrr9J",     // 26.3.1
+		"cameraoverhaul:7MLFDlIG",            // 2.1.2
+		"cloth-config:fg2uyxOW",              // 26.3.159
+		"freecam:fZPu4tiS",                   // 1.5.0-alpha.2
+		"do-a-barrel-roll:fmAJrjVS",          // 3.8.5
+		"cicada:f5sDzSl6",                    // 0.15.3
+		"appleskin:PHjDtQay",                 // 3.0.10
+		"better-mount-hud:M3Fe5t0L",          // 1.3.1 (built for 26.2, loads on 26.3: hides the jump bar unless jump is held)
+		"raised:XeTvS6Rx",                    // 6.0.2
+		"jade:71CTWqdE",                      // 26.3.5
+		"xaeros-minimap:B2aG1aya",            // 26.6.0
+	],
+	horses: [
+		"horse-expert:qUjLS9C5",          // 26.3.1
+		"puzzles-lib:QeJZIb42",           // 26.3.12
+		"forge-config-api-port:JpKvrr9J", // 26.3.1
+		"horseman:SkbN0JlH",              // 1.7.5
+		"bareback-horse-riding:V9IYirdo", // 2.5
+		"collective:S1V3Trc7",            // 8.42
+		"mounts-stay-still:oeEmUoJn",     // 1.3.2
+	],
+	icys: [
+		"icys-better-horses:AvgqdGip", // 2.1.8 (turns vanilla horses into its breeds: a pack of its own)
+		"geckolib:kSxHvs99",           // 5.5.7
+		"modonomicon:DwjrSwcC",        // 26.3-2.20.0
+		"cloth-config:fg2uyxOW",       // 26.3.159 (its settings screen needs it)
+	],
+	realcamera: [
+		"real-camera:ROhlZqcT",  // 0.7.8-beta-26.3 (moves the first-person view itself: a pack of its own)
+		"cloth-config:fg2uyxOW", // 26.3.159 (its settings screen needs it)
+	],
+]
+
+def compatTests = project.findProperty("compatTests")
+// (The horses pack skips the server test: Horseman's server config isn't loaded in the test's second, in-process server.)
+// (Icy's pack rides one of its breeds through the horse tests, an American Paint: a vanilla horse's size, summoned with
+// the tests' own stats, and none of its abilities changes how it rides. MountsTest checks the breeds' traits.)
+def compatPackTests = [horses: "ride,mounts", icys: "ride,terrain,mounts,server,icy", realcamera: "realcamera,mounts,server,ride"]
+def compatPackHorse = [icys: "icys-better-horses:american_paint_horse"]
+def compatPlayScene = [icys: "cart"]
+// (Most packs run the ride test's core and cuts sections; Icy's runs every section, its breed standing in for the horse.)
+def compatPackSections = [icys: "", performance: "core,cuts,unseen"]
+def compatSections = project.findProperty("compatSections")
+
+configurations.register("compatBase") { transitive = false }
+compatPacks.each { name, mods ->
+	configurations.register("compat${name.capitalize()}") { transitive = false }
+}
+dependencies {
+	compatBaseMods.each { add("compatBase", "maven.modrinth:$it") }
+	compatPacks.each { name, mods ->
+		mods.each { add("compat${name.capitalize()}", "maven.modrinth:$it") }
+	}
+}
+
+// The client tests as a mod of their own (Minecraft 26 is unobfuscated, so no remapping).
+// (Outside build/libs, which holds only the jar players install.)
+def gametestJar = tasks.register("gametestJar", Jar) {
+	from sourceSets.gametest.output
+	archiveClassifier = "gametest"
+	destinationDirectory = rootProject.layout.buildDirectory.dir("compat-libs")
+}
+
+// The play scene as a mod of its own: never the tests' jar, whose mixins are for tests (they stop the game grabbing the mouse...).
+def playSceneJar = tasks.register("playSceneJar", Jar) {
+	from(sourceSets.gametest.output) { include "dev/horsingaround/gametest/PlayScene*.class" }
+	from(rootProject.file("src/gametest/playscene"))
+	archiveClassifier = "playscene"
+	destinationDirectory = rootProject.layout.buildDirectory.dir("compat-libs")
+}
+
+def freshAnimationsPack = project.ext.freshAnimationsZip
+// (A script plugin can't see Loom's classes by name; take the task type from Loom's own class loader.)
+def clientProductionRunTask = loom.getClass().classLoader.loadClass("net.fabricmc.loom.task.prod.ClientProductionRunTask")
+// One game at a time: each run opens a window and its server test takes the default server port.
+abstract class CompatGame implements org.gradle.api.services.BuildService<org.gradle.api.services.BuildServiceParameters.None> {}
+def compatGame = gradle.sharedServices.registerIfAbsent("compatGame", CompatGame) { maxParallelUsages = 1 }
+def runCompat = tasks.register("runCompat") {
+	group = "verification"
+	description = "Runs the client tests in a production game with each pack of popular mods."
+}
+compatPacks.keySet().each { name ->
+	def runDir = rootProject.layout.buildDirectory.dir("run/compat/$name").get().asFile
+	def task = tasks.register("runCompat${name.capitalize()}", clientProductionRunTask) {
+		group = "verification"
+		description = "Runs the client tests in a production game with the $name pack."
+		dependsOn "installFreshAnimations"
+		usesService(compatGame)
+		outputs.upToDateWhen { false } // Loom counts an unchanged run as up to date and would skip it.
+		finalizedBy "compatFindings${name.capitalize()}"
+		mods.from(tasks.named("jar"))
+		mods.from(gametestJar)
+		mods.from(configurations.named("compatBase"))
+		mods.from(configurations.named("compat${name.capitalize()}"))
+		jvmArgs.add("-Dhorsingaround.gametest")
+		jvmArgs.add("-Dhorsingaround.tests=" + (compatTests ?: compatPackTests[name] ?: "mounts,server,ride"))
+		jvmArgs.add("-Dhorsingaround.sections=" + (compatSections ?: compatPackSections.getOrDefault(name, "core,cuts")))
+		if (compatPackHorse[name]) {
+			jvmArgs.add("-Dhorsingaround.horse=" + compatPackHorse[name])
+		}
+		jvmArgs.add("-Dhorsingaround.scenario=")
+		jvmArgs.add("-Dhorsingaround.frameClock=" + !project.hasProperty("realTime"))
+		// (X11 on Linux, from a Wayland session's shell too: with RenderSystemMixin in the tests, as these can't be given an environment.)
+		if (System.getProperty("os.name").startsWith("Linux") && System.getenv("DISPLAY") != null) {
+			jvmArgs.add("-Dorg.lwjgl.opengl.contextAPI=native")
+		}
+		getRunDir().set(runDir)
+		doFirst {
+			new File(runDir, "logs").deleteDir()
+			new File(runDir, "screenshots").deleteDir()
+			new File(runDir, "resourcepacks").mkdirs()
+			java.nio.file.Files.copy(freshAnimationsPack.toPath(), new File(runDir, "resourcepacks/" + freshAnimationsPack.name).toPath(),
+				java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+			// The server test starts a local dedicated server; the user accepted the Minecraft EULA for it (2026-10-07).
+			new File(runDir, "eula.txt").text = "eula=true\n"
+		}
+	}
+	// Runs after the game even when the tests failed, so the log is always checked.
+	tasks.register("compatFindings${name.capitalize()}") {
+		doLast {
+			def log = new File(runDir, "logs/latest.log")
+			def lines = log.exists() ? log.readLines() : []
+			def mixin = ~/(?i)(mixin apply failed|injection failure|critical injection|overwrite conflict|redirect conflict|conflict.*mixin|mixin.*conflict|InvalidInjectionException|InjectionError)/
+			def ours = ~/horsingaround(?!-gametest)/
+			def findings = lines.findAll { it =~ mixin || (it =~ ours && it =~ /(WARN|ERROR)\]/) || it =~ /\/(WARN|ERROR)\] \(FabricLoader\/Mixin\)/ }
+			new File(runDir, "compat-findings.txt").text = findings.join("\n") + "\n"
+			def blocking = lines.findAll { it =~ mixin || (it =~ ours && it =~ /(WARN|ERROR)\]/) }
+			if (!blocking.isEmpty()) {
+				throw new GradleException("Compatibility problems with the $name pack:\n" + blocking.take(40).join("\n"))
+			}
+		}
+	}
+	runCompat.configure { dependsOn task }
+	// To play-test with a pack: ./gradlew playCompatIcys (no tests; worlds and settings stay between runs). A pack with a scene
+	// boots straight into it; -Pscene=<name> picks another (PlayScene), -Pscene=none plays normally.
+	def playDir = rootProject.layout.buildDirectory.dir("run/play/$name").get().asFile
+	tasks.register("playCompat${name.capitalize()}", clientProductionRunTask) {
+		group = "verification"
+		description = "Plays a production game with the $name pack, without the tests."
+		dependsOn "installFreshAnimations"
+		usesService(compatGame)
+		outputs.upToDateWhen { false } // (See runCompat.)
+		mods.from(tasks.named("jar"))
+		mods.from(configurations.named("compatBase"))
+		mods.from(configurations.named("compat${name.capitalize()}"))
+		getRunDir().set(playDir)
+		programArgs.addAll("--username", "Rider")
+		def scene = project.findProperty("scene") ?: compatPlayScene[name]
+		def inScene = scene && scene != "none"
+		if (inScene) {
+			mods.from(playSceneJar)
+			jvmArgs.add("-Dhorsingaround.play=$scene")
+			if (project.findProperty("sceneCheck")) {
+				jvmArgs.add("-Dhorsingaround.play.check=true")
+			}
+		}
+		doFirst {
+			if (inScene) {
+				new File(playDir, "saves/Scene").deleteDir()
+			}
+			new File(playDir, "resourcepacks").mkdirs()
+			java.nio.file.Files.copy(freshAnimationsPack.toPath(), new File(playDir, "resourcepacks/" + freshAnimationsPack.name).toPath(),
+				java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+			def options = new File(playDir, "options.txt")
+			if (!options.exists()) options.text = 'resourcePacks:["vanilla","file/' + freshAnimationsPack.name + '"]\n'
+		}
+	}
+}

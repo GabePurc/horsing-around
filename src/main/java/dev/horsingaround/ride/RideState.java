@@ -191,8 +191,20 @@ public final class RideState {
 	 */
 	public float neckReach;
 	public float sitBack;
+	/** How fast each is changing, a second. */
+	public float neckReachRate;
+	public float sitBackRate;
 	public float roomAt = Float.NaN;
 	public float headGap = Float.MAX_VALUE;
+	/** The first rider's drawn seat, blocks from the horse: along its heading, and up (as of their last drawing; for tests). */
+	public float seatForward;
+	public float seatUp;
+	/** The rider as last drawn (for tests): the torso's lean and roll, the legs' swing, the pelvis' rock and the hands' bob, radians. */
+	public float riderPitch;
+	public float riderRoll;
+	public float riderLegs;
+	public float riderPelvis;
+	public float riderHands;
 
 	/** The move in progress is the horse's in the air, with a hoof put down for it (see the entity mixin): steps up only AIR_STEP. */
 	public boolean airFooting;
@@ -236,17 +248,30 @@ public final class RideState {
 	// Visual body pose, computed on every client for every horse.
 	float lean;
 	float leanO;
+	float leanRate;
 	float lastBodyYaw;
 	float pitch;
 	float pitchO;
+	/**
+	 * Drawn on top of the tilt (degrees): what it still carries of how it was turning before a sudden change, its speed,
+	 * and how fast the tilt (the flight's with it) turned last tick. See RideTuning.PITCH_KINK_FREE.
+	 */
+	float pitchSway;
+	float pitchSwayO;
+	float pitchSwayRate;
+	float pitchTurn;
 	/** The tilt of the line between the two ends on its legs, degrees (the drawn tilt follows it, no faster than PITCH_RATE_MAX). */
 	float groundTilt;
 	/** Tilt with the flight while airborne (nose up taking off, down landing), degrees, on top of the terrain pitch. */
 	float jumpPitch;
 	float jumpPitchO;
+	/** How fast that tilt is changing, degrees a tick. */
+	float jumpPitchRate;
 	/** Rendered height minus physical height, so block step-ups become a smooth climb. */
 	float heightOffset;
 	float heightOffsetO;
+	/** How fast that is changing, blocks a tick. */
+	float offsetRate;
 	boolean wasOnGround = true;
 	/**
 	 * Pushing through leaves: how far the rider has a hand up in front of their face (0..1), their lean back from the
@@ -259,6 +284,16 @@ public final class RideState {
 	float leafPushVelocity;
 	long lastClump;
 	/** Rider's lean against the horse's surges (degrees, top-back positive), on a spring. */
+	/**
+	 * The rider's seat with the gait: how far they fold forward (degrees) and how much the pelvis rocks with the stride
+	 * (0..1), each on a spring (see RideTuning.SEAT_FREQUENCY).
+	 */
+	float seatLean = RideTuning.FORWARD_LEAN_STILL;
+	float seatLeanO = RideTuning.FORWARD_LEAN_STILL;
+	float seatLeanRate;
+	float seatRock;
+	float seatRockO;
+	float seatRockRate;
 	float inertia;
 	float inertiaO;
 	float inertiaVelocity;
@@ -285,8 +320,21 @@ public final class RideState {
 	/** The ground actually under the front and hind hooves (NaN on level ground or where there is none). */
 	double foreFoot = Double.NaN;
 	double hindFoot = Double.NaN;
+	/** The horse's tick count and height at the last tickVisual, to tell ticks the game skipped (see there). */
+	int visualTick;
+
+	/**
+	 * The horse's own time for what is eased from frame to frame (its ticks and the partial tick): it never stands still
+	 * or steps back, as the world's clock does when the server sets it.
+	 */
+	public double clock(final float partialTicks) {
+		return (double) this.visualTick + partialTicks;
+	}
+	double visualY = Double.NaN;
 	/** In the air from a jump or a fall bigger than a step: the body follows its flight instead of the ground. */
 	boolean flying;
+	/** Just landed: the legs are still taking the fall up (see RideTuning.LAND_KEEP). */
+	boolean landing;
 	/**
 	 * In the air from a jump or a bigger fall (not swimming or climbing out): the run cycle stops and the legs take the
 	 * shape of the jump, by airLegs (0..1); airRise is climbing (1) to falling (-1), for which shape.
@@ -331,6 +379,17 @@ public final class RideState {
 	public int animatedFrame = -10;
 	/** How far up the horse is rearing (0..1), as of its last drawing: the measured motion's baseline holds meanwhile. */
 	public float rear;
+	/** The rear (0..1) riders were last placed for, and the tick before: the game places them with the stand of a tick ago. */
+	float rearSeat;
+	float rearSeatO;
+	/**
+	 * The measured saddle has a rear's whole movement in it, so the shift the game gives a rider is counted twice unless it
+	 * comes off (a pack's model through Entity Model Features; not Icy's Better Horses', see the rider's seat in RidePoser).
+	 */
+	public boolean animatedWholeRear;
+	/** Where the first rider is placed from the horse when it isn't rearing, blocks: along its heading, and up. */
+	public float restSeatForward = Float.NaN;
+	public float restSeatUp;
 	/** Frames the head toss was applied through the animation pack (for tests). */
 	public int animatedShakeFrames;
 	/**
@@ -363,9 +422,9 @@ public final class RideState {
 	public boolean legsActive;
 	public boolean legsQuiet;
 	public boolean legsFound;
-	/** When the legs were last posed (game time in ticks, with the partial tick; NaN, not yet), for how long since. */
+	/** When the legs were last posed (see clock; NaN, not yet), for how long since. */
 	public double legRiseAt = Double.NaN;
-	/** How much of the jump's shape the legs take (0..1, see AirLegs.shape), eased each frame, and when it last was (game time). */
+	/** How much of the jump's shape the legs take (0..1, see AirLegs.shape), eased each frame, and when it last was (see clock). */
 	public float airShape;
 	public double airShapeAt = Double.NaN;
 	/**
@@ -405,9 +464,14 @@ public final class RideState {
 		return this.leanO + (this.lean - this.leanO) * partialTicks;
 	}
 
+	/** The rear (0..1) the rider's position has in it this frame (behind the horse's own {@code getStandAnim}). */
+	public float rearSeat(final float partialTicks) {
+		return this.rearSeatO + (this.rearSeat - this.rearSeatO) * partialTicks;
+	}
+
 	/** Body pitch, degrees; positive is nose up. */
 	public float pitch(final float partialTicks) {
-		return this.pitchO + (this.pitch - this.pitchO) * partialTicks;
+		return this.pitchO + this.pitchSwayO + (this.pitch + this.pitchSway - this.pitchO - this.pitchSwayO) * partialTicks;
 	}
 
 	/** Tilt with the flight while airborne, degrees; positive is nose up. */
@@ -437,6 +501,14 @@ public final class RideState {
 	}
 
 	/** Rider lean from the horse speeding up (back, positive) or slowing (forward), degrees. */
+	public float seatLean(final float partialTicks) {
+		return this.seatLeanO + (this.seatLean - this.seatLeanO) * partialTicks;
+	}
+
+	public float seatRock(final float partialTicks) {
+		return this.seatRockO + (this.seatRock - this.seatRockO) * partialTicks;
+	}
+
 	public float inertia(final float partialTicks) {
 		return this.inertiaO + (this.inertia - this.inertiaO) * partialTicks;
 	}
@@ -500,6 +572,8 @@ public final class RideState {
 		this.bowLoosedAt = Float.NaN;
 		this.neckReach = 0.0F;
 		this.sitBack = 0.0F;
+		this.neckReachRate = 0.0F;
+		this.sitBackRate = 0.0F;
 		this.roomAt = Float.NaN;
 	}
 

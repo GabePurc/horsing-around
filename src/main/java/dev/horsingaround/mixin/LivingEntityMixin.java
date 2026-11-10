@@ -90,6 +90,16 @@ abstract class LivingEntityMixin {
 		return !(horse.isInWater() && !horse.isInLava() && Mounts.floats(horse));
 	}
 
+	//? if <1.21.5 {
+	/*// Before 1.21.5 vanilla slows by 2% a tick anything whose AI doesn't run on this side, the horse its own rider's client
+	// moves included (from 1.21.5 it asks who moves it): left in, a ridden horse ran and jumped short of what the ride plans.
+	@ModifyExpressionValue(method = "aiStep", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;isEffectiveAi()Z", ordinal = 0))
+	private boolean horsingaround$noClientDrag(final boolean effective) {
+		return effective || (Object) this instanceof RideStateHolder holder && holder.horsingaround$playerRidden()
+			&& ((LivingEntity) (Object) this).isControlledByLocalInstance();
+	}
+	*///?}
+
 	/** Vanilla air control is half of what is needed to hold ground speed, so every jump bled momentum. */
 	@ModifyReturnValue(method = "getFlyingSpeed", at = @At("RETURN"))
 	private float horsingaround$airControl(final float vanilla) {

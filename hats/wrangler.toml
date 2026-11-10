@@ -1,0 +1,25 @@
+# The supporter hat service: takes Buy Me a Coffee's webhooks and serves the page where supporters claim their hat.
+# Deployed by .github/workflows/hats.yml.
+name = "horsing-around-hats"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[[durable_objects.bindings]]
+name = "LEDGER"
+class_name = "Ledger"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Ledger"]
+
+# Approximate, and per Cloudflare location: enough to slow someone guessing emails or hammering the page.
+[[ratelimits]]
+name = "CLAIM_LIMIT"
+namespace_id = "1001"
+simple = { limit = 5, period = 60 }
+
+[[ratelimits]]
+name = "LOOKUP_LIMIT"
+namespace_id = "1002"
+simple = { limit = 20, period = 60 }

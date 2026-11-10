@@ -3,10 +3,8 @@ package dev.horsingaround.client;
 import dev.horsingaround.HorsingAround;
 import dev.horsingaround.Platform;
 import com.mojang.blaze3d.platform.InputConstants;
-//? if >=1.21
+//? if >=1.21 || =1.20.1
 import dev.horsingaround.client.compat.EmfSaddleTracker;
-//? if =1.20.1
-/*import dev.horsingaround.client.compat.EmfNeckHook;*/
 import dev.horsingaround.client.config.HorseSettingsScreen;
 import dev.horsingaround.client.debug.SteeringOverlay;
 import dev.horsingaround.client.cosmetic.Hats;
@@ -43,7 +41,7 @@ public final class HorsingAroundClient {
 	public static void init() {
 		keys = new RiderKeys(Minecraft.getInstance());
 		HorsingAround.bridge = keys;
-		//? if >=1.21 {
+		//? if >=1.21 || =1.20.1 {
 		if (Platform.isModLoaded("entity_model_features")) {
 			try {
 				EmfSaddleTracker.register();
@@ -53,16 +51,6 @@ public final class HorsingAroundClient {
 			}
 		}
 		//?}
-		//? if =1.20.1 {
-		/*if (Platform.isModLoaded("entity_model_features")) {
-			try {
-				EmfNeckHook.register();
-			} catch (final LinkageError | RuntimeException e) {
-				// A version of Entity Model Features without the hook: the neck stays as the pack sets it.
-				LOGGER.warn("Could not hook Entity Model Features animations; the neck on an animation pack's horse stays as the pack sets it", e);
-			}
-		}
-		*///?}
 		// The supporters' cowboy hat.
 		Supporters.load();
 	}
@@ -96,6 +84,7 @@ public final class HorsingAroundClient {
 		ServerRules.reset();
 		ServerNotice.reset();
 		Hats.clear();
+		Supporters.refreshSoon();
 	}
 
 	public static void left() {

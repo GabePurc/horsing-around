@@ -4,6 +4,7 @@ import dev.horsingaround.HorsingAround;
 import java.util.List;
 import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
+import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -40,6 +41,8 @@ final class Tack {
 	static final int BOARD_WIDTH = 64;
 	static final int BOARD_HEIGHT = 32;
 	private static final int LEATHER = 32;
+	/** How thick the tabs' strap is, its dark bottom edge included. */
+	static final int RAIL = 4;
 
 	static final int EDGE = 0xFF120A07;
 	static final int LIGHT_WOOD_EDGE = 0xFF5A3A2A;
@@ -126,29 +129,38 @@ final class Tack {
 		}
 	}
 
-	/** A leather button or tag: hide, a raised edge, an outline (brass-amber when it's the one in hand), stitching. */
-	private static void patch(final GuiGraphicsExtractor graphics, final AbstractWidget widget, final boolean bright, final boolean highlighted, final boolean stitchBottom) {
-		final int x = widget.getX();
-		final int y = widget.getY();
-		final int width = widget.getWidth();
-		final int height = widget.getHeight();
+	/**
+	 * A leather button or tag: hide, a raised edge, an outline (brass-amber when it's the one in hand), stitching. A tag's
+	 * bottom is left open, for what it hangs on.
+	 */
+	private static void patch(final GuiGraphicsExtractor graphics, final int x, final int y, final int width, final int height, final boolean bright,
+		final boolean highlighted, final boolean stitched, final boolean closedBottom) {
+		final int raised = bright ? 0xFFB98550 : 0xFF7A5433;
+		final int sunk = bright ? 0xFF5C3A1E : 0xFF2E1A0E;
 		tile(graphics, bright ? HIDE : HIDE_DARK, x, y, width, height, LEATHER, LEATHER);
-		graphics.fill(x + 1, y + 1, x + width - 1, y + 2, bright ? 0xFFB98550 : 0xFF7A5433);
-		graphics.fill(x + 1, y + 2, x + 2, y + height - 1, bright ? 0xFFB98550 : 0xFF7A5433);
-		graphics.fill(x + width - 2, y + 2, x + width - 1, y + height - 1, bright ? 0xFF5C3A1E : 0xFF2E1A0E);
-		if (stitchBottom) {
-			graphics.fill(x + 2, y + height - 2, x + width - 2, y + height - 1, bright ? 0xFF5C3A1E : 0xFF2E1A0E);
+		graphics.fill(x + 1, y + 1, x + width - 1, y + 2, raised);
+		graphics.fill(x + 1, y + 2, x + 2, y + height - 1, raised);
+		graphics.fill(x + width - 2, y + 2, x + width - 1, y + height - 1, sunk);
+		if (closedBottom) {
+			graphics.fill(x + 2, y + height - 2, x + width - 2, y + height - 1, sunk);
 		}
-		if (widget.isActive()) {
+		if (stitched) {
 			final int stitch = bright ? 0xB0F4E0B8 : 0x60D9B98A;
 			stitchAcross(graphics, x + 4, x + width - 4, y + 3, stitch);
 			stitchDown(graphics, x + 3, y + 4, y + height - 3, stitch);
 			stitchDown(graphics, x + width - 4, y + 4, y + height - 3, stitch);
-			if (stitchBottom) {
+			if (closedBottom) {
 				stitchAcross(graphics, x + 4, x + width - 4, y + height - 4, stitch);
 			}
 		}
 		frame(graphics, x, y, width, height, highlighted ? AMBER : EDGE);
+	}
+
+	/** The leather strap the tabs hang from, across the top of the options; the selected tab runs into it. */
+	static void rail(final GuiGraphicsExtractor graphics, final int x, final int y, final int width) {
+		tile(graphics, HIDE, x, y, width, RAIL - 1, LEATHER, LEATHER);
+		graphics.fill(x, y + RAIL - 2, x + width, y + RAIL - 1, 0xFF5C3A1E);
+		graphics.fill(x, y + RAIL - 1, x + width, y + RAIL, EDGE);
 	}
 
 	private static Font font() {
@@ -219,13 +231,15 @@ final class Tack {
 
 		@Override
 		void draw(final GuiGraphicsExtractor graphics) {
-			patch(graphics, this, this.bright, this.active && this.isHoveredOrFocused(), true);
+			patch(graphics, this.getX(), this.getY(), this.getWidth(), this.getHeight(), this.bright, this.active && this.isHoveredOrFocused(), this.active, true);
 			centred(graphics, font(), this.getMessage(), this.getX() + this.getWidth() / 2, this.getY() + 6, this.active ? TEXT : TEXT_OFF);
 		}
 	}
 
-	/** A leather tag hanging over the panel; the selected one is lighter and runs into it. */
+	/** A leather tag on the tabs' strap; the selected one is lighter, stands a little taller and runs into the strap. */
 	static final class TabTag extends Leather {
+		/** How much lower the tags not selected sit. */
+		private static final int TUCK = 2;
 		private final Runnable press;
 		boolean selected;
 
@@ -242,18 +256,26 @@ final class Tack {
 
 		@Override
 		void draw(final GuiGraphicsExtractor graphics) {
-			patch(graphics, this, this.selected, !this.selected && this.isHoveredOrFocused(), false);
+			final int y = this.getY() + (this.selected ? 0 : TUCK);
+			final int bottom = this.getY() + this.getHeight();
+			patch(graphics, this.getX(), y, this.getWidth(), bottom - y, this.selected, !this.selected && this.isHoveredOrFocused(), true, false);
 			if (this.selected) {
-				// Over its own outline's bottom, so the tag and the panel read as one.
-				graphics.fill(this.getX() + 1, this.getY() + this.getHeight() - 1, this.getX() + this.getWidth() - 1, this.getY() + this.getHeight(), 0xFF7A4A26);
+				// Over its own outline's bottom, so the tag and the strap read as one piece of leather.
+				tile(graphics, HIDE, this.getX() + 1, bottom - 1, this.getWidth() - 2, 1, LEATHER, LEATHER);
 			}
 			final int color = this.selected || this.isHoveredOrFocused() ? TEXT : TEXT_QUIET;
-			centred(graphics, font(), this.getMessage(), this.getX() + this.getWidth() / 2, this.getY() + 6, color);
+			centred(graphics, font(), this.getMessage(), this.getX() + this.getWidth() / 2, y + (bottom - y - 8) / 2, color);
 		}
 	}
 
-	/** A slider: a leather strap, lighter up to a brass buckle that slides along it. */
+	/**
+	 * A slider: a leather strap, lighter up to a brass buckle that slides along it. The buckle is a frame the strap runs
+	 * through, so the words on the strap stay readable where it sits.
+	 */
 	static final class Strap extends AbstractSliderButton {
+		private static final int BUCKLE = 10;
+		/** The strap is this much lower than the buckle, top and bottom. */
+		private static final int INSET = 2;
 		private final int min;
 		private final int max;
 		private final IntFunction<Component> label;
@@ -288,20 +310,54 @@ final class Tack {
 			final int y = this.getY();
 			final int width = this.getWidth();
 			final int height = this.getHeight();
-			final int buckle = x + (int) (this.value * (width - 8));
-			tile(graphics, STRAP, x, y, width, height, LEATHER, LEATHER);
-			tile(graphics, HIDE_DARK, x, y, buckle - x, height, LEATHER, LEATHER);
-			graphics.fill(x + 1, y + 1, x + width - 1, y + 2, 0xFF170D08);
-			graphics.fill(x + 1, y + height - 2, x + width - 1, y + height - 1, 0xFF54351F);
-			frame(graphics, x, y, width, height, this.isHoveredOrFocused() ? AMBER : EDGE);
-			graphics.fill(buckle, y, buckle + 8, y + height, EDGE);
-			graphics.fill(buckle + 1, y + 1, buckle + 7, y + height - 1, BRASS);
-			graphics.fill(buckle + 1, y + 1, buckle + 7, y + 2, BRASS_LIGHT);
+			final int top = y + INSET;
+			final int strap = height - 2 * INSET;
+			final int buckle = x + (int) (this.value * (width - BUCKLE));
+			final int middle = buckle + BUCKLE / 2;
+			tile(graphics, HIDE_DARK, x, top, middle - x, strap, LEATHER, LEATHER);
+			tile(graphics, STRAP, middle, top, x + width - middle, strap, LEATHER, LEATHER);
+			graphics.fill(middle, top, x + width, top + strap, 0x38000000);
+			graphics.fill(x + 1, top + 1, x + width - 1, top + 2, 0x70170D08);
+			graphics.fill(x + 1, top + strap - 2, x + width - 1, top + strap - 1, 0x7054351F);
+			frame(graphics, x, top, width, strap, this.isHoveredOrFocused() ? AMBER : EDGE);
+			// The buckle: a dark outline, then brass lit from the top left, round the strap showing through.
+			frame(graphics, buckle, y, BUCKLE, height, EDGE);
+			frame(graphics, buckle + 1, y + 1, BUCKLE - 2, height - 2, BRASS);
+			frame(graphics, buckle + 2, y + 2, BUCKLE - 4, height - 4, BRASS);
+			graphics.fill(buckle + 1, y + 1, buckle + BUCKLE - 1, y + 2, BRASS_LIGHT);
 			graphics.fill(buckle + 1, y + 2, buckle + 2, y + height - 1, BRASS_LIGHT);
-			graphics.fill(buckle + 6, y + 2, buckle + 7, y + height - 1, BRASS_DARK);
-			graphics.fill(buckle + 2, y + height - 2, buckle + 6, y + height - 1, BRASS_DARK);
-			graphics.fill(buckle + 3, y + 7, buckle + 5, y + height - 7, 0xFF2A1811);
+			graphics.fill(buckle + BUCKLE - 2, y + 2, buckle + BUCKLE - 1, y + height - 1, BRASS_DARK);
+			graphics.fill(buckle + 2, y + height - 2, buckle + BUCKLE - 2, y + height - 1, BRASS_DARK);
+			frame(graphics, buckle + 3, y + 3, BUCKLE - 6, height - 6, 0x70120A07);
 			centred(graphics, font(), this.getMessage(), x + width / 2, y + 6, TEXT);
+		}
+	}
+
+	/** A patch of a colour as it is now (the hat's), set in a dark edge like the palette's; nothing to click or stop on. */
+	static final class Swatch extends AbstractWidget {
+		private final IntSupplier color;
+
+		Swatch(final int width, final Component name, final IntSupplier color) {
+			super(0, 0, width, 20, name);
+			this.active = false;
+			this.color = color;
+		}
+
+		@Override
+		protected void extractWidgetRenderState(final GuiGraphicsExtractor graphics, final int mouseX, final int mouseY, final float a) {
+			final int x = this.getX();
+			final int y = this.getY();
+			final int width = this.getWidth();
+			final int height = this.getHeight();
+			graphics.fill(x, y, x + width, y + height, EDGE);
+			graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, 0xFF000000 | this.color.getAsInt());
+			graphics.fill(x + 1, y + 1, x + width - 1, y + 2, 0x30FFFFFF);
+			graphics.fill(x + 1, y + height - 2, x + width - 1, y + height - 1, 0x30000000);
+		}
+
+		@Override
+		protected void updateWidgetNarration(final NarrationElementOutput output) {
+			this.defaultButtonNarrationText(output);
 		}
 	}
 
@@ -345,9 +401,13 @@ final class Tack {
 
 	/** A section heading, amber between two brass studs; nothing to click or stop on. */
 	static final class Heading extends AbstractWidget {
-		Heading(final int width, final Component text) {
+		/** On a plank of its own, where the frame's boards are left out behind it. */
+		private final boolean plank;
+
+		Heading(final int width, final Component text, final boolean plank) {
 			super(0, 0, width, 20, text);
 			this.active = false;
+			this.plank = plank;
 		}
 
 		@Override
@@ -356,6 +416,10 @@ final class Tack {
 			final int centre = this.getX() + this.getWidth() / 2;
 			final int half = font.width(this.getMessage()) / 2;
 			final int y = this.getY() + 8;
+			if (this.plank) {
+				graphics.fill(centre - half - 17, y - 5, centre + half + 17, y + 13, EDGE);
+				boards(graphics, DEEP, centre - half - 16, y - 4, 2 * half + 32, 16);
+			}
 			centred(graphics, font, this.getMessage(), centre, y, AMBER);
 			stud(graphics, centre - half - 9, y + 1, 4);
 			stud(graphics, centre + half + 5, y + 1, 4);

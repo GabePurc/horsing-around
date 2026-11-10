@@ -17,11 +17,16 @@ import java.util.function.Consumer;
 //? if fabric {
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-//?} else {
+//?} elif neoforge {
 /*import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.common.NeoForge;
+*///?} else {
+/*import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.fml.common.Mod;
 *///?}
 import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
@@ -51,8 +56,11 @@ import org.slf4j.Logger;
  */
 //? if fabric {
 public final class SmokeTest implements ClientModInitializer {
-//?} else {
+//?} elif neoforge {
 /*@Mod(value = "horsingaround_smoke", dist = Dist.CLIENT)
+public final class SmokeTest {
+*///?} else {
+/*@Mod("horsingaround_smoke")
 public final class SmokeTest {
 *///?}
 	private static final Logger LOGGER = LogUtils.getLogger();
@@ -91,14 +99,14 @@ public final class SmokeTest {
 	private static final int TAP_TICKS = 3;
 
 	private enum Phase {
-		TITLE, LOADING, BUILD, SETTLE, STAND, WALK, GALLOP, JUMP, STOP, RIDER, ROUGH, WILD, DISMOUNT, FENCE, LEAD, SETTINGS, FINISH
+		TITLE, LOADING, BUILD, SETTLE, STAND, WALK, GALLOP, JUMP, STOP, REAR, RIDER, ROUGH, WILD, DISMOUNT, FENCE, LEAD, SETTINGS, FINISH
 	}
 
 	private static final String[] SHOTS = {
 		"01-stand.png", "02-walk.png", "03-gallop.png", "04-jump.png", "05-stopped.png", "06-first-person.png",
 		"07-third-person-back.png", "08-fence-front.png", "09-fence-side.png", "10-lead-cow.png", "11-lead-llama.png", "12-lead-horse.png",
-		"13-player-lead.png", "14-rough-slab.png", "15-rough-stairs.png", "16-rough-uneven.png", "17-rough-gallop.png",
-		"18-settings-camera.png", "19-settings-comfort.png", "20-settings-hat.png",
+		"13-player-lead.png", "14-rough-slab.png", "15-rough-stairs.png", "16-rough-uneven.png", "17-rough-gallop.png", "18-rearing.png",
+		"19-settings-camera.png", "20-settings-comfort.png", "21-settings-hat.png"
 	};
 
 	private final Meter meter = new Meter();
@@ -111,6 +119,8 @@ public final class SmokeTest {
 	private Minecraft minecraft;
 	private MinecraftServer server;
 	private Entity horse;
+	private float seatRestForward;
+	private float seatRestUp;
 	private Marker marker;
 	/** Whether frames show the rider from the side (see the class comment), and the real view while they do. */
 	private boolean sideView;
@@ -139,11 +149,23 @@ public final class SmokeTest {
 			ClientTickEvents.END_CLIENT_TICK.register(this::tick);
 		}
 	}
-	//?} else {
+	//?} elif neoforge {
 	/*public SmokeTest() {
 		if (Boolean.getBoolean("horsingaround.smoke")) {
 			NeoForge.EVENT_BUS.addListener(ClientTickEvent.Pre.class, event -> turnBack(Minecraft.getInstance()));
 			NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, event -> tick(Minecraft.getInstance()));
+		}
+	}
+	*///?} else {
+	/*public SmokeTest() {
+		if (Boolean.getBoolean("horsingaround.smoke")) {
+			MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, TickEvent.ClientTickEvent.class, event -> {
+				if (event.phase == TickEvent.Phase.START) {
+					turnBack(Minecraft.getInstance());
+				} else {
+					tick(Minecraft.getInstance());
+				}
+			});
 		}
 	}
 	*///?}
@@ -308,6 +330,32 @@ public final class SmokeTest {
 			case STOP -> this.stop(minecraft, t);
 			case ROUGH -> this.rough(minecraft, t);
 			case WILD -> this.wild(minecraft, t);
+			case REAR -> {
+				// From the side, the rider at the top of a rear: on the saddle, not floating behind it (with a pack's model).
+				if (t == 0) {
+					if (!WITHOUT_MOD) {
+						this.seatRestForward = ((RideStateHolder) this.horse).horsingaround$ride().seatForward;
+						this.seatRestUp = ((RideStateHolder) this.horse).horsingaround$ride().seatUp;
+					}
+					this.server.execute(() -> {
+						if (this.server.getPlayerList().getPlayers().get(0).getVehicle() instanceof AbstractHorse rearing) {
+							rearing.standIfPossible();
+						}
+					});
+				} else if (t == 14) {
+					if (!WITHOUT_MOD) {
+						final RideState ride = ((RideStateHolder) this.horse).horsingaround$ride();
+						LOGGER.info(
+							"Rearing: seat {} along, {} up from where it rests; saddle {} along, {} up; stand {}", ride.seatForward - this.seatRestForward,
+							ride.seatUp - this.seatRestUp, ride.animatedForward - ride.animatedForwardBase, ride.animatedLift - ride.animatedLiftBase,
+							((AbstractHorse) this.horse).getStandAnim(0.0F)
+						);
+					}
+					this.shoot(minecraft, SHOTS[17]);
+				} else if (t >= 50) {
+					this.next(Phase.RIDER);
+				}
+			}
 			case RIDER -> {
 				// The rider's own views, with the HUD.
 				if (t == 0) {
@@ -353,7 +401,7 @@ public final class SmokeTest {
 				} else if (t % 15 == 0) {
 					HorseSettingsScreen.open(minecraft, tabs[tab]);
 				} else if (t % 15 == 8) {
-					this.shoot(minecraft, SHOTS[17 + tab]);
+					this.shoot(minecraft, SHOTS[18 + tab]);
 				} else if (t % 15 == 14) {
 					Compat.screen(minecraft).onClose();
 				}
@@ -540,7 +588,7 @@ public final class SmokeTest {
 			this.shoot(minecraft, SHOTS[4]);
 		} else if (this.stillTicks >= 14) {
 			this.report("stop", t);
-			this.next(Phase.RIDER);
+			this.next(Phase.REAR);
 		} else if (t >= 300) {
 			throw new IllegalStateException("The horse did not come to a stop");
 		}

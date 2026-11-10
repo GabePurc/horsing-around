@@ -2,6 +2,7 @@ package dev.horsingaround.client.render;
 
 import static dev.horsingaround.ride.RideTuning.*;
 
+import dev.horsingaround.client.compat.ShaderShadows;
 import dev.horsingaround.ride.RideController;
 import dev.horsingaround.ride.RideState;
 import net.minecraft.client.Minecraft;
@@ -91,13 +92,23 @@ public final class GroundLegs {
 		float partial = 1.0F;
 		// (Another layer of the same horse this frame (saddle, armour): its legs are posed exactly as the body's were.)
 		boolean again = false;
+		// (No time has passed since they were last posed, though not in the same frame: they stay as they were.)
+		boolean held = false;
 		if (drawn) {
-			// Game time (ticks and the partial tick): how long since the legs were last posed, whatever the frame rate.
+			// The horse's own time (its ticks and the partial tick): how long since the legs were last posed, whatever the frame
+			// rate. (Not the world's clock: the server sets that about once a second, a tick back or on, and with it the legs
+			// either skipped their easing for a frame and jumped to where they were going, or took a tick's worth at once.)
 			partial = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
-			final double now = (double) level.getGameTime() + partial;
-			again = now == ride.legRiseAt;
+			final double now = ride.clock(partial);
+			// (A shader pack's shadow pass draws it too, with the sun's view in its pose, and up to 1.21.11 before the camera's
+			// pass: there the legs keep what the camera's pass last worked out, and only that pass works them out.)
+			final boolean shadow = ShaderShadows.drawing();
+			again = shadow || now == ride.legRiseAt;
 			dt = again || Double.isNaN(ride.legRiseAt) ? 0.0F : (float) Mth.clamp((now - ride.legRiseAt) / 20.0, 0.0, 0.1);
-			ride.legRiseAt = now;
+			held = !again && !Double.isNaN(ride.legRiseAt) && dt <= 0.0F;
+			if (!shadow) {
+				ride.legRiseAt = now;
+			}
 		}
 		if (again ? ride.legsQuiet
 			: tilt == 0.0F && fore == 0.0F && hind == 0.0F && (!drawn || !ride.narrow && !ride.legsActive && ride.drawnFit == 0.0F && !ride.lowered())) {
@@ -202,6 +213,8 @@ public final class GroundLegs {
 					back = 0.0F;
 					ride.legBackVelocity[i] = 0.0F;
 				}
+			} else if (held) {
+				back = ride.legBack[i];
 			}
 			if (back != 0.0F) {
 				Legs.swing(part, leg, part.xRot + back);
@@ -226,6 +239,8 @@ public final class GroundLegs {
 					draw = Mth.clamp(draw, least, most);
 					ride.legRiseVelocity[i] = 0.0F;
 				}
+			} else if (held) {
+				draw = ride.legRise[i];
 			}
 			if (swung > now && !heave) {
 				// (Only from the gait's swing: a hoof the body lifted mustn't lift the body further, nor one reaching for a bank

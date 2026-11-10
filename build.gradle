@@ -4,8 +4,8 @@ plugins {
 }
 
 // Built once per Minecraft version (Stonecutter node, see settings.gradle); this node's numbers come from
-// versions/<version>/gradle.properties. 26.3 is the main version: the client tests and compatibility runs live there
-// (gradle/client-tests.gradle), and its game and test folders are the repo's run/ and build/run/.
+// versions/<version>/gradle.properties. 26.3 is the main version: the compatibility runs live there (gradle/compat.gradle),
+// and its game and test folders are the repo's run/ and build/run/clientGameTest/.
 def mc = sc.current.version
 def mainVersion = mc == '26.3'
 def javaVersion = sc.current.parsed.matches('>=26') ? 25 : sc.current.parsed.matches('>=1.20.5') ? 21 : 17
@@ -43,11 +43,12 @@ loom {
 	}
 }
 
-// The NeoForge-only code and metadata (build.neoforge.gradle builds those).
+// The NeoForge and Forge code and metadata (build.neoforge.gradle builds those), and Realistic Horse Genetics' (Forge only).
 sourceSets {
-	main.java.exclude 'dev/horsingaround/neoforge/**'
-	client.java.exclude 'dev/horsingaround/client/neoforge/**'
-	main.resources.exclude 'META-INF/neoforge.mods.toml'
+	main.java.exclude 'dev/horsingaround/neoforge/**', 'dev/horsingaround/forge/**'
+	client.java.exclude 'dev/horsingaround/client/neoforge/**', 'dev/horsingaround/client/forge/**', 'dev/horsingaround/client/mixin/rhg/**'
+	main.resources.exclude 'META-INF/neoforge.mods.toml', 'META-INF/mods.toml'
+	client.resources.exclude 'horsingaround.rhg.client.mixins.json'
 }
 
 // Before 26 the game is obfuscated at runtime: the mixin annotation processor writes the refmap that maps our Mojang
@@ -94,9 +95,7 @@ ext.freshAnimationsTargets = [
 	repoDir.dir("${runFolder}/resourcepacks").asFile,
 	rootProject.layout.buildDirectory.dir("run/smoke/${mc}/resourcepacks").get().asFile
 ]
-if (mainVersion) {
-	ext.freshAnimationsTargets << rootProject.layout.buildDirectory.dir("run/clientGameTest/resourcepacks").get().asFile
-}
+ext.freshAnimationsTargets << rootProject.layout.buildDirectory.dir(mainVersion ? "run/clientGameTest/resourcepacks" : "run/clientGameTest-${mc}/resourcepacks").get().asFile
 apply from: repoDir.file('gradle/fresh-animations.gradle')
 tasks.matching { it.name == "runClient" }.configureEach { dependsOn "installFreshAnimations" }
 // Plain "runClient" would start every version's game: only the main version's answers to it, the others only by path
@@ -129,7 +128,7 @@ auditTasks.each { side, type ->
 		// The versions' games share Loom's download caches (assets): with several versions at once
 		// (./gradlew auditMixins), run after every version's downloads, in one fixed order.
 		def key = "${mc}:${side}"
-		mustRunAfter(rootProject.childProjects.values().findAll { !it.name.endsWith('-neoforge') }.collectMany { other ->
+		mustRunAfter(rootProject.childProjects.values().findAll { !(it.name ==~ /.*-(neo)?forge/) }.collectMany { other ->
 			["${other.path}:downloadAssets"] + ["Client", "Server"].findAll { "${other.name}:${it}" < key }.collect { "${other.path}:audit${it}Mixins" }
 		})
 		mods.from(loomx.modJar.flatMap { it.archiveFile })
@@ -145,6 +144,9 @@ auditTasks.each { side, type ->
 			new File(auditDir, "logs").deleteDir()
 			auditDir.mkdirs()
 			new File(auditDir, "eula.txt").text = "eula=true\n"
+			if (side == "Client") {
+				new File(auditDir, "options.txt").text = "soundCategory_master:0.0\n" // Silent, like every test game.
+			}
 			// Any free port: a NeoForge audit server (its own one-at-a-time limit) or anything else may hold the default.
 			if (side == "Server") {
 				new File(auditDir, "server.properties").text = "server-port=0\n"
@@ -169,11 +171,12 @@ tasks.register("auditMixins") {
 // Release to Modrinth and CurseForge (./gradlew publishModrinth publishCurseforge, run by .github/workflows/publish.yml on a GitHub release).
 apply from: repoDir.file('gradle/publish.gradle')
 
-// The smoke test (src/smoke) runs on every version, the client tests below on the main one only.
+// The smoke test (src/smoke) and the client tests (src/gametest) run on every version, the compatibility runs on the main one.
 apply from: repoDir.file('gradle/smoke-test.gradle')
-
+apply from: repoDir.file('gradle/x11-games.gradle')
+apply from: repoDir.file('gradle/client-tests.gradle')
 if (mainVersion) {
-	apply from: repoDir.file('gradle/client-tests.gradle')
+	apply from: repoDir.file('gradle/compat.gradle')
 }
 
 // fabric.mod.json and the mixin configs carry this node's Minecraft range and Java version.
@@ -182,12 +185,45 @@ if (mainVersion) {
 // and refuses the config, and nothing in our mixins needs more.
 def mixinJava = javaVersion == 21 ? 17 : javaVersion
 def hatMixins = sc.current.parsed.matches('>=1.21.2') ? '"AvatarRenderStateMixin", "AvatarRendererMixin",' : '"CustomHeadLayerMixin", "HumanoidArmorLayerMixin",'
-def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, loader: project.findProperty('loader_minimum') ?: project.loader_version, java: javaVersion.toString(), mixinJava: mixinJava.toString(), hatMixins: hatMixins]
+def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, loader: project.findProperty('loader_minimum') ?: project.loader_version, fabricApi: project.findProperty('fabric_api_minimum') ?: project.fabric_api_version.tokenize('+')[0], java: javaVersion.toString(), mixinJava: mixinJava.toString(), hatMixins: hatMixins]
 tasks.matching { it.name in ["processResources", "processClientResources"] }.configureEach {
 	inputs.properties resourceProps
 	filesMatching(["fabric.mod.json", "*.mixins.json"]) {
 		expand resourceProps
 	}
+}
+
+// Before 26 every mixin config has to name its refmap, or the jar crashes on launch. Loom adds the name, but when a
+// configuration cache entry is stored before the resources exist (always, on a clean machine) it finds no configs and
+// silently adds nothing. That shipped in the release jars, so the configs get the name here, and the finished jar is checked.
+if (sc.current.parsed.matches('<26')) {
+	def refmaps = [processResources: "${base.archivesName.get()}-refmap.json", processClientResources: "client-${base.archivesName.get()}-refmap.json"]
+	refmaps.each { taskName, refmap ->
+		tasks.named(taskName) {
+			inputs.property "refmap", refmap
+			filesMatching("*.mixins.json") {
+				filter { line -> line.contains('"package"') ? "\t\"refmap\": \"${refmap}\",\n${line}" : line }
+			}
+		}
+	}
+
+	def modJarFile = loomx.modJar.flatMap { it.archiveFile }
+	def checkRefmaps = tasks.register("checkRefmaps") {
+		inputs.file(modJarFile)
+		doLast {
+			new java.util.zip.ZipFile(modJarFile.get().asFile).withCloseable { zip ->
+				def configs = zip.entries().collect { it.name }.findAll { it.endsWith(".mixins.json") }
+				if (configs.isEmpty()) throw new GradleException("No mixin configs in ${zip.name}")
+				configs.each { config ->
+					def refmap = new groovy.json.JsonSlurper().parse(zip.getInputStream(zip.getEntry(config))).refmap
+					if (!refmap || zip.getEntry(refmap) == null) {
+						throw new GradleException("${config} in ${zip.name} names no refmap in the jar (it says: ${refmap}), so it would crash on launch")
+					}
+				}
+			}
+		}
+	}
+	loomx.modJar.configure { finalizedBy checkRefmaps }
 }
 
 // Data pack folders got singular names in 1.21 (tags/block); before, the tags are in plural ones (tags/blocks).

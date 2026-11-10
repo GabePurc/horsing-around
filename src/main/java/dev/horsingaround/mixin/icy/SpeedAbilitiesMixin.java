@@ -1,7 +1,7 @@
 package dev.horsingaround.mixin.icy;
 
 import dev.horsingaround.ride.IcyCompat;
-import dev.horsingaround.ride.Mounts;
+import dev.horsingaround.ride.RideStateHolder;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -35,7 +35,7 @@ public abstract class SpeedAbilitiesMixin {
 	@Inject(method = "tick", at = @At("HEAD"), cancellable = true)
 	private void horsingaround$offUnderThisRide(final AbstractHorse horse, @Coerce final Object data, @Coerce final Object state, final CallbackInfo ci) {
 		// (Unridden, they don't change the horse's speed: nothing to do.)
-		if (horse.getControllingPassenger() == null || !Mounts.manages(horse)) {
+		if (horse.getControllingPassenger() == null || RideStateHolder.managedRide(horse) == null) {
 			return;
 		}
 		//? if >=1.21 {

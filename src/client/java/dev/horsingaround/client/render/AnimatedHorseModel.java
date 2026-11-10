@@ -4,6 +4,7 @@ import dev.horsingaround.ride.RideState;
 import dev.horsingaround.ride.RideTuning;
 import java.util.Map;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.util.Mth;
 import org.jspecify.annotations.Nullable;
 
@@ -51,20 +52,33 @@ public final class AnimatedHorseModel {
 		GroundLegs.floor(leftFront, rightFront, leftHind, rightHind, pixels, ride, root);
 	}
 
+	/** Brings a leg {@code amount} (0..1) of the way back to straight under the body: across it and about its own length. */
+	public static void straighten(final ModelPart leg, final float amount) {
+		final PartPose pose = leg.getInitialPose();
+		leg.x = Mth.lerp(amount, leg.x, pose.x());
+		leg.yRot = Mth.lerp(amount, leg.yRot, pose.yRot());
+		leg.zRot = Mth.lerp(amount, leg.zRot, pose.zRot());
+	}
+
 	/**
 	 * Fits the ride to a model built unlike a vanilla horse (another mod's breeds): where its hooves stand and how long its
 	 * legs are, the vanilla horse's (RideTuning) scaled by how its legs compare, so the body tilts on steps and slopes
 	 * about its own legs. False if the parts have no leg boxes (a tack layer's).
 	 */
 	public static boolean fitLegs(final ModelPart frontLeft, final ModelPart hindLeft, final RideState ride) {
+		return fitLegs(frontLeft, hindLeft, ride, 1.0F);
+	}
+
+	/** @param scale how large the model is drawn against the vanilla horse's model (1: the same) */
+	public static boolean fitLegs(final ModelPart frontLeft, final ModelPart hindLeft, final RideState ride, final float scale) {
 		final Legs.Leg front = Legs.of(frontLeft);
 		final Legs.Leg hind = Legs.of(hindLeft);
 		if (front == null || hind == null) {
 			return false;
 		}
-		ride.foreHooves = RideTuning.FORE_HOOVES * -(frontLeft.getInitialPose().z() + front.z) / VANILLA_FORE;
-		ride.hindHooves = RideTuning.HIND_HOOVES * (hindLeft.getInitialPose().z() + hind.z) / VANILLA_HIND;
-		ride.legLength = RideTuning.LEG_LENGTH * (front.length + hind.length) * 0.5F / VANILLA_LEG;
+		ride.foreHooves = RideTuning.FORE_HOOVES * -(frontLeft.getInitialPose().z() + front.z) / VANILLA_FORE * scale;
+		ride.hindHooves = RideTuning.HIND_HOOVES * (hindLeft.getInitialPose().z() + hind.z) / VANILLA_HIND * scale;
+		ride.legLength = RideTuning.LEG_LENGTH * (front.length + hind.length) * 0.5F / VANILLA_LEG * scale;
 		return true;
 	}
 
@@ -119,11 +133,19 @@ public final class AnimatedHorseModel {
 
 	/** The first part named {@code name} under {@code part} (an Entity Model Features copy of it too), or null. */
 	public static @Nullable ModelPart find(final ModelPart part, final String name) {
+		return find(part, name, true);
+	}
+
+	/**
+	 * The first part named {@code name} under {@code part}, or null; with {@code copies}, an Entity Model Features copy of it
+	 * ("EMF_..._name") too. Without, only a model's own part (the pack's are all "EMF_...").
+	 */
+	public static @Nullable ModelPart find(final ModelPart part, final String name, final boolean copies) {
 		for (final Map.Entry<String, ModelPart> child : ((PartData) (Object) part).horsingaround$children().entrySet()) {
-			if (child.getKey().equals(name) || child.getKey().endsWith("_" + name) && child.getKey().startsWith("EMF")) {
+			if (child.getKey().equals(name) || copies && child.getKey().endsWith("_" + name) && child.getKey().startsWith("EMF")) {
 				return child.getValue();
 			}
-			final ModelPart found = find(child.getValue(), name);
+			final ModelPart found = find(child.getValue(), name, copies);
 			if (found != null) {
 				return found;
 			}

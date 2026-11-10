@@ -1,0 +1,31 @@
+{
+	"required": true,
+	"package": "dev.horsingaround.gametest.harness.mixin",
+	"compatibilityLevel": "JAVA_${mixinJava}",
+	"mixins": [
+		"ClientLevelAccessor",
+		"gui.CycleButtonAccessor",
+		"gui.ScreenAccessor",
+		"gui.ScreenMixin",
+		"input.InputConstantsMixin",
+		"input.KeyMappingAccessor",
+		"input.KeyboardHandlerAccessor",
+		"input.MouseHandlerAccessor",
+		"input.WindowMixin",
+		"lifecycle.OptionsMixin",
+		"lifecycle.MinecraftMixin",
+		"lifecycle.DedicatedServerMixin",
+		"screenshot.NativeImageMixin",
+		"threading.MainMixin",
+		"threading.MinecraftMixin",
+		"threading.MinecraftServerMixin",
+		"world.CreateWorldScreenMixin"
+	],
+	"plugin": "dev.horsingaround.gametest.harness.impl.ClientGameTestMixinConfigPlugin",
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

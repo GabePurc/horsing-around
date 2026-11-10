@@ -14,17 +14,20 @@
 // -PsmokeCloseUp (=degrees the side view turns): a shot every tick of the head and bridle at a gallop, a jump and on the
 //   rough course, on a large window (see SmokeTest).
 //
-// The NeoForge nodes (build.neoforge.gradle) run the same test natively: ./gradlew :<version>-neoforge:runSmoke
+// The NeoForge and Forge nodes (build.neoforge.gradle) run the same test natively: ./gradlew :<version>-neoforge:runSmoke
 // (not -PsmokeWithoutMod, which needs Fabric Loader).
 //
 // Test code only: the smoke source set is not part of the jar.
 
 def mc = sc.current.version
-def neoforge = project.name.endsWith('-neoforge')
-def label = neoforge ? "${mc} NeoForge" : mc
+// (NeoForge or Forge: ModDevGradle's runs.)
+def neoforge = project.name ==~ /.*-(neo)?forge/
+def forge = project.name.endsWith('-forge')
+def label = neoforge ? "${mc} ${project.ext.loaderName}" : mc
 def smokeDir = rootProject.layout.buildDirectory.dir("run/smoke/${project.name}").get().asFile
 def plain = project.hasProperty("smokePlain")
 def freshAnimations = !plain && !project.hasProperty("smokeNoPack")
+def closeUp = project.hasProperty("smokeCloseUp")
 def freshAnimationsName = project.ext.freshAnimationsZip.name
 def gameJava = project.ext.javaVersion
 
@@ -34,11 +37,15 @@ sourceSets {
 		compileClasspath += sourceSets.main.compileClasspath + sourceSets.client.compileClasspath + sourceSets.main.output + sourceSets.client.output
 		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.client.runtimeClasspath + sourceSets.main.output + sourceSets.client.output
 	}
-	smoke.resources.exclude(neoforge ? 'fabric.mod.json' : 'META-INF/neoforge.mods.toml')
+	smoke.resources.exclude(neoforge ? ['fabric.mod.json', forge ? 'META-INF/neoforge.mods.toml' : 'META-INF/mods.toml'] : ['META-INF/neoforge.mods.toml', 'META-INF/mods.toml'])
+}
+if (forge) {
+	// (Forge holds the title screen back behind a warning for a mod with no pack.mcmeta; build.neoforge.gradle writes one.)
+	tasks.named("processSmokeResources") { from(tasks.named("writePackMeta")) }
 }
 
 if (neoforge) {
-	neoForge {
+	configure(forge ? legacyForge : neoForge) {
 		addModdingDependenciesTo sourceSets.smoke
 		mods {
 			"horsingaround_smoke" {
@@ -53,7 +60,12 @@ if (neoforge) {
 				gameDirectory = smokeDir
 				systemProperty 'horsingaround.smoke', 'true'
 				jvmArgument '-Xmx2G'
-				if (project.hasProperty("smokeCloseUp")) {
+				// (Forge for 1.20.1 finds a mod's mixin configs in its jar's manifest; a dev game is told them.)
+				if (forge) {
+					programArgument '--mixin.config'
+					programArgument 'horsingaround-smoke.mixins.json'
+				}
+				if (closeUp) {
 					systemProperty 'horsingaround.smoke.closeUp', project.property('smokeCloseUp').toString()
 				}
 				if (project.hasProperty("smokeWild")) {
@@ -78,7 +90,7 @@ if (neoforge) {
 			runDir "../../build/run/smoke/${mc}"
 			vmArg "-Dhorsingaround.smoke=true"
 			vmArg "-Xmx2G"
-			if (project.hasProperty("smokeCloseUp")) {
+			if (closeUp) {
 				vmArg "-Dhorsingaround.smoke.closeUp=${project.property('smokeCloseUp')}"
 			}
 			if (project.hasProperty("smokeWild")) {
@@ -120,7 +132,7 @@ def optionsText = [
 	'joinedFirstServer:true',
 	'chatVisibility:0',
 	'touchscreen:false',
-].plus(project.hasProperty("smokeCloseUp") ? ['overrideWidth:1920', 'overrideHeight:1080'] : []).join("\n") + "\n"
+].plus(closeUp ? ['overrideWidth:1920', 'overrideHeight:1080'] : []).join("\n") + "\n"
 
 // Problems that name this mod, or a mixin that could not be applied.
 def smokeProblem = ~/(?i)(Mixin apply failed|Injection validation failed|could not find any targets|InvalidInjectionException|InvalidMixinException|MixinApplyError|MixinTransformerError|Critical injection failure|smoke test failed|\/(ERROR|FATAL)\].*horsing.?around|^\s+at dev\.horsingaround\.)/
@@ -133,7 +145,7 @@ tasks.matching { it.name == "runSmoke" }.configureEach { task ->
 	task.dependsOn "installFreshAnimations"
 	task.usesService(smokeGame)
 	// The versions run in one fixed order, after every version's downloads (they share Loom's asset cache).
-	task.mustRunAfter(rootProject.childProjects.values().findAll { !it.name.endsWith('-neoforge') }.collectMany { other ->
+	task.mustRunAfter(rootProject.childProjects.values().findAll { !(it.name ==~ /.*-(neo)?forge/) }.collectMany { other ->
 		["${other.path}:downloadAssets"] + (other.name < mc ? ["${other.path}:runSmoke"] : [])
 	})
 	// On the Java players run this version with (the old loaders' Mixin can't read a newer Java's classes).
@@ -151,7 +163,7 @@ tasks.matching { it.name == "runSmoke" }.configureEach { task ->
 			clientConfig.parentFile.mkdirs()
 			clientConfig.text = clientConfig.exists() ? clientConfig.text.replace('showLoadWarnings = true', 'showLoadWarnings = false') : "showLoadWarnings = false\n"
 			// (The early loading window can't hand itself over to a window of another size: "trouble handing off the window".)
-			if (project.hasProperty("smokeCloseUp")) {
+			if (closeUp) {
 				def fmlConfig = new File(smokeDir, "config/fml.toml")
 				fmlConfig.text = fmlConfig.exists() ? fmlConfig.text.replace('earlyWindowControl = true', 'earlyWindowControl = false') : "earlyWindowControl = false\n"
 			}

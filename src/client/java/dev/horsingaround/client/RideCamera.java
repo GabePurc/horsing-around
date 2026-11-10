@@ -20,6 +20,7 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.Nullable;
 
 /**
  * RDR2-style riding camera: third person over the rider's shoulder (or centred, the player's choice), a little higher
@@ -54,6 +55,8 @@ public final class RideCamera {
 	private static float frameRaise;
 	private static float frameAim;
 	private static float frameReach = 1.0F;
+	private static float wagonRaise;
+	private static float wagonRaiseO;
 	/** The next frame takes the framing as it is (just mounted), without easing into it. */
 	private static boolean framingFresh = true;
 	/** Where the camera was placed this frame. */
@@ -78,7 +81,7 @@ public final class RideCamera {
 				}
 				distance = distanceO = CAMERA_DISTANCE_STILL;
 				framingFresh = true;
-				eyeY = eyeYO = eyeYEase = player.getEyeY() + s.heightOffset(1.0F);
+				eyeY = eyeYO = eyeYEase = player.getEyeY() + seatRise(player, s, 1.0F);
 				lastPitch = player.getXRot();
 				pitchIdleTicks = 0;
 			} else {
@@ -94,10 +97,16 @@ public final class RideCamera {
 			return;
 		}
 
+		final net.minecraft.world.entity.Entity vehicle = player.getVehicle();
+		final dev.horsingaround.ride.CartTrail.Lean pulled = vehicle == null ? null : IcyCompat.cartLean(vehicle);
+		final boolean wagon = pulled instanceof net.minecraft.world.entity.Entity cart && IcyCompat.cartFrontAxle(cart) > 0.0;
+		final float room = wagon ? CAMERA_WAGON_BACK : pulled != null ? CAMERA_CART_BACK : 0.0F;
 		distanceO = distance;
-		distance += (Mth.lerp(gallopFraction(s.speed), CAMERA_DISTANCE_STILL, CAMERA_DISTANCE_GALLOP) - distance) * CAMERA_DISTANCE_SMOOTHING;
+		distance += (Mth.lerp(gallopFraction(s.speed), CAMERA_DISTANCE_STILL, CAMERA_DISTANCE_GALLOP) + room - distance) * CAMERA_DISTANCE_SMOOTHING;
+		wagonRaiseO = wagonRaise;
+		wagonRaise += ((wagon ? CAMERA_WAGON_RAISE : 0.0F) - wagonRaise) * CAMERA_DISTANCE_SMOOTHING;
 		eyeYO = eyeY;
-		final double eye = player.getEyeY() + s.heightOffset(1.0F);
+		final double eye = player.getEyeY() + seatRise(player, s, 1.0F);
 		if (Math.abs(eye - eyeY) > CAMERA_HEIGHT_SNAP) {
 			eyeY = eyeYO = eyeYEase = eye;
 		}
@@ -245,7 +254,8 @@ public final class RideCamera {
 
 	/**
 	 * Share (0 to 1) of the offset the camera can travel from the pivot before a wall, from a few jittered rays as vanilla
-	 * does. Leaves don't stop a ridden horse, so they don't push the camera in either.
+	 * does, and like vanilla's it sees through glass. Leaves don't stop a ridden horse, so they don't push the camera in either
+	 * (a block's visual shape is its collision shape, which leaves don't have for the rider: see the block behaviour mixin).
 	 */
 	private static float clearance(
 		final BlockGetter level, final Entity rider, final double x, final double y, final double z, final double ox, final double oy, final double oz
@@ -257,7 +267,7 @@ public final class RideCamera {
 		double share = 1.0;
 		for (int i = 0; i < 8; i++) {
 			final Vec3 from = new Vec3(x + ((i & 1) * 2 - 1) * 0.1, y + ((i >> 1 & 1) * 2 - 1) * 0.1, z + ((i >> 2 & 1) * 2 - 1) * 0.1);
-			final HitResult hit = level.clip(new ClipContext(from, from.add(ox, oy, oz), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, rider));
+			final HitResult hit = level.clip(new ClipContext(from, from.add(ox, oy, oz), ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, rider));
 			if (hit.getType() != HitResult.Type.MISS) {
 				share = Math.min(share, Math.max((hit.getLocation().distanceTo(from) - CAMERA_WALL_MARGIN) / length, 0.0));
 			}
@@ -311,7 +321,7 @@ public final class RideCamera {
 
 	/** Third person takes a small share of the saddle motion (when View Bobbing is on) but none of the horse's roll. */
 	public static double pivotY(final float partialTicks) {
-		return eyeY(partialTicks) + CAMERA_HEIGHT + frameLift * THIRD_PERSON_BOUNCE_SCALE;
+		return eyeY(partialTicks) + CAMERA_HEIGHT + Mth.lerp(partialTicks, wagonRaiseO, wagonRaise) + frameLift * THIRD_PERSON_BOUNCE_SCALE;
 	}
 
 	/** The camera distance: the designed distance at this speed, scaled by the player's setting. */
@@ -340,7 +350,14 @@ public final class RideCamera {
 			return 0.0;
 		}
 		nodOut[0] = -framePitch * FP_NOD_SCALE;
-		return s.heightOffset(partialTicks) + frameLift * FP_BOUNCE_SCALE;
+		return seatRise(Minecraft.getInstance().player, s, partialTicks) + frameLift * FP_BOUNCE_SCALE;
+	}
+
+	/** How far the seat is drawn above where it is: over a step, the horse's easing; on the bench of one of Icy's carts, the cart's. */
+	private static float seatRise(final @Nullable LocalPlayer player, final RideState s, final float partialTicks) {
+		final net.minecraft.world.entity.Entity vehicle = player == null ? null : player.getVehicle();
+		final dev.horsingaround.ride.CartTrail.Lean cart = vehicle == null ? null : IcyCompat.cartLean(vehicle);
+		return cart != null ? cart.horsingaround$rise(partialTicks) : s.heightOffset(partialTicks);
 	}
 
 	/** FOV multiplier, 1 below a trot rising to 1 + boost at full gallop. */

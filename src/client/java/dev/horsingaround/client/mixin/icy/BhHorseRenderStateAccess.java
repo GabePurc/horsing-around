@@ -6,7 +6,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 /**
  * What Icy's horse model draws from, see BhHorseModelMixin: how far it banks into a turn (0..1), how far its jumps tilt
- * its body, and how much its legs flail in the air (in a glide, and in a long fall).
+ * its body, how much its legs flail in the air (in a glide, and in a long fall), and how much its jump clip poses its legs.
  */
 @Pseudo
 @Mixin(targets = "icy.betterhorses.net.client.render.BhHorseRenderState", remap = false)
@@ -22,4 +22,7 @@ public interface BhHorseRenderStateAccess {
 
 	@Accessor(value = "jumpFlail", remap = false)
 	void horsingaround$setJumpFlail(float flail);
+
+	@Accessor(value = "jumpLegWeight", remap = false)
+	float horsingaround$jumpLegWeight();
 }
