@@ -416,8 +416,8 @@ public final class TerrainRideTest implements ClientGameTest {
 		log("  body tilt change per tick on the ground: 99th percentile %.2f deg; most, flights too, %.2f deg", steadyTilt, maxTiltRate);
 		log("  sharpest change in the body's tilt: %s", worstTilt);
 		// (The body tilts as fast as its legs carry it up a block: about 8 degrees a tick at a gallop over a 1-block step, more
-		// landing a drop of a few blocks onto a slope.)
-		check("smooth: the body tilts steadily on the ground (99th percentile change per tick, deg)", steadyTilt, 0.0, 10.0);
+		// landing a drop of a few blocks onto a slope; turning that fast, its weight carries it a degree or so further.)
+		check("smooth: the body tilts steadily on the ground (99th percentile change per tick, deg)", steadyTilt, 0.0, 11.0);
 		check("smooth: the body never snaps into a tilt (max change per tick, landings included, deg)", maxTiltRate, 0.0, 18.0);
 		log("  sharpest pick-up in the drawn horse's rise: %s", worstStep);
 		check("smooth: the drawn horse climbs steps, never pops up them (sharpest pick-up in rise, blocks/tick a tick)", maxVisualStep, 0.0, 0.3);
@@ -973,6 +973,7 @@ public final class TerrainRideTest implements ClientGameTest {
 	private void section(final String name) {
 		this.report.add("");
 		this.report.add("== " + name);
+		SmoothProbe.label(name);
 	}
 
 	private void check(final String name, final boolean ok) {
@@ -995,6 +996,7 @@ public final class TerrainRideTest implements ClientGameTest {
 	}
 
 	private void writeReport() {
+		SmoothProbe.label("");
 		final Path file = TestEnv.gameDir().resolve("horsingaround-terrain-report.txt");
 		this.report.add("");
 		this.report.add(this.failures == 0 ? "ALL TERRAIN RIDE CHECKS PASSED" : this.failures + " TERRAIN RIDE CHECKS FAILED");

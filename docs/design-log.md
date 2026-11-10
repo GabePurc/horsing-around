@@ -117,6 +117,10 @@ This area was reworked most. Read it before changing it.
 - 2026-10-22, user: "legs jump up really quickly to avoid clipping"; avoid it smoothly and realistically. Dropped: a hoof following
   a moving height (it passed a step edge's flicker through), looking as far ahead when planted (animations slide planted hooves
   forward, so they hovered before every step), setting down as slowly as lifting (it hovered).
+- 2026-11-09, user: a smoothness pass, "still keeping it feeling realistic". Measured first, frame by frame (`SmoothProbe`): flat
+  riding was smooth already; the jolts were takeoffs, the tilt in the air and at its rate limit, and the legs' clock. Dropped: a
+  plain spring on the tilt (it lagged down slopes, hooves off the ground); a body-lifted hoof looking as far ahead as a swinging
+  one (more hover, same pops). Left alone: speed and turning (the plan models them), the hard cut's pivot, the dead stop at a gap.
 - 2026-10-31, user: go back to before the recent leg and animation work and keep the fixes. Removed or never merged: stepping legs
   near a step, the body-tilt rework, the medieval rider seat, procedural legs for the plain model, legs on bones, an always-seated
   rider (#66-#70). Kept on branches: `stride-climb`, `rider-seat`, `gait-cycles`, `footfall-legs`, `no-standing`.
@@ -128,6 +132,9 @@ This area was reworked most. Read it before changing it.
   push the rider back and bring a hand up, since going through them felt like phasing.
 - Issues #17, #18: hold a tool or weapon relaxed at the side, swings starting and returning there; a believable bow draw. First
   tries laid the sword along the neck or held it like a lance. Blocky and vanilla in style; first person untouched.
+- 2026-11-09, user: the rider "snaps a little bit". The half seat and the pelvis' rock went by leg-animation speed, which stops
+  within a tick in the air (12 degrees upright in a frame at every gallop jump, and a lurch at each change to or from a gallop);
+  the rider sat back while the neck was still reaching; the sway whipped at a tick's change of pace. Each is on a spring now.
 
 ## Water
 

@@ -132,8 +132,10 @@ public final class RidePoser {
 			final net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
 			if (minecraft.options.getCameraType().isFirstPerson() && minecraft.getCameraEntity() != null && horse.hasPassenger(minecraft.getCameraEntity())) {
 				final float dt = roomStep(s, horse.tickCount + partialTicks);
-				s.neckReach = ease(s.neckReach, 0.0F, dt);
-				s.sitBack = ease(s.sitBack, 0.0F, dt);
+				s.neckReachRate = ease(s.neckReachRate, s.neckReach, 0.0F, dt);
+				s.neckReach = Math.max(s.neckReach + s.neckReachRate * dt, 0.0F);
+				s.sitBackRate = ease(s.sitBackRate, s.sitBack, 0.0F, dt);
+				s.sitBack = Math.max(s.sitBack + s.sitBackRate * dt, 0.0F);
 			}
 			*///?}
 			pose.horsingaround$setNeck(packAnimated ? 0.0F : neckCounter(pitch) + s.neckReach);
@@ -166,23 +168,34 @@ public final class RidePoser {
 		ROOM_SEAT.set(seatX, seatY + RIDER_SEAT_HEIGHT, seatZ);
 		final float neck = neckCounter(pitch);
 		final float step = 1.0F / ROOM_STEPS;
+		// (Each to just where there is room, between the last step without and the first with: stepped, they moved in jerks.)
 		float reach = NECK_REACH_MAX * Mth.DEG_TO_RAD;
+		float tight = 0.0F;
 		for (int k = 0; k <= ROOM_STEPS; k++) {
-			if (room(neck + reach * k * step, riderPitch) >= 0.0F) {
-				reach *= k * step;
+			final float room = room(neck + reach * k * step, riderPitch);
+			if (room >= 0.0F) {
+				reach *= k == 0 ? 0.0F : (k - 1 + tight / (tight - room)) * step;
 				break;
 			}
+			tight = room;
 		}
 		final float dt = roomStep(s, horse.tickCount + partialTicks);
-		s.neckReach = ease(s.neckReach, reach, dt);
+		s.neckReachRate = ease(s.neckReachRate, s.neckReach, reach, dt);
+		s.neckReach = Math.max(s.neckReach + s.neckReachRate * dt, 0.0F);
+		// (Against the neck where it is reaching to, not where it has got to: while it was on its way the rider sat back
+		// for it as well, a jerk back and a slow fold forward again.)
 		float sitBack = SIT_BACK_MAX * Mth.DEG_TO_RAD;
+		tight = 0.0F;
 		for (int k = 0; k <= ROOM_STEPS; k++) {
-			if (room(neck + s.neckReach, riderPitch + sitBack * k * step) >= 0.0F) {
-				sitBack *= k * step;
+			final float room = room(neck + reach, riderPitch + sitBack * k * step);
+			if (room >= 0.0F) {
+				sitBack *= k == 0 ? 0.0F : (k - 1 + tight / (tight - room)) * step;
 				break;
 			}
+			tight = room;
 		}
-		s.sitBack = ease(s.sitBack, sitBack, dt);
+		s.sitBackRate = ease(s.sitBackRate, s.sitBack, sitBack, dt);
+		s.sitBack = Math.max(s.sitBack + s.sitBackRate * dt, 0.0F);
 		final float seatedPitch = riderPitch + s.sitBack;
 		room(neck + s.neckReach, seatedPitch);
 		s.headGap = roomHeadGap;
@@ -194,7 +207,7 @@ public final class RidePoser {
 		// The stirrups roll with the saddle's sway, so the legs do too.
 		final float legRoll = riderBank - bank - (saddle.synthetic ? 0.0F : saddle.roll * Mth.DEG_TO_RAD);
 		// At a canter the pelvis rocks a little with the stride while the shoulders stay put; less in a gallop's half seat.
-		final float pelvis = -saddle.run * (1.0F - (1.0F - PELVIS_GALLOP_SHARE) * saddle.gallop) * saddle.lift * PELVIS_SLIDE;
+		final float pelvis = -s.seatRock(partialTicks) * saddle.lift * PELVIS_SLIDE;
 
 		// Hips stay square to the horse; the head and torso turn toward where the rider looks.
 		final float headYaw = Mth.rotLerp(partialTicks, entity.yHeadRotO, entity.yHeadRot);
@@ -204,6 +217,11 @@ public final class RidePoser {
 		final float lift = saddle.lift * (0.5F + 0.5F * saddle.limbSpeed);
 		final float release = bowRelease(entity, s, horse.tickCount + partialTicks, partialTicks);
 		pose.horsingaround$setRider(-lift * HAND_BOB, legPitch, legRoll, twist, pelvis, s.shield(partialTicks), release, s.bowPull);
+		s.riderPitch = seatedPitch;
+		s.riderRoll = riderBank;
+		s.riderLegs = legPitch;
+		s.riderPelvis = pelvis;
+		s.riderHands = -lift * HAND_BOB;
 		//? if <1.21.11
 		/*pose.horsingaround$setHeld(RiderPose.heldBy(entity, HumanoidArm.RIGHT), RiderPose.heldBy(entity, HumanoidArm.LEFT), RiderPose.usingTicks(entity, partialTicks));*/
 	}
@@ -335,11 +353,12 @@ public final class RidePoser {
 		// The torso stays closer to upright: resists the bank, leans forward uphill, stays vertical downhill, takes
 		// part of the saddle's rocking, sways against the horse's surges and the push of leaves, and folds forward with
 		// speed and in jumps.
-		final float forwardLean = FORWARD_LEAN_STILL + (FORWARD_LEAN_MOVING - FORWARD_LEAN_STILL) * saddle.moving
-			+ (FORWARD_LEAN_GALLOP - FORWARD_LEAN_MOVING) * saddle.gallop;
+		final float forwardLean = s.seatLean(partialTicks);
 		riderBank = bank * RIDER_BANK_FOLLOW + saddle.roll * RIDER_BANK_FOLLOW * Mth.DEG_TO_RAD;
 		// Jumping, they fold forward over the neck with the horse's rise, and sit up again coming down.
-		final float jumpFold = s.airLegs(partialTicks) * RIDER_JUMP_FOLD * Mth.DEG_TO_RAD + Math.max(jump, 0.0F) * (RIDER_JUMP_FOLLOW - RIDER_UPHILL_LEAN);
+		// (Eased in and out, as the legs' shape is.)
+		final float air = s.airLegs(partialTicks);
+		final float jumpFold = air * air * (3.0F - 2.0F * air) * RIDER_JUMP_FOLD * Mth.DEG_TO_RAD + Math.max(jump, 0.0F) * (RIDER_JUMP_FOLLOW - RIDER_UPHILL_LEAN);
 		// Rearing (measured), it goes up with the horse's back: see RIDER_REAR_FOLLOW.
 		riderRear = !saddle.synthetic && horse instanceof AbstractHorse rearing ? rearing.getStandAnim(partialTicks) : 0.0F;
 		riderPitch = -Math.max(pitch, 0.0F) * RIDER_UPHILL_LEAN - jumpFold
@@ -353,8 +372,13 @@ public final class RidePoser {
 		return dt;
 	}
 
-	private static float ease(final float value, final float target, final float dt) {
-		return value + (target - value) * (1.0F - (float) Math.exp(-dt / (target > value ? ROOM_IN_SECONDS : ROOM_OUT_SECONDS)));
+	/**
+	 * How fast (a second) the room's give is changing after {@code dt} seconds, from {@code rate}: toward {@code target} on
+	 * a critically damped spring (solved implicitly), quickly in and slowly back.
+	 */
+	private static float ease(final float rate, final float value, final float target, final float dt) {
+		final float w = 1.0F / (target > value ? ROOM_IN_SECONDS : ROOM_OUT_SECONDS);
+		return (rate + w * w * dt * (target - value)) / (1.0F + 2.0F * w * dt + w * w * dt * dt);
 	}
 
 	/**

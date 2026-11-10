@@ -1,11 +1,10 @@
 # Design
 
-What each part should feel like, and the shape of how it works now. "User" marks what the user asked for: keep the
-intent, and raise it with them before reversing it. "Now" and any number describe one way of doing it, so a better way is
-welcome. Current numbers are in `RideTuning`; why things are this way is in `design-log.md`.
+What each part should feel like, and how it works now. "User" marks what the user asked for: keep the intent, and raise
+it with them before reversing it. "Now" and any number describe one way of doing it.
 
-Vanilla horses feel static because of instant top speed and stops, a body snapped to the camera, one speed, strafing, a
-gallop clip after five steps whatever the speed, no stamina and no visual weight.
+Vanilla horses feel static because of instant top speed and stops, a body snapped to the camera, one speed, strafing, no
+stamina and no visual weight.
 
 ## Riding
 
@@ -16,7 +15,7 @@ gallop clip after five steps whatever the speed, no stamina and no visual weight
 - Momentum: gradual acceleration and coasting, harder braking. Roughly 2 s of spurring to a full gallop; from one, about
   2 s to coast to a stop and under 1 s braking. A head-on wall hit at speed sheds momentum; a graze slips past.
 - Turning (user): the horse shifts its weight before it turns; turn rate is grip-limited, so a gallop turn is wide. Now: a
-  weight commitment leads, head first, and the bank follows (about 15 degrees at most, low for blocky models).
+  weight commitment leads, head first, and the bank follows (up to 15 degrees).
 - Steering (user): the horse heads where the rider looks and never pulls the view. Standing still is free look. W+A/D
   ride 45 degrees off the view; A or D alone ride across it at the gait. No strafing.
 - Hard cuts (user): the further the rider turns the view, the harder the horse cuts, sitting back and slowing, then
@@ -46,6 +45,8 @@ gallop clip after five steps whatever the speed, no stamina and no visual weight
   slowing to a trot first from a canter or gallop, at any approach angle and in any neighbourhood. Never fences, walls or
   leaves; a ledge that only catches the flank is gone round.
 - Hurdles: fences and walls are jumped only when the rider presses jump, so pens still hold horses.
+- Takeoffs and landings have weight (user, 2026-11-09), drawn only: the body gathers speed off the ground over a few
+  ticks; landing, it sinks on its legs and rises without a bounce, hindquarters after forehand.
 
 ## The horse has a say (user: "super important" that it is never an annoyance)
 
@@ -68,13 +69,14 @@ gallop clip after five steps whatever the speed, no stamina and no visual weight
 - Physically right first (user): hooves on the ground actually under them, legs drawing up into the body over higher
   ground; the body is a mass carried on its legs, never falling faster than gravity; the tilt is the line between the ground
   under the front and the hind hooves.
-- Hooves move smoothly (user, 2026-10-22: avoid clipping "in a smooth and realistic way"). Now: a hoof moves to its height
-  on a short spring and looks ahead along its own path, so it is already up when it reaches higher ground.
+- Hooves move smoothly (user, 2026-10-22: avoid clipping "in a smooth and realistic way").
+- Nothing snaps, but it stays a horse (user, 2026-11-09): tilt, bank, height and the rider's seat never start, stop or
+  turn back within a tick; the gait's bounce stays.
 - Steps in two beats (user): front legs up first, then the hind; one leg at a time at a walk, nearly together at speed; at
   a run a step comes in through the stride without a pop.
 - No clipping between horse and rider (user): the horse reaches its neck forward, then the rider folds less.
 - Known limits: on a slope of full blocks a leg can't reach a 1-block riser, so the horse scrambles; trotting down one, a
-  hoof hangs a tick or two after each landing (user, 2026-10-10: kept unless a better way turns up).
+  hoof hangs briefly after each landing (user: kept).
 
 ## Rider
 

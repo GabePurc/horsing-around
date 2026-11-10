@@ -44,6 +44,8 @@ def lightTestGame = { task ->
 	task.javaLauncher = testGameJava
 	task.systemProperty "horsingaround.lowSettings", lowSettings
 	task.systemProperty "horsingaround.frameClock", lowSettings && !clientTests.contains("perf") && !project.hasProperty("realTime")
+	task.systemProperty "horsingaround.smooth", project.findProperty("smooth") ?: ""
+	task.systemProperty "horsingaround.smoothDump", project.findProperty("smoothDump") ?: ""
 	task.maxHeapSize = "2G"
 	if (project.hasProperty("profile")) {
 		// A Java Flight Recorder recording of the whole run, for finding what the mod costs (docs/testing.md).
@@ -72,7 +74,7 @@ tasks.matching { it.name in ["runClient", "runClientGameTest"] }.configureEach {
 // gradle.properties) is what lets Gradle run them side by side; --continue lets the others finish when one fails. The
 // shards' reports are then merged into build/run/<runs>/ and every failed check is listed.
 def testShards = ext.testShards = [
-	RideA  : [tests: "ride", sections: "core,ledges,cuts"],
+	RideA  : [tests: "ride", sections: "core,ledges,cuts,landings"],
 	RideB  : [tests: "ride", sections: "stairs,picking"],
 	RideC  : [tests: "ride", sections: "steps,climbs"],
 	Terrain: [tests: "terrain", sections: ""],

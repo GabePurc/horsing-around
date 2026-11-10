@@ -46,7 +46,7 @@ Each needs a look: a real fault, or a limit to set from what the stride itself d
 
 ## Known issues
 
-- Hoof soles meeting a bank's top mid-heave still jump up to 0.34 blocks in a frame (logged by `exits`).
+- A hoof meeting a step's or a bank's top can still jump up to 0.34 blocks in a frame (`exits` logs it, `-Psmooth` ranks them).
 - Galloping up a ragged hillside, the head can dip 0.31-0.39 blocks into a step for a moment (`hill`, limit 0.4).
 - Icy's carts don't collide going forward: they pass through a trunk or cliff if the horse cuts close.
 

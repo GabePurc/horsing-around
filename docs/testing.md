@@ -18,8 +18,7 @@ code, ported for any loader and version). Loader differences sit in `TestEnv` an
 
 Full runs: `./gradlew runClientGameTestParallel --continue` (every build; `:<version>:` for one) splits them into shards (`testShards`
 in `gradle/client-tests-common.gradle`, one alone with `runClientGameTest<Shard>`), runs two games at a time (`-PtestGames=N`), merges
-reports into `build/run/clientGameTest/` (26.3; `clientGameTest-<version>[-neoforge]/` for the rest) and lists failed checks. While
-iterating, run only the section a change touches. Only 26.3 runs `gallery`, `store`, Icy's and Real Camera's tests (their packs are 26.3's).
+reports into `build/run/clientGameTest/` (26.3; `clientGameTest-<version>[-neoforge]/` for the rest) and lists failed checks. Only 26.3 runs `gallery`, `store`, Icy's and Real Camera's tests (their packs are 26.3's).
 
 ### Choosing what runs
 
@@ -37,6 +36,7 @@ iterating, run only the section a change touches. Only 26.3 runs `gallery`, `sto
 | `slopes`, `hill` | Slope and stair lanes; a gallop up a ragged hillside (also in `stairs`) |
 | `slowstep` | Standing, stopping and single steps frame by frame, for snaps, at world tick 158 million |
 | `drawn`, `legs` | Close shots: legs as drawn on slopes and steps; legs in a jump |
+| `landings` | Jumps and drops, takeoff and landing tick by tick (`landingshots`: shots) |
 | `idle`, `unseen` | Horses no one rides: level, grass, a lead, a step's edge; moved out of view (`performance` pack) |
 | `exits`, `strafe` | Out of water onto banks; stopping after A or D alone |
 | `hands`, `icons` | Rider's arms with items; shulker boxes with Entity Model Features |
@@ -45,20 +45,18 @@ iterating, run only the section a change touches. Only 26.3 runs `gallery`, `sto
 
 ### Reading results
 
-- Send a run's output to a file outside the repo and read only the tail. Failures, across
-  all reports: `grep -E 'FAIL|INCOMPLETE' build/run/clientGameTest/horsingaround-*-report.txt`.
+- Failures, across all reports: `grep -E 'FAIL|INCOMPLETE' build/run/clientGameTest/horsingaround-*-report.txt`.
   Screenshots are in `build/run/clientGameTest/screenshots/`.
 - F3+B draws the ridden horse's box, line, heading, plan and look-ahead findings (1.21.11 and newer).
 - Test horses wear colour-coded legs (`src/gametest/debugpack`). `-PplainTextures` for real ones; `-PvanillaModel` for the plain
   model with no pack. `LegProbe` measures the legs as drawn: judge leg work by its numbers and close shots.
 - `TestInput.pressKey` runs a game tick of its own. In a loop sampling every tick, use `holdKey` then `releaseKey`, or trace with
   `HorseTrace`; otherwise a tick goes missing.
-- Test games make no sound, and run light: lowest settings, a 2 GB heap and (26.3) performance mods. `-PplainGame` drops the mods;
-  `-PfullGraphics` keeps normal settings.
+- Test games are silent and run light: lowest settings, a 2 GB heap and (26.3) performance mods. `-PplainGame` drops the mods;
+  `-PfullGraphics` keeps them normal.
 - Test games don't wait for real time (`TestClock`): the clock counts drawn frames, 5.9 to a tick, so a run goes as fast as the
   machine draws and every tick gets the same frames. Frame-sampling checks need several frames a tick, not a whole number.
   `-PrealTime` runs at normal speed; perf, gallery and store always do. A game whose frames stop for 2 minutes logs its threads and exits.
-- Test games run the same however the window is (no vsync or frame limit), and use X11 on Linux, even from Wayland.
 - Lanes start from a horse with no AI until mounted (`lane()`): one that idled first sometimes starts off its line, failing checks far on.
 
 ## Other runs
@@ -73,6 +71,8 @@ iterating, run only the section a change touches. Only 26.3 runs `gallery`, `sto
   for some), with ATMOSPHERICS for the sky. `scripts/store-media.sh` turns them into `docs/media/`, as MP4 and animated WebP. Every
   client test run clears `build/run/clientGameTest`, so encode before the next run. Stills may use shaders; the user wants clips
   without, which are easier to see. Modrinth uses the MP4s; GitHub and CurseForge the WebPs.
+- `-Psmooth=<folder>`, any client test run: how sharply each drawn part (body, tilt, lean, camera, legs) changes pace, by
+  section (`SmoothProbe`); `-PsmoothDump=<names>` adds the frames round the hardest.
 - `-PshaderPack=<zip>`, any 26.3 client test run: Iris with that pack (its shadows come first only up to 1.21.11).
 
 ## Smoke test (every version)
