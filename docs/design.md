@@ -143,8 +143,8 @@ On this mod's setting, the default:
 
 ## Settings and the hat
 
-- Settings are comfort and preference only (see `AGENTS.md`), reached from Mod Menu, the NeoForge Mods screen or a key, and
-  should look polished and at home in Minecraft.
+- Settings are comfort and preference only (`AGENTS.md`), reached from the Mods screen or a key. In tabs, drawn as a tack
+  room at sunset (user, 2026-11-03; `client/config/Tack`).
 - The supporter cowboy hat (user, 2026-10-08) is for people who buy the user a coffee (https://buymeacoffee.com/blintzbug).
   `hats/` lists claimed supporters by UUID in `supporters.json`, which clients download (disclosed in the README). The
   colour goes through the server (`HatRelay`); clients draw hats only for players on their own copy of the list. While worn,

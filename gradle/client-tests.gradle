@@ -64,7 +64,7 @@ loom {
 }
 // Light test games load performance mods on 26.3 (-PplainGame without); the other versions run without for now.
 if (mainVersion) {
-	def clientTests = project.findProperty("tests") ?: "ride,terrain,mounts,server,hat"
+	def clientTests = project.findProperty("tests") ?: "ride,terrain,mounts,server,hat,settings"
 	configurations.register("testPerformanceMods") { transitive = false }
 	dependencies {
 		testPerformanceMods "maven.modrinth:sodium:bAZQdGpg"          // mc26.3-0.9.2

@@ -70,7 +70,7 @@ keeps them:
 ### Before 1.21
 
 Data pack tag folders are plural (`processResources` renames them), resource locations use a constructor, options screens keep their own list
-(`HorseSettingsScreen`), the camera moves in doubles, and model colours are floats.
+(`HorseSettingsScreen`; `Tack` draws the controls on every version), the camera moves in doubles, and model colours are floats.
 
 ### Before 1.20.5
 
@@ -104,7 +104,7 @@ Build and pass the audit: 1.20.1 Forge, 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (co
 
 ## Gaps on older versions
 
-- 1.21.10 and older: no spears, so no spear stab pose. The settings screen's section headings each take a row of their own. No F3+B steering overlay (gizmos came in 1.21.11).
+- 1.21.10 and older: no spears, so no spear stab pose. No F3+B steering overlay (gizmos came in 1.21.11).
 - 1.21.1 and older: a horse's leg box is found by its size alone (box faces are private there).
 
 Different underneath, not gaps (each handled where named):
