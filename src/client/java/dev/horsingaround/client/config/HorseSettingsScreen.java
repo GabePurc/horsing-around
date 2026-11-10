@@ -5,9 +5,9 @@ import dev.horsingaround.client.cosmetic.HatColors;
 import dev.horsingaround.client.cosmetic.Hats;
 import dev.horsingaround.client.cosmetic.Supporters;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.EnumMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.IntConsumer;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 //? if >=1.20.5
@@ -58,12 +58,14 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	private static final int TABS_WIDTH = 330;
 	private static final int TAB_GAP = 4;
 	private static final int FRAME_MARGIN = 4;
-	/** The title beam, then the tabs, which end where the options' panel starts. */
+	/** The title beam, then the tabs on their strap, which ends where the options start. */
 	private static final int BEAM_BOTTOM = 30;
-	private static final int HEADER_HEIGHT = 56;
+	private static final int TABS_BOTTOM = 56;
+	private static final int HEADER_HEIGHT = TABS_BOTTOM + Tack.RAIL;
 	private static final int FOOTER_HEIGHT = 33;
 
-	private final List<Tack.TabTag> tabTags = new ArrayList<>();
+	/** The tabs showing, in order. */
+	private final Map<Tab, Tack.TabTag> tabTags = new EnumMap<>(Tab.class);
 	private Tab tab;
 	/**
 	 * The hat colour as the sliders show it: hue (degrees), richness and brightness (0-1). Kept here and only turned into
@@ -192,7 +194,7 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		this.tabTags.clear();
 		for (final Tab each : Tab.values()) {
 			if (each.shown()) {
-				this.tabTags.add(this.addRenderableWidget(new Tack.TabTag(each.label(), each == this.tab, () -> this.select(each))));
+				this.tabTags.put(each, this.addRenderableWidget(new Tack.TabTag(each.label(), each == this.tab, () -> this.select(each))));
 			}
 		}
 	}
@@ -201,10 +203,10 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		final int total = Math.min(TABS_WIDTH, this.width - 2 * FRAME_MARGIN);
 		final int each = (total - (this.tabTags.size() - 1) * TAB_GAP) / this.tabTags.size();
 		int x = (this.width - total) / 2;
-		for (final Tack.TabTag tag : this.tabTags) {
+		for (final Tack.TabTag tag : this.tabTags.values()) {
 			tag.setWidth(each);
 			tag.setX(x);
-			tag.setY(HEADER_HEIGHT - tag.getHeight());
+			tag.setY(TABS_BOTTOM - tag.getHeight());
 			x += each + TAB_GAP;
 		}
 	}
@@ -212,9 +214,7 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	/** Shows another tab: its options replace the list's, and the tabs and footer stay as they are. */
 	private void select(final Tab chosen) {
 		this.tab = chosen;
-		for (int i = 0; i < this.tabTags.size(); i++) {
-			this.tabTags.get(i).selected = Tab.values()[i] == chosen;
-		}
+		this.tabTags.forEach((each, tag) -> tag.selected = each == chosen);
 		this.refill();
 		this.list.setScrollAmount(0.0);
 	}
@@ -249,7 +249,7 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		Tack.boards(graphics, Tack.WOOD, left, footer, width, bottom - footer);
 		graphics.fill(left, footer, left + width, footer + 1, Tack.EDGE);
 		graphics.fill(left, footer + 1, left + width, footer + 2, Tack.LIGHT_WOOD_EDGE);
-		graphics.fill(left, HEADER_HEIGHT, left + width, HEADER_HEIGHT + 1, Tack.EDGE);
+		Tack.rail(graphics, left, TABS_BOTTOM, width);
 		final int rivet = (FRAME_MARGIN + BEAM_BOTTOM) / 2 - 2;
 		Tack.stud(graphics, left + 5, rivet, 4);
 		Tack.stud(graphics, left + width - 9, rivet, 4);
@@ -347,7 +347,7 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 			c.hat = v;
 			Hats.sendOwn();
 		}));
-		this.addWide(new HatPaletteWidget(WIDE, c.hatColor, color -> {
+		this.addWide(new HatPaletteWidget(WIDE, () -> c.hatColor, color -> {
 			c.hatColor = color;
 			this.hsv = HatColors.toHsv(color);
 			Hats.sendOwn();
@@ -358,7 +358,11 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 			slider("hat_hue", SMALL, 0, 359, Math.min(Math.round(this.hsv[0]), 359), "degrees", hue -> this.setHsv(c, 0, hue)),
 			slider("hat_richness", SMALL, 0, 100, Math.round(this.hsv[1] * 100.0F), "percent", rich -> this.setHsv(c, 1, rich / 100.0F))
 		);
-		this.addWide(slider("hat_brightness", WIDE, 5, 100, Math.max(Math.round(this.hsv[2] * 100.0F), 5), "percent", bright -> this.setHsv(c, 2, bright / 100.0F)));
+		// (Beside the last slider, the colour they make: the hat itself may be out of sight.)
+		this.list.addSmall(
+			slider("hat_brightness", SMALL, 5, 100, Math.max(Math.round(this.hsv[2] * 100.0F), 5), "percent", bright -> this.setHsv(c, 2, bright / 100.0F)),
+			new Tack.Swatch(SMALL, Component.translatable(KEY + "hat_color"), () -> c.hatColor)
+		);
 	}
 
 	/** A hat slider moved: one of hue, richness and brightness changes and the colour follows. */

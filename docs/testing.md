@@ -6,8 +6,7 @@ targets.
 ## Client tests (every version, Fabric and NeoForge)
 
 `./gradlew :<version>:runClientGameTest` (or `:<version>-neoforge:`) runs these; all fail on server corrections ("moved wrongly",
-meaning rubber-banding) and log warnings. They run on this project's harness (`src/gametest/.../harness`: Fabric API's client game test
-code, ported for any loader and version). Loader differences sit in `TestEnv` and `gametest/neoforge`, version ones in conditions
+meaning rubber-banding) and log warnings. They run on this project's harness (`src/gametest/.../harness`, from Fabric API's). Loader differences sit in `TestEnv` and `gametest/neoforge`, version ones in conditions
 (shared ones in `Versions`; version-only mixins come from the mixin configs' plugins).
 
 - `RideFeelTest` (`ride`): every mechanic in hand-built lanes, with simulated keys.
@@ -15,10 +14,10 @@ code, ported for any loader and version). Loader differences sit in `TestEnv` an
 - `MountsTest` (`mounts`): every vanilla mount and mob riders.
 - `ServerRideTest` (`server`): a real dedicated server accepts every move.
 - `HatTest` (`hat`): the supporter hat.
-- `SettingsTest` (`settings`): the settings screen, each tab clicked and photographed (with Icy's: `runCompatIcys -PcompatTests=settings`).
+- `SettingsTest` (`settings`): the settings screen, by mouse.
 
 Full runs: `./gradlew runClientGameTestParallel --continue` (every build; `:<version>:` for one) splits them into shards (`testShards`
-in `gradle/client-tests-common.gradle`, one alone with `runClientGameTest<Shard>`), runs two games at a time (`-PtestGames=N`), merges
+in `gradle/client-tests-common.gradle`, one alone with `runClientGameTest<Shard>`), two games at a time (`-PtestGames=N`), merges
 reports into `build/run/clientGameTest/` (26.3; `clientGameTest-<version>[-neoforge]/` for the rest) and lists failed checks. Only 26.3 runs `gallery`, `store`, Icy's and Real Camera's tests (their packs are 26.3's).
 
 ### Choosing what runs
@@ -47,7 +46,7 @@ reports into `build/run/clientGameTest/` (26.3; `clientGameTest-<version>[-neofo
 ### Reading results
 
 - Failures, across all reports: `grep -E 'FAIL|INCOMPLETE' build/run/clientGameTest/horsingaround-*-report.txt`.
-  Screenshots are in `build/run/clientGameTest/screenshots/`.
+  Screenshots: `build/run/clientGameTest/screenshots/`.
 - F3+B draws the ridden horse's box, line, heading, plan and look-ahead findings (1.21.11 and newer).
 - Test horses wear colour-coded legs (`src/gametest/debugpack`). `-PplainTextures` for real ones; `-PvanillaModel` for the plain
   model with no pack. `LegProbe` measures the legs as drawn: judge leg work by its numbers and close shots.
