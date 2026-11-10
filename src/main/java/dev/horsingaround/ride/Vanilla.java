@@ -75,6 +75,14 @@ final class Vanilla {
 		/*return Math.ceil(Math.max(fall - safeFall(horse), 0.0) * fallDamageMultiplier(horse));*/
 	}
 
+	/** The longest fall (blocks) that costs the horse's rider at most {@code hurt} health points (see {@link #riderFallHurt}). */
+	static double longestRiderFall(final LivingEntity horse, final LivingEntity rider, final int hurt) {
+		//? if >=1.21.5 {
+		return longestFall(rider, hurt);
+		//?} else
+		/*return longestFall(horse, hurt);*/
+	}
+
 	//? if <1.20.2 {
 	/*// (Before 1.20.2 only the version that looks at entities too exists; the blocks alone are what vanilla's later one looks at.)
 	static boolean noBlockCollision(final CollisionGetter level, final Entity entity, final AABB box) {

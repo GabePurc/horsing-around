@@ -47,7 +47,7 @@ Real horses and riders:
 - 2026-10-07, user: D alone rides 80-90 degrees right, instead of letting the horse stop, so the rider can run forward, at
   45 and at 90 at full speed.
 - 2026-10-18, user: a double tap of W raises the speed and locks the horse on until S; sprint works as before. Trap: vanilla
-  also clicks W for OS key repeat, and its held state lags the click by a tick, so count clicks made while W was up.
+  also clicks a key for the OS key repeat (sprint, S and jump too), so a press is a click with the key going down from up.
 - Issue #16: letting go of A or D swings the target heading 90 degrees, which read as a hard cut, so the horse sat down as
   it stopped. Hard cuts now need the horse ridden on.
 

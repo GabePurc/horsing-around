@@ -16,8 +16,12 @@ final class RiderKeys implements RiderBridge {
 	/** Client ticks so far, and the last one the ride read the presses on. */
 	private int tick;
 	private int readTick = Integer.MIN_VALUE;
-	/** W was down at the last read. */
-	private boolean forwardDown;
+	private static final int FORWARD = 0;
+	private static final int SPUR = 1;
+	private static final int REIN = 2;
+	private static final int JUMP = 3;
+	/** Whether each key was down at the last read. */
+	private final boolean[] wasDown = new boolean[4];
 
 	RiderKeys(final Minecraft minecraft) {
 		this.minecraft = minecraft;
@@ -76,32 +80,43 @@ final class RiderKeys implements RiderBridge {
 
 	@Override
 	public int forwardPresses() {
-		this.dropStale();
-		final KeyMapping key = this.minecraft.options.keyUp;
-		final int clicks = drain(key);
-		final boolean wasDown = this.forwardDown;
-		this.forwardDown = key.isDown();
-		// Vanilla also clicks for the key repeat while W is held, so only clicks made while it was up are presses (one,
-		// or taps shorter than a tick). Letting go and pressing again within one tick is missed, as in vanilla.
-		return wasDown ? 0 : clicks;
+		return this.presses(FORWARD, this.minecraft.options.keyUp);
 	}
 
 	@Override
 	public int spurPresses() {
-		this.dropStale();
-		return drain(this.minecraft.options.keySprint);
+		final Options options = this.minecraft.options;
+		if (options.toggleSprint().get()) {
+			// (Toggle Sprint flips the key's held state on each press, so it says nothing of the key: every click counts.)
+			this.dropStale();
+			this.forget(SPUR, options.keySprint);
+			return drain(options.keySprint);
+		}
+		return this.presses(SPUR, options.keySprint);
 	}
 
 	@Override
 	public int reinPresses() {
-		this.dropStale();
-		return drain(this.minecraft.options.keyDown);
+		return this.presses(REIN, this.minecraft.options.keyDown);
 	}
 
 	@Override
 	public int jumpPresses() {
+		return this.presses(JUMP, this.minecraft.options.keyJump);
+	}
+
+	/**
+	 * Presses of a key since the last read. Vanilla also clicks for the OS key repeat while a key is held, so of a key
+	 * that was held or went down, only as many clicks as times it went down are presses (taps shorter than a tick too).
+	 */
+	private int presses(final int which, final KeyMapping key) {
 		this.dropStale();
-		return drain(this.minecraft.options.keyJump);
+		final int clicks = drain(key);
+		final int downs = ((KeyPresses) key).horsingaround$takeDowns();
+		final boolean held = this.wasDown[which];
+		this.wasDown[which] = key.isDown();
+		// (Clicks of a key that never went down are something else's presses for it, another mod's say, not a repeat.)
+		return !held && downs == 0 ? clicks : Math.min(clicks, downs);
 	}
 
 	@Override
@@ -127,12 +142,21 @@ final class RiderKeys implements RiderBridge {
 		if (this.readTick < this.tick - 1) {
 			final Options options = this.minecraft.options;
 			drain(options.keyUp);
-			this.forwardDown = options.keyUp.isDown();
+			this.forget(FORWARD, options.keyUp);
 			drain(options.keySprint);
+			this.forget(SPUR, options.keySprint);
 			drain(options.keyDown);
+			this.forget(REIN, options.keyDown);
 			drain(options.keyJump);
+			this.forget(JUMP, options.keyJump);
 		}
 		this.readTick = this.tick;
+	}
+
+	/** Starts a key's count of times it went down afresh, from its state now. */
+	private void forget(final int which, final KeyMapping key) {
+		((KeyPresses) key).horsingaround$takeDowns();
+		this.wasDown[which] = key.isDown();
 	}
 
 	private static int drain(final KeyMapping key) {

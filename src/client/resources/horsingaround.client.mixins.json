@@ -12,6 +12,7 @@
 		"HudMixin",
 		"HumanoidModelMixin",
 		"JumpableVehicleBarMixin",
+		"KeyMappingMixin",
 		"LivingEntityRenderStateMixin",
 		"LivingEntityRendererMixin",
 		"LocalPlayerMixin",

@@ -362,7 +362,8 @@ public final class RideController {
 		final double fz = Mth.cos(yaw);
 		// The rider's push still acts in the air (air control); the jump's forward speed includes it.
 		final float airPush = (float) horse.getAttributeValue(Attributes.MOVEMENT_SPEED) * Math.max(s.speed, 0.0F) * AIR_CONTROL;
-		final double lighter = Vanilla.gravity(horse) * LEDGE_LIFT_GRAVITY;
+		// (A horse with next to no weight climbs as one with a little: the climb's shape is worked out from it.)
+		final double lighter = Math.max(Vanilla.gravity(horse), LEDGE_GRAVITY_LEAST) * LEDGE_LIFT_GRAVITY;
 		if (s.ledgeAir) {
 			if (horse.onGround() || s.ledgeTicks > LEDGE_APPROACH_TICKS + LEDGE_AIR_TICKS) {
 				endLedge(s);

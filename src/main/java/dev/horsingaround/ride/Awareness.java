@@ -1190,13 +1190,17 @@ public final class Awareness {
 	 * down from 1.21.5, so up to about 8; rounded up before, so 6), and beyond that only while the hurt stays small: up to
 	 * FALL_HURT_ALLOWANCE for the horse and RIDER_FALL_HURT_ALLOWANCE for its rider, who takes the fall with it (vanilla
 	 * passes a hurting fall on to riders). The less health either has left, the more careful it is: the allowances shrink
-	 * to nothing at CAUTIOUS_HEALTH.
+	 * to nothing at CAUTIOUS_HEALTH. Never one that costs the rider more than their allowance, even where the horse
+	 * itself isn't hurt (from 1.21.5 a rider is hurt from 3 blocks).
 	 */
 	public static double acceptableFall(final AbstractHorse horse) {
 		final double horseAllowance = allowance(horse);
 		final LivingEntity rider = horse.getControllingPassenger();
 		final double riderAllowance = rider == null ? 0.0 : allowance(rider) * RIDER_FALL_HURT_ALLOWANCE / FALL_HURT_ALLOWANCE;
 		double fall = Vanilla.longestFall(horse, 0);
+		if (rider != null) {
+			fall = Math.min(fall, Vanilla.longestRiderFall(horse, rider, (int) riderAllowance));
+		}
 		for (int hurt = 1; hurt <= 20 && hurt <= horseAllowance; hurt++) {
 			final double candidate = Vanilla.longestFall(horse, hurt);
 			if (rider != null && Vanilla.riderFallHurt(horse, rider, candidate) > riderAllowance) {
@@ -1207,7 +1211,7 @@ public final class Awareness {
 		return fall;
 	}
 
-	/** The longest fall that doesn't hurt the horse at all, so a rider isn't hurt either. */
+	/** The longest fall that doesn't hurt the horse at all (nor, before 1.21.5, its rider; see {@link #acceptableFall} for after). */
 	static double harmlessFall(final AbstractHorse horse) {
 		return Vanilla.longestFall(horse, 0);
 	}
@@ -1223,11 +1227,13 @@ public final class Awareness {
 	 * side-step) would take the body: if that steps into a hazard it isn't already in (from any side, turning in a tight
 	 * spot included), or off a drop it won't take (an edge reached too fast, the lip of a gap without a jump, backing
 	 * up), it plants its feet. The hazard look is a handful of block reads; the drop look only runs when danger is close.
+	 * Only a jump taking off this tick is let go; one pressed but still waiting (for the pause after a landing) isn't: by
+	 * the time it could fire, the horse would be over the edge.
 	 */
 	static void guard(final AbstractHorse horse, final RideState s) {
 		body(horse);
 		s.guardChecks++;
-		if (s.jumpBuffer > 0 || s.pendingJump > 0.0F || s.speed == 0.0F && horse.getDeltaMovement().horizontalDistanceSqr() < 1.0E-6) {
+		if (s.pendingJump > 0.0F || s.speed == 0.0F && horse.getDeltaMovement().horizontalDistanceSqr() < 1.0E-6) {
 			return;
 		}
 		final float rad = s.heading * Mth.DEG_TO_RAD;
