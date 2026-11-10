@@ -167,3 +167,4 @@ This area was reworked most. Read it before changing it.
 - 2026-11-03, user: settings in tabs rather than sections on one list, and no longer bland. A flat dusk palette read as too plain
   and not Minecraft; wood, stitched leather, strap sliders and brass buckles are what stuck. The hat tab says how to get the hat in
   plain words for non-supporters, rather than only in a tooltip.
+- 2026-11-10, user: the camera tab shows the world behind, sharp; the solid panel hid camera changes.

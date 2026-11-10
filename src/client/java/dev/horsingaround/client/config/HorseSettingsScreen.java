@@ -58,6 +58,8 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	private static final int TABS_WIDTH = 330;
 	private static final int TAB_GAP = 4;
 	private static final int FRAME_MARGIN = 4;
+	/** The frame's side posts where its boards are left out. */
+	private static final int POST = 3;
 	/** The title beam, then the tabs on their strap, which ends where the options start. */
 	private static final int BEAM_BOTTOM = 30;
 	private static final int TABS_BOTTOM = 56;
@@ -148,7 +150,9 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	//? if <1.20.2 {
 	/*@Override
 	public void render(final GuiGraphicsExtractor graphics, final int mouseX, final int mouseY, final float partialTick) {
-		this.extractBackground(graphics);
+		if (!this.showsWorld()) {
+			this.extractBackground(graphics);
+		}
 		this.drawFrame(graphics);
 		super.render(graphics, mouseX, mouseY, partialTick);
 	}
@@ -230,10 +234,20 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	//? if >=1.20.2 {
 	@Override
 	public void extractBackground(final GuiGraphicsExtractor graphics, final int mouseX, final int mouseY, final float a) {
-		super.extractBackground(graphics, mouseX, mouseY, a);
+		if (!this.showsWorld()) {
+			super.extractBackground(graphics, mouseX, mouseY, a);
+		}
 		this.drawFrame(graphics);
 	}
 	//?}
+
+	/**
+	 * Whether the world shows behind the options, sharp and undimmed, with the frame's boards left out there: on the camera
+	 * tab in a world, so each change shows on the camera as it's made (user, 2026-11-10).
+	 */
+	private boolean showsWorld() {
+		return this.tab == Tab.CAMERA && Minecraft.getInstance().level != null;
+	}
 
 	/** The wooden frame: a beam with the title, boards behind the tabs and options, a board for the footer. */
 	private void drawFrame(final GuiGraphicsExtractor graphics) {
@@ -241,8 +255,17 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		final int left = (this.width - width) / 2;
 		final int footer = this.height - FOOTER_HEIGHT;
 		final int bottom = this.height - FRAME_MARGIN;
-		graphics.fill(left - 1, FRAME_MARGIN - 1, left + width + 1, bottom + 1, Tack.EDGE);
-		Tack.boards(graphics, Tack.DEEP, left, BEAM_BOTTOM, width, footer - BEAM_BOTTOM);
+		final boolean open = this.showsWorld();
+		if (open) {
+			// Open between the tabs' strap and the footer, with a post down each side.
+			graphics.fill(left - 1, FRAME_MARGIN - 1, left + width + 1, HEADER_HEIGHT, Tack.EDGE);
+			graphics.fill(left - 1, footer, left + width + 1, bottom + 1, Tack.EDGE);
+			post(graphics, left, HEADER_HEIGHT, footer);
+			post(graphics, left + width - POST, HEADER_HEIGHT, footer);
+		} else {
+			graphics.fill(left - 1, FRAME_MARGIN - 1, left + width + 1, bottom + 1, Tack.EDGE);
+		}
+		Tack.boards(graphics, Tack.DEEP, left, BEAM_BOTTOM, width, (open ? TABS_BOTTOM : footer) - BEAM_BOTTOM);
 		Tack.boards(graphics, Tack.WOOD, left, FRAME_MARGIN, width, BEAM_BOTTOM - FRAME_MARGIN);
 		graphics.fill(left, FRAME_MARGIN, left + width, FRAME_MARGIN + 1, Tack.LIGHT_WOOD_EDGE);
 		graphics.fill(left, BEAM_BOTTOM - 1, left + width, BEAM_BOTTOM, Tack.EDGE);
@@ -256,6 +279,11 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 		final int titleLeft = (this.width - 21 - this.font.width(this.title)) / 2;
 		Tack.image(graphics, ICON, titleLeft, FRAME_MARGIN + 5, 0.0F, 0.0F, 16, 16, 16, 16);
 		Tack.text(graphics, this.font, this.title, titleLeft + 21, FRAME_MARGIN + 9, 0xFFFFF6E6);
+	}
+
+	private static void post(final GuiGraphicsExtractor graphics, final int x, final int top, final int bottom) {
+		graphics.fill(x - 1, top, x + POST + 1, bottom, Tack.EDGE);
+		Tack.boards(graphics, Tack.WOOD, x, top, POST, bottom - top);
 	}
 
 	//? if >=1.21 {
@@ -381,7 +409,7 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 	}
 
 	private void addHeading(final String section) {
-		this.addWide(new Tack.Heading(WIDE, Component.translatable(KEY + "section." + section)));
+		this.addWide(new Tack.Heading(WIDE, Component.translatable(KEY + "section." + section), this.showsWorld()));
 	}
 
 	/** A few lines of words, with empty rows after them for the lines that run past the first row. */

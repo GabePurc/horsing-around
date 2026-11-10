@@ -401,9 +401,13 @@ final class Tack {
 
 	/** A section heading, amber between two brass studs; nothing to click or stop on. */
 	static final class Heading extends AbstractWidget {
-		Heading(final int width, final Component text) {
+		/** On a plank of its own, where the frame's boards are left out behind it. */
+		private final boolean plank;
+
+		Heading(final int width, final Component text, final boolean plank) {
 			super(0, 0, width, 20, text);
 			this.active = false;
+			this.plank = plank;
 		}
 
 		@Override
@@ -412,6 +416,10 @@ final class Tack {
 			final int centre = this.getX() + this.getWidth() / 2;
 			final int half = font.width(this.getMessage()) / 2;
 			final int y = this.getY() + 8;
+			if (this.plank) {
+				graphics.fill(centre - half - 17, y - 5, centre + half + 17, y + 13, EDGE);
+				boards(graphics, DEEP, centre - half - 16, y - 4, 2 * half + 32, 16);
+			}
 			centred(graphics, font, this.getMessage(), centre, y, AMBER);
 			stud(graphics, centre - half - 9, y + 1, 4);
 			stud(graphics, centre + half + 5, y + 1, 4);
