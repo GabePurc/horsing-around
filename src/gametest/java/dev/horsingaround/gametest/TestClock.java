@@ -75,6 +75,9 @@ public final class TestClock {
 	/** Called by the render thread alone. */
 	public static void frame() {
 		frames = frames + 1;
+		if (SmoothProbe.ON) {
+			SmoothProbe.frame();
+		}
 	}
 
 	/** The game's clock in these runs: for code that times itself on {@link System#nanoTime()} between frames. */

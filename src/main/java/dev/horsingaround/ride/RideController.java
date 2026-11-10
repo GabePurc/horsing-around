@@ -766,7 +766,12 @@ public final class RideController {
 		final float turnRate = Float.isNaN(s.bankRate) ? yawDelta : s.bankRate;
 		s.bankRate = Float.NaN;
 		s.leanO = s.lean;
-		s.lean += (Mth.clamp(turnRate * (float) horizontalSq * LEAN_GAIN, -LEAN_MAX, LEAN_MAX) - s.lean) * LEAN_SMOOTHING;
+		s.leanRate = spring(s.leanRate, Mth.clamp(turnRate * (float) horizontalSq * LEAN_GAIN, -LEAN_MAX, LEAN_MAX) - s.lean, LEAN_FREQUENCY);
+		s.lean += s.leanRate;
+		if (Math.abs(s.lean) < 1.0E-3F && Math.abs(s.leanRate) < 1.0E-3F) {
+			s.lean = 0.0F;
+			s.leanRate = 0.0F;
+		}
 
 		// The rider sways against surges: back as the horse speeds up, forward as it slows.
 		final float groundSpeed = (float) Math.sqrt(horizontalSq);
@@ -777,6 +782,25 @@ public final class RideController {
 		final float inertiaTarget = horse.isVehicle() ? Mth.clamp(surge * INERTIA_GAIN, -INERTIA_MAX, INERTIA_MAX) : 0.0F;
 		s.inertiaVelocity += (inertiaTarget - s.inertia) * INERTIA_STIFFNESS - s.inertiaVelocity * INERTIA_DAMPING;
 		s.inertia = Mth.clamp(s.inertia + s.inertiaVelocity, -INERTIA_MAX, INERTIA_MAX);
+		// The rider's seat follows the gait (how fast the legs go) on a spring: see SEAT_FREQUENCY.
+		s.seatLeanO = s.seatLean;
+		s.seatRockO = s.seatRock;
+		if (horse.isVehicle()) {
+			final float limbs = horse.walkAnimation.speed();
+			final float run = Mth.clamp((limbs - RUN_ANIMATION_SPEED + 0.05F) * 10.0F, 0.0F, 1.0F);
+			final float gallop = run * Mth.clamp((limbs - GALLOP_ANIMATION_SPEED + 0.03F) * 20.0F, 0.0F, 1.0F);
+			final float lean = FORWARD_LEAN_STILL + (FORWARD_LEAN_MOVING - FORWARD_LEAN_STILL) * Math.min(limbs * 5.0F, 1.0F)
+				+ (FORWARD_LEAN_GALLOP - FORWARD_LEAN_MOVING) * gallop;
+			s.seatLeanRate = spring(s.seatLeanRate, lean - s.seatLean, SEAT_FREQUENCY);
+			s.seatLean += s.seatLeanRate;
+			s.seatRockRate = spring(s.seatRockRate, run * (1.0F - (1.0F - PELVIS_GALLOP_SHARE) * gallop) - s.seatRock, SEAT_FREQUENCY);
+			s.seatRock += s.seatRockRate;
+		} else if (s.seatLean != FORWARD_LEAN_STILL || s.seatRock != 0.0F) {
+			s.seatLean = s.seatLeanO = FORWARD_LEAN_STILL;
+			s.seatRock = s.seatRockO = 0.0F;
+			s.seatLeanRate = 0.0F;
+			s.seatRockRate = 0.0F;
+		}
 		brush(horse, s, groundSpeed, bodyYaw);
 
 		s.pitchO = s.pitch;
@@ -804,6 +828,8 @@ public final class RideController {
 		if (Math.abs(s.heightOffset) > STEP_SNAP || Double.isNaN(s.hind)) {
 			// First seen, or teleported: stand where the body is.
 			s.heightOffset = 0.0F;
+			s.pitchSway = 0.0F;
+			s.pitchSwayRate = 0.0F;
 			s.flying = !onGround;
 			carry(s, y, 0.0F);
 			s.foreGround = y;
@@ -823,7 +849,7 @@ public final class RideController {
 			final float progress = Math.min((s.bankTicks - 1) / s.bankDuration, 1.0F);
 			s.pitch += (HEAVE_PITCH * Mth.sin(progress * Mth.PI) - s.pitch) * HEAVE_PITCH_EASE;
 			final double previous = horse.yo + s.heightOffset;
-			s.heightOffset = (float) (Math.min(previous + (y - previous) * WATER_HEIGHT_SMOOTHING, s.bankTop - BANK_CLEARANCE) - y);
+			s.heightOffset = (float) (Math.min(previous + spring(s.drawnRise, (float) (y - previous), WATER_HEIGHT_FREQUENCY), s.bankTop - BANK_CLEARANCE) - y);
 			s.flying = true;
 		} else if (horse.isInWater() && !onGround) {
 			// Afloat: ease height changes (climbing out, bobbing) in world space, and raise the nose as the horse climbs.
@@ -831,7 +857,7 @@ public final class RideController {
 			final float climb = (float) Math.toDegrees(Math.atan2(dy, Math.sqrt(horizontalSq) + 1.0E-3)) * AIR_PITCH_SCALE;
 			s.pitch += (Mth.clamp(climb, -AIR_PITCH_MAX, AIR_PITCH_MAX) - s.pitch) * WATER_PITCH_EASE;
 			final double previous = horse.yo + s.heightOffset;
-			s.heightOffset = (float) (previous + (y - previous) * WATER_HEIGHT_SMOOTHING - y);
+			s.heightOffset = (float) (previous + spring(s.drawnRise, (float) (y - previous), WATER_HEIGHT_FREQUENCY) - y);
 			s.flying = true;
 		} else {
 			// Stepping off something no deeper than a step, the hooves stay on the ground; a jump or a bigger drop is a
@@ -842,6 +868,11 @@ public final class RideController {
 			final double fx = -Mth.sin(bodyYaw * Mth.DEG_TO_RAD);
 			final double fz = Mth.cos(bodyYaw * Mth.DEG_TO_RAD);
 			if (onGround && !runningOff(horse, s, drawn, fx, fz, (float) Math.sqrt(horizontalSq))) {
+				s.flying = false;
+			} else if (s.flying && !onGround && dy < 0.0 && !s.leapt && foreDown(horse, s, dy, fx, fz)) {
+				// Walked off a drop, the forehand went down over the edge first: its hooves are on the ground below before the
+				// horse is, so it lands there and the hindquarters come down after it. (Carried on down with the horse until that
+				// landed, the body went into the ground to its belly and bounced back out.)
 				s.flying = false;
 			} else if (!s.flying && (dy > 0.0 || s.leapt || groundHeight(horse, horse.getX(), drawn, horse.getZ(), drawn) < drawn - STEP_REACH
 				&& groundHeight(horse, horse.getX() - fx * s.hindHooves, drawn, horse.getZ() - fz * s.hindHooves, drawn) < drawn - STEP_REACH
@@ -856,14 +887,26 @@ public final class RideController {
 				steps(horse, s, bodyYaw, (float) Math.sqrt(horizontalSq), moved || !s.wasOnGround || skipped, wasFlying ? (float) Math.max(-dy, 0.0) : -1.0F);
 			} else {
 				// In the air the body tilts with its flight: nose up taking off, level over the top, nose down to land.
-				final float flight = (float) Math.toDegrees(Math.atan2(dy, Math.sqrt(horizontalSq) + 1.0E-3)) * JUMP_PITCH_SCALE;
-				s.jumpPitch += (Mth.clamp(flight, -JUMP_PITCH_DOWN, JUMP_PITCH_UP) - s.jumpPitch) * JUMP_PITCH_SMOOTHING;
+				// (On a spring, and as if it went forward at JUMP_PITCH_PACE_MIN at least: a jump from a standstill goes straight
+				// up and straight down, and its nose swung from all the way up to all the way down in the tick it topped out.)
+				final float flight = (float) Math.toDegrees(Math.atan2(dy, Math.max(Math.sqrt(horizontalSq), JUMP_PITCH_PACE_MIN))) * JUMP_PITCH_SCALE;
+				s.jumpPitchRate = spring(s.jumpPitchRate, Mth.clamp(flight, -JUMP_PITCH_DOWN, JUMP_PITCH_UP) - s.jumpPitch, JUMP_PITCH_FREQUENCY);
+				s.jumpPitch += s.jumpPitchRate;
 				// The ground tilt (a slope, the crouch before a ledge) lets go gently while the flight's tilt takes over.
 				s.pitch -= Mth.clamp(s.pitch * PITCH_SMOOTHING, -AIR_PITCH_RELEASE, AIR_PITCH_RELEASE);
-				s.heightOffset -= Mth.clamp(s.heightOffset * (1.0F - AIR_OFFSET_DECAY), -AIR_OFFSET_MAX_STEP, AIR_OFFSET_MAX_STEP);
+				// Taking off, the body leaves the ground as a mass does, not all at once: it carries on as it was moving, and
+				// comes up to the horse's flight on a spring, with any lag it had. (Not falling off an edge: a forehand already
+				// sinking over it carried on down ahead of the horse, and had no fall left for its legs to take.)
+				s.offsetRate = spring(wasFlying ? s.offsetRate : dy > 0.0 ? (float) (s.drawnRise - dy) : 0.0F, -s.heightOffset, AIR_OFFSET_FREQUENCY);
+				// (Back to the horse's flight by no more than AIR_OFFSET_MAX_STEP a tick.)
+				if (s.heightOffset * s.offsetRate < 0.0F) {
+					s.offsetRate = Mth.clamp(s.offsetRate, -AIR_OFFSET_MAX_STEP, AIR_OFFSET_MAX_STEP);
+				}
+				s.heightOffset += s.offsetRate;
 			}
 		}
 		if (s.flying) {
+			s.landing = false;
 			// Off the ground the hooves follow the body, so the next step starts from where it is drawn, moving as it moves:
 			// at the drawn body's own speed (afloat or heaving out it is eased, and a step up out of the water lifted the box
 			// a whole block in a tick, which as a speed launched the body blocks high once it landed).
@@ -872,8 +915,13 @@ public final class RideController {
 			s.foreLeg *= 0.5F;
 			s.hindLeg *= 0.5F;
 		}
-		if (onGround || horse.isPassenger() || horse.isInWater() || s.bankTicks > 0) {
-			s.jumpPitch += -s.jumpPitch * JUMP_PITCH_SMOOTHING;
+		if (!s.flying || onGround || horse.isPassenger() || horse.isInWater() || s.bankTicks > 0) {
+			s.jumpPitchRate = jumpPitchLevelling(s);
+			s.jumpPitch += s.jumpPitchRate;
+			if (Math.abs(s.jumpPitch) < 1.0E-3F && Math.abs(s.jumpPitchRate) < 1.0E-3F) {
+				s.jumpPitch = 0.0F;
+				s.jumpPitchRate = 0.0F;
+			}
 		}
 		// In a jump (or a bigger fall) the legs take its shape: folded up climbing, reaching for the ground coming down.
 		s.inAir = s.flying && !onGround && !horse.isPassenger() && !horse.isInWater() && s.bankTicks == 0;
@@ -890,6 +938,34 @@ public final class RideController {
 		tail(horse, s, groundSpeed);
 		s.wasOnGround = onGround;
 		s.drawnRise = (float) (y + s.heightOffset - horse.yo - s.heightOffsetO);
+		s.offsetRate = s.heightOffset - s.heightOffsetO;
+
+		// The body has weight about its middle too: where its tilt would start, stop or turn back within a tick (a bump
+		// at a gallop, a landing, the turn limit), it carries on turning as it was and comes round over the next few ticks
+		// (see PITCH_KINK_FREE).
+		final float turn = s.pitch + s.jumpPitch - s.pitchO - s.jumpPitchO;
+		final float kink = turn - s.pitchTurn;
+		s.pitchTurn = turn;
+		s.pitchSwayO = s.pitchSway;
+		final float rate = s.pitchSwayRate - (kink - Mth.clamp(kink, -PITCH_KINK_FREE, PITCH_KINK_FREE));
+		if (rate != 0.0F || s.pitchSway != 0.0F) {
+			// (A critically damped spring back to no sway, solved exactly.)
+			final float pull = rate + PITCH_SWAY_FREQUENCY * s.pitchSway;
+			s.pitchSway = (s.pitchSway + pull) * PITCH_SWAY_DECAY;
+			s.pitchSwayRate = (rate - PITCH_SWAY_FREQUENCY * pull) * PITCH_SWAY_DECAY;
+			if (Math.abs(s.pitchSway) < 1.0E-3F && Math.abs(s.pitchSwayRate) < 1.0E-3F) {
+				s.pitchSway = 0.0F;
+				s.pitchSwayRate = 0.0F;
+			}
+		}
+	}
+
+	/**
+	 * A critically damped spring's speed after a tick, solved implicitly (steady at any stiffness, no overshoot): from
+	 * {@code rate} a tick, {@code gap} short of where it is going, at {@code frequency} radians a tick.
+	 */
+	private static float spring(final float rate, final float gap, final float frequency) {
+		return (rate + frequency * frequency * gap) / (1.0F + 2.0F * frequency + frequency * frequency);
 	}
 
 	/**
@@ -1002,24 +1078,56 @@ public final class RideController {
 				support(horse, s, fx, fz, chestAhead + lead, y) - chestAbove);
 			s.hindGround = Math.max(support(horse, s, fx, fz, lead - s.hindHooves, y), support(horse, s, fx, fz, -s.hindHooves, y));
 		}
+		final float gravity = (float) Math.max(Vanilla.gravity(horse), 0.0);
+		// (How much of this tick the legs have the body: all of it, but for the tick it touches down.)
+		float time = 1.0F;
 		if (landing >= 0.0F) {
-			// Touchdown: the body is where the horse landed, still coming down as fast as it fell; the legs take it up. (Only
-			// a fall: a 2-block climb sets the horse down on top while the drawn body is still catching up with it, rising a
-			// block a tick, and carried on, nothing but gravity stopped it, the body flying 3 blocks up; play-test 2026-10-23.)
-			carry(s, y, Math.min(s.foreVelocity, 0.0F));
+			// Touchdown: the body is where the horse landed, and the legs take the fall up from the moment the hooves met the
+			// ground, part of the way through this tick (see LAND_KEEP). (Only a fall: a 2-block climb sets the horse down on top
+			// while the drawn body is still catching up with it, rising a block a tick, and carried on, nothing but gravity
+			// stopped it, the body flying 3 blocks up; play-test 2026-10-23.)
+			final float fall = -Math.min(s.foreVelocity, 0.0F);
+			final float keep = Math.min(fall * LAND_KEEP, LAND_SPEED_MAX);
+			carry(s, y, -keep);
+			if (fall > 0.0F) {
+				time = Mth.clamp(1.0F - landing / (fall + gravity), 0.05F, 1.0F);
+				s.landing = true;
+				// Each end against the ground under its own hooves: one that isn't down yet (the other pair landed first) comes
+				// down after it as fast as it was falling; one already past its ground met it earlier in this tick, and has been
+				// sinking since at the speed it kept.
+				final float cos = Mth.cos(s.groundTilt * Mth.DEG_TO_RAD);
+				final double foreFoot = footing(horse, fx, fz, s.foreHooves * cos, s.fore + RIDDEN_STEP_HEIGHT + 0.01);
+				if (s.fore < foreFoot) {
+					s.fore = foreFoot - (foreFoot - s.fore) * keep / fall;
+				} else if (s.fore - foreFoot > fall) {
+					s.foreVelocity = -fall;
+				}
+				final double hindFoot = footing(horse, fx, fz, -s.hindHooves * cos, s.hind + RIDDEN_STEP_HEIGHT + 0.01);
+				if (s.hind < hindFoot) {
+					s.hind = hindFoot - (hindFoot - s.hind) * keep / fall;
+				} else if (s.hind - hindFoot > fall) {
+					s.hindVelocity = -fall;
+				}
+			}
 		}
 		// Each end on its legs, a critically damped spring, solved implicitly (steady at any stiffness, no overshoot): the
 		// legs push it up as hard as they need to, but nothing pulls it down faster than it falls (where the ground drops
-		// away under the hooves, it falls under gravity until they meet it again).
+		// away under the hooves, it falls under gravity until they meet it again). Softer while they take a landing up.
 		final double ease = ramp > 0.05F ? 1.0 - Math.exp(-1.0 / ramp) : 1.0;
 		s.foreRise = Double.isNaN(s.foreRise) || s.foreGround <= s.foreRise ? s.foreGround : s.foreRise + (s.foreGround - s.foreRise) * ease;
 		s.hindRise = Double.isNaN(s.hindRise) || s.hindGround <= s.hindRise ? s.hindGround : s.hindRise + (s.hindGround - s.hindRise) * ease;
-		final float damping = 1.0F + 2.0F * w + w * w;
-		final float gravity = (float) Math.max(Vanilla.gravity(horse), 0.0);
-		s.foreVelocity = Math.max((float) ((s.foreVelocity + w * w * (s.foreRise - s.fore)) / damping), s.foreVelocity - gravity);
-		s.fore += s.foreVelocity;
-		s.hindVelocity = Math.max((float) ((s.hindVelocity + w * w * (s.hindRise - s.hind)) / damping), s.hindVelocity - gravity);
-		s.hind += s.hindVelocity;
+		// (Only an end sinking on its legs: one still coming down to its ground, down a slope too, comes as ever. Softer for
+		// that as well, the body trailed the ground all the way down a slope it had landed on, hooves in the air.)
+		final float foreLegs = (s.landing && s.fore <= s.foreRise ? Math.min(LAND_FREQUENCY, w) : w) * time;
+		s.foreVelocity = Math.max((float) ((s.foreVelocity + foreLegs * foreLegs / time * (s.foreRise - s.fore)) / (1.0F + 2.0F * foreLegs + foreLegs * foreLegs)),
+			s.foreVelocity - gravity * time);
+		s.fore += s.foreVelocity * time;
+		final float hindLegs = (s.landing && s.hind <= s.hindRise ? Math.min(LAND_FREQUENCY, w) : w) * time;
+		s.hindVelocity = Math.max((float) ((s.hindVelocity + hindLegs * hindLegs / time * (s.hindRise - s.hind)) / (1.0F + 2.0F * hindLegs + hindLegs * hindLegs)),
+			s.hindVelocity - gravity * time);
+		s.hind += s.hindVelocity * time;
+		// (Taken up once neither end is still sinking: the legs push it back up as they carry it over any step.)
+		s.landing &= s.fore < s.foreRise && s.foreVelocity < 0.0F || s.hind < s.hindRise && s.hindVelocity < 0.0F;
 		// The legs give no further than LEG_GIVE below the ground actually under each pair (read again only when the horse
 		// moves and the ground isn't level).
 		final float cos = Mth.cos(s.groundTilt * Mth.DEG_TO_RAD);
@@ -1050,18 +1158,13 @@ public final class RideController {
 		s.groundTilt = line;
 		// Drawn, it turns no faster than PITCH_RATE_MAX a tick, with the jump's tilt as it eases out this tick (see
 		// tickVisual); the body's height still follows the line itself.
-		final float jumpChange = horse.onGround() || horse.isInWater() ? -s.jumpPitch * JUMP_PITCH_SMOOTHING : 0.0F;
+		final float jumpChange = jumpPitchLevelling(s);
 		s.pitch += Mth.clamp(line - s.pitch, Math.min(-PITCH_RATE_MAX - jumpChange, 0.0F), Math.max(PITCH_RATE_MAX - jumpChange, 0.0F));
 
-		// The body sits on the lower end (the pair of legs at the other draws up to fit), but never so low that they would
-		// have to draw up more than LEG_SIT (past the steepest tilt, the lower pair reaches down instead): the joints are
-		// the hooves' reach from the pivot, and an upright leg's top is drawn up into the body by its swing.
+		// The body sits on its lower end (see sits).
 		final float sin = Mth.sin(line * Mth.DEG_TO_RAD);
 		final float tuck = LEG_HALF_DEPTH / 16.0F * Math.abs(Mth.sin(line * LEG_UPRIGHT * Mth.DEG_TO_RAD));
-		final double foreBody = s.fore - y - s.foreHooves * sin;
-		final double hindBody = s.hind - y + s.hindHooves * sin;
-		final double offset = Math.max(Math.min(foreBody, hindBody), Math.max(foreBody, hindBody) - LEG_SIT) - tuck - s.ledgeCrouch * LEDGE_CROUCH
-			- s.cutSquat * CUT_SQUAT;
+		final double offset = sits(s, y, line);
 		s.heightOffset = (float) offset;
 		if (probe) {
 			s.chestRoom = (float) (y + offset + tuck + s.foreHooves * sin - (support(horse, s, fx, fz, chestAhead, y) - chestAbove));
@@ -1069,6 +1172,24 @@ public final class RideController {
 		// Where the model isn't drawn yet (so no hoof can find its own ground), the pair over higher ground draws up onto it.
 		s.foreLeg = drawUp(s.foreLeg, s.foreFoot - y - s.foreHooves * sin, offset + tuck);
 		s.hindLeg = drawUp(s.hindLeg, s.hindFoot - y + s.hindHooves * sin, offset + tuck);
+	}
+
+	/**
+	 * Falling with its forehand down (it walked off a drop, front first): whether the front hooves, where the body is drawn,
+	 * have come down to the ground under them. Reads the ground only for a body drawn nose down or below the horse.
+	 */
+	private static boolean foreDown(final AbstractHorse horse, final RideState s, final double dy, final double fx, final double fz) {
+		if (s.pitch > -FORE_DOWN_TILT && s.heightOffset > -FORE_DOWN_BELOW) {
+			return false;
+		}
+		// (The front of the body where it was last carried, having fallen with the horse since.)
+		final double fore = s.fore + dy;
+		return fore <= footing(horse, fx, fz, s.foreHooves * Mth.cos(s.pitch * Mth.DEG_TO_RAD), fore + RIDDEN_STEP_HEIGHT + 0.01);
+	}
+
+	/** How far the flight's tilt levels this tick back on the ground, degrees (a critically damped spring, solved implicitly). */
+	private static float jumpPitchLevelling(final RideState s) {
+		return spring(s.jumpPitchRate, -s.jumpPitch, JUMP_PITCH_LAND);
 	}
 
 	/**
@@ -1158,11 +1279,31 @@ public final class RideController {
 	private static void carry(final RideState s, final double y, final float velocity) {
 		final double body = y + s.heightOffset;
 		final float span = s.foreHooves + s.hindHooves;
-		final double rise = span * Math.tan(Mth.clamp(s.pitch / SLOPE_SHARE, -SLOPE_PITCH_MAX, SLOPE_PITCH_MAX) * Mth.DEG_TO_RAD);
+		final float line = Mth.clamp(s.pitch / SLOPE_SHARE, -SLOPE_PITCH_MAX, SLOPE_PITCH_MAX);
+		final double rise = span * Math.tan(line * Mth.DEG_TO_RAD);
 		s.fore = body + rise * (s.foreHooves / span);
 		s.hind = body - rise * (s.hindHooves / span);
+		// Exactly where steps() draws this body from: tilted, it sits on its lower end, so the ends are further up than a
+		// line through the middle puts them. (Left there, a body landing nose down dropped a quarter of a block as it landed.)
+		final double shift = s.heightOffset - sits(s, y, line * SLOPE_SHARE);
+		s.fore += shift;
+		s.hind += shift;
 		s.foreVelocity = velocity;
 		s.hindVelocity = velocity;
+	}
+
+	/**
+	 * How far above the horse the body is drawn, carried on its two ends at a tilt of {@code line} degrees: it sits on the
+	 * lower end (the pair of legs at the other draws up to fit), but never so low that they would have to draw up more than
+	 * LEG_SIT (past the steepest tilt, the lower pair reaches down instead). The joints are the hooves' reach from the
+	 * pivot, and an upright leg's top is drawn up into the body by its swing.
+	 */
+	private static double sits(final RideState s, final double y, final float line) {
+		final float sin = Mth.sin(line * Mth.DEG_TO_RAD);
+		final float tuck = LEG_HALF_DEPTH / 16.0F * Math.abs(Mth.sin(line * LEG_UPRIGHT * Mth.DEG_TO_RAD));
+		final double foreBody = s.fore - y - s.foreHooves * sin;
+		final double hindBody = s.hind - y + s.hindHooves * sin;
+		return Math.max(Math.min(foreBody, hindBody), Math.max(foreBody, hindBody) - LEG_SIT) - tuck - s.ledgeCrouch * LEDGE_CROUCH - s.cutSquat * CUT_SQUAT;
 	}
 
 	/**

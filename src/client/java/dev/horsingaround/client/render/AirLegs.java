@@ -29,7 +29,7 @@ public final class AirLegs {
 		if (ride == null || minecraft.level == null) {
 			return footing ? 0.0F : 1.0F;
 		}
-		final double now = (double) minecraft.level.getGameTime() + minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+		final double now = ride.clock(minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(true));
 		if (now == ride.airShapeAt) {
 			return ride.airShape;
 		}

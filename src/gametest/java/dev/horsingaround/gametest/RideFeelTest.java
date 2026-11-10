@@ -185,6 +185,9 @@ public final class RideFeelTest implements ClientGameTest {
 				// Only on request: close side shots of the legs in a jump, for judging the pose.
 				jumpLegShots(ctx, input, world);
 			}
+			if (sections.isEmpty() || sections.contains("landings")) {
+				landings(ctx, input, world);
+			}
 			if (sections.isEmpty() || sections.contains("cuts")) {
 				hardCuts(ctx, input, world);
 			}
@@ -3749,6 +3752,168 @@ public final class RideFeelTest implements ClientGameTest {
 	}
 
 	/**
+	 * Landings, as drawn, tick by tick: jumps standing and at a gallop, and drops walked and galloped off. The legs cushion
+	 * it (user, 2026-11-09: it "snaps a bit too fast to the ground"): the body goes on sinking for a few ticks after the
+	 * hooves meet the ground, slowing, and comes back up without a bounce; walked off a drop, the forehand lands first.
+	 */
+	private void landings(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		landing(ctx, input, world, "a standing jump", 3800, -60, 0, true);
+		landing(ctx, input, world, "a jump at a gallop", 3820, -60, 3, true);
+		landing(ctx, input, world, "walking off a 2-block drop", 3840, -58, 0, false,
+			"fill 3835 -60 -6 3845 -59 12 minecraft:stone");
+		landing(ctx, input, world, "galloping off a 3-block drop", 3860, -57, 3, false,
+			"fill 3855 -60 -14 3865 -58 12 minecraft:stone");
+	}
+
+	/** Rides north (after {@code spurs} presses of sprint), jumping once up to speed if {@code jump}, and watches the first landing. */
+	private void landing(
+		final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String what, final int x, final double y,
+		final int spurs, final boolean jump, final String... build
+	) {
+		section("Landing from " + what);
+		lane(ctx, input, world, x + 0.5, y, "landing_" + x, build);
+		// (-Psections=landingshots: side shots as it comes down, for judging a drop by eye. Each lets a tick go by untraced.)
+		final boolean shots = System.getProperty("horsingaround.sections", "").contains("landingshots") && build.length > 0;
+		if (shots) {
+			sideCamera(world, x + 5.5, -59.2, jump ? -9.0 : spurs > 0 ? -18.5 : -8.0, 90.0F);
+		}
+		int shot = 0;
+		ctx.waitTicks(20);
+		ctx.runOnClient(mc -> LegProbe.arm(true));
+		if (!jump || spurs > 0) {
+			input.holdKey(o -> o.keyUp);
+			for (int sp = 0; sp < spurs; sp++) {
+				ctx.waitTicks(2);
+				input.pressKey(o -> o.keySprint);
+			}
+		}
+		final List<double[]> ticks = new ArrayList<>();
+		boolean pressed = false;
+		int touchdown = -1;
+		for (int i = 0; i < 400 && (touchdown < 0 || ticks.size() < touchdown + 24); i++) {
+			ctx.waitTick();
+			if (jump && !pressed && i >= (spurs > 0 ? 40 : 5)) {
+				// (Held for a tick rather than pressed: a press runs a tick of its own, which the trace would miss.)
+				input.holdKey(o -> o.keyJump);
+				pressed = true;
+			} else if (pressed) {
+				input.releaseKey(o -> o.keyJump);
+			}
+			final double[] now = ctx.computeOnClient(mc -> {
+				final AbstractHorse horse = (AbstractHorse) mc.player.getVehicle();
+				final RideState r = ((RideStateHolder) horse).horsingaround$ride();
+				return new double[] {
+					horse.tickCount, horse.getY(), horse.getY() + r.heightOffset(1.0F), r.pitch(1.0F) + r.jumpPitch(1.0F), r.drawnFit, horse.onGround() ? 1 : 0,
+					Math.min(Math.min(LegProbe.gap[0], LegProbe.gap[1]), Math.min(LegProbe.gap[2], LegProbe.gap[3])),
+					Math.max(Math.max(r.legRise[0], r.legRise[1]), Math.max(r.legRise[2], r.legRise[3])), horse.getY() - horse.yo,
+					r.riderPitch * Mth.RAD_TO_DEG
+				};
+			});
+			if (!ticks.isEmpty() && now[0] == ticks.get(ticks.size() - 1)[0]) {
+				continue;
+			}
+			ticks.add(now);
+			final int n = ticks.size();
+			if (shots && shot < 16 && (now[5] == 0 && now[8] < -0.1 || touchdown >= 0)) {
+				cameraShot(ctx, String.format(Locale.ROOT, "21_landing_%d_t%d", x, (int) now[0]));
+				shot++;
+			}
+			if (touchdown < 0 && n >= 2 && now[5] > 0 && ticks.get(n - 2)[5] == 0 && ticks.get(n - 2)[8] < -0.2) {
+				touchdown = n - 1;
+			}
+		}
+		input.releaseKey(o -> o.keyJump);
+		ctx.runOnClient(mc -> LegProbe.arm(false));
+		check("it landed", touchdown >= 3);
+		if (touchdown < 3) {
+			stop(ctx, input);
+			return;
+		}
+		final double ground = ticks.get(ticks.size() - 1)[1];
+		final StringBuilder rows = new StringBuilder();
+		final double fall = ticks.get(touchdown - 2)[2] - ticks.get(touchdown - 1)[2];
+		double hardest = 0.0;
+		double dip = 0.0;
+		int bottom = touchdown;
+		double sunk = 0.0;
+		double flick = 0.0;
+		double bounce = 0.0;
+		int settled = ticks.size();
+		for (int i = touchdown - 4; i < ticks.size(); i++) {
+			final double[] a = ticks.get(i - 2);
+			final double[] b = ticks.get(i - 1);
+			final double[] c = ticks.get(i);
+			final boolean whole = a[0] + 2 == c[0];
+			final double change = c[2] - 2.0 * b[2] + a[2];
+			rows.append(String.format(Locale.ROOT, "%n    t%d%s y%+.3f drawn%+.3f rate%+.3f change%+.3f tilt%+.1f fit%+.3f draw%.3f gap%+.3f",
+				(int) c[0], c[5] > 0 ? " ground" : " air   ", c[1] - ground, c[2] - ground, c[2] - b[2], change, c[3], c[4], c[7], c[6]));
+			if (i >= touchdown) {
+				if (whole) {
+					hardest = Math.max(hardest, Math.abs(change));
+					flick = Math.max(flick, Math.abs(c[3] - 2.0 * b[3] + a[3]));
+				}
+				if (i > touchdown && b[0] + 1 == c[0]) {
+					bounce = Math.max(bounce, c[2] - b[2]);
+				}
+				if (c[2] - c[1] < dip) {
+					dip = c[2] - c[1];
+					bottom = i;
+				}
+				sunk = Double.isNaN(c[6]) ? sunk : Math.min(sunk, c[6]);
+			}
+		}
+		for (int i = ticks.size() - 1; i >= bottom && Math.abs(ticks.get(i)[2] - ticks.get(i)[1]) < 0.03; i--) {
+			settled = i;
+		}
+		log("  falling %.3f blocks a tick as drawn; touchdown t%d:%s", fall, (int) ticks.get(touchdown)[0], rows);
+		log("  hardest change of rate %.3f, dip %.3f at +%d ticks, back up by +%d ticks, tilt flick %.1f, deepest hoof %.3f",
+			hardest, -dip, bottom - touchdown, settled - touchdown, flick, sunk);
+		final double[] down = ticks.get(touchdown);
+		// The rider, from before the takeoff or the drop until back on the ground: folding over the neck and sitting up again
+		// without a snap. (As last drawn each tick, so a frame's worth of its turning shows as a change too.)
+		double snap = 0.0;
+		for (int i = 2; i < ticks.size(); i++) {
+			final double[] a = ticks.get(i - 2);
+			final double[] b = ticks.get(i - 1);
+			final double[] c = ticks.get(i);
+			if (a[0] + 2 == c[0]) {
+				snap = Math.max(snap, Math.abs(c[9] - 2.0 * b[9] + a[9]));
+			}
+		}
+		check("the rider folds and sits up without a snap (torso, most change of rate, deg)", snap, 0.0, 5.5);
+		if (jump) {
+			// Taking off: the drawn body picks its speed up over a few ticks, and its nose comes up, neither all at once.
+			double kick = 0.0;
+			double lift = 0.0;
+			for (int i = 2; i < touchdown; i++) {
+				final double[] a = ticks.get(i - 2);
+				final double[] b = ticks.get(i - 1);
+				final double[] c = ticks.get(i);
+				if (a[0] + 2 == c[0] && c[8] > 0.0) {
+					kick = Math.max(kick, Math.abs(c[2] - 2.0 * b[2] + a[2]));
+					lift = Math.max(lift, Math.abs(c[3] - 2.0 * b[3] + a[3]));
+				}
+			}
+			log("  taking off: hardest change of rate %.3f, of the tilt's %.1f", kick, lift);
+			check("it leaves the ground as a weight does, not at full speed at once (most change of rate, blocks a tick)", kick, 0.05, 0.4);
+			check("its nose comes up without a flick (tilt, most change of rate, deg)", lift, 0.5, 7.0);
+		}
+		check("the legs take the fall: the body sinks (blocks)", -dip, 0.12, 0.38);
+		if (jump || spurs > 0) {
+			check("...going on down after the hooves meet the ground (blocks, from the end of that tick)", down[2] - down[1] - dip, 0.06, 0.3);
+			check("...for a few ticks, not all at once (ticks to its lowest)", bottom - touchdown, 2, 6);
+		} else {
+			// (Walked off, the forehand went over the edge first and is down before the horse is.)
+			check("the forehand lands first: still nose down as the horse lands (deg)", -down[3], 15.0, 40.0);
+		}
+		check("it comes back up without a bounce (fastest rise, blocks a tick)", bounce, 0.0, 0.07);
+		check("...and is back on its legs (ticks)", settled - touchdown, 6, 30);
+		check("the hindquarters come down without a flick (tilt, most change of rate, deg)", flick, 0.0, 5.5);
+		check("no hoof sinks into the ground (most, blocks)", sunk, -0.08, 0.0);
+		stop(ctx, input);
+	}
+
+	/**
 	 * Standing still, and walking slowly up and down a single 1-block step, on across the top and then stopping: every tick,
 	 * the drawn horse's height, its tilt, its fit to its legs and each leg's draw up, flagging every tick any of them changes
 	 * how fast it moves more than a little (a snap, a hitch), and every tick a hoof is in the ground.
@@ -5166,6 +5331,7 @@ public final class RideFeelTest implements ClientGameTest {
 			dev.horsingaround.ride.Awareness.planLog.setLength(0);
 		}
 		log("== %s", name);
+		SmoothProbe.label(name);
 	}
 
 	private void check(final String name, final boolean ok) {
@@ -5190,6 +5356,7 @@ public final class RideFeelTest implements ClientGameTest {
 	}
 
 	private void writeReport() {
+		SmoothProbe.label("");
 		final Path file = TestEnv.gameDir().resolve("horsingaround-ride-report.txt");
 		try {
 			Files.write(file, this.report);
