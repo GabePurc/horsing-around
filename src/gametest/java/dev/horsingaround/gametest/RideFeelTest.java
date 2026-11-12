@@ -127,6 +127,7 @@ public final class RideFeelTest implements ClientGameTest {
 				freeAim(ctx, input);
 				standingJump(ctx);
 				dismount(ctx, input);
+				check("let go of, it rears at random again", randomRears() > 0);
 			}
 			if (sections.isEmpty() || sections.contains("core") || sections.contains("hands")) {
 				riderHands(ctx, input, world);
@@ -1109,7 +1110,6 @@ public final class RideFeelTest implements ClientGameTest {
 		input.holdKeyFor(o -> o.keyShift, 3);
 		ctx.waitTicks(5);
 		check("dismounted", ctx.computeOnClient(mc -> mc.player.getVehicle() == null));
-		check("...and let go of, it rears at random again", randomRears() > 0);
 		ctx.waitTicks(2);
 		check("unridden, it is vanilla size again (width, blocks)", ctx.computeOnClient(mc -> mc.level.getEntitiesOfClass(AbstractHorse.class, mc.player.getBoundingBox().inflate(4.0))
 			.stream().mapToDouble(h -> h.getBbWidth()).max().orElse(0.0)), 1.35, 1.45);
