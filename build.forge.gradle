@@ -146,6 +146,11 @@ tasks.register("auditMixins") {
 	dependsOn auditRuns.collect { it.task }
 }
 apply from: repoDir.file('gradle/x11-games.gradle')
+// macOS opens a window on the process's first thread only. Loom and ModDevGradle tell the game so; ForgeGradle doesn't, and
+// the client then finds no video device.
+if (System.getProperty("os.name").startsWith("Mac")) {
+	tasks.withType(JavaExec).matching { it.name ==~ /run\w*Client/ }.configureEach { jvmArgs '-XstartOnFirstThread' }
+}
 // Plain "runClient" starts only the main version's (Fabric) game: these answer by path (./gradlew :26.3-forge:runClient).
 tasks.matching { it.name in ["runClient", "runServer"] }.configureEach { task ->
 	def plainEverywhere = gradle.startParameter.taskNames.contains(task.name) && (gradle.startParameter.projectDir ?: gradle.startParameter.currentDir) != projectDir
