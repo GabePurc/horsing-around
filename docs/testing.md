@@ -80,17 +80,18 @@ reports into `build/run/clientGameTest/` (26.3; `clientGameTest-<version>[-neofo
 `./gradlew :<version>:runSmoke` (`src/smoke`; plain `runSmoke` runs each in turn, about a minute each). A flat world, a saddled horse
 through a stand, walk, gallop, jump and stop, then a rough course. It fails unless the log reports a pass, nothing names this mod in an
 error, and the server corrected no move. Screenshots: `build/run/smoke/<version>/screenshots/`. Look at them with and without the pack:
-most players run the plain model, and some bugs only show there.
+most players run the plain model.
 
-- `-PsmokeNoPack`: no Fresh Animations. `-PsmokePlain`: no EMF, ETF or pack. These tell this mod's problems from the animation stack's.
-- `-PsmokeWithoutMod`: the same scene with this mod off (Fabric only); corrections are only warned about. It fails at the course,
-  where a vanilla horse gets stuck.
+- `-PsmokeNoPack`: no Fresh Animations. `-PsmokePlain`: no EMF, ETF or pack.
+- `-PsmokeWithoutMod` (Fabric only): this mod off; corrections only warn. It fails at the course, where a vanilla horse gets stuck.
 - `-PsmokeWild=<seed>` (`-PsmokeWildAt=x,z` for a fixed start): a two-minute gallop over a real world, failing on any correction. Seed
   2145202720632702597 at 7,41 crosses a dip that once rubber-banded.
 - `-PsmokeCloseUp` (`=150` nearly from the front; default 90 is the side): 1920x1080 at a narrow view, a shot every tick (`closeup-*.png`) and
   the neck's numbers logged, for anything that should stay attached.
-- NeoForge and Forge: `:<version>-neoforge:runSmoke`, `:1.20.1-forge:runSmoke`, results under the node's name. Forge's horse is one of
-  Realistic Horse Genetics' (`-PnoGenetics` for vanilla's).
+- NeoForge and Forge: `:<version>-neoforge:runSmoke`, `:1.20.1-forge:runSmoke`. Forge's horse is one of Realistic Horse Genetics'
+  (`-PnoGenetics` for vanilla's).
+- `-PepicFight` (Forge, NeoForge 1.21.1): with Epic Fight, which draws the rider itself; `=vanilla` its other mode, `=attack` sword
+  swings at a gallop.
 
 ## Compatibility
 

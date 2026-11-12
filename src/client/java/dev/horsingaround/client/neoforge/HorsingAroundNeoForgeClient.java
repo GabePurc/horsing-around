@@ -18,6 +18,11 @@ import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import net.minecraft.world.entity.player.PlayerModelType;
 //?} else
 /*import net.minecraft.client.resources.PlayerSkin;*/
+//? if <1.21.2 {
+/*import dev.horsingaround.client.compat.EpicFightRider;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.client.event.RenderLivingEvent;
+*///?}
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -64,6 +69,12 @@ public final class HorsingAroundNeoForgeClient {
 		NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, event -> HorsingAroundClient.tick(Minecraft.getInstance()));
 		NeoForge.EVENT_BUS.addListener(ClientPlayerNetworkEvent.LoggingIn.class, event -> HorsingAroundClient.joining());
 		NeoForge.EVENT_BUS.addListener(ClientPlayerNetworkEvent.LoggingOut.class, event -> HorsingAroundClient.left());
+		//? if <1.21.2 {
+		/*if (EpicFightRider.LOADED) {
+			NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, RenderLivingEvent.Pre.class, event -> EpicFightRider.before(event.getPoseStack()));
+			NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, RenderLivingEvent.Pre.class, event -> EpicFightRider.after(event.getPoseStack()));
+		}
+		*///?}
 		if (MixinAudit.ENABLED) {
 			// (Once the game is up: its first screen, the title screen or NeoForge's loading warnings.)
 			NeoForge.EVENT_BUS.addListener(ScreenEvent.Init.Post.class, event -> {

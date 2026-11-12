@@ -100,11 +100,12 @@ stamina and no visual weight.
 
 - For servers with the mod on both sides (user: a family server). On a server without it the client rides vanilla and says
   so once; players without it can still join and ride vanilla. Other players see the horse's real heading, not the rider's
-  camera. Every move must be accepted by the server (no rubber-banding).
-- A plain install needs only the loader and, on Fabric, Fabric API. Mod Menu and the animation stack stay optional.
+  camera. The server must accept every move (no rubber-banding).
+- A plain install needs only the loader and, on Fabric, Fabric API.
 - Compatible with popular mods: no crashes, log errors or silently disabled features, theirs or ours (`runCompat`).
-- Realistic Horse Genetics (user, 2026-11-07: "needs to be" compatible; it's Forge 1.20.1 only, hence that build): its horses
-  ride as vanilla's, and its model gets what vanilla's does, at the horse's own size.
+- Realistic Horse Genetics (user, 2026-11-07; Forge 1.20.1 only, hence that build): its horses ride as vanilla's, and its
+  model gets what vanilla's does, at its own size.
+- Epic Fight (user, 2026-11-12): the rider it draws rides the saddle too (`EpicFightRider`).
 
 ## Icy's Better Horses (user, 2026-10-31)
 

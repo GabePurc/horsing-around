@@ -68,6 +68,9 @@ if (neoforge) {
 				if (closeUp) {
 					systemProperty 'horsingaround.smoke.closeUp', project.property('smokeCloseUp').toString()
 				}
+				if (project.hasProperty("epicFight") && project.hasProperty("epic_fight_version")) {
+					systemProperty 'horsingaround.smoke.epicFight', project.property('epicFight').toString()
+				}
 				if (project.hasProperty("smokeWild")) {
 					systemProperty 'horsingaround.smoke.wild', project.property('smokeWild').toString()
 					if (project.hasProperty("smokeWildAt")) {
