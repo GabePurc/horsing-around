@@ -1,0 +1,13 @@
+{
+	"required": true,
+	"package": "dev.horsingaround.gametest.forge.mixin",
+	"compatibilityLevel": "JAVA_${mixinJava}",
+	"mixins": [
+		"DedicatedServerMixin",
+		"ForgePacketHandlerMixin",
+		"ServerModLoaderMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

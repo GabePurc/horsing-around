@@ -14,8 +14,8 @@ fabricApi {
 	}
 }
 // (The tests' NeoForge entry and metadata are NeoForge's: gradle/client-tests-neoforge.gradle.)
-sourceSets.gametest.java.exclude 'dev/horsingaround/gametest/neoforge/**'
-sourceSets.gametest.resources.exclude 'META-INF/neoforge.mods.toml', 'horsingaround-gametest-neoforge.mixins.json'
+sourceSets.gametest.java.exclude 'dev/horsingaround/gametest/neoforge/**', 'dev/horsingaround/gametest/forge/**'
+sourceSets.gametest.resources.exclude 'META-INF/neoforge.mods.toml', 'horsingaround-gametest-neoforge.mixins.json', 'META-INF/mods.toml', 'horsingaround-gametest-forge.mixins.json'
 if (!mainVersion) {
 	// 26.3's alone until their compat packs move (issue 127): the bare-server test (Fabric's game test API), the store
 	// and gallery shots, Icy's and Real Camera's tests, and the compat games' play scene.

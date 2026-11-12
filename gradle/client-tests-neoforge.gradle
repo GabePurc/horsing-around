@@ -14,7 +14,8 @@ sourceSets {
 	}
 	// (Fabric's: its metadata, the bare-server test on Fabric's game test API, and the compat games' play scene.)
 	gametest.java.exclude 'dev/horsingaround/gametest/DedicatedServerTest.java', 'dev/horsingaround/gametest/PlayScene.java'
-	gametest.resources.exclude 'fabric.mod.json'
+	gametest.resources.exclude 'fabric.mod.json', 'META-INF/mods.toml', 'horsingaround-gametest-forge.mixins.json'
+	gametest.java.exclude 'dev/horsingaround/gametest/forge/**'
 	// (26.3's alone until their compat packs move, issue 127: as on Fabric, client-tests.gradle.)
 	if (!sc.current.parsed.matches('>=26.3')) {
 		gametest.java.exclude(['StoreMediaTest', 'GalleryTest', 'ClipCursor', 'IcyFeaturesTest', 'RealCameraTest'].collect { "dev/horsingaround/gametest/${it}.java".toString() })

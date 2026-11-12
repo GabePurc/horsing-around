@@ -17,16 +17,65 @@ import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.Event;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+//? if >=1.21.6 {
+import net.minecraft.client.entity.ClientMannequin;
+import net.minecraft.client.model.geom.EntityModelSet;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.world.entity.player.PlayerModelType;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+//?} else {
+/*import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModLoadingContext;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.IModBusEvent;
+*///?}
 
 /** Forge's client entry point, started by the common one (forge/HorsingAroundForge) on a client. */
 public final class HorsingAroundForgeClient {
-	public HorsingAroundForgeClient(final IEventBus modBus) {
+	//? if >=1.21.6 {
+	public HorsingAroundForgeClient(final FMLJavaModLoadingContext context) {
+		// (On the main thread once every mod is loaded: the Entity Model Features hook needs that mod set up.)
+		FMLClientSetupEvent.getBus(context.getModBusGroup()).addListener(event -> event.enqueueWork(HorsingAroundClient::init));
+		HorsingAroundForge.clientRules = HorsingAroundClient::acceptRules;
+		HorsingAroundForge.clientStyle = ServerRules::accept;
+		HorsingAroundForge.clientHats = Hats::receive;
+		RegisterKeyMappingsEvent.BUS.addListener(event -> {
+			event.register(HorsingAroundClient.SETTINGS_KEY);
+			event.register(HorsingAroundClient.SWAP_SHOULDER_KEY);
+		});
+		EntityRenderersEvent.RegisterLayerDefinitions.BUS.addListener(event -> event.registerLayerDefinition(HatModel.LAYER, HatModel::createLayer));
+		EntityRenderersEvent.AddLayers.BUS.addListener(HorsingAroundForgeClient::addHatLayers);
+		context.registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
+			() -> new ConfigScreenHandler.ConfigScreenFactory((minecraft, parent) -> new HorseSettingsScreen(parent)));
+		TickEvent.ClientTickEvent.Post.BUS.addListener(event -> HorsingAroundClient.tick(Minecraft.getInstance()));
+		ClientPlayerNetworkEvent.LoggingIn.BUS.addListener(event -> HorsingAroundClient.joining());
+		ClientPlayerNetworkEvent.LoggingOut.BUS.addListener(event -> HorsingAroundClient.left());
+		if (MixinAudit.ENABLED) {
+			// (Once the game is up: its first screen.)
+			ScreenEvent.Init.Post.BUS.addListener(event -> {
+				MixinAudit.run("client");
+				Minecraft.getInstance().stop();
+			});
+		}
+	}
+
+	/** The supporters' cowboy hat, on players and mannequins. */
+	private static void addHatLayers(final EntityRenderersEvent.AddLayers event) {
+		for (final PlayerModelType skin : event.getModelTypes()) {
+			addHatLayer(event.<AvatarRenderer<AbstractClientPlayer>>getPlayerRenderer(skin), event.getEntityModels());
+			addHatLayer(event.<AvatarRenderer<ClientMannequin>>getMannequinRenderer(skin), event.getEntityModels());
+		}
+	}
+
+	private static void addHatLayer(final AvatarRenderer<?> renderer, final EntityModelSet models) {
+		if (renderer != null) {
+			renderer.addLayer(new HatLayer(renderer, models));
+		}
+	}
+	//?} else {
+	/*public HorsingAroundForgeClient(final IEventBus modBus) {
 		// (On the main thread once every mod is loaded: the Entity Model Features hook needs that mod set up.)
 		onModBus(modBus, FMLClientSetupEvent.class, event -> event.enqueueWork(HorsingAroundClient::init));
 		HorsingAroundForge.clientRules = HorsingAroundClient::acceptRules;
@@ -60,7 +109,7 @@ public final class HorsingAroundForgeClient {
 		modBus.addListener(EventPriority.NORMAL, false, type, listener);
 	}
 
-	/** The supporters' cowboy hat, on players. */
+	/^* The supporters' cowboy hat, on players. ^/
 	private static void addHatLayers(final EntityRenderersEvent.AddLayers event) {
 		for (final String skin : event.getSkins()) {
 			if (event.getSkin(skin) instanceof AvatarRenderer<?> player) {
@@ -68,4 +117,5 @@ public final class HorsingAroundForgeClient {
 			}
 		}
 	}
+	*///?}
 }

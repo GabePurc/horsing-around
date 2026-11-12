@@ -40,7 +40,9 @@ public final class Platform {
 	public static boolean isModLoaded(final String id) {
 		//? if fabric {
 		return FabricLoader.getInstance().isModLoaded(id);
-		//?} else
+		//?} elif forge && >=1.21.6 {
+		/*return ModList.isLoaded(id);
+		*///?} else
 		/*return ModList.get().isLoaded(id);*/
 	}
 
@@ -48,7 +50,9 @@ public final class Platform {
 	public static String modVersion() {
 		//? if fabric {
 		return FabricLoader.getInstance().getModContainer(HorsingAround.MOD_ID).map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse("");
-		//?} else
+		//?} elif forge && >=1.21.6 {
+		/*return ModList.getModContainerById(HorsingAround.MOD_ID).map(mod -> mod.getModInfo().getVersion().toString()).orElse("");
+		*///?} else
 		/*return ModList.get().getModContainerById(HorsingAround.MOD_ID).map(mod -> mod.getModInfo().getVersion().toString()).orElse("");*/
 	}
 
@@ -57,15 +61,19 @@ public final class Platform {
 	public static boolean canSend(final ServerPlayer player, final CustomPacketPayload.Type<?> type) {
 		//? if fabric {
 		return ServerPlayNetworking.canSend(player, type);
-		//?} else
-		/*return player.connection.hasChannel(type);*/
+		//?} elif neoforge {
+		/*return player.connection.hasChannel(type);
+		*///?} else
+		/*return HorsingAroundForge.CHANNEL.isRemotePresent(player.connection.getConnection());*/
 	}
 
 	public static void send(final ServerPlayer player, final CustomPacketPayload payload) {
 		//? if fabric {
 		ServerPlayNetworking.send(player, payload);
-		//?} else
-		/*PacketDistributor.sendToPlayer(player, payload);*/
+		//?} elif neoforge {
+		/*PacketDistributor.sendToPlayer(player, payload);
+		*///?} else
+		/*HorsingAroundForge.CHANNEL.send(payload, PacketDistributor.PLAYER.with(player));*/
 	}
 	//?} elif fabric {
 	/*public static boolean canSend(final ServerPlayer player, final PacketType<?> type) {
@@ -76,7 +84,7 @@ public final class Platform {
 		ServerPlayNetworking.send(player, payload);
 	}
 	*///?} else {
-	/*// (Forge: one channel carries every payload; a payload's TYPE is its class.)
+	/*// (Forge before payload types: one channel carries every payload; a payload's TYPE is its class.)
 	public static boolean canSend(final ServerPlayer player, final Class<?> type) {
 		return HorsingAroundForge.CHANNEL.isRemotePresent(player.connection.connection);
 	}
