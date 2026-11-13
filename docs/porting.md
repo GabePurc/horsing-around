@@ -89,7 +89,6 @@ Data pack tag folders are plural (`processResources` renames them), resource loc
 
 ## Checking a version
 
-- `./gradlew :<version>:build`; `./gradlew build` builds them all.
 - `./gradlew :<version>:auditMixins`: the jar in a production client and dedicated server, on that version's minimum Fabric Loader; any injection that finds
   nothing fails. About 20 s, one game at a time per loader. Logs in `build/run/audit/<version>/`. NeoForge's audit runs the mod's dev classes, not the jar (Forge 1.20.1's: both).
 - `./gradlew :<version>:runClient`: play it (game folder `run/versions/<version>/`; NeoForge `run/neoforge/<version>/`, and `runServer` too).
@@ -98,7 +97,7 @@ Data pack tag folders are plural (`processResources` renames them), resource loc
 ## Status
 
 Build and pass the audit: 1.20.1 and 26.3 Forge, 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9), 1.21.8 (1.21.6-7), 1.21.5, 1.21.4, 1.21.3 (1.21.2), 1.21.1 (1.21), 1.20.6
-(1.20.5), 1.20.4 (1.20.3), 1.20.2, 1.20.1 (1.20). A jar covering several is built against the named one. Played by the user: only 26.3.
+(1.20.5), 1.20.4 (1.20.3), 1.20.2, 1.20.1 (1.20). A jar covering several is built against the named one.
 
 ## Gaps on older versions
 
