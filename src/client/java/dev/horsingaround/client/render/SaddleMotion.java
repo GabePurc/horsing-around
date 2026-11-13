@@ -87,7 +87,10 @@ public final class SaddleMotion {
 		final float phase = horse.walkAnimation.position(partialTicks) * VANILLA_LEG_PHASE * (horse.isInWater() ? VANILLA_WATER_LEG_PACE : 1.0F);
 		final float twice = Mth.cos(phase * 2.0F);
 		final float once = Mth.cos(phase - Mth.PI / 3.0F);
-		final float stance = horse.onGround() ? 1.0F : 0.0F;
+		// (Fades out as the legs leave the stride for a jump's shape, and back in on landing, never cut: stepping down a
+		// block the stride goes on, and the motion with it.)
+		final float air = s.airLegs(partialTicks);
+		final float stance = 1.0F - air * air * (3.0F - 2.0F * air);
 		this.lift = stance * ((SADDLE_LIFT_WALK * walk + SADDLE_LIFT_TROT * trot) * twice
 			+ (SADDLE_LIFT_CANTER * canter + SADDLE_LIFT_GALLOP * gallop) * once);
 		this.pitch = stance * ((SADDLE_PITCH_WALK * walk + SADDLE_PITCH_TROT * trot) * Mth.sin(phase * 2.0F)

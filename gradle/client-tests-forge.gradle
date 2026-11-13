@@ -1,0 +1,57 @@
+// The client tests on Forge after 1.20.1 (build.forge.gradle): the same tests on the same harness (src/gametest) as on
+// Fabric, in ForgeGradle's runs. ./gradlew :<version>-forge:runClientGameTest, or
+// :<version>-forge:runClientGameTestParallel --continue for the shards; reports and screenshots in
+// build/run/clientGameTest-<version>-forge/. The flags are Fabric's (client-tests-common.gradle). No Entity Model Features
+// for Forge 26.x, so these games draw the plain horse model, with no animation pack.
+
+// (A local: the runs below and the common script need the same folder name.)
+def testFolder = "clientGameTest-${project.name}"
+ext.clientTestRuns = testFolder
+// (ForgeGradle names a run's task after its source set: run<SourceSet>Client.)
+ext.clientTestTaskSuffix = "Client"
+
+sourceSets {
+	gametest {
+		compileClasspath += sourceSets.main.compileClasspath + sourceSets.client.compileClasspath + sourceSets.main.output + sourceSets.client.output
+	}
+	// (Fabric's and NeoForge's: their metadata and entries, the bare-server test on Fabric's game test API, and the compat
+	// games' play scene.)
+	gametest.java.exclude 'dev/horsingaround/gametest/neoforge/**', 'dev/horsingaround/gametest/DedicatedServerTest.java', 'dev/horsingaround/gametest/PlayScene.java'
+	gametest.resources.exclude 'fabric.mod.json', 'META-INF/neoforge.mods.toml', 'horsingaround-gametest-neoforge.mixins.json'
+}
+tasks.named("processGametestResources") {
+	// (As the mod's own configs and resources: build.forge.gradle.)
+	filesMatching("*.mixins.json") {
+		filter { line -> line.contains('"compatibilityLevel"') ? "\t\"minVersion\": \"0.8\"," : line }
+	}
+	from(tasks.named("writePackMeta"))
+}
+
+// Forge takes a mod as one jar (build.forge.gradle): the games load the mod's and the tests'.
+def gametestJar = tasks.register("gametestJar", Jar) {
+	from sourceSets.gametest.output
+	archiveClassifier = "gametest"
+	destinationDirectory = layout.buildDirectory.dir("gametest")
+	manifest.attributes(["MixinConfigs": "horsingaround-gametest.mixins.json,horsingaround-gametest-harness.mixins.json,horsingaround-gametest-forge.mixins.json"])
+}
+def testGame = files(tasks.named("jar"), gametestJar) + configurations.runtimeClasspath
+
+apply from: rootProject.layout.projectDirectory.file('gradle/client-tests-common.gradle')
+
+// A run is a source set's (an empty one each, as the audit's): clientGameTest, and one per shard.
+([''] + project.ext.testShards.keySet()).each { shard ->
+	def run = sourceSets.create("clientGameTest${shard}")
+	configurations[run.implementationConfigurationName].extendsFrom configurations.implementation
+	run.runtimeClasspath = testGame
+	def folder = shard.isEmpty() ? testFolder : "${testFolder}-${shard.toLowerCase()}"
+	minecraft.runs.named('client') {
+		with(run.name) {
+			workingDir = rootProject.layout.buildDirectory.dir("run/${folder}")
+			systemProperty 'horsingaround.gametest', 'true'
+		}
+	}
+	tasks.register("runClientGameTest${shard}") {
+		group = "verification"
+		dependsOn "runClientGameTest${shard}Client"
+	}
+}

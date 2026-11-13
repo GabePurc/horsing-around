@@ -65,6 +65,7 @@ public final class RideFeelTest implements ClientGameTest {
 	private int failures;
 	private CameraType cameraBeforeMounting = CameraType.FIRST_PERSON;
 	private TestServerContext server;
+	private java.util.UUID lastRidden;
 
 	private record Sample(
 		double speed, double y, float horseYaw, float playerYaw, int gait, float stamina, boolean exhausted, float lean, boolean onGround,
@@ -122,9 +123,11 @@ public final class RideFeelTest implements ClientGameTest {
 				brakeAndReverse(ctx, input);
 				runLock(ctx, input);
 				heldKeys(ctx, input);
+				check("a ridden horse doesn't rear at random (times in 100,000 chances)", randomRears(), 0, 0);
 				freeAim(ctx, input);
 				standingJump(ctx);
 				dismount(ctx, input);
+				check("let go of, it rears at random again", randomRears() > 0);
 			}
 			if (sections.isEmpty() || sections.contains("core") || sections.contains("hands")) {
 				riderHands(ctx, input, world);
@@ -1037,6 +1040,9 @@ public final class RideFeelTest implements ClientGameTest {
 
 	private void saddleSync(final ClientGameTestContext ctx) {
 		if (!TestEnv.modLoaded("entity_model_features")) {
+			// (As long as with it, so what follows starts from the same place and pace: the side shots before this turn the
+			// view for a frame, and a horse that caught a tick of it is still straightening up.)
+			ctx.waitTicks(20);
 			return;
 		}
 		float low = Float.MAX_VALUE;
@@ -1112,6 +1118,28 @@ public final class RideFeelTest implements ClientGameTest {
 			.stream().mapToDouble(h -> h.getBbWidth()).max().orElse(0.0)), 1.35, 1.45);
 		final CameraType camera = ctx.computeOnClient(mc -> mc.options.getCameraType());
 		check("camera restored to how it was before mounting (" + this.cameraBeforeMounting + ", now " + camera + ")", camera == this.cameraBeforeMounting);
+	}
+
+	/**
+	 * How many of 100,000 chances vanilla's random rear would take for the horse the player rides, or last rode (unridden
+	 * it gets a chance about every 440 ticks and takes one in ten). Before 1.21.5 the server gave a ridden horse them too.
+	 */
+	private int randomRears() {
+		return this.server.computeOnServer(s -> {
+			final AbstractHorse horse = s.getPlayerList().getPlayers().get(0).getVehicle() instanceof AbstractHorse ridden
+				? ridden : (AbstractHorse) s.overworld().getEntity(this.lastRidden);
+			this.lastRidden = horse.getUUID();
+			// (Grazing, it takes none.)
+			horse.setEating(false);
+			final net.minecraft.world.entity.ai.goal.RandomStandGoal goal = new net.minecraft.world.entity.ai.goal.RandomStandGoal(horse);
+			int rears = 0;
+			for (int chance = 0; chance < 100_000; chance++) {
+				if (goal.canUse()) {
+					rears++;
+				}
+			}
+			return rears;
+		});
 	}
 
 	private void stairs(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
@@ -4848,7 +4876,12 @@ public final class RideFeelTest implements ClientGameTest {
 		log("  snaps: most a sole moved against the horse %.2f blocks, %d snaps", snap[0], (int) snap[1]);
 		check("tilts with the slope, nose " + (up ? "up" : "down") + " (max tilt, deg)", maxTilt, stairs ? 15.0 : 20.0, 40.5);
 		check("smoothly (max tilt change per tick, deg)", maxTiltRate, 0.2, 10.0);
-		check("hooves on the ground: typically (blocks off it, median)", typical, 0.0, 0.12);
+		// (An animation pack's walk and trot stride: a hoof stays on its ground while the other of its pair steps up. The
+		// plain model's hardly do: its hooves slide along at the horse's pace and come up each step together, on a line over
+		// the steps' edges, so going up they are off the ground a little more. A known limit the user kept on 2026-11-11,
+		// see docs/design.md.)
+		final boolean strides = ride(ctx, r -> r.animatedFrame) >= SaddleMotion.frame() - 1;
+		check("hooves on the ground: typically (blocks off it, median)", typical, 0.0, up && !strides ? 0.15 : 0.12);
 		// (Stepping from block to block, a hoof is lifted or set down for a tick or two.)
 		// (On a slope of full blocks, a block up for every block along, the risers are taller than a leg: the horse
 		// scrambles, a hoof off the ground on its way up or reaching down for the next block. Off the ground is fine; in it
@@ -4858,7 +4891,8 @@ public final class RideFeelTest implements ClientGameTest {
 		// (Trotting down full blocks the box lands on each edge with the front hooves over ground 2 blocks lower: a known
 		// limit the user kept on 2026-10-10, see docs/design.md.)
 		// (Down stairs measured every tick: a hoof hangs up to 6 ticks over the next tread, which shots between ticks hid.)
-		check("hooves on the ground: nearly always (blocks off it, 90th percentile)", most, 0.0, fullBlocks ? !up && trot ? 1.2 : 0.65 : up ? 0.25 : 0.38);
+		// (Up stairs the plain model's hooves come up each tread together: see strides, above.)
+		check("hooves on the ground: nearly always (blocks off it, 90th percentile)", most, 0.0, fullBlocks ? !up && trot ? 1.2 : 0.65 : up && strides ? 0.25 : 0.38);
 		check("a hoof is hardly ever in the ground (share of frames one is more than 0.1 in)", frames == 0 ? 1.0 : (double) sunkFrames / frames, 0.0, 0.1);
 		check("a leg is hardly ever in the ground (share of frames one is more than 0.1 in)", frames == 0 ? 1.0 : (double) legFrames / frames, 0.0, 0.1);
 		check("a hoof lifted to step comes down again (longest more than 0.2 above the ground, ticks)", longestUp, 0, fullBlocks ? !up && trot ? 8 : 6 : up ? 3 : 7);
@@ -5371,8 +5405,9 @@ public final class RideFeelTest implements ClientGameTest {
 	}
 
 	/**
-	 * Swings the view 90 degrees for one rendered frame to see the horse broadside. No tick passes, so the horse never
-	 * reacts to the camera move.
+	 * Swings the view 90 degrees for one rendered frame to see the horse broadside. A tick can fall in that frame, and a
+	 * moving horse then starts to turn and sits back: give it some 20 ticks to straighten up before measuring how it is
+	 * drawn.
 	 */
 	private void sideScreenshot(final ClientGameTestContext ctx, final String name) {
 		sideScreenshot(ctx, name, 5.0F);

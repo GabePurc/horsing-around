@@ -1,20 +1,26 @@
 // The client tests' runs, the same on every loader: what runs (-Ptests, -Psections, -Pscenario), the light test games,
 // and the shards with their merged reports. The loader's own script (client-tests.gradle for Fabric,
-// client-tests-neoforge.gradle for NeoForge) applies this first, then registers the clientGameTest run and one per shard
-// (clientGameTest<Shard>, from testShards) in the folders named here: build/run/<runs>/ and build/run/<runs>-<shard>/,
-// where <runs> is clientTestRuns (clientGameTest on Fabric 26.3).
+// client-tests-neoforge.gradle for NeoForge, client-tests-forge.gradle for Forge) applies this first, then registers the
+// clientGameTest run and one per shard (clientGameTest<Shard>, from testShards) in the folders named here:
+// build/run/<runs>/ and build/run/<runs>-<shard>/, where <runs> is clientTestRuns (clientGameTest on Fabric 26.3).
 def runBase = project.ext.clientTestRuns
+// The game's task for a run ("" or a shard): runClientGameTest<Shard>, with the loader's ending where its plugin adds one.
+def taskSuffix = project.ext.has("clientTestTaskSuffix") ? project.ext.clientTestTaskSuffix : ""
+def gameTask = { String shard -> "runClientGameTest${shard}${taskSuffix}".toString() }
 // The loader's own touches to a fresh test game folder (NeoForge: no screen of load warnings before the title screen).
 def prepareRunDir = project.ext.has("prepareClientTestDir") ? project.ext.prepareClientTestDir : { File dir -> }
 
 tasks.register("deleteClientGameTestRunDir", Delete) {
 	delete rootProject.layout.buildDirectory.dir("run/${runBase}")
 }
-tasks.matching { it.name == "runClientGameTest" }.configureEach { dependsOn "deleteClientGameTestRunDir" }
-tasks.named("installFreshAnimations") { mustRunAfter "deleteClientGameTestRunDir" }
+tasks.matching { it.name == gameTask("") }.configureEach { dependsOn "deleteClientGameTestRunDir" }
 
-// (Set by build.gradle; a local so task actions can see it.)
-def freshAnimationsZip = project.ext.freshAnimationsZip
+// (Set by the build script, where the version has Entity Model Features to animate the pack; a local so task actions can
+// see it.)
+def freshAnimationsZip = project.ext.has("freshAnimationsZip") ? project.ext.freshAnimationsZip : null
+if (freshAnimationsZip != null) {
+	tasks.named("installFreshAnimations") { mustRunAfter "deleteClientGameTestRunDir" }
+}
 
 // Test colours (src/gametest/debugpack): in the client tests horses' legs are colour-coded (upper leg blue, knee white,
 // lower leg orange, hoof black, sole magenta) so screenshots show what each piece is doing; -PplainTextures turns it off.
@@ -52,7 +58,7 @@ def lightTestGame = { task ->
 		task.jvmArgs "-XX:StartFlightRecording=filename=horsingaround-profile.jfr,settings=profile,jdk.ExecutionSample#period=1ms,dumponexit=true"
 	}
 }
-tasks.matching { it.name == "runClientGameTest" }.configureEach {
+tasks.matching { it.name == gameTask("") }.configureEach {
 	doFirst {
 		gameTestEula.parentFile.mkdirs()
 		gameTestEula.text = "eula=true\n"
@@ -66,7 +72,9 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	dependsOn installDebugPack
 	lightTestGame(it)
 }
-tasks.matching { it.name in ["runClient", "runClientGameTest"] }.configureEach { dependsOn "installFreshAnimations" }
+if (freshAnimationsZip != null) {
+	tasks.matching { it.name in ["runClient", gameTask("")] }.configureEach { dependsOn "installFreshAnimations" }
+}
 
 // Faster: ./gradlew runClientGameTestParallel --continue runs the same client tests split into
 // shards, each a light game in its own folder (build/run/<runs>-<shard>/), two at a time by default so the
@@ -108,15 +116,19 @@ def shardRuns = gradle.sharedServices.registerIfAbsent("shardRuns-${project.name
 testShards.each { name, shard ->
 	def dir = shardDirs[name]
 	def shardName = name // (inside the task's closure, "name" is the task's)
-	tasks.matching { it.name == "runClientGameTest${name}" }.configureEach {
-		dependsOn "installFreshAnimations"
+	tasks.matching { it.name == gameTask(shardName) }.configureEach {
+		if (freshAnimationsZip != null) {
+			dependsOn "installFreshAnimations"
+		}
 		usesService(shardRuns)
 		doFirst {
 			shardRuns.get().started.add(shardName)
 			// A fresh folder each run, with the Fresh Animations pack, the test colours and the EULA for the server test.
 			dir.deleteDir()
 			new File(dir, "resourcepacks").mkdirs()
-			java.nio.file.Files.copy(freshAnimationsZip.toPath(), new File(dir, "resourcepacks/" + freshAnimationsZip.name).toPath())
+			if (freshAnimationsZip != null) {
+				java.nio.file.Files.copy(freshAnimationsZip.toPath(), new File(dir, "resourcepacks/" + freshAnimationsZip.name).toPath())
+			}
 			copyDebugPack(new File(dir, "resourcepacks/horsingaround-debug"))
 			new File(dir, "eula.txt").text = "eula=true\n"
 			prepareRunDir(dir)
@@ -166,8 +178,8 @@ def collectShardReports = tasks.register("collectClientGameTestShards") {
 tasks.register("runClientGameTestParallel") {
 	group = "verification"
 	description = "Runs the client tests in light games side by side (use --continue; -PtestGames=N sets how many at once, 2 by default)."
-	dependsOn testShards.keySet().collect { "runClientGameTest${it}" }
+	dependsOn testShards.keySet().collect { gameTask(it) }
 	finalizedBy collectShardReports
 }
-testShards.keySet().each { name -> tasks.matching { it.name == "runClientGameTest${name}" }.configureEach { finalizedBy collectShardReports } }
+testShards.keySet().each { name -> tasks.matching { it.name == gameTask(name) }.configureEach { finalizedBy collectShardReports } }
 

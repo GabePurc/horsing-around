@@ -3,10 +3,10 @@
 If a check enforces something wrong, fix the check and say so in the PR. When feel numbers change on purpose, update the
 targets.
 
-## Client tests (every version, Fabric and NeoForge)
+## Client tests (every version on Fabric and NeoForge, Forge 26.3)
 
-`./gradlew :<version>:runClientGameTest` (or `:<version>-neoforge:`) runs these; all fail on server corrections ("moved wrongly",
-meaning rubber-banding) and log warnings. They run on this project's harness (`src/gametest/.../harness`, from Fabric API's). Loader differences sit in `TestEnv` and `gametest/neoforge`, version ones in conditions
+`./gradlew :<version>:runClientGameTest` (`:<version>-neoforge:`, `:26.3-forge:`) runs these; all fail on server corrections ("moved wrongly")
+and log warnings. They run on this project's harness (`src/gametest/.../harness`, from Fabric API's). Loader differences sit in `TestEnv`, `gametest/neoforge` and `gametest/forge`, version ones in conditions
 (shared ones in `Versions`; version-only mixins come from the mixin configs' plugins).
 
 - `RideFeelTest` (`ride`): every mechanic in hand-built lanes, with simulated keys.
@@ -18,7 +18,7 @@ meaning rubber-banding) and log warnings. They run on this project's harness (`s
 
 Full runs: `./gradlew runClientGameTestParallel --continue` (every build; `:<version>:` for one) splits them into shards (`testShards`
 in `gradle/client-tests-common.gradle`, one alone with `runClientGameTest<Shard>`), two games at a time (`-PtestGames=N`), merges
-reports into `build/run/clientGameTest/` (26.3; `clientGameTest-<version>[-neoforge]/` for the rest) and lists failed checks. Only 26.3 runs `gallery`, `store`, Icy's and Real Camera's tests (their packs are 26.3's).
+reports into `build/run/clientGameTest/` (26.3; `clientGameTest-<version>[-<loader>]/` for the rest) and lists failed checks. Only 26.3 runs `gallery`, `store`, Icy's and Real Camera's tests (their packs are 26.3's).
 
 ### Choosing what runs
 
@@ -45,18 +45,18 @@ reports into `build/run/clientGameTest/` (26.3; `clientGameTest-<version>[-neofo
 
 ### Reading results
 
-- Failures, across all reports: `grep -E 'FAIL|INCOMPLETE' build/run/clientGameTest/horsingaround-*-report.txt`.
-  Screenshots: `build/run/clientGameTest/screenshots/`.
-- F3+B draws the ridden horse's box, line, heading, plan and look-ahead findings (1.21.11 and newer).
+- Failures: `grep -E 'FAIL|INCOMPLETE' build/run/clientGameTest/horsingaround-*-report.txt`.
+  Screenshots: the screenshots folder beside them.
+- F3+B draws the ridden horse's box, line, heading, plan and look-ahead findings.
 - Test horses wear colour-coded legs (`src/gametest/debugpack`). `-PplainTextures` for real ones; `-PvanillaModel` for the plain
-  model with no pack. `LegProbe` measures the legs as drawn: judge leg work by its numbers and close shots.
+  model with no pack (Forge 26.3's games always: no Entity Model Features there). `LegProbe` measures the legs as drawn: judge leg work by its numbers and close shots.
 - `TestInput.pressKey` runs a game tick of its own. In a loop sampling every tick, use `holdKey` then `releaseKey`, or trace with
   `HorseTrace`; otherwise a tick goes missing.
 - Test games are silent and run light: lowest settings, a 2 GB heap and (26.3) performance mods. `-PplainGame` drops the mods;
   `-PfullGraphics` keeps them normal.
 - Test games don't wait for real time (`TestClock`): the clock counts drawn frames, 5.9 to a tick, so a run goes as fast as the
   machine draws and every tick gets the same frames. Frame-sampling checks need several frames a tick, not a whole number.
-  `-PrealTime` runs at normal speed; perf, gallery and store always do. A game whose frames stop for 2 minutes logs its threads and exits.
+  `-PrealTime` runs at normal speed; perf, gallery and store always do.
 - Lanes start from a horse with no AI until mounted (`lane()`): one that idled first sometimes starts off its line, failing checks far on.
 
 ## Other runs
@@ -88,9 +88,9 @@ most players run the plain model.
   2145202720632702597 at 7,41 crosses a dip that once rubber-banded.
 - `-PsmokeCloseUp` (`=150` nearly from the front; default 90 is the side): 1920x1080 at a narrow view, a shot every tick (`closeup-*.png`) and
   the neck's numbers logged, for anything that should stay attached.
-- NeoForge and Forge: `:<version>-neoforge:runSmoke`, `:1.20.1-forge:runSmoke`. Forge's horse is one of Realistic Horse Genetics'
-  (`-PnoGenetics` for vanilla's).
-- `-PepicFight` (Forge, NeoForge 1.21.1): with Epic Fight, which draws the rider in a swing; `=vanilla` its other mode,
+- NeoForge and Forge: `:<version>-neoforge:runSmoke` or `-forge:`, results under the node's name. Forge 1.20.1's horse is one of
+  Realistic Horse Genetics' (`-PnoGenetics` for vanilla's).
+- `-PepicFight` (Forge 1.20.1, NeoForge 1.21.1): with Epic Fight, which draws the rider in a swing; `=vanilla` its other mode,
   `=attack` swings at a gallop.
 
 ## Compatibility

@@ -22,6 +22,9 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.common.NeoForge;
+*///?} elif >=1.21.6 {
+/*import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.fml.common.Mod;
 *///?} else {
 /*import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
@@ -160,6 +163,13 @@ public final class SmokeTest {
 		if (Boolean.getBoolean("horsingaround.smoke")) {
 			NeoForge.EVENT_BUS.addListener(ClientTickEvent.Pre.class, event -> turnBack(Minecraft.getInstance()));
 			NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, event -> tick(Minecraft.getInstance()));
+		}
+	}
+	*///?} elif >=1.21.6 {
+	/*public SmokeTest() {
+		if (Boolean.getBoolean("horsingaround.smoke")) {
+			TickEvent.ClientTickEvent.Pre.BUS.addListener(event -> turnBack(Minecraft.getInstance()));
+			TickEvent.ClientTickEvent.Post.BUS.addListener(event -> tick(Minecraft.getInstance()));
 		}
 	}
 	*///?} else {

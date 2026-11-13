@@ -22,12 +22,12 @@ import org.slf4j.LoggerFactory;
 public final class HorsingAroundClient {
 	private static final Logger LOGGER = LoggerFactory.getLogger(HorsingAround.MOD_ID);
 
-	//? if >=1.21.9 && fabric {
-	public static final KeyMapping.Category KEY_CATEGORY = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "horses"));
-	//?} elif >=1.21.9 {
+	//? if >=1.21.9 && neoforge {
 	/*// (NeoForge registers it with the key mappings.)
 	public static final KeyMapping.Category KEY_CATEGORY = new KeyMapping.Category(Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "horses"));
-	*///?} else
+	*///?} elif >=1.21.9 {
+	public static final KeyMapping.Category KEY_CATEGORY = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "horses"));
+	//?} else
 	/*private static final String KEY_CATEGORY = "key.category.horsingaround.horses";*/
 	/** The loader registers these (they're left unbound or on O, the defaults). */
 	public static final KeyMapping SETTINGS_KEY = new KeyMapping("key.horsingaround.settings", InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);

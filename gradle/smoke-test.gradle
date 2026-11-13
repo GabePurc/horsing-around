@@ -14,8 +14,8 @@
 // -PsmokeCloseUp (=degrees the side view turns): a shot every tick of the head and bridle at a gallop, a jump and on the
 //   rough course, on a large window (see SmokeTest).
 //
-// The NeoForge and Forge nodes (build.neoforge.gradle) run the same test natively: ./gradlew :<version>-neoforge:runSmoke
-// (not -PsmokeWithoutMod, which needs Fabric Loader).
+// The NeoForge and Forge nodes (build.neoforge.gradle, build.forge.gradle) run the same test natively:
+// ./gradlew :<version>-neoforge:runSmoke (not -PsmokeWithoutMod, which needs Fabric Loader).
 //
 // Test code only: the smoke source set is not part of the jar.
 
@@ -23,13 +23,29 @@ def mc = sc.current.version
 // (NeoForge or Forge: ModDevGradle's runs.)
 def neoforge = project.name ==~ /.*-(neo)?forge/
 def forge = project.name.endsWith('-forge')
+// (Forge after 1.20.1, build.forge.gradle: ForgeGradle's runs, and no Entity Model Features, so no pack.)
+def forgeGradle = pluginManager.hasPlugin('net.minecraftforge.gradle')
 def label = neoforge ? "${mc} ${project.ext.loaderName}" : mc
 def smokeDir = rootProject.layout.buildDirectory.dir("run/smoke/${project.name}").get().asFile
 def plain = project.hasProperty("smokePlain")
-def freshAnimations = !plain && !project.hasProperty("smokeNoPack")
+def freshAnimations = !plain && !forgeGradle && !project.hasProperty("smokeNoPack")
 def closeUp = project.hasProperty("smokeCloseUp")
-def freshAnimationsName = project.ext.freshAnimationsZip.name
+def freshAnimationsName = forgeGradle ? null : project.ext.freshAnimationsZip.name
 def gameJava = project.ext.javaVersion
+// What the game is told, as system properties.
+def gameProps = ['horsingaround.smoke': 'true']
+if (closeUp) {
+	gameProps['horsingaround.smoke.closeUp'] = project.property('smokeCloseUp').toString()
+}
+if (project.hasProperty("epicFight") && project.hasProperty("epic_fight_version")) {
+	gameProps['horsingaround.smoke.epicFight'] = project.property('epicFight').toString()
+}
+if (project.hasProperty("smokeWild")) {
+	gameProps['horsingaround.smoke.wild'] = project.property('smokeWild').toString()
+	if (project.hasProperty("smokeWildAt")) {
+		gameProps['horsingaround.smoke.wildAt'] = project.property('smokeWildAt').toString()
+	}
+}
 
 // The test sees the mod and the game the way the client does.
 sourceSets {
@@ -44,7 +60,25 @@ if (forge) {
 	tasks.named("processSmokeResources") { from(tasks.named("writePackMeta")) }
 }
 
-if (neoforge) {
+if (forgeGradle) {
+	// The game loads the mod's jar and the test's (build.forge.gradle says why), and the run is the smoke source set's.
+	configurations.smokeImplementation.extendsFrom configurations.implementation
+	def smokeJar = tasks.register("smokeJar", Jar) {
+		from sourceSets.smoke.output
+		archiveClassifier = "smoke"
+		destinationDirectory = layout.buildDirectory.dir("smoke")
+		manifest.attributes(["MixinConfigs": "horsingaround-smoke.mixins.json"])
+	}
+	sourceSets.smoke.runtimeClasspath = files(tasks.named("jar"), smokeJar) + configurations.runtimeClasspath
+	minecraft.runs.named('client') {
+		with('smoke') {
+			workingDir = smokeDir
+			jvmArgs '-Xmx2G'
+			gameProps.each { name, value -> systemProperty name, value }
+		}
+	}
+	tasks.register("runSmoke") { dependsOn "runSmokeClient" }
+} else if (neoforge) {
 	configure(forge ? legacyForge : neoForge) {
 		addModdingDependenciesTo sourceSets.smoke
 		mods {
@@ -58,24 +92,12 @@ if (neoforge) {
 				sourceSet = sourceSets.smoke
 				loadedMods = [mods.horsingaround, mods.horsingaround_smoke]
 				gameDirectory = smokeDir
-				systemProperty 'horsingaround.smoke', 'true'
+				gameProps.each { name, value -> systemProperty name, value }
 				jvmArgument '-Xmx2G'
 				// (Forge for 1.20.1 finds a mod's mixin configs in its jar's manifest; a dev game is told them.)
 				if (forge) {
 					programArgument '--mixin.config'
 					programArgument 'horsingaround-smoke.mixins.json'
-				}
-				if (closeUp) {
-					systemProperty 'horsingaround.smoke.closeUp', project.property('smokeCloseUp').toString()
-				}
-				if (project.hasProperty("epicFight") && project.hasProperty("epic_fight_version")) {
-					systemProperty 'horsingaround.smoke.epicFight', project.property('epicFight').toString()
-				}
-				if (project.hasProperty("smokeWild")) {
-					systemProperty 'horsingaround.smoke.wild', project.property('smokeWild').toString()
-					if (project.hasProperty("smokeWildAt")) {
-						systemProperty 'horsingaround.smoke.wildAt', project.property('smokeWildAt').toString()
-					}
 				}
 			}
 		}
@@ -91,17 +113,8 @@ if (neoforge) {
 			client()
 			source sourceSets.smoke
 			runDir "../../build/run/smoke/${mc}"
-			vmArg "-Dhorsingaround.smoke=true"
+			gameProps.each { name, value -> vmArg "-D${name}=${value}" }
 			vmArg "-Xmx2G"
-			if (closeUp) {
-				vmArg "-Dhorsingaround.smoke.closeUp=${project.property('smokeCloseUp')}"
-			}
-			if (project.hasProperty("smokeWild")) {
-				vmArg "-Dhorsingaround.smoke.wild=${project.property('smokeWild')}"
-				if (project.hasProperty("smokeWildAt")) {
-					vmArg "-Dhorsingaround.smoke.wildAt=${project.property('smokeWildAt')}"
-				}
-			}
 			if (project.hasProperty("smokeWithoutMod")) {
 				vmArg "-Dfabric.debug.disableModIds=horsingaround"
 				vmArg "-Dhorsingaround.smoke.withoutMod=true"
@@ -142,10 +155,12 @@ def smokeProblem = ~/(?i)(Mixin apply failed|Injection validation failed|could n
 def serverCorrection = ~/moved wrongly|moved too quickly|was expected to be controlling/
 def withoutMod = !neoforge && project.hasProperty("smokeWithoutMod")
 
-tasks.matching { it.name == "runSmoke" }.configureEach { task ->
+tasks.matching { it.name == (forgeGradle ? "runSmokeClient" : "runSmoke") }.configureEach { task ->
 	task.group = "verification"
 	task.description = "Runs the smoke test in a client of Minecraft ${label}: a short ride with screenshots (build/run/smoke/${project.name}/)."
-	task.dependsOn "installFreshAnimations"
+	if (!forgeGradle) {
+		task.dependsOn "installFreshAnimations"
+	}
 	task.usesService(smokeGame)
 	// The versions run in one fixed order, after every version's downloads (they share Loom's asset cache).
 	task.mustRunAfter(rootProject.childProjects.values().findAll { !(it.name ==~ /.*-(neo)?forge/) }.collectMany { other ->
@@ -159,7 +174,7 @@ tasks.matching { it.name == "runSmoke" }.configureEach { task ->
 		new File(smokeDir, "screenshots").deleteDir()
 		smokeDir.mkdirs()
 		new File(smokeDir, "options.txt").text = optionsText
-		if (neoforge) {
+		if (neoforge && !forgeGradle) {
 			// NeoForge from 26.2 holds the title screen back behind a screen of load warnings (Entity Model Features' and
 			// Entity Texture Features' metadata draws some); the test waits for the title screen.
 			def clientConfig = new File(smokeDir, "config/neoforge-client.toml")
