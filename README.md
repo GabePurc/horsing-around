@@ -133,7 +133,7 @@ Something not getting along? [Open an issue](https://github.com/GabePurc/horsing
 
 - **Fabric:** Minecraft 1.20.1 to 26.3, Fabric Loader 0.14.25 or newer (or whatever your Fabric API needs) and Fabric API. Mod Menu is optional.
 - **NeoForge:** Minecraft 1.21.1, 26.1.2, 26.2 or 26.3, with NeoForge for that version.
-- **Forge:** Minecraft 1.20.1, with Forge 47.1.0 or newer.
+- **Forge:** Minecraft 1.20.1 with Forge 47.1.0 or newer, or Minecraft 26.3 with Forge 66.1.0 or newer.
 
 ## Buy me a coffee, get a hat
 

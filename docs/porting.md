@@ -20,7 +20,7 @@ main version: `src/` reads as 26.3 code, and the compat runs exist only there.
   jar (the release one). The jar carries MixinExtras. Its dev games load Realistic Horse Genetics (`-PnoGenetics` not) but not EMF or
   ETF, whose Forge jars need SRG names. Its audit runs the dev classes, then the release jar with Realistic Horse Genetics in a
   production client and server from Forge's installer (`installReleaseGames`). No client tests yet.
-- Later Forge: `26.3-forge`, an unreleased trial (issue 146), `build.forge.gradle`, ForgeGradle 7. Mojang names,
+- Later Forge: `26.3-forge`, `build.forge.gradle`, ForgeGradle 7. Mojang names,
   no refmap, Forge's MixinExtras. Forge from 1.21.6: a bus per event, payload types (`//? if >=1.21.6` in `forge/`). Its games
   load the jar (a classpath folder is one mod file); run tasks are per source set (empty ones for the audit and each test run). The server test's in-process server: `gametest/forge`. Its Mixin
   refuses `JAVA_25`; without `pack.mcmeta` no assets or tags load.
