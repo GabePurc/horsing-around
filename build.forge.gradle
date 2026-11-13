@@ -48,10 +48,11 @@ sourceSets {
 	main.java.exclude 'dev/horsingaround/fabric/**', 'dev/horsingaround/neoforge/**'
 	client.java.exclude 'dev/horsingaround/client/fabric/**', 'dev/horsingaround/client/neoforge/**'
 	main.resources.exclude 'fabric.mod.json', 'META-INF/neoforge.mods.toml'
-	// (Icy's Better Horses is Fabric and NeoForge only; Realistic Horse Genetics Forge 1.20.1 only; Entity Model Features
+	// (Icy's Better Horses is Fabric and NeoForge only; Realistic Horse Genetics and Epic Fight Forge 1.20.1 only; Entity Model Features
 	// has no Forge build for 26.x.)
 	main.java.exclude 'dev/horsingaround/mixin/icy/**'
-	client.java.exclude 'dev/horsingaround/client/mixin/icy/**', 'dev/horsingaround/client/mixin/rhg/**', 'dev/horsingaround/client/forge/GeneticsMixinPlugin.java'
+	client.java.exclude 'dev/horsingaround/client/mixin/icy/**', 'dev/horsingaround/client/mixin/rhg/**', 'dev/horsingaround/client/forge/GeneticsMixinPlugin.java',
+		'dev/horsingaround/client/forge/EpicFightModel.java'
 	main.resources.exclude 'horsingaround.icy.mixins.json'
 	client.resources.exclude 'horsingaround.icy.client.mixins.json', 'horsingaround.emf.client.mixins.json', 'horsingaround.rhg.client.mixins.json'
 }
