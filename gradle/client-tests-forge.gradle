@@ -18,6 +18,10 @@ sourceSets {
 	// games' play scene.)
 	gametest.java.exclude 'dev/horsingaround/gametest/neoforge/**', 'dev/horsingaround/gametest/DedicatedServerTest.java', 'dev/horsingaround/gametest/PlayScene.java'
 	gametest.resources.exclude 'fabric.mod.json', 'META-INF/neoforge.mods.toml', 'horsingaround-gametest-neoforge.mixins.json'
+	// (26.3's alone until their compat packs move, issue 127: as on Fabric, client-tests.gradle.)
+	if (!sc.current.parsed.matches('>=26.3')) {
+		gametest.java.exclude(['StoreMediaTest', 'GalleryTest', 'ClipCursor', 'IcyFeaturesTest', 'RealCameraTest'].collect { "dev/horsingaround/gametest/${it}.java".toString() })
+	}
 }
 tasks.named("processGametestResources") {
 	// (As the mod's own configs and resources: build.forge.gradle.)
