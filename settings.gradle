@@ -49,7 +49,7 @@ stonecutter {
 		// Forge, for 1.20.1, where Forge players are (Realistic Horse Genetics is Forge only). The jar loads on NeoForge for 1.20.1 too.
 		vers('1.20.1-forge', '1.20.1').buildscript('build.neoforge.gradle')
 		// Forge after 1.20.1 builds with ForgeGradle (ModDevGradle's add-on stops at 1.20.1).
-		['26.3', '26.2', '26.1.2', '1.21.11', '1.21.10', '1.21.8', '1.21.5', '1.21.4', '1.21.3', '1.21.1', '1.20.6'].each { vers("${it}-forge", it).buildscript('build.forge.gradle') }
+		['26.3', '26.2', '26.1.2', '1.21.11', '1.21.10', '1.21.8', '1.21.5', '1.21.4', '1.21.3', '1.21.1', '1.20.6', '1.20.4', '1.20.2'].each { vers("${it}-forge", it).buildscript('build.forge.gradle') }
 		vcsVersion = '26.3'
 	}
 }
