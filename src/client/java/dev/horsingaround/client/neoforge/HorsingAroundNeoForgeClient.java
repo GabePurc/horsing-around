@@ -73,6 +73,7 @@ public final class HorsingAroundNeoForgeClient {
 		/*if (EpicFightRider.LOADED) {
 			NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, RenderLivingEvent.Pre.class, event -> EpicFightRider.before(event.getPoseStack()));
 			NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, RenderLivingEvent.Pre.class, event -> EpicFightRider.after(event.getPoseStack()));
+			EpicFightModel.register();
 		}
 		*///?}
 		if (MixinAudit.ENABLED) {

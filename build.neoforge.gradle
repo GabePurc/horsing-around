@@ -129,6 +129,10 @@ dependencies {
 		add runtimeMod, "maven.modrinth:entitytexturefeatures:${project.etf_version}"
 	}
 
+	if (project.hasProperty("epic_fight_version")) {
+		// Optional integration: the rider Epic Fight draws (client/compat/EpicFightRider).
+		add compileMod, "maven.modrinth:epic-fight:${project.epic_fight_version}"
+	}
 	if (epicFight) {
 		add runtimeMod, "maven.modrinth:epic-fight:${project.epic_fight_version}"
 	}

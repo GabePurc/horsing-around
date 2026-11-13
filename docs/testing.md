@@ -90,8 +90,8 @@ most players run the plain model.
   the neck's numbers logged, for anything that should stay attached.
 - NeoForge and Forge: `:<version>-neoforge:runSmoke`, `:1.20.1-forge:runSmoke`. Forge's horse is one of Realistic Horse Genetics'
   (`-PnoGenetics` for vanilla's).
-- `-PepicFight` (Forge, NeoForge 1.21.1): with Epic Fight, which draws the rider itself; `=vanilla` its other mode, `=attack` sword
-  swings at a gallop.
+- `-PepicFight` (Forge, NeoForge 1.21.1): with Epic Fight, which draws the rider in a swing; `=vanilla` its other mode,
+  `=attack` swings at a gallop.
 
 ## Compatibility
 

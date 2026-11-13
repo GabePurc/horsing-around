@@ -7,6 +7,7 @@ import dev.horsingaround.client.render.LegacyRenderState;
 import dev.horsingaround.client.render.RidePoseState;
 import dev.horsingaround.ride.RideTuning;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+import net.minecraft.world.entity.Entity;
 *///?}
 
 /**
@@ -14,7 +15,11 @@ import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
  * living entity is drawn, and then calls the game's drawing off. The game's renderer is where a rider is moved onto the
  * saddle as drawn, so Epic Fight's rider stayed where the game seats it, upright: through the horse's back in a rear, above
  * it in a jump. The rider's move is put on the event's pose instead while the event is handled, so Epic Fight's model sits
- * on the saddle and leans as the rider does. Its limbs stay Epic Fight's own.
+ * on the saddle and leans as the rider does.
+ *
+ * <p>Its limbs are Epic Fight's own, so a rider is left to the game's drawing (reins, stirrups, the bow) whenever Epic Fight
+ * has no action of its own playing, a swing or a hit: the loaders' {@code EpicFightModel} answer its question, as Epic
+ * Fight itself does for the Player Animator mod.
  */
 public final class EpicFightRider {
 	//? if <1.21.2 {
@@ -22,6 +27,11 @@ public final class EpicFightRider {
 	private static boolean moved;
 
 	private EpicFightRider() {
+	}
+
+	// Whether {@code player} is a rider this mod poses, being drawn now.
+	public static boolean posed(final Entity player) {
+		return LegacyRenderState.of(player) instanceof RidePoseState pose && pose.horsingaround$isRider();
 	}
 
 	// Before anyone handles the event (listened for at the highest priority; the other at the lowest).

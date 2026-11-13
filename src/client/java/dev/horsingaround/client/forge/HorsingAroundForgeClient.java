@@ -53,6 +53,7 @@ public final class HorsingAroundForgeClient {
 		if (EpicFightRider.LOADED) {
 			MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, false, RenderLivingEvent.Pre.class, event -> EpicFightRider.before(event.getPoseStack()));
 			MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, RenderLivingEvent.Pre.class, event -> EpicFightRider.after(event.getPoseStack()));
+			EpicFightModel.register();
 		}
 		if (MixinAudit.ENABLED) {
 			// (Once the game is up: its first screen.)
