@@ -21,7 +21,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.entity.FakePlayer;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.loader.api.FabricLoader;
-//?} else {
+//?} elif neoforge {
 /*import net.neoforged.fml.ModList;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
@@ -30,6 +30,16 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.minecraft.server.MinecraftServer;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
+*///?} else {
+/*import dev.horsingaround.forge.HorsingAroundForge;
+import dev.horsingaround.gametest.forge.HorsingAroundTestsForge;
+import dev.horsingaround.gametest.harness.impl.util.GameTestSyncPayload;
+import net.minecraftforge.client.ConfigScreenHandler;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.living.LivingDamageEvent;
+import net.minecraftforge.fml.ModList;
+import net.minecraftforge.fml.loading.FMLPaths;
+import net.minecraftforge.network.PacketDistributor;
 *///?}
 
 /** What the tests need from the mod loader, the same on each: one place per loader for what differs. */
@@ -53,8 +63,10 @@ public final class TestEnv {
 	public static void onClientTickEnd(final Consumer<Minecraft> listener) {
 		//? if fabric {
 		ClientTickEvents.END_CLIENT_TICK.register(listener::accept);
-		//?} else
-		/*NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, event -> listener.accept(Minecraft.getInstance()));*/
+		//?} elif neoforge {
+		/*NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, event -> listener.accept(Minecraft.getInstance()));
+		*///?} else
+		/*TickEvent.ClientTickEvent.Post.BUS.addListener(event -> listener.accept(Minecraft.getInstance()));*/
 	}
 
 	@FunctionalInterface
@@ -73,6 +85,11 @@ public final class TestEnv {
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> listener.hurt(entity, source, taken));
 		//?} elif fabric {
 		/*HURT.add(listener);
+		*///?} elif forge {
+		/*// (Forge's event comes as the damage is about to land, armour and the like already counted.)
+		LivingDamageEvent.BUS.addListener(event -> {
+			listener.hurt(event.getEntity(), event.getSource(), event.getAmount());
+		});
 		*///?} elif >=26.1 {
 		/*NeoForge.EVENT_BUS.addListener(LivingDamageEvent.Post.class, event -> listener.hurt(event.getEntity(), event.getSource(), event.getInflictedDamage()));
 		*///?} else
@@ -83,7 +100,9 @@ public final class TestEnv {
 	public static Screen modsScreen(final Screen parent) {
 		//? if fabric {
 		return com.terraformersmc.modmenu.api.ModMenuApi.createModsScreen(parent);
-		//?} elif >=26.2 {
+		//?} elif forge {
+		/*return new net.minecraftforge.client.gui.ModListScreen(parent);
+		*///?} elif >=26.2 {
 		/*return net.neoforged.neoforge.client.gui.modlist.ModListScreen.create(parent);
 		*///?} else
 		/*return new net.neoforged.neoforge.client.gui.ModListScreen(parent);*/
@@ -94,8 +113,10 @@ public final class TestEnv {
 		//? if fabric {
 		return FabricLoader.getInstance().getEntrypointContainers("modmenu", Object.class).stream()
 			.anyMatch(entry -> entry.getProvider().getMetadata().getId().equals(HorsingAround.MOD_ID));
-		//?} else
-		/*return ModList.get().getModContainerById(HorsingAround.MOD_ID).flatMap(mod -> mod.getCustomExtension(IConfigScreenFactory.class)).isPresent();*/
+		//?} elif neoforge {
+		/*return ModList.get().getModContainerById(HorsingAround.MOD_ID).flatMap(mod -> mod.getCustomExtension(IConfigScreenFactory.class)).isPresent();
+		*///?} else
+		/*return ModList.getModContainerById(HorsingAround.MOD_ID).flatMap(mod -> mod.getCustomExtension(ConfigScreenHandler.ConfigScreenFactory.class)).isPresent();*/
 	}
 
 	/** A connection for a player no client is behind, which sends nothing (the loader's fake player's). */
@@ -106,7 +127,10 @@ public final class TestEnv {
 		} catch (final ReflectiveOperationException e) {
 			throw new IllegalStateException(e);
 		}
-		//?} else {
+		//?} elif forge {
+		/*// (Forge has no fake player from 1.21.6; only tests of mods with no Forge build ask for one.)
+		throw new UnsupportedOperationException("no fake player on Forge");
+		*///?} else {
 		/*try {
 			final var constructor = FakePlayerFactory.getMinecraft((ServerLevel) player.level()).connection.getClass().getDeclaredConstructor(MinecraftServer.class, ServerPlayer.class);
 			constructor.setAccessible(true);
@@ -117,6 +141,14 @@ public final class TestEnv {
 		*///?}
 	}
 
+	/** Sends the harness's sync payload to a player, from the server thread. */
+	public static void sendSync(final ServerPlayer player) {
+		//? if forge {
+		/*HorsingAroundTestsForge.CHANNEL.send(GameTestSyncPayload.INSTANCE, PacketDistributor.PLAYER.with(player));
+		*///?} else
+		Platform.send(player, dev.horsingaround.gametest.harness.impl.util.GameTestSyncPayload.INSTANCE);
+	}
+
 	/** Sends a payload to the server, from the client thread. */
 	//? if >=1.20.5 {
 	public static void sendToServer(final CustomPacketPayload payload) {
@@ -124,7 +156,10 @@ public final class TestEnv {
 	/*public static void sendToServer(final FabricPacket payload) {*/
 		//? if fabric {
 		ClientPlayNetworking.send(payload);
-		//?} elif >=26.1 {
+		//?} elif forge {
+		/*// (A Forge channel sends only its own payloads: the harness's, or the mod's.)
+		(payload == GameTestSyncPayload.INSTANCE ? HorsingAroundTestsForge.CHANNEL : HorsingAroundForge.CHANNEL).send(payload, Minecraft.getInstance().getConnection().getConnection());
+		*///?} elif >=26.1 {
 		/*net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(payload);
 		*///?} else
 		/*net.neoforged.neoforge.network.PacketDistributor.sendToServer(payload);*/

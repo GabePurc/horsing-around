@@ -1,0 +1,204 @@
+plugins {
+	id 'java'
+	id 'net.minecraftforge.gradle'
+}
+
+// The Forge build of a Minecraft version after 1.20.1 (Stonecutter node <version>-forge, see settings.gradle), with Forge's
+// own ForgeGradle, from the same src/ as the Fabric one (build.gradle). 1.20.1's Forge jar is build.neoforge.gradle's.
+// Forge-only code sits in forge/ packages or //? if forge comments. This node's numbers come from
+// versions/<node>/gradle.properties. auditMixins loads every mixin target in a client and dedicated server; runSmoke rides
+// the smoke test's course (gradle/smoke-test.gradle); the client tests run as on Fabric (gradle/client-tests-forge.gradle).
+def mc = sc.current.version
+def javaVersion = sc.current.parsed.matches('>=26') ? 25 : 21
+ext.loaderName = 'Forge' // (for gradle/smoke-test.gradle)
+ext.javaVersion = javaVersion // (for gradle/smoke-test.gradle)
+version = "${project.version}+${mc}"
+base.archivesName = "horsing-around-forge"
+// Repo-level folders (each node's own project folder is versions/<node>/).
+def repoDir = rootProject.layout.projectDirectory
+def runFolder = "run/forge/${mc}"
+def auditFolder = rootProject.layout.buildDirectory.dir("run/audit/${project.name}").get().asFile
+
+repositories {
+	minecraft.mavenizer(it)
+	maven fg.forgeMaven
+	maven fg.minecraftLibsMaven
+	mavenCentral()
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = 'Modrinth'
+				url = 'https://api.modrinth.com/maven'
+			}
+		}
+		filter {
+			includeGroup 'maven.modrinth'
+		}
+	}
+}
+
+// The client-only code in a source set of its own, as Fabric Loom splits it (src/client), packed into the same jar.
+sourceSets {
+	client {
+		compileClasspath += main.output
+		runtimeClasspath += main.output
+	}
+	// (Empty: ForgeGradle makes run tasks per source set, and this one's are runAuditClient and runAuditServer.)
+	audit
+	main.java.exclude 'dev/horsingaround/fabric/**', 'dev/horsingaround/neoforge/**'
+	client.java.exclude 'dev/horsingaround/client/fabric/**', 'dev/horsingaround/client/neoforge/**'
+	main.resources.exclude 'fabric.mod.json', 'META-INF/neoforge.mods.toml'
+	// (Icy's Better Horses is Fabric and NeoForge only; Realistic Horse Genetics Forge 1.20.1 only; Entity Model Features
+	// has no Forge build for 26.x.)
+	main.java.exclude 'dev/horsingaround/mixin/icy/**'
+	client.java.exclude 'dev/horsingaround/client/mixin/icy/**', 'dev/horsingaround/client/mixin/rhg/**', 'dev/horsingaround/client/forge/GeneticsMixinPlugin.java'
+	main.resources.exclude 'horsingaround.icy.mixins.json'
+	client.resources.exclude 'horsingaround.icy.client.mixins.json', 'horsingaround.emf.client.mixins.json', 'horsingaround.rhg.client.mixins.json'
+}
+configurations {
+	clientCompileOnly.extendsFrom compileOnly
+	clientImplementation.extendsFrom implementation
+	// (ForgeGradle makes run tasks for the source sets that have the game.)
+	auditImplementation.extendsFrom implementation
+}
+// The games (runClient, runServer and the audit's) load the jar: Forge takes each folder or jar on the classpath as one mod
+// file, and the mod's classes and resources are in four folders. The jar's manifest names the mixin configs.
+def game = files(tasks.named("jar")) + configurations.runtimeClasspath
+sourceSets.main.runtimeClasspath = game
+sourceSets.audit.runtimeClasspath = game
+
+minecraft {
+	runs {
+		register('client') {
+			workingDir = repoDir.dir(runFolder)
+			// ./gradlew :<node>:auditMixins (below)
+			with('audit') {
+				workingDir = new File(auditFolder, "client")
+				systemProperty 'horsingaround.audit', 'true'
+				systemProperty 'mixin.debug.countInjections', 'true'
+			}
+		}
+		register('server') {
+			workingDir = repoDir.dir("${runFolder}/server")
+			args '--nogui'
+			with('audit') {
+				workingDir = new File(auditFolder, "server")
+				systemProperty 'horsingaround.audit', 'true'
+				systemProperty 'mixin.debug.countInjections', 'true'
+			}
+		}
+	}
+}
+
+dependencies {
+	implementation minecraft.dependency("net.minecraftforge:forge:${mc}-${project.forge_version}")
+
+	// Optional integration: ride the horse's real animated body when Entity Model Features animates it.
+	compileOnly "maven.modrinth:entity-model-features:${project.emf_version}"
+	compileOnly "maven.modrinth:entitytexturefeatures:${project.etf_version}"
+	// Optional integration: the riding camera steps aside while Shoulder Surfing Reloaded drives the camera.
+	compileOnly "maven.modrinth:shoulder-surfing-reloaded:${project.shoulder_surfing_version}"
+}
+
+// ./gradlew :<node>:auditMixins (plain auditMixins runs every version's): every class the mixins patch loaded in a Forge
+// client and dedicated server (MixinAudit), which then quit; fails unless both say so and nothing in the log names a mixin
+// failure. One NeoForge or Forge game at a time (the service is build.neoforge.gradle's too).
+abstract class ForgeAuditGame implements org.gradle.api.services.BuildService<org.gradle.api.services.BuildServiceParameters.None> {}
+def auditGame = gradle.sharedServices.registerIfAbsent("neoforgeAuditGame", ForgeAuditGame) { maxParallelUsages = 1 }
+def auditRuns = ["Client", "Server"].collect { side ->
+	[task: "runAudit${side}".toString(), side: side, dir: new File(auditFolder, side.toLowerCase())]
+}
+afterEvaluate {
+	auditRuns.eachWithIndex { run, i ->
+		def side = run.side
+		def auditDir = run.dir
+		tasks.named(run.task) {
+			group = "verification"
+			// (In one fixed order.)
+			if (i > 0) mustRunAfter auditRuns[i - 1].task
+			usesService(auditGame)
+			doFirst {
+				new File(auditDir, "logs").deleteDir()
+				auditDir.mkdirs()
+				new File(auditDir, "eula.txt").text = "eula=true\n"
+				if (side == "Client") {
+					new File(auditDir, "options.txt").text = "soundCategory_master:0.0\n" // Silent, like every test game.
+				}
+				// Any free port: a Fabric audit server (its own one-at-a-time limit) or anything else may hold the default.
+				if (side == "Server") {
+					new File(auditDir, "server.properties").text = "server-port=0\n"
+				}
+			}
+			doLast {
+				def log = new File(auditDir, "logs/latest.log")
+				def text = log.exists() ? log.text : ""
+				def problems = text.readLines().findAll { it =~ /Mixin apply for mod|Mixin apply failed|Injection validation failed|could not find any targets|InvalidInjectionException|InvalidMixinException|MixinApplyError|MixinTransformerError|Critical injection failure/ }
+				if (!text.contains("Horsing Around mixin audit passed") || !problems.isEmpty()) {
+					throw new GradleException("Mixin audit failed on ${mc} Forge (${side.toLowerCase()}); see ${log}\n" + problems.take(20).join("\n"))
+				}
+				logger.lifecycle("Mixin audit passed on ${mc} Forge (${side.toLowerCase()}).")
+			}
+		}
+	}
+}
+tasks.register("auditMixins") {
+	group = "verification"
+	dependsOn auditRuns.collect { it.task }
+}
+apply from: repoDir.file('gradle/x11-games.gradle')
+// macOS opens a window on the process's first thread only. Loom and ModDevGradle tell the game so; ForgeGradle doesn't, and
+// the client then finds no video device.
+if (System.getProperty("os.name").startsWith("Mac")) {
+	tasks.withType(JavaExec).matching { it.name ==~ /run\w*Client/ }.configureEach { jvmArgs '-XstartOnFirstThread' }
+}
+// Plain "runClient" starts only the main version's (Fabric) game: these answer by path (./gradlew :26.3-forge:runClient).
+tasks.matching { it.name in ["runClient", "runServer"] }.configureEach { task ->
+	def plainEverywhere = gradle.startParameter.taskNames.contains(task.name) && (gradle.startParameter.projectDir ?: gradle.startParameter.currentDir) != projectDir
+	task.onlyIf("plain ${task.name} starts only the main version's game; use :${project.name}:${task.name}") { !plainEverywhere }
+}
+
+// (The cowboy hat is done with the render state from 1.21.2; before, two mixins keep a helmet off the supporter's head.)
+def hatMixins = sc.current.parsed.matches('>=1.21.2') ? '"AvatarRenderStateMixin", "AvatarRendererMixin",' : '"CustomHeadLayerMixin", "HumanoidArmorLayerMixin",'
+// (mods.toml asks for the loader by Forge's major version.)
+def resourceProps = [version: project.version.toString(), minecraft: project.minecraft_range, forge: project.forge_version, forgeMajor: project.forge_version.tokenize('.')[0], hatMixins: hatMixins]
+tasks.matching { it.name in ["processResources", "processClientResources"] }.configureEach {
+	inputs.properties resourceProps
+	inputs.property "mixinMinVersion", "0.8"
+	// (Forge's Mixin knows no Java 25 level and refuses a config that names one; it asks for the oldest Mixin the config needs.)
+	filesMatching("*.mixins.json") {
+		filter { line -> line.contains('"compatibilityLevel"') ? "\t\"minVersion\": \"0.8\"," : line }
+	}
+	filesMatching(["META-INF/mods.toml", "*.mixins.json"]) {
+		expand resourceProps
+	}
+}
+
+// Forge reads a mod's resources as a pack, which needs its pack.mcmeta: without one none of its assets or tags load.
+def packMeta = layout.buildDirectory.dir("generated/packMeta")
+def packFormat = project.pack_format
+def writePackMeta = tasks.register("writePackMeta") {
+	inputs.property "packFormat", packFormat
+	outputs.dir(packMeta)
+	doLast {
+		packMeta.get().file("pack.mcmeta").asFile.text = "{\"pack\": {\"description\": \"Horsing Around\", \"min_format\": ${packFormat}, \"max_format\": ${packFormat}}}\n"
+	}
+}
+tasks.named("processResources") { from(writePackMeta) }
+
+// The in-game smoke test, as on Fabric: ./gradlew :<node>:runSmoke.
+apply from: repoDir.file('gradle/smoke-test.gradle')
+// The client tests, as on Fabric: ./gradlew :<node>:runClientGameTest.
+apply from: repoDir.file('gradle/client-tests-forge.gradle')
+
+jar {
+	from sourceSets.client.output
+	from(repoDir.files("COPYING", "COPYING.LESSER")) {
+		rename { "${it}_horsingaround" }
+	}
+	// (Mixin reads its configs from the manifest.)
+	manifest.attributes(["MixinConfigs": "horsingaround.mixins.json,horsingaround.client.mixins.json"])
+}
+
+java {
+	toolchain.languageVersion = JavaLanguageVersion.of(javaVersion)
+}

@@ -14,14 +14,16 @@ main version: `src/` reads as 26.3 code, and the compat runs exist only there.
 - `fabric.mod.json` and the mixin configs get `${minecraft}` and `${java}` per version. Below loader 0.16, MixinExtras is bundled.
 - NeoForge: `<version>-neoforge` projects (26.3, 26.2, 26.1.2, 1.21.1) build the same `src/` with `build.neoforge.gradle`. Code for one loader
   sits in `fabric/` or `neoforge/` packages or behind `//? if neoforge`; common code goes through `Platform`. Mojang names, so no refmap.
-  `neoforge.mods.toml` is its `fabric.mod.json`.
 - Forge: `1.20.1-forge` (Realistic Horse Genetics' version), also `build.neoforge.gradle`, with ModDevGradle's legacy add-on; `forge/`
   packages or `//? if fabric {} elif neoforge {} else {}`; `mods.toml`. It runs on SRG names: the mixin annotation processor writes
-  refmaps (any name it can't map fails the compile), the manifest lists the mixin configs, `checkRefmaps` checks both in `reobfJar`'s
-  jar (the release one). The jar carries MixinExtras and a `pack.mcmeta` (Forge warns about a mod without one). Its dev games load Realistic
-  Horse Genetics (`-PnoGenetics` not) but not EMF or ETF, whose Forge jars name SRG names with no refmap. Its audit runs the dev classes,
-  then the release jar with Realistic Horse Genetics in a production client and server that Forge's installer makes, once per Forge
-  version (`installReleaseGames`, `build/run/audit/1.20.1-forge-release/`). It doesn't run the client tests yet.
+  refmaps (a name it can't map fails the compile), the manifest lists the mixin configs, `checkRefmaps` checks both in `reobfJar`'s
+  jar (the release one). The jar carries MixinExtras. Its dev games load Realistic Horse Genetics (`-PnoGenetics` not) but not EMF or
+  ETF, whose Forge jars need SRG names. Its audit runs the dev classes, then the release jar with Realistic Horse Genetics in a
+  production client and server from Forge's installer (`installReleaseGames`). No client tests yet.
+- Later Forge: `26.3-forge`, an unreleased trial (issue 146), `build.forge.gradle`, ForgeGradle 7. Mojang names,
+  no refmap, Forge's MixinExtras. Forge from 1.21.6: a bus per event, payload types (`//? if >=1.21.6` in `forge/`). Its games
+  load the jar (a classpath folder is one mod file); run tasks are per source set (empty ones for the audit and each test run). The server test's in-process server: `gametest/forge`. Its Mixin
+  refuses `JAVA_25`; without `pack.mcmeta` no assets or tags load.
 
 ## Version-specific code
 
@@ -87,20 +89,15 @@ Data pack tag folders are plural (`processResources` renames them), resource loc
 
 ## Checking a version
 
-- `./gradlew :<version>:build`; `./gradlew build` builds them all. Jars: `versions/<version>/build/libs/`.
 - `./gradlew :<version>:auditMixins`: the jar in a production client and dedicated server, on that version's minimum Fabric Loader; any injection that finds
-  nothing fails. About 20 s, one game at a time per loader. Logs in `build/run/audit/<version>/`. NeoForge's audit runs the mod's dev classes, not the jar (Forge's: both).
-- `./gradlew :<version>:runSmoke`: see `testing.md`.
+  nothing fails. About 20 s, one game at a time per loader. Logs in `build/run/audit/<version>/`. NeoForge's audit runs the mod's dev classes, not the jar (Forge 1.20.1's: both).
 - `./gradlew :<version>:runClient`: play it (game folder `run/versions/<version>/`; NeoForge `run/neoforge/<version>/`, and `runServer` too).
 - `./gradlew :<version>:genSources`: decompiled Minecraft (`.gradle/loom-cache/minecraftMaven/net/minecraft/*/<version>/*-sources.jar`).
 
-A change to version-specific code is checked by building and auditing every version, the smoke test and client tests on each, and playing
-the ones it touches.
-
 ## Status
 
-Build and pass the audit: 1.20.1 Forge, 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9), 1.21.8 (1.21.6-7), 1.21.5, 1.21.4, 1.21.3 (1.21.2), 1.21.1 (1.21), 1.20.6
-(1.20.5), 1.20.4 (1.20.3), 1.20.2, 1.20.1 (1.20). A jar covering several is built against the named one. Played by the user: only 26.3.
+Build and pass the audit: 1.20.1 and 26.3 Forge, 26.3, 26.2, 26.1.2, 1.21.11, 1.21.10 (covers 1.21.9), 1.21.8 (1.21.6-7), 1.21.5, 1.21.4, 1.21.3 (1.21.2), 1.21.1 (1.21), 1.20.6
+(1.20.5), 1.20.4 (1.20.3), 1.20.2, 1.20.1 (1.20). A jar covering several is built against the named one.
 
 ## Gaps on older versions
 

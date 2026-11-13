@@ -116,7 +116,7 @@ public class TestServerConnectionImpl implements TestServerConnection {
 	public void waitForClientboundPackets() {
 		ThreadingImpl.checkOnGametestThread("waitForClientboundPackets");
 
-		serverContext.runOnServer(server -> dev.horsingaround.Platform.send(getServerPlayer(), GameTestSyncPayload.INSTANCE));
+		serverContext.runOnServer(server -> dev.horsingaround.gametest.TestEnv.sendSync(getServerPlayer()));
 
 		try {
 			context.waitFor(ignored -> ThreadingImpl.networkSyncReceived);
