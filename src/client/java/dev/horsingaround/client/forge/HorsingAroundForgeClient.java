@@ -2,6 +2,7 @@ package dev.horsingaround.client.forge;
 
 import dev.horsingaround.MixinAudit;
 import dev.horsingaround.client.HorsingAroundClient;
+import dev.horsingaround.client.compat.EpicFightRider;
 import dev.horsingaround.client.config.HorseSettingsScreen;
 import dev.horsingaround.client.cosmetic.HatLayer;
 import dev.horsingaround.client.cosmetic.HatModel;
@@ -15,7 +16,9 @@ import net.minecraftforge.client.ConfigScreenHandler;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
+import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.client.event.ScreenEvent;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 //? if >=1.21.6 {
@@ -96,6 +99,11 @@ public final class HorsingAroundForgeClient {
 		});
 		HorsingAroundForge.listen(ClientPlayerNetworkEvent.LoggingIn.class, event -> HorsingAroundClient.joining());
 		HorsingAroundForge.listen(ClientPlayerNetworkEvent.LoggingOut.class, event -> HorsingAroundClient.left());
+		if (EpicFightRider.LOADED) {
+			MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, false, RenderLivingEvent.Pre.class, event -> EpicFightRider.before(event.getPoseStack()));
+			MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, RenderLivingEvent.Pre.class, event -> EpicFightRider.after(event.getPoseStack()));
+			EpicFightModel.register();
+		}
 		if (MixinAudit.ENABLED) {
 			// (Once the game is up: its first screen.)
 			HorsingAroundForge.listen(ScreenEvent.Init.Post.class, event -> {

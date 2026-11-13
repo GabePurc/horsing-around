@@ -75,6 +75,12 @@ public final class SmokeTest {
 	/** -PsmokeWithoutMod: the same scene with this mod turned off, to see what the game and the animation stack do alone. */
 	private static final boolean WITHOUT_MOD = Boolean.getBoolean("horsingaround.smoke.withoutMod");
 	/**
+	 * -PepicFight (the builds Epic Fight ships for): the run with Epic Fight installed, which draws the player itself in its
+	 * own mode, the one a player starts in. =vanilla: in its other mode, where the game draws the player. =attack: with a
+	 * sword, swung at a gallop (epic-fight-attack.png).
+	 */
+	private static final String EPIC_FIGHT = System.getProperty("horsingaround.smoke.epicFight");
+	/**
 	 * -Dhorsingaround.smoke.wild=seed: instead of the run on the flat, a long ride over a normal world of that seed (a
 	 * gallop with turns and jumps, wherever it leads), for the server corrections only natural ground brings out.
 	 */
@@ -279,6 +285,16 @@ public final class SmokeTest {
 					}
 					this.horse = vehicle;
 					LOGGER.info("smoke: riding {} at {} {} {}, ground y {}", vehicle.getType(), fmt(vehicle.getX()), fmt(vehicle.getY()), fmt(vehicle.getZ()), Scene.groundY);
+					if (EPIC_FIGHT != null) {
+						if (EPIC_FIGHT.equals("vanilla")) {
+							EpicFight.vanillaMode(minecraft.player);
+						} else if (EPIC_FIGHT.equals("attack")) {
+							this.server.execute(() -> this.server.getPlayerList().getPlayers().get(0).setItemInHand(
+								net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.IRON_SWORD)
+							));
+						}
+						LOGGER.info("smoke: Epic Fight: {}", EpicFight.state(minecraft.player));
+					}
 					this.next(WILD == null ? Phase.STAND : Phase.WILD);
 				}
 			}
@@ -325,6 +341,17 @@ public final class SmokeTest {
 					this.tap(minecraft.options.keySprint, 1);
 				}
 				this.meter.sample(this.horse);
+				if ("attack".equals(EPIC_FIGHT) && t >= 40 && t <= 80) {
+					// Three swings at a gallop: riding goes on through them (the gallop's speed is checked below).
+					if (t % 20 == 0) {
+						this.tap(EpicFight.attackKey(), 1);
+					} else if (t % 20 == 6) {
+						LOGGER.info("smoke: Epic Fight: {}, speed {}", EpicFight.state(minecraft.player), fmt(this.meter.tail()));
+						if (t == 46) {
+							this.shoot(minecraft, "epic-fight-attack.png");
+						}
+					}
+				}
 				if (t == 92) {
 					this.shoot(minecraft, SHOTS[2]);
 				} else if (t >= 100) {

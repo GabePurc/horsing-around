@@ -67,8 +67,10 @@ configurations {
 	clientRuntimeOnly.extendsFrom runtimeOnly
 }
 
+// -PepicFight: Epic Fight in every game of the builds it ships for (dev only; it draws and moves the player itself).
+def epicFight = project.hasProperty("epicFight") && project.hasProperty("epic_fight_version")
 configure(modDev) {
-	version = forge ? "${mc}-${project.forge_version}" : project.neoforge_version
+	version = forge ? "${mc}-${epicFight ? project.epic_fight_forge_version : project.forge_version}" : project.neoforge_version
 	addModdingDependenciesTo sourceSets.client
 
 	mods {
@@ -127,6 +129,14 @@ dependencies {
 		add runtimeMod, "maven.modrinth:entitytexturefeatures:${project.etf_version}"
 	}
 
+	if (project.hasProperty("epic_fight_version")) {
+		// Optional integration: the rider Epic Fight draws (client/compat/EpicFightRider).
+		add compileMod, "maven.modrinth:epic-fight:${project.epic_fight_version}"
+	}
+	if (epicFight) {
+		add runtimeMod, "maven.modrinth:epic-fight:${project.epic_fight_version}"
+	}
+
 	if (forge) {
 		// Optional integration: Realistic Horse Genetics' horses ride, and its model gets the ride's legs (ride/Genetics).
 		modCompileOnly "maven.modrinth:realistic-horse-genetics:${project.rhg_version}"
@@ -168,7 +178,13 @@ if (forge) {
 	}
 	jar.manifest.attributes(["MixinConfigs": mixinConfigs.join(",")])
 	// A name the annotation processor can't map is only a warning, and a mixin that misses in every player's game: an error here.
-	tasks.withType(JavaCompile).configureEach { options.compilerArgs.add("-Werror") }
+	tasks.withType(JavaCompile).configureEach {
+		options.compilerArgs.add("-Werror")
+		// (Epic Fight's games run on the newer Forge it asks for, which marks things this code needs on the jar's Forge for removal.)
+		if (epicFight) {
+			options.compilerArgs.add("-Xlint:-removal")
+		}
+	}
 	// (The add-on puts the main source set's refmap in the jar, not the client one's, which the annotation processor writes here.)
 	jar.from(layout.buildDirectory.file("mixin/${refmaps.processClientResources}"))
 	// Every mixin config must name a refmap in the jar, or the game crashes on launch (as the Fabric jars are checked).
