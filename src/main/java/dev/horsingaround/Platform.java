@@ -40,7 +40,7 @@ public final class Platform {
 	public static boolean isModLoaded(final String id) {
 		//? if fabric {
 		return FabricLoader.getInstance().isModLoaded(id);
-		//?} elif forge && >=1.21.6 {
+		//?} elif forge && >=26.1 {
 		/*return ModList.isLoaded(id);
 		*///?} else
 		/*return ModList.get().isLoaded(id);*/
@@ -50,7 +50,7 @@ public final class Platform {
 	public static String modVersion() {
 		//? if fabric {
 		return FabricLoader.getInstance().getModContainer(HorsingAround.MOD_ID).map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse("");
-		//?} elif forge && >=1.21.6 {
+		//?} elif forge && >=26.1 {
 		/*return ModList.getModContainerById(HorsingAround.MOD_ID).map(mod -> mod.getModInfo().getVersion().toString()).orElse("");
 		*///?} else
 		/*return ModList.get().getModContainerById(HorsingAround.MOD_ID).map(mod -> mod.getModInfo().getVersion().toString()).orElse("");*/
@@ -86,11 +86,17 @@ public final class Platform {
 	*///?} else {
 	/*// (Forge before payload types: one channel carries every payload; a payload's TYPE is its class.)
 	public static boolean canSend(final ServerPlayer player, final Class<?> type) {
-		return HorsingAroundForge.CHANNEL.isRemotePresent(player.connection.connection);
+		//? if >=1.20.2 {
+		return HorsingAroundForge.CHANNEL.isRemotePresent(player.connection.getConnection());
+		//?} else
+		/^return HorsingAroundForge.CHANNEL.isRemotePresent(player.connection.connection);^/
 	}
 
 	public static void send(final ServerPlayer player, final Object payload) {
-		HorsingAroundForge.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), payload);
+		//? if >=1.20.2 {
+		HorsingAroundForge.CHANNEL.send(payload, PacketDistributor.PLAYER.with(player));
+		//?} else
+		/^HorsingAroundForge.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), payload);^/
 	}
 	*///?}
 }

@@ -17,6 +17,9 @@ pluginManagement {
 		id 'net.neoforged.moddev.legacyforge' version '2.0.148'
 		// Forge's own ForgeGradle, for Forge after 1.20.1 (build.forge.gradle).
 		id 'net.minecraftforge.gradle' version '7.0.40'
+		// (And its add-ons: a library inside the jar, and the jar renamed to the names Forge ran on before 1.20.5.)
+		id 'net.minecraftforge.jarjar' version '0.2.3'
+		id 'net.minecraftforge.renamer' version '1.1.8'
 	}
 }
 
@@ -46,7 +49,7 @@ stonecutter {
 		// Forge, for 1.20.1, where Forge players are (Realistic Horse Genetics is Forge only). The jar loads on NeoForge for 1.20.1 too.
 		vers('1.20.1-forge', '1.20.1').buildscript('build.neoforge.gradle')
 		// Forge after 1.20.1 builds with ForgeGradle (ModDevGradle's add-on stops at 1.20.1).
-		['26.3', '26.2', '26.1.2'].each { vers("${it}-forge", it).buildscript('build.forge.gradle') }
+		['26.3', '26.2', '26.1.2', '1.21.11', '1.21.10', '1.21.8', '1.21.5', '1.21.4', '1.21.3', '1.21.1', '1.20.6'].each { vers("${it}-forge", it).buildscript('build.forge.gradle') }
 		vcsVersion = '26.3'
 	}
 }

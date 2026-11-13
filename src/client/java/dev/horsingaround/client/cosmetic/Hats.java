@@ -87,7 +87,7 @@ public final class Hats {
 		*///?} else {
 		/*final ClientPacketListener connection = Minecraft.getInstance().getConnection();
 		if (ServerRules.present && connection != null && HorsingAroundForge.CHANNEL.isRemotePresent(connection.getConnection())) {
-			//? if >=1.21.6 {
+			//? if >=1.20.2 {
 			HorsingAroundForge.CHANNEL.send(new HatPayload(canWear() ? ownHat() : HatPayload.NONE), connection.getConnection());
 			//?} else
 			/^HorsingAroundForge.CHANNEL.sendToServer(new HatPayload(canWear() ? ownHat() : HatPayload.NONE));^/

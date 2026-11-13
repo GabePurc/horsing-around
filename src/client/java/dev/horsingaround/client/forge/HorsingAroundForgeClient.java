@@ -22,10 +22,6 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 //? if >=1.21.6 {
-import net.minecraft.client.entity.ClientMannequin;
-import net.minecraft.client.model.geom.EntityModelSet;
-import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.world.entity.player.PlayerModelType;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 //?} else {
 /*import net.minecraftforge.eventbus.api.Event;
@@ -34,8 +30,19 @@ import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.event.IModBusEvent;
 *///?}
+//? if >=1.21.9 {
+import net.minecraft.client.entity.ClientMannequin;
+import net.minecraft.client.model.geom.EntityModelSet;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.world.entity.player.PlayerModelType;
+//?} elif >=1.20.2 {
+/*import net.minecraft.client.resources.PlayerSkin;
+*///?}
 
-/** Forge's client entry point, started by the common one (forge/HorsingAroundForge) on a client. */
+/**
+ * Forge's client entry point, started by the common one (forge/HorsingAroundForge) on a client. Forge's rewritten event bus
+ * came with 1.21.6; from 1.21.9 the client's registration events are on buses of their own, no longer a mod's.
+ */
 public final class HorsingAroundForgeClient {
 	//? if >=1.21.6 {
 	public HorsingAroundForgeClient(final FMLJavaModLoadingContext context) {
@@ -44,12 +51,21 @@ public final class HorsingAroundForgeClient {
 		HorsingAroundForge.clientRules = HorsingAroundClient::acceptRules;
 		HorsingAroundForge.clientStyle = ServerRules::accept;
 		HorsingAroundForge.clientHats = Hats::receive;
+		//? if >=1.21.9 {
 		RegisterKeyMappingsEvent.BUS.addListener(event -> {
 			event.register(HorsingAroundClient.SETTINGS_KEY);
 			event.register(HorsingAroundClient.SWAP_SHOULDER_KEY);
 		});
 		EntityRenderersEvent.RegisterLayerDefinitions.BUS.addListener(event -> event.registerLayerDefinition(HatModel.LAYER, HatModel::createLayer));
 		EntityRenderersEvent.AddLayers.BUS.addListener(HorsingAroundForgeClient::addHatLayers);
+		//?} else {
+		/*RegisterKeyMappingsEvent.getBus(context.getModBusGroup()).addListener(event -> {
+			event.register(HorsingAroundClient.SETTINGS_KEY);
+			event.register(HorsingAroundClient.SWAP_SHOULDER_KEY);
+		});
+		EntityRenderersEvent.RegisterLayerDefinitions.getBus(context.getModBusGroup()).addListener(event -> event.registerLayerDefinition(HatModel.LAYER, HatModel::createLayer));
+		EntityRenderersEvent.AddLayers.getBus(context.getModBusGroup()).addListener(HorsingAroundForgeClient::addHatLayers);
+		*///?}
 		context.registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
 			() -> new ConfigScreenHandler.ConfigScreenFactory((minecraft, parent) -> new HorseSettingsScreen(parent)));
 		TickEvent.ClientTickEvent.Post.BUS.addListener(event -> HorsingAroundClient.tick(Minecraft.getInstance()));
@@ -61,20 +77,6 @@ public final class HorsingAroundForgeClient {
 				MixinAudit.run("client");
 				Minecraft.getInstance().stop();
 			});
-		}
-	}
-
-	/** The supporters' cowboy hat, on players and mannequins. */
-	private static void addHatLayers(final EntityRenderersEvent.AddLayers event) {
-		for (final PlayerModelType skin : event.getModelTypes()) {
-			addHatLayer(event.<AvatarRenderer<AbstractClientPlayer>>getPlayerRenderer(skin), event.getEntityModels());
-			addHatLayer(event.<AvatarRenderer<ClientMannequin>>getMannequinRenderer(skin), event.getEntityModels());
-		}
-	}
-
-	private static void addHatLayer(final AvatarRenderer<?> renderer, final EntityModelSet models) {
-		if (renderer != null) {
-			renderer.addLayer(new HatLayer(renderer, models));
 		}
 	}
 	//?} else {
@@ -99,11 +101,13 @@ public final class HorsingAroundForgeClient {
 		});
 		HorsingAroundForge.listen(ClientPlayerNetworkEvent.LoggingIn.class, event -> HorsingAroundClient.joining());
 		HorsingAroundForge.listen(ClientPlayerNetworkEvent.LoggingOut.class, event -> HorsingAroundClient.left());
-		if (EpicFightRider.LOADED) {
+		//? if <1.20.2 {
+		/^if (EpicFightRider.LOADED) {
 			MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, false, RenderLivingEvent.Pre.class, event -> EpicFightRider.before(event.getPoseStack()));
 			MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, RenderLivingEvent.Pre.class, event -> EpicFightRider.after(event.getPoseStack()));
 			EpicFightModel.register();
 		}
+		^///?}
 		if (MixinAudit.ENABLED) {
 			// (Once the game is up: its first screen.)
 			HorsingAroundForge.listen(ScreenEvent.Init.Post.class, event -> {
@@ -116,8 +120,34 @@ public final class HorsingAroundForgeClient {
 	private static <T extends Event & IModBusEvent> void onModBus(final IEventBus modBus, final Class<T> type, final Consumer<T> listener) {
 		modBus.addListener(EventPriority.NORMAL, false, type, listener);
 	}
+	*///?}
 
-	/^* The supporters' cowboy hat, on players. ^/
+	//? if >=1.21.9 {
+	/** The supporters' cowboy hat, on players and mannequins. */
+	private static void addHatLayers(final EntityRenderersEvent.AddLayers event) {
+		for (final PlayerModelType skin : event.getModelTypes()) {
+			addHatLayer(event.<AvatarRenderer<AbstractClientPlayer>>getPlayerRenderer(skin), event.getEntityModels());
+			addHatLayer(event.<AvatarRenderer<ClientMannequin>>getMannequinRenderer(skin), event.getEntityModels());
+		}
+	}
+
+	private static void addHatLayer(final AvatarRenderer<?> renderer, final EntityModelSet models) {
+		if (renderer != null) {
+			renderer.addLayer(new HatLayer(renderer, models));
+		}
+	}
+	//?} elif >=1.20.2 {
+	/*/^* The supporters' cowboy hat, on players. ^/
+	private static void addHatLayers(final EntityRenderersEvent.AddLayers event) {
+		for (final PlayerSkin.Model skin : event.getSkins()) {
+			final Object renderer = event.getPlayerSkin(skin);
+			if (renderer instanceof AvatarRenderer<?> player) {
+				player.addLayer(new HatLayer(player, event.getEntityModels()));
+			}
+		}
+	}
+	*///?} else {
+	/*/^* The supporters' cowboy hat, on players. ^/
 	private static void addHatLayers(final EntityRenderersEvent.AddLayers event) {
 		for (final String skin : event.getSkins()) {
 			if (event.getSkin(skin) instanceof AvatarRenderer<?> player) {

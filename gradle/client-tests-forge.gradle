@@ -38,7 +38,7 @@ def gametestJar = tasks.register("gametestJar", Jar) {
 	destinationDirectory = layout.buildDirectory.dir("gametest")
 	manifest.attributes(["MixinConfigs": "horsingaround-gametest.mixins.json,horsingaround-gametest-harness.mixins.json,horsingaround-gametest-forge.mixins.json"])
 }
-def testGame = files(tasks.named("jar"), gametestJar) + configurations.runtimeClasspath
+def testGame = files(project.ext.gameJar, gametestJar) + configurations.runtimeClasspath
 
 apply from: rootProject.layout.projectDirectory.file('gradle/client-tests-common.gradle')
 

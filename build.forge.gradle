@@ -1,6 +1,7 @@
 plugins {
 	id 'java'
 	id 'net.minecraftforge.gradle'
+	id 'net.minecraftforge.jarjar' apply false
 	id 'me.modmuss50.mod-publish-plugin' version '2.2.1'
 }
 
@@ -15,6 +16,9 @@ ext.loaderName = 'Forge' // (for gradle/smoke-test.gradle)
 ext.javaVersion = javaVersion // (for gradle/smoke-test.gradle)
 version = "${project.version}+${mc}"
 base.archivesName = "horsing-around-forge"
+// Entity Model Features has a Forge build up to 1.21.11, but never in these games: it patches a lambda by the name it has
+// in Forge's production game, which a dev game's doesn't share. So every game here draws the plain horse model.
+def emfMixins = !sc.current.parsed.matches('>=1.21')
 // Repo-level folders (each node's own project folder is versions/<node>/).
 def repoDir = rootProject.layout.projectDirectory
 def runFolder = "run/forge/${mc}"
@@ -55,7 +59,11 @@ sourceSets {
 	client.java.exclude 'dev/horsingaround/client/mixin/icy/**', 'dev/horsingaround/client/mixin/rhg/**', 'dev/horsingaround/client/forge/GeneticsMixinPlugin.java',
 		'dev/horsingaround/client/forge/EpicFightModel.java'
 	main.resources.exclude 'horsingaround.icy.mixins.json'
-	client.resources.exclude 'horsingaround.icy.client.mixins.json', 'horsingaround.emf.client.mixins.json', 'horsingaround.rhg.client.mixins.json'
+	client.resources.exclude 'horsingaround.icy.client.mixins.json', 'horsingaround.rhg.client.mixins.json'
+	// (Its mixins are for Entity Model Features 3.0, before 1.21: client/compat/EmfMixinPlugin.)
+	if (!emfMixins) {
+		client.resources.exclude 'horsingaround.emf.client.mixins.json'
+	}
 }
 configurations {
 	clientCompileOnly.extendsFrom compileOnly
@@ -63,9 +71,28 @@ configurations {
 	// (ForgeGradle makes run tasks for the source sets that have the game.)
 	auditImplementation.extendsFrom implementation
 }
+// Forge has MixinExtras of its own from 1.21.9. Before, the jar carries a copy (Forge runs the newest any mod brings):
+// the plain jar goes aside, the one with the copy inside is the release.
+def ownMixinExtras = !sc.current.parsed.matches('>=1.21.9')
+if (ownMixinExtras) {
+	apply plugin: 'net.minecraftforge.jarjar'
+	jarJar.register()
+	tasks.named('jar') {
+		archiveClassifier = 'slim'
+		destinationDirectory = layout.buildDirectory.dir("slim")
+	}
+	tasks.named('jarJar') { archiveClassifier = null }
+	dependencies {
+		compileOnly "io.github.llamalad7:mixinextras-common:${project.mixinextras_version}"
+		jarJar "io.github.llamalad7:mixinextras-forge:${project.mixinextras_version}"
+	}
+}
+// The jar players get (gradle/publish.gradle), which the games here load too.
+ext.releaseJar = tasks.named(ownMixinExtras ? 'jarJar' : 'jar')
+ext.gameJar = ext.releaseJar
 // The games (runClient, runServer and the audit's) load the jar: Forge takes each folder or jar on the classpath as one mod
 // file, and the mod's classes and resources are in four folders. The jar's manifest names the mixin configs.
-def game = files(tasks.named("jar")) + configurations.runtimeClasspath
+def game = files(ext.gameJar) + configurations.runtimeClasspath
 sourceSets.main.runtimeClasspath = game
 sourceSets.audit.runtimeClasspath = game
 
@@ -179,13 +206,24 @@ tasks.matching { it.name in ["processResources", "processClientResources"] }.con
 def packMeta = layout.buildDirectory.dir("generated/packMeta")
 def packFormat = project.pack_format
 def writePackMeta = tasks.register("writePackMeta") {
-	inputs.property "packFormat", packFormat
+	// (A range of formats from 1.21.9; one before.)
+	def format = sc.current.parsed.matches('>=1.21.9') ? "\"min_format\": ${packFormat}, \"max_format\": ${packFormat}" : "\"pack_format\": ${packFormat}"
+	inputs.property "format", format
 	outputs.dir(packMeta)
 	doLast {
-		packMeta.get().file("pack.mcmeta").asFile.text = "{\"pack\": {\"description\": \"Horsing Around\", \"min_format\": ${packFormat}, \"max_format\": ${packFormat}}}\n"
+		packMeta.get().file("pack.mcmeta").asFile.text = "{\"pack\": {\"description\": \"Horsing Around\", ${format}}}\n"
 	}
 }
 tasks.named("processResources") { from(writePackMeta) }
+// Data pack folders got singular names in 1.21 (tags/block); before, the tags are in plural ones (tags/blocks).
+if (sc.current.parsed.matches('<1.21')) {
+	tasks.named("processResources") {
+		includeEmptyDirs = false
+		eachFile { details ->
+			details.path = details.path.replace('/tags/entity_type/', '/tags/entity_types/').replace('/tags/block/', '/tags/blocks/')
+		}
+	}
+}
 
 // The in-game smoke test, as on Fabric: ./gradlew :<node>:runSmoke.
 apply from: repoDir.file('gradle/smoke-test.gradle')
@@ -198,7 +236,7 @@ jar {
 		rename { "${it}_horsingaround" }
 	}
 	// (Mixin reads its configs from the manifest.)
-	manifest.attributes(["MixinConfigs": "horsingaround.mixins.json,horsingaround.client.mixins.json"])
+	manifest.attributes(["MixinConfigs": "horsingaround.mixins.json,horsingaround.client.mixins.json" + (emfMixins ? ",horsingaround.emf.client.mixins.json" : "")])
 }
 
 java {
