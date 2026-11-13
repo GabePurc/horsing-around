@@ -13,10 +13,15 @@ import org.spongepowered.asm.mixin.injection.At;
  */
 @Mixin(DedicatedServer.class)
 abstract class DedicatedServerMixin {
-	//? if >=1.21 {
+	//? if >=26.1 {
 	@WrapOperation(method = "onServerExit", at = @At(value = "INVOKE", target = "Lnet/minecraftforge/fml/config/ConfigTracker;forceUnload()V", remap = false))
 	private void horsingaroundTest$keepTheClientsConfigs(final Operation<Void> original) {
 		// (Never needed: the tests' games are clients.)
 	}
-	//?}
+	//?} elif >=1.21 {
+	/*// (The tracker's own method before 26.1, so the call comes with the tracker.)
+	@WrapOperation(method = "onServerExit", at = @At(value = "INVOKE", target = "Lnet/minecraftforge/fml/config/ConfigTracker;forceUnload()V", remap = false))
+	private void horsingaroundTest$keepTheClientsConfigs(final net.minecraftforge.fml.config.ConfigTracker tracker, final Operation<Void> original) {
+	}
+	*///?}
 }
