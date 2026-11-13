@@ -92,7 +92,7 @@ if (ownMixinExtras) {
 	}
 }
 // The jar players get (gradle/publish.gradle), which the games here load too.
-ext.releaseJar = tasks.named(ownMixinExtras ? 'jarJar' : 'jar')
+ext.releaseJar = tasks.named(ownMixinExtras ? 'jarJar' : 'jar').flatMap { it.archiveFile }
 ext.gameJar = ext.releaseJar
 def mixinConfigs = ["horsingaround.mixins.json", "horsingaround.client.mixins.json"] + (emfMixins ? ["horsingaround.emf.client.mixins.json"] : [])
 if (srg) {
@@ -123,11 +123,33 @@ if (srg) {
 		archiveClassifier = 'named'
 		destinationDirectory = layout.buildDirectory.dir("slim")
 	}
-	ext.gameJar = tasks.named('jarJar')
-	ext.releaseJar = renamer.classes(tasks.named('jarJar')) {
+	ext.gameJar = tasks.named('jarJar').flatMap { it.archiveFile }
+	def renamed = renamer.classes(tasks.named('jarJar')) {
 		archiveClassifier = null
 		mappings renamer.mixin.generatedMappings
 	}
+	ext.releaseJar = renamed.flatMap { it.output }
+	tasks.named('assemble') { dependsOn renamed }
+	// A name the annotation processor can't map is only a warning, and a mixin that misses in every player's game: an error here.
+	tasks.matching { it.name in ["compileJava", "compileClientJava"] }.configureEach { options.compilerArgs.add("-Werror") }
+	// Every mixin config must name a refmap in the release jar, or the game crashes on launch (as the Fabric jars are checked).
+	def releaseFile = ext.releaseJar
+	def checkRefmaps = tasks.register("checkRefmaps") {
+		inputs.file(releaseFile)
+		doLast {
+			new java.util.zip.ZipFile(releaseFile.get().asFile).withCloseable { zip ->
+				def listed = zip.getInputStream(zip.getEntry("META-INF/MANIFEST.MF")).withCloseable { new java.util.jar.Manifest(it).mainAttributes.getValue("MixinConfigs") }
+				if (listed?.split(",")?.toList() != mixinConfigs) throw new GradleException("${zip.name} lists the mixin configs ${listed}, not ${mixinConfigs}")
+				mixinConfigs.each { config ->
+					def refmap = new groovy.json.JsonSlurper().parse(zip.getInputStream(zip.getEntry(config))).refmap
+					if (!refmap || zip.getEntry(refmap) == null) {
+						throw new GradleException("${config} in ${zip.name} names no refmap in the jar (it says: ${refmap}), so it would crash on launch")
+					}
+				}
+			}
+		}
+	}
+	renamed.configure { finalizedBy checkRefmaps }
 }
 // The games (runClient, runServer and the audit's) load the jar: Forge takes each folder or jar on the classpath as one mod
 // file, and the mod's classes and resources are in four folders. The jar's manifest names the mixin configs.
