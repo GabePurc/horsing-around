@@ -3,9 +3,6 @@
 What each part should feel like, and how it works now. "User" marks what the user asked for: keep the intent, and raise
 it with them before reversing it. "Now" and any number describe one way of doing it.
 
-Vanilla horses feel static because of instant top speed and stops, a body snapped to the camera, one speed, strafing, no
-stamina and no visual weight.
-
 ## Riding
 
 - Gaits (walk, trot, canter, gallop): sprint taps step up, S taps step down, releasing W coasts to a stop, S held brakes
@@ -76,7 +73,8 @@ stamina and no visual weight.
   a run a step comes in through the stride without a pop.
 - No clipping between horse and rider (user): the horse reaches its neck forward, then the rider folds less.
 - Known limits: on a slope of full blocks a leg can't reach a 1-block riser, so the horse scrambles; trotting down one, a
-  hoof hangs briefly after each landing (user: kept).
+  hoof hangs briefly after each landing (user: kept). With no animation pack the walk hardly strides: up stairs
+  the hooves glide over the treads' edges in pairs (user, 2026-11-11: kept).
 
 ## Rider
 
