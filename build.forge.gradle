@@ -1,6 +1,7 @@
 plugins {
 	id 'java'
 	id 'net.minecraftforge.gradle'
+	id 'me.modmuss50.mod-publish-plugin' version '2.2.1'
 }
 
 // The Forge build of a Minecraft version after 1.20.1 (Stonecutter node <version>-forge, see settings.gradle), with Forge's
@@ -203,3 +204,6 @@ jar {
 java {
 	toolchain.languageVersion = JavaLanguageVersion.of(javaVersion)
 }
+
+// Release to Modrinth and CurseForge, with the Fabric jars (gradle/publish.gradle).
+apply from: repoDir.file('gradle/publish.gradle')
