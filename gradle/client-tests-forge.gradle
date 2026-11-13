@@ -1,8 +1,8 @@
 // The client tests on Forge after 1.20.1 (build.forge.gradle): the same tests on the same harness (src/gametest) as on
 // Fabric, in ForgeGradle's runs. ./gradlew :<version>-forge:runClientGameTest, or
 // :<version>-forge:runClientGameTestParallel --continue for the shards; reports and screenshots in
-// build/run/clientGameTest-<version>-forge/. The flags are Fabric's (client-tests-common.gradle). No Entity Model Features
-// for Forge 26.x, so these games draw the plain horse model, with no animation pack.
+// build/run/clientGameTest-<version>-forge/. The flags are Fabric's (client-tests-common.gradle). These games draw the plain
+// horse model, with no animation pack (build.forge.gradle says why).
 
 // (A local: the runs below and the common script need the same folder name.)
 def testFolder = "clientGameTest-${project.name}"
