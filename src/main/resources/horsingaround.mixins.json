@@ -8,7 +8,8 @@
 		"BlockBehaviourMixin",
 		"EntityMixin",
 		"LivingEntityMixin",
-		"PowderSnowBlockMixin"
+		"PowderSnowBlockMixin",
+		"RandomStandGoalMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

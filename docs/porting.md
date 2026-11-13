@@ -107,7 +107,8 @@ Build and pass the audit: 1.20.1 and 26.3 Forge, 26.3, 26.2, 26.1.2, 1.21.11, 1.
 
 Different underneath, not gaps (each handled where named):
 - Before 1.21.11 vanilla horses sink in deep water, so the ride floats all but the skeleton horse (`Mounts.floats`).
-- Before 1.21.5 vanilla slows a ridden horse 2% a tick on its rider's client: the ride takes that off (`LivingEntityMixin`).
+- Before 1.21.5 vanilla slows a ridden horse 2% a tick on its rider's client (`LivingEntityMixin`) and rears it at random
+  (`RandomStandGoalMixin`): the ride stops both.
 - Before 1.20.5 the pose stack entities are drawn with starts with the camera's turn: `LivingEntityRendererMixin` takes it off the drawn pose.
 - Entity Model Features 3.0 (1.20.2-1.20.6) has no animation hook: the ride runs after the pack by wrapping the model's animation
   (`EmfAfterPack`, `client/mixin/emf/`).
