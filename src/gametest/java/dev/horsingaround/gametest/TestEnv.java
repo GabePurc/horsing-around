@@ -155,8 +155,10 @@ public final class TestEnv {
 
 	/** Sends the harness's sync payload to a player, from the server thread. */
 	public static void sendSync(final ServerPlayer player) {
-		//? if forge {
+		//? if forge && >=1.20.2 {
 		/*HorsingAroundTestsForge.CHANNEL.send(GameTestSyncPayload.INSTANCE, PacketDistributor.PLAYER.with(player));
+		*///?} elif forge {
+		/*HorsingAroundTestsForge.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), GameTestSyncPayload.INSTANCE);
 		*///?} else
 		Platform.send(player, dev.horsingaround.gametest.harness.impl.util.GameTestSyncPayload.INSTANCE);
 	}
@@ -170,9 +172,11 @@ public final class TestEnv {
 	/*public static void sendToServer(final Object payload) {*/
 		//? if fabric {
 		ClientPlayNetworking.send(payload);
-		//?} elif forge {
+		//?} elif forge && >=1.20.2 {
 		/*// (A Forge channel sends only its own payloads: the harness's, or the mod's.)
 		(payload == GameTestSyncPayload.INSTANCE ? HorsingAroundTestsForge.CHANNEL : HorsingAroundForge.CHANNEL).send(payload, Minecraft.getInstance().getConnection().getConnection());
+		*///?} elif forge {
+		/*(payload == GameTestSyncPayload.INSTANCE ? HorsingAroundTestsForge.CHANNEL : HorsingAroundForge.CHANNEL).sendToServer(payload);
 		*///?} elif >=26.1 {
 		/*net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(payload);
 		*///?} else

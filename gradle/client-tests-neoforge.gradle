@@ -1,7 +1,9 @@
-// The client tests on NeoForge: the same tests on the same harness (src/gametest) as on Fabric, in ModDevGradle's runs.
-// ./gradlew :<version>-neoforge:runClientGameTest, or :<version>-neoforge:runClientGameTestParallel --continue for the
-// shards; reports and screenshots in build/run/clientGameTest-<version>-neoforge/. The flags are Fabric's
-// (client-tests-common.gradle). Applied by build.neoforge.gradle on every NeoForge version.
+// The client tests on NeoForge and Forge 1.20.1: the same tests on the same harness (src/gametest) as on Fabric, in
+// ModDevGradle's runs. ./gradlew :<node>:runClientGameTest, or :<node>:runClientGameTestParallel --continue for the
+// shards; reports and screenshots in build/run/clientGameTest-<node>/. The flags are Fabric's (client-tests-common.gradle).
+// Applied by build.neoforge.gradle. Forge 1.20.1's games draw the plain horse model (no Entity Model Features in its
+// dev games), on vanilla's horse (build.neoforge.gradle leaves Realistic Horse Genetics out of them).
+def forge = project.name.endsWith('-forge')
 
 // (A local: the runs below and the common script need the same folder name.)
 def testFolder = "clientGameTest-${project.name}"
@@ -14,8 +16,13 @@ sourceSets {
 	}
 	// (Fabric's: its metadata, the bare-server test on Fabric's game test API, and the compat games' play scene.)
 	gametest.java.exclude 'dev/horsingaround/gametest/DedicatedServerTest.java', 'dev/horsingaround/gametest/PlayScene.java'
-	gametest.resources.exclude 'fabric.mod.json', 'META-INF/mods.toml', 'horsingaround-gametest-forge.mixins.json'
-	gametest.java.exclude 'dev/horsingaround/gametest/forge/**'
+	if (forge) {
+		gametest.resources.exclude 'fabric.mod.json', 'META-INF/neoforge.mods.toml', 'horsingaround-gametest-neoforge.mixins.json'
+		gametest.java.exclude 'dev/horsingaround/gametest/neoforge/**'
+	} else {
+		gametest.resources.exclude 'fabric.mod.json', 'META-INF/mods.toml', 'horsingaround-gametest-forge.mixins.json'
+		gametest.java.exclude 'dev/horsingaround/gametest/forge/**'
+	}
 	// (26.3's alone until their compat packs move, issue 127: as on Fabric, client-tests.gradle.)
 	if (!sc.current.parsed.matches('>=26.3')) {
 		gametest.java.exclude(['StoreMediaTest', 'GalleryTest', 'ClipCursor', 'IcyFeaturesTest', 'RealCameraTest'].collect { "dev/horsingaround/gametest/${it}.java".toString() })
@@ -50,7 +57,9 @@ ext.prepareClientTestDir = { File dir ->
 }
 apply from: rootProject.layout.projectDirectory.file('gradle/client-tests-common.gradle')
 
-neoForge {
+// (Forge for 1.20.1 has no list of mixin configs in mods.toml: the games are told the tests' on the command line.)
+def testMixinConfigs = ["horsingaround-gametest.mixins.json", "horsingaround-gametest-harness.mixins.json", "horsingaround-gametest-forge.mixins.json"]
+configure(forge ? legacyForge : neoForge) {
 	addModdingDependenciesTo sourceSets.gametest
 	mods {
 		"horsingaround_gametest" {
@@ -64,6 +73,9 @@ neoForge {
 			run.loadedMods = [mods.horsingaround, mods.horsingaround_gametest]
 			run.gameDirectory = rootProject.layout.buildDirectory.dir("run/${folder}")
 			run.systemProperty 'horsingaround.gametest', 'true'
+			if (forge) {
+				testMixinConfigs.each { run.programArguments.addAll('--mixin.config', it) }
+			}
 		}
 		clientGameTest { testRun(it, testFolder) }
 		project.ext.testShards.each { name, shard ->
