@@ -65,6 +65,7 @@ public final class RideFeelTest implements ClientGameTest {
 	private int failures;
 	private CameraType cameraBeforeMounting = CameraType.FIRST_PERSON;
 	private TestServerContext server;
+	private java.util.UUID lastRidden;
 
 	private record Sample(
 		double speed, double y, float horseYaw, float playerYaw, int gait, float stamina, boolean exhausted, float lean, boolean onGround,
@@ -122,9 +123,11 @@ public final class RideFeelTest implements ClientGameTest {
 				brakeAndReverse(ctx, input);
 				runLock(ctx, input);
 				heldKeys(ctx, input);
+				check("a ridden horse doesn't rear at random (times in 100,000 chances)", randomRears(), 0, 0);
 				freeAim(ctx, input);
 				standingJump(ctx);
 				dismount(ctx, input);
+				check("let go of, it rears at random again", randomRears() > 0);
 			}
 			if (sections.isEmpty() || sections.contains("core") || sections.contains("hands")) {
 				riderHands(ctx, input, world);
@@ -1112,6 +1115,28 @@ public final class RideFeelTest implements ClientGameTest {
 			.stream().mapToDouble(h -> h.getBbWidth()).max().orElse(0.0)), 1.35, 1.45);
 		final CameraType camera = ctx.computeOnClient(mc -> mc.options.getCameraType());
 		check("camera restored to how it was before mounting (" + this.cameraBeforeMounting + ", now " + camera + ")", camera == this.cameraBeforeMounting);
+	}
+
+	/**
+	 * How many of 100,000 chances vanilla's random rear would take for the horse the player rides, or last rode (unridden
+	 * it gets a chance about every 440 ticks and takes one in ten). Before 1.21.5 the server gave a ridden horse them too.
+	 */
+	private int randomRears() {
+		return this.server.computeOnServer(s -> {
+			final AbstractHorse horse = s.getPlayerList().getPlayers().get(0).getVehicle() instanceof AbstractHorse ridden
+				? ridden : (AbstractHorse) s.overworld().getEntity(this.lastRidden);
+			this.lastRidden = horse.getUUID();
+			// (Grazing, it takes none.)
+			horse.setEating(false);
+			final net.minecraft.world.entity.ai.goal.RandomStandGoal goal = new net.minecraft.world.entity.ai.goal.RandomStandGoal(horse);
+			int rears = 0;
+			for (int chance = 0; chance < 100_000; chance++) {
+				if (goal.canUse()) {
+					rears++;
+				}
+			}
+			return rears;
+		});
 	}
 
 	private void stairs(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
