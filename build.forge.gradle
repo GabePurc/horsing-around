@@ -150,6 +150,12 @@ if (srg) {
 		}
 	}
 	renamed.configure { finalizedBy checkRefmaps }
+	// No dev game can load the renamed jar: the audit also runs it in a production client and dedicated server that Forge's
+	// installer makes (gradle/forge-release-audit.gradle), on the assets the Fabric build of this version downloads.
+	ext.releaseAuditJar = ext.releaseJar
+	ext.releaseAuditAssetsRoot = new File(gradle.gradleUserHomeDir, "caches/fabric-loom/assets").absolutePath
+	ext.releaseAuditAssetsTask = ":${mc}:downloadAssets"
+	apply from: repoDir.file('gradle/forge-release-audit.gradle')
 }
 // The games (runClient, runServer and the audit's) load the jar: Forge takes each folder or jar on the classpath as one mod
 // file, and the mod's classes and resources are in four folders. The jar's manifest names the mixin configs.
@@ -199,15 +205,18 @@ if (srg) {
 
 // ./gradlew :<node>:auditMixins (plain auditMixins runs every version's): every class the mixins patch loaded in a Forge
 // client and dedicated server (MixinAudit), which then quit; fails unless both say so and nothing in the log names a mixin
-// failure. One NeoForge or Forge game at a time (the service is build.neoforge.gradle's too).
+// failure. Before 1.20.5 the release jar runs too, in production games (above). One NeoForge or Forge game at a time (the service is build.neoforge.gradle's too).
 abstract class ForgeAuditGame implements org.gradle.api.services.BuildService<org.gradle.api.services.BuildServiceParameters.None> {}
 def auditGame = gradle.sharedServices.registerIfAbsent("neoforgeAuditGame", ForgeAuditGame) { maxParallelUsages = 1 }
 def auditRuns = ["Client", "Server"].collect { side ->
-	[task: "runAudit${side}".toString(), side: side, dir: new File(auditFolder, side.toLowerCase())]
-}
+	[task: "runAudit${side}".toString(), side: side, what: side.toLowerCase(), dir: new File(auditFolder, side.toLowerCase())]
+} + (!srg ? [] : ["Client", "Server"].collect { side ->
+	[task: "runAuditRelease${side}".toString(), side: side, what: "release jar, ${side.toLowerCase()}", dir: new File(project.ext.releaseAuditDir, side.toLowerCase())]
+})
 afterEvaluate {
 	auditRuns.eachWithIndex { run, i ->
 		def side = run.side
+		def what = run.what
 		def auditDir = run.dir
 		tasks.named(run.task) {
 			group = "verification"
@@ -231,9 +240,9 @@ afterEvaluate {
 				def text = log.exists() ? log.text : ""
 				def problems = text.readLines().findAll { it =~ /Mixin apply for mod|Mixin apply failed|Injection validation failed|could not find any targets|InvalidInjectionException|InvalidMixinException|MixinApplyError|MixinTransformerError|Critical injection failure/ }
 				if (!text.contains("Horsing Around mixin audit passed") || !problems.isEmpty()) {
-					throw new GradleException("Mixin audit failed on ${mc} Forge (${side.toLowerCase()}); see ${log}\n" + problems.take(20).join("\n"))
+					throw new GradleException("Mixin audit failed on ${mc} Forge (${what}); see ${log}\n" + problems.take(20).join("\n"))
 				}
-				logger.lifecycle("Mixin audit passed on ${mc} Forge (${side.toLowerCase()}).")
+				logger.lifecycle("Mixin audit passed on ${mc} Forge (${what}).")
 			}
 		}
 	}
