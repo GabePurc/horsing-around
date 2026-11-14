@@ -24,16 +24,18 @@ import io.netty.buffer.ByteBuf;
 
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-//?} else {
+//?} elif fabric {
 /*import net.fabricmc.fabric.api.networking.v1.FabricPacket;
 import net.fabricmc.fabric.api.networking.v1.PacketType;
 import net.minecraft.network.FriendlyByteBuf;
 *///?}
+//? if >=1.20.5 || fabric
 import net.minecraft.resources.Identifier;
 
 import dev.horsingaround.gametest.harness.impl.ClientGameTestSetup;
 
-// (Before 1.20.5 there are no payload types: Fabric API's packet type, as the mod's own packets use there.)
+// (Before 1.20.5 there are no payload types: Fabric API's packet type, as the mod's own packets use there; on Forge a
+// message of the test mod's channel, gametest/forge.)
 //? if >=1.20.5 {
 public enum GameTestSyncPayload implements CustomPacketPayload {
 	INSTANCE;
@@ -46,7 +48,7 @@ public enum GameTestSyncPayload implements CustomPacketPayload {
 		return TYPE;
 	}
 }
-//?} else {
+//?} elif fabric {
 /*public enum GameTestSyncPayload implements FabricPacket {
 	INSTANCE;
 
@@ -60,5 +62,9 @@ public enum GameTestSyncPayload implements CustomPacketPayload {
 	public PacketType<?> getType() {
 		return TYPE;
 	}
+}
+*///?} else {
+/*public enum GameTestSyncPayload {
+	INSTANCE
 }
 *///?}

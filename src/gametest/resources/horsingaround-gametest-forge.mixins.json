@@ -5,6 +5,7 @@
 	"mixins": [
 		"DedicatedServerMixin",
 		"ForgePacketHandlerMixin",
+		"GameDataMixin",
 		"ServerModLoaderMixin"
 	],
 	"injectors": {

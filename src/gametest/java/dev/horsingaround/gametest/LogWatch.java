@@ -23,6 +23,10 @@ final class LogWatch extends AbstractAppender implements AutoCloseable {
 	private final List<String> warnings = new ArrayList<>();
 
 	private LogWatch() {
+		//? if forge && <1.20.2 {
+		/*// (Forge 1.20.1 compiles against a Log4j from before the constructor that takes properties.)
+		super("horsingaround-log-watch-" + COUNT.incrementAndGet(), null, null, true);
+		*///?} else
 		super("horsingaround-log-watch-" + COUNT.incrementAndGet(), null, null, true, Property.EMPTY_ARRAY);
 	}
 
