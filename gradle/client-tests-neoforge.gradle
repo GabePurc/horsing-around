@@ -35,6 +35,14 @@ tasks.named("processGametestResources") {
 	filesMatching("*.mixins.json") {
 		expand mixinJava: testMixinJava
 	}
+	if (forge) {
+		// (Forge holds the title screen back behind a warning for a mod with no pack.mcmeta, and its Mixin logs an error for a
+		// config that doesn't say the oldest Mixin it needs: as the mod's own resources, build.neoforge.gradle.)
+		from(tasks.named("writePackMeta"))
+		filesMatching("*.mixins.json") {
+			filter { line -> line.contains('"package"') ? "\t\"minVersion\": \"0.8\",\n${line}" : line }
+		}
+	}
 }
 
 // Light test games on 26.3 load these performance mods, as on Fabric (NeoForge builds of the same versions), unless
