@@ -252,6 +252,74 @@ tasks.register("auditMixins") {
 	dependsOn auditRuns.collect { it.task }
 }
 apply from: repoDir.file('gradle/x11-games.gradle')
+// ForgeGradle's launcher fetches a version's missing assets as each client starts, straight into the Minecraft launcher's
+// assets folder: two clients starting together on a machine without them break each other's downloads, and the test
+// shards start in pairs. So the assets are fetched here first, each file put in place whole, and every client waits.
+abstract class FetchGameAssets extends DefaultTask {
+	@Input abstract Property<String> getMinecraftVersion()
+	// (Which assets the version uses, kept from the first look: later runs need the network only for what is missing.)
+	@Internal abstract RegularFileProperty getIndexInfo()
+
+	@TaskAction
+	void fetch() {
+		def home = System.getProperty("user.home", ".")
+		def os = System.getProperty("os.name").toLowerCase()
+		// (Where ForgeGradle's launcher looks: the Minecraft launcher's own folder.)
+		def minecraft = os.startsWith("windows") && System.getenv("APPDATA") != null ? new File(System.getenv("APPDATA"), ".minecraft")
+			: os.contains("mac") ? new File(home, "Library/Application Support/minecraft") : new File(home, ".minecraft")
+		def assets = new File(minecraft, "assets")
+		def slurper = new groovy.json.JsonSlurper()
+		def infoFile = indexInfo.get().asFile
+		if (!infoFile.exists()) {
+			def mc = minecraftVersion.get()
+			def entry = slurper.parse(URI.create("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json").toURL()).versions.find { it.id == mc }
+			if (entry == null) throw new GradleException("Mojang lists no Minecraft ${mc}")
+			infoFile.parentFile.mkdirs()
+			infoFile.text = groovy.json.JsonOutput.toJson(slurper.parse(URI.create(entry.url).toURL()).assetIndex)
+		}
+		def info = slurper.parse(infoFile)
+		def index = new File(assets, "indexes/${info.id}.json")
+		if (index.length() != info.size) download(info.url as String, info.sha1 as String, index)
+		def missing = slurper.parse(index).objects.values().collect { it.hash as String }.unique().findAll { !new File(assets, "objects/${it.take(2)}/${it}").exists() }
+		if (missing.isEmpty()) return
+		logger.lifecycle("Fetching ${missing.size()} Minecraft ${minecraftVersion.get()} assets")
+		def pool = java.util.concurrent.Executors.newFixedThreadPool(8)
+		try {
+			pool.invokeAll(missing.collect { hash ->
+				{ -> download("https://resources.download.minecraft.net/${hash.take(2)}/${hash}".toString(), hash, new File(assets, "objects/${hash.take(2)}/${hash}")) } as java.util.concurrent.Callable
+			})*.get()
+		} finally {
+			pool.shutdown()
+		}
+	}
+
+	// Into a file of its own first, checked, then moved into place whole: another build may be fetching the same file.
+	static void download(String url, String sha1, File to) {
+		to.parentFile.mkdirs()
+		def part = File.createTempFile(to.name, ".part", to.parentFile)
+		try {
+			def digest = java.security.MessageDigest.getInstance("SHA-1")
+			URI.create(url).toURL().openStream().withCloseable { input ->
+				part.withOutputStream { out ->
+					input.eachByte(65536) { byte[] buffer, int n ->
+						digest.update(buffer, 0, n)
+						out.write(buffer, 0, n)
+					}
+				}
+			}
+			def got = HexFormat.of().formatHex(digest.digest())
+			if (got != sha1) throw new GradleException("${url} came with sha1 ${got}, not ${sha1}")
+			java.nio.file.Files.move(part.toPath(), to.toPath(), java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+		} finally {
+			part.delete()
+		}
+	}
+}
+def fetchGameAssets = tasks.register("fetchGameAssets", FetchGameAssets) {
+	minecraftVersion = mc
+	indexInfo = rootProject.layout.projectDirectory.file(".gradle/forge-assets/${mc}.json")
+}
+tasks.matching { it.name ==~ /run\w*Client/ }.configureEach { dependsOn fetchGameAssets }
 // macOS opens a window on the process's first thread only. Loom and ModDevGradle tell the game so; ForgeGradle doesn't, and
 // the client then finds no video device.
 if (System.getProperty("os.name").startsWith("Mac")) {
