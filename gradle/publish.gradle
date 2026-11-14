@@ -27,8 +27,8 @@ def notesEnd = notesStart < 0 ? -1 : changelogLines.findIndexOf(notesStart + 1) 
 def notes = notesStart < 0 ? '' : changelogLines.subList(notesStart + 1, notesEnd < 0 ? changelogLines.size() : notesEnd).join('\n').trim()
 
 publishMods {
-	// (Forge's jar is the one reobfuscated to its runtime names.)
-	file = otherLoader == 'forge' ? tasks.named('reobfJar').flatMap { it.archiveFile } : neoforge ? tasks.named('jar').flatMap { it.archiveFile } : loomx.modJar.flatMap { it.archiveFile }
+	// (Forge 1.20.1's jar is the one reobfuscated to its runtime names; build.forge.gradle names its own.)
+	file = !neoforge ? loomx.modJar.flatMap { it.archiveFile } : project.ext.has('releaseJar') ? project.ext.releaseJar : tasks.named(tasks.names.contains('reobfJar') ? 'reobfJar' : 'jar').flatMap { it.archiveFile }
 	// (Version numbers are unique per project: the NeoForge or Forge jar of a Minecraft version gets its own.)
 	version = project.version.toString() + (neoforge ? "-${otherLoader}" : '')
 	displayName = "Horsing Around ${baseVersion} for Minecraft ${shownVersions}${neoforge ? " (${project.ext.loaderName})" : ''}"

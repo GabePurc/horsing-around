@@ -69,7 +69,7 @@ if (forgeGradle) {
 		destinationDirectory = layout.buildDirectory.dir("smoke")
 		manifest.attributes(["MixinConfigs": "horsingaround-smoke.mixins.json"])
 	}
-	sourceSets.smoke.runtimeClasspath = files(tasks.named("jar"), smokeJar) + configurations.runtimeClasspath
+	sourceSets.smoke.runtimeClasspath = files(project.ext.gameJar, smokeJar) + configurations.runtimeClasspath
 	minecraft.runs.named('client') {
 		with('smoke') {
 			workingDir = smokeDir

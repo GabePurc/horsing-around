@@ -1,6 +1,9 @@
 plugins {
 	id 'java'
 	id 'net.minecraftforge.gradle'
+	id 'net.minecraftforge.jarjar' apply false
+	id 'net.minecraftforge.renamer' apply false
+	id 'me.modmuss50.mod-publish-plugin' version '2.2.1'
 }
 
 // The Forge build of a Minecraft version after 1.20.1 (Stonecutter node <version>-forge, see settings.gradle), with Forge's
@@ -9,11 +12,17 @@ plugins {
 // versions/<node>/gradle.properties. auditMixins loads every mixin target in a client and dedicated server; runSmoke rides
 // the smoke test's course (gradle/smoke-test.gradle); the client tests run as on Fabric (gradle/client-tests-forge.gradle).
 def mc = sc.current.version
-def javaVersion = sc.current.parsed.matches('>=26') ? 25 : 21
+def javaVersion = sc.current.parsed.matches('>=26') ? 25 : sc.current.parsed.matches('>=1.20.5') ? 21 : 17
+// Before 1.20.5 Forge runs the game on its own names (SRG), not Mojang's: the release jar is renamed to them, and its
+// mixins find their targets through refmaps.
+def srg = !sc.current.parsed.matches('>=1.20.5')
 ext.loaderName = 'Forge' // (for gradle/smoke-test.gradle)
 ext.javaVersion = javaVersion // (for gradle/smoke-test.gradle)
 version = "${project.version}+${mc}"
 base.archivesName = "horsing-around-forge"
+// Entity Model Features has a Forge build up to 1.21.11, but never in these games: it patches a lambda by the name it has
+// in Forge's production game, which a dev game's doesn't share. So every game here draws the plain horse model.
+def emfMixins = !sc.current.parsed.matches('>=1.21')
 // Repo-level folders (each node's own project folder is versions/<node>/).
 def repoDir = rootProject.layout.projectDirectory
 def runFolder = "run/forge/${mc}"
@@ -54,7 +63,11 @@ sourceSets {
 	client.java.exclude 'dev/horsingaround/client/mixin/icy/**', 'dev/horsingaround/client/mixin/rhg/**', 'dev/horsingaround/client/forge/GeneticsMixinPlugin.java',
 		'dev/horsingaround/client/forge/EpicFightModel.java'
 	main.resources.exclude 'horsingaround.icy.mixins.json'
-	client.resources.exclude 'horsingaround.icy.client.mixins.json', 'horsingaround.emf.client.mixins.json', 'horsingaround.rhg.client.mixins.json'
+	client.resources.exclude 'horsingaround.icy.client.mixins.json', 'horsingaround.rhg.client.mixins.json'
+	// (Its mixins are for Entity Model Features 3.0, before 1.21: client/compat/EmfMixinPlugin.)
+	if (!emfMixins) {
+		client.resources.exclude 'horsingaround.emf.client.mixins.json'
+	}
 }
 configurations {
 	clientCompileOnly.extendsFrom compileOnly
@@ -62,14 +75,100 @@ configurations {
 	// (ForgeGradle makes run tasks for the source sets that have the game.)
 	auditImplementation.extendsFrom implementation
 }
+// Forge has MixinExtras of its own from 1.21.9. Before, the jar carries a copy (Forge runs the newest any mod brings):
+// the plain jar goes aside, the one with the copy inside is the release.
+def ownMixinExtras = !sc.current.parsed.matches('>=1.21.9')
+if (ownMixinExtras) {
+	apply plugin: 'net.minecraftforge.jarjar'
+	jarJar.register()
+	tasks.named('jar') {
+		archiveClassifier = 'slim'
+		destinationDirectory = layout.buildDirectory.dir("slim")
+	}
+	tasks.named('jarJar') { archiveClassifier = null }
+	dependencies {
+		compileOnly "io.github.llamalad7:mixinextras-common:${project.mixinextras_version}"
+		jarJar "io.github.llamalad7:mixinextras-forge:${project.mixinextras_version}"
+	}
+}
+// The jar players get (gradle/publish.gradle), which the games here load too.
+ext.releaseJar = tasks.named(ownMixinExtras ? 'jarJar' : 'jar').flatMap { it.archiveFile }
+ext.gameJar = ext.releaseJar
+def mixinConfigs = ["horsingaround.mixins.json", "horsingaround.client.mixins.json"] + (emfMixins ? ["horsingaround.emf.client.mixins.json"] : [])
+if (srg) {
+	apply plugin: 'net.minecraftforge.renamer'
+	// The annotation processor writes each source set's refmap (Mojang names to SRG; MixinExtras' injectors included).
+	def refmaps = [processResources: "horsingaround.refmap.json", processClientResources: "horsingaround.client.refmap.json"]
+	renamer.enableMixinRefmaps {
+		mixinConfigs.each { config it }
+		refMap = refmaps.processResources
+	}
+	dependencies {
+		["annotationProcessor", "clientAnnotationProcessor"].each {
+			add it, "org.spongepowered:mixin:0.8.5:processor"
+			add it, "io.github.llamalad7:mixinextras-common:${project.mixinextras_version}"
+		}
+	}
+	// (Each config names its source set's refmap.)
+	refmaps.each { taskName, refmap ->
+		tasks.named(taskName) {
+			inputs.property "refmap", refmap
+			filesMatching("*.mixins.json") {
+				filter { line -> line.contains('"package"') ? "\t\"refmap\": \"${refmap}\",\n${line}" : line }
+			}
+		}
+	}
+	// The games run Mojang's names and load the jar as it is before the renaming; the release is that jar renamed.
+	tasks.named('jarJar') {
+		archiveClassifier = 'named'
+		destinationDirectory = layout.buildDirectory.dir("slim")
+	}
+	ext.gameJar = tasks.named('jarJar').flatMap { it.archiveFile }
+	def renamed = renamer.classes(tasks.named('jarJar')) {
+		archiveClassifier = null
+		mappings renamer.mixin.generatedMappings
+	}
+	ext.releaseJar = renamed.flatMap { it.output }
+	tasks.named('assemble') { dependsOn renamed }
+	// A name the annotation processor can't map is only a warning, and a mixin that misses in every player's game: an error here.
+	tasks.matching { it.name in ["compileJava", "compileClientJava"] }.configureEach { options.compilerArgs.add("-Werror") }
+	// Every mixin config must name a refmap in the release jar, or the game crashes on launch (as the Fabric jars are checked).
+	def releaseFile = ext.releaseJar
+	def checkRefmaps = tasks.register("checkRefmaps") {
+		inputs.file(releaseFile)
+		doLast {
+			new java.util.zip.ZipFile(releaseFile.get().asFile).withCloseable { zip ->
+				def listed = zip.getInputStream(zip.getEntry("META-INF/MANIFEST.MF")).withCloseable { new java.util.jar.Manifest(it).mainAttributes.getValue("MixinConfigs") }
+				if (listed?.split(",")?.toList() != mixinConfigs) throw new GradleException("${zip.name} lists the mixin configs ${listed}, not ${mixinConfigs}")
+				mixinConfigs.each { config ->
+					def refmap = new groovy.json.JsonSlurper().parse(zip.getInputStream(zip.getEntry(config))).refmap
+					if (!refmap || zip.getEntry(refmap) == null) {
+						throw new GradleException("${config} in ${zip.name} names no refmap in the jar (it says: ${refmap}), so it would crash on launch")
+					}
+				}
+			}
+		}
+	}
+	renamed.configure { finalizedBy checkRefmaps }
+	// No dev game can load the renamed jar: the audit also runs it in a production client and dedicated server that Forge's
+	// installer makes (gradle/forge-release-audit.gradle), on the assets the Fabric build of this version downloads.
+	ext.releaseAuditJar = ext.releaseJar
+	ext.releaseAuditAssetsRoot = new File(gradle.gradleUserHomeDir, "caches/fabric-loom/assets").absolutePath
+	ext.releaseAuditAssetsTask = ":${mc}:downloadAssets"
+	apply from: repoDir.file('gradle/forge-release-audit.gradle')
+}
 // The games (runClient, runServer and the audit's) load the jar: Forge takes each folder or jar on the classpath as one mod
 // file, and the mod's classes and resources are in four folders. The jar's manifest names the mixin configs.
-def game = files(tasks.named("jar")) + configurations.runtimeClasspath
+def game = files(ext.gameJar) + configurations.runtimeClasspath
 sourceSets.main.runtimeClasspath = game
 sourceSets.audit.runtimeClasspath = game
 
 minecraft {
 	runs {
+		// (These games run Mojang's names: the jar's refmaps, to Forge's own names, are for players' games.)
+		if (srg) {
+			configureEach { systemProperty 'mixin.env.disableRefMap', 'true' }
+		}
 		register('client') {
 			workingDir = repoDir.dir(runFolder)
 			// ./gradlew :<node>:auditMixins (below)
@@ -100,18 +199,24 @@ dependencies {
 	// Optional integration: the riding camera steps aside while Shoulder Surfing Reloaded drives the camera.
 	compileOnly "maven.modrinth:shoulder-surfing-reloaded:${project.shoulder_surfing_version}"
 }
+if (srg) {
+	renamer.mappings(minecraft.dependency.toSrg)
+}
 
 // ./gradlew :<node>:auditMixins (plain auditMixins runs every version's): every class the mixins patch loaded in a Forge
 // client and dedicated server (MixinAudit), which then quit; fails unless both say so and nothing in the log names a mixin
-// failure. One NeoForge or Forge game at a time (the service is build.neoforge.gradle's too).
+// failure. Before 1.20.5 the release jar runs too, in production games (above). One NeoForge or Forge game at a time (the service is build.neoforge.gradle's too).
 abstract class ForgeAuditGame implements org.gradle.api.services.BuildService<org.gradle.api.services.BuildServiceParameters.None> {}
 def auditGame = gradle.sharedServices.registerIfAbsent("neoforgeAuditGame", ForgeAuditGame) { maxParallelUsages = 1 }
 def auditRuns = ["Client", "Server"].collect { side ->
-	[task: "runAudit${side}".toString(), side: side, dir: new File(auditFolder, side.toLowerCase())]
-}
+	[task: "runAudit${side}".toString(), side: side, what: side.toLowerCase(), dir: new File(auditFolder, side.toLowerCase())]
+} + (!srg ? [] : ["Client", "Server"].collect { side ->
+	[task: "runAuditRelease${side}".toString(), side: side, what: "release jar, ${side.toLowerCase()}", dir: new File(project.ext.releaseAuditDir, side.toLowerCase())]
+})
 afterEvaluate {
 	auditRuns.eachWithIndex { run, i ->
 		def side = run.side
+		def what = run.what
 		def auditDir = run.dir
 		tasks.named(run.task) {
 			group = "verification"
@@ -135,9 +240,9 @@ afterEvaluate {
 				def text = log.exists() ? log.text : ""
 				def problems = text.readLines().findAll { it =~ /Mixin apply for mod|Mixin apply failed|Injection validation failed|could not find any targets|InvalidInjectionException|InvalidMixinException|MixinApplyError|MixinTransformerError|Critical injection failure/ }
 				if (!text.contains("Horsing Around mixin audit passed") || !problems.isEmpty()) {
-					throw new GradleException("Mixin audit failed on ${mc} Forge (${side.toLowerCase()}); see ${log}\n" + problems.take(20).join("\n"))
+					throw new GradleException("Mixin audit failed on ${mc} Forge (${what}); see ${log}\n" + problems.take(20).join("\n"))
 				}
-				logger.lifecycle("Mixin audit passed on ${mc} Forge (${side.toLowerCase()}).")
+				logger.lifecycle("Mixin audit passed on ${mc} Forge (${what}).")
 			}
 		}
 	}
@@ -147,6 +252,74 @@ tasks.register("auditMixins") {
 	dependsOn auditRuns.collect { it.task }
 }
 apply from: repoDir.file('gradle/x11-games.gradle')
+// ForgeGradle's launcher fetches a version's missing assets as each client starts, straight into the Minecraft launcher's
+// assets folder: two clients starting together on a machine without them break each other's downloads, and the test
+// shards start in pairs. So the assets are fetched here first, each file put in place whole, and every client waits.
+abstract class FetchGameAssets extends DefaultTask {
+	@Input abstract Property<String> getMinecraftVersion()
+	// (Which assets the version uses, kept from the first look: later runs need the network only for what is missing.)
+	@Internal abstract RegularFileProperty getIndexInfo()
+
+	@TaskAction
+	void fetch() {
+		def home = System.getProperty("user.home", ".")
+		def os = System.getProperty("os.name").toLowerCase()
+		// (Where ForgeGradle's launcher looks: the Minecraft launcher's own folder.)
+		def minecraft = os.startsWith("windows") && System.getenv("APPDATA") != null ? new File(System.getenv("APPDATA"), ".minecraft")
+			: os.contains("mac") ? new File(home, "Library/Application Support/minecraft") : new File(home, ".minecraft")
+		def assets = new File(minecraft, "assets")
+		def slurper = new groovy.json.JsonSlurper()
+		def infoFile = indexInfo.get().asFile
+		if (!infoFile.exists()) {
+			def mc = minecraftVersion.get()
+			def entry = slurper.parse(URI.create("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json").toURL()).versions.find { it.id == mc }
+			if (entry == null) throw new GradleException("Mojang lists no Minecraft ${mc}")
+			infoFile.parentFile.mkdirs()
+			infoFile.text = groovy.json.JsonOutput.toJson(slurper.parse(URI.create(entry.url).toURL()).assetIndex)
+		}
+		def info = slurper.parse(infoFile)
+		def index = new File(assets, "indexes/${info.id}.json")
+		if (index.length() != info.size) download(info.url as String, info.sha1 as String, index)
+		def missing = slurper.parse(index).objects.values().collect { it.hash as String }.unique().findAll { !new File(assets, "objects/${it.take(2)}/${it}").exists() }
+		if (missing.isEmpty()) return
+		logger.lifecycle("Fetching ${missing.size()} Minecraft ${minecraftVersion.get()} assets")
+		def pool = java.util.concurrent.Executors.newFixedThreadPool(8)
+		try {
+			pool.invokeAll(missing.collect { hash ->
+				{ -> download("https://resources.download.minecraft.net/${hash.take(2)}/${hash}".toString(), hash, new File(assets, "objects/${hash.take(2)}/${hash}")) } as java.util.concurrent.Callable
+			})*.get()
+		} finally {
+			pool.shutdown()
+		}
+	}
+
+	// Into a file of its own first, checked, then moved into place whole: another build may be fetching the same file.
+	static void download(String url, String sha1, File to) {
+		to.parentFile.mkdirs()
+		def part = File.createTempFile(to.name, ".part", to.parentFile)
+		try {
+			def digest = java.security.MessageDigest.getInstance("SHA-1")
+			URI.create(url).toURL().openStream().withCloseable { input ->
+				part.withOutputStream { out ->
+					input.eachByte(65536) { byte[] buffer, int n ->
+						digest.update(buffer, 0, n)
+						out.write(buffer, 0, n)
+					}
+				}
+			}
+			def got = HexFormat.of().formatHex(digest.digest())
+			if (got != sha1) throw new GradleException("${url} came with sha1 ${got}, not ${sha1}")
+			java.nio.file.Files.move(part.toPath(), to.toPath(), java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+		} finally {
+			part.delete()
+		}
+	}
+}
+def fetchGameAssets = tasks.register("fetchGameAssets", FetchGameAssets) {
+	minecraftVersion = mc
+	indexInfo = rootProject.layout.projectDirectory.file(".gradle/forge-assets/${mc}.json")
+}
+tasks.matching { it.name ==~ /run\w*Client/ }.configureEach { dependsOn fetchGameAssets }
 // macOS opens a window on the process's first thread only. Loom and ModDevGradle tell the game so; ForgeGradle doesn't, and
 // the client then finds no video device.
 if (System.getProperty("os.name").startsWith("Mac")) {
@@ -178,13 +351,24 @@ tasks.matching { it.name in ["processResources", "processClientResources"] }.con
 def packMeta = layout.buildDirectory.dir("generated/packMeta")
 def packFormat = project.pack_format
 def writePackMeta = tasks.register("writePackMeta") {
-	inputs.property "packFormat", packFormat
+	// (A range of formats from 1.21.9; one before.)
+	def format = sc.current.parsed.matches('>=1.21.9') ? "\"min_format\": ${packFormat}, \"max_format\": ${packFormat}" : "\"pack_format\": ${packFormat}"
+	inputs.property "format", format
 	outputs.dir(packMeta)
 	doLast {
-		packMeta.get().file("pack.mcmeta").asFile.text = "{\"pack\": {\"description\": \"Horsing Around\", \"min_format\": ${packFormat}, \"max_format\": ${packFormat}}}\n"
+		packMeta.get().file("pack.mcmeta").asFile.text = "{\"pack\": {\"description\": \"Horsing Around\", ${format}}}\n"
 	}
 }
 tasks.named("processResources") { from(writePackMeta) }
+// Data pack folders got singular names in 1.21 (tags/block); before, the tags are in plural ones (tags/blocks).
+if (sc.current.parsed.matches('<1.21')) {
+	tasks.named("processResources") {
+		includeEmptyDirs = false
+		eachFile { details ->
+			details.path = details.path.replace('/tags/entity_type/', '/tags/entity_types/').replace('/tags/block/', '/tags/blocks/')
+		}
+	}
+}
 
 // The in-game smoke test, as on Fabric: ./gradlew :<node>:runSmoke.
 apply from: repoDir.file('gradle/smoke-test.gradle')
@@ -197,9 +381,12 @@ jar {
 		rename { "${it}_horsingaround" }
 	}
 	// (Mixin reads its configs from the manifest.)
-	manifest.attributes(["MixinConfigs": "horsingaround.mixins.json,horsingaround.client.mixins.json"])
+	manifest.attributes(["MixinConfigs": mixinConfigs.join(",")])
 }
 
 java {
 	toolchain.languageVersion = JavaLanguageVersion.of(javaVersion)
 }
+
+// Release to Modrinth and CurseForge, with the Fabric jars (gradle/publish.gradle).
+apply from: repoDir.file('gradle/publish.gradle')
