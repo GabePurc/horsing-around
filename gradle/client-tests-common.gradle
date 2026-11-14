@@ -50,7 +50,8 @@ def lightTestGame = { task, File dir ->
 	task.javaLauncher = testGameJava
 	// Each game unpacks LWJGL's native libraries into its own run folder. By default they share one folder in the
 	// system's temporary directory, and two games starting together there for the first time since a restart break
-	// each other's files ("Failed to locate library: liblwjgl.so").
+	// each other's files ("Failed to locate library: liblwjgl.so"). (The folder is made before the game starts: Loom's
+	// games load the libraries from elsewhere, and the game's system report logs an error for a missing one.)
 	task.systemProperty "org.lwjgl.system.SharedLibraryExtractPath", new File(dir, "natives").absolutePath
 	task.systemProperty "horsingaround.lowSettings", lowSettings
 	task.systemProperty "horsingaround.frameClock", lowSettings && !clientTests.contains("perf") && !project.hasProperty("realTime")
@@ -67,6 +68,7 @@ tasks.matching { it.name == gameTask("") }.configureEach {
 		gameTestEula.parentFile.mkdirs()
 		gameTestEula.text = "eula=true\n"
 		prepareRunDir(gameTestEula.parentFile)
+		new File(gameTestEula.parentFile, "natives").mkdirs()
 	}
 	systemProperty "horsingaround.tests", clientTests
 	systemProperty "horsingaround.scenario", terrainScenario
@@ -136,6 +138,7 @@ testShards.each { name, shard ->
 			copyDebugPack(new File(dir, "resourcepacks/horsingaround-debug"))
 			new File(dir, "eula.txt").text = "eula=true\n"
 			prepareRunDir(dir)
+			new File(dir, "natives").mkdirs()
 		}
 		systemProperty "horsingaround.tests", shard.tests
 		systemProperty "horsingaround.scenario", ""
