@@ -20,6 +20,7 @@
 package dev.horsingaround.gametest.harness.impl.context;
 
 import java.util.Objects;
+import java.util.function.Predicate;
 import java.util.UUID;
 
 import com.google.common.base.Preconditions;
@@ -59,9 +60,25 @@ public class TestServerConnectionImpl implements TestServerConnection {
 	public int waitForChunksRender(boolean waitForDownload, int timeout) {
 		ThreadingImpl.checkOnGametestThread("waitForChunksRender");
 
+		// (The timeout counts as real time too. Sections compile in real time, and on the frame clock ticks pass as fast
+		// as frames draw: hundreds a second while nothing is compiled yet, so a minute of ticks was over in 4 seconds.)
+		final long deadline = System.nanoTime() + timeout * 50_000_000L;
+		final Predicate<Minecraft> ready = client -> (!waitForDownload || areChunksLoaded(client)) && areChunksRendered(client);
+
 		try {
-			return context.waitFor(client -> (!waitForDownload || areChunksLoaded(client)) && areChunksRendered(client), timeout);
+			return context.waitFor(ready, timeout);
 		} catch (AssertionError e) {
+			int waited = timeout;
+
+			while (System.nanoTime() - deadline < 0) {
+				if (context.computeOnClient(ready::test)) {
+					return waited;
+				}
+
+				ThreadingImpl.runTick();
+				waited++;
+			}
+
 			// (Say which part never finished.)
 			throw new AssertionError("Timed out waiting for chunks to render: " + context.computeOnClient(client -> {
 				int missing = 0;
