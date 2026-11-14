@@ -3,7 +3,7 @@
 If a check enforces something wrong, fix the check and say so in the PR. When feel numbers change on purpose, update the
 targets.
 
-## Client tests (every build but Forge 1.20.1)
+## Client tests (every build)
 
 `./gradlew :<version>:runClientGameTest` (`:<version>-neoforge:`, `:<version>-forge:`) runs these; all fail on server corrections ("moved wrongly")
 and log warnings. They run on this project's harness (`src/gametest/.../harness`, from Fabric API's). Loader differences sit in `TestEnv`, `gametest/neoforge` and `gametest/forge`, version ones in conditions

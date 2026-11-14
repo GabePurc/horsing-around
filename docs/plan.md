@@ -33,8 +33,8 @@ Each needs a look: a real fault, or a limit to set from the stride itself.
 - "Trotting up a slope of full blocks": median 0.116-0.135 against 0.12 in Icy's (its trot lifts the hooves higher), failing over
   half of runs; 0.096-0.133 without, failing 2 of 28. Its "never far above": 0.94-0.98 against 1.0; 1.20.4 went 1.004-1.005 in 2 of 3.
   Walking up, before 1.21.4: 0.110-0.121; up stair blocks, the 90th percentile 0.224-0.253 against 0.25.
-- Once each in a parallel run, passing alone: 1.21.5 "down a mountain, layout 2" stuck under leaves; 1.21.8's chunk-render wait
-  timed out; 1.21.5 trampled 0 of 4 chickens.
+- In a parallel run, passing alone: 1.21.5 "down a mountain, layout 2" stuck under leaves (twice); 1.21.5 trampled 0 of 4
+  chickens (once).
 - Icy's "up a 1-block step at a walk", no hoof in the step: -0.081 to -0.091 against -0.08 in a quarter of runs.
 - The nautilus in a pack rides little now and then (limit 0.4): 0.54 in the horses pack; in Icy's 0.945 or 2.258, the low one more
   often on the frame clock (3 of 4 runs, against 0 of 2 at normal speed); about 3.7 with no pack.
