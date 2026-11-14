@@ -1,8 +1,8 @@
 // The client tests on Forge after 1.20.1 (build.forge.gradle): the same tests on the same harness (src/gametest) as on
 // Fabric, in ForgeGradle's runs. ./gradlew :<version>-forge:runClientGameTest, or
 // :<version>-forge:runClientGameTestParallel --continue for the shards; reports and screenshots in
-// build/run/clientGameTest-<version>-forge/. The flags are Fabric's (client-tests-common.gradle). No Entity Model Features
-// for Forge 26.x, so these games draw the plain horse model, with no animation pack.
+// build/run/clientGameTest-<version>-forge/. The flags are Fabric's (client-tests-common.gradle). These games draw the plain
+// horse model, with no animation pack (build.forge.gradle says why).
 
 // (A local: the runs below and the common script need the same folder name.)
 def testFolder = "clientGameTest-${project.name}"
@@ -18,6 +18,10 @@ sourceSets {
 	// games' play scene.)
 	gametest.java.exclude 'dev/horsingaround/gametest/neoforge/**', 'dev/horsingaround/gametest/DedicatedServerTest.java', 'dev/horsingaround/gametest/PlayScene.java'
 	gametest.resources.exclude 'fabric.mod.json', 'META-INF/neoforge.mods.toml', 'horsingaround-gametest-neoforge.mixins.json'
+	// (26.3's alone until their compat packs move, issue 127: as on Fabric, client-tests.gradle.)
+	if (!sc.current.parsed.matches('>=26.3')) {
+		gametest.java.exclude(['StoreMediaTest', 'GalleryTest', 'ClipCursor', 'IcyFeaturesTest', 'RealCameraTest'].collect { "dev/horsingaround/gametest/${it}.java".toString() })
+	}
 }
 tasks.named("processGametestResources") {
 	// (As the mod's own configs and resources: build.forge.gradle.)
@@ -34,7 +38,7 @@ def gametestJar = tasks.register("gametestJar", Jar) {
 	destinationDirectory = layout.buildDirectory.dir("gametest")
 	manifest.attributes(["MixinConfigs": "horsingaround-gametest.mixins.json,horsingaround-gametest-harness.mixins.json,horsingaround-gametest-forge.mixins.json"])
 }
-def testGame = files(tasks.named("jar"), gametestJar) + configurations.runtimeClasspath
+def testGame = files(project.ext.gameJar, gametestJar) + configurations.runtimeClasspath
 
 apply from: rootProject.layout.projectDirectory.file('gradle/client-tests-common.gradle')
 

@@ -8,7 +8,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 //? if >=1.20.5 {
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-//?} else
+//?} elif fabric
 /*import net.fabricmc.fabric.api.networking.v1.FabricPacket;*/
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -65,8 +65,15 @@ public final class TestEnv {
 		ClientTickEvents.END_CLIENT_TICK.register(listener::accept);
 		//?} elif neoforge {
 		/*NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, event -> listener.accept(Minecraft.getInstance()));
-		*///?} else
-		/*TickEvent.ClientTickEvent.Post.BUS.addListener(event -> listener.accept(Minecraft.getInstance()));*/
+		*///?} elif >=1.21.6 {
+		/*TickEvent.ClientTickEvent.Post.BUS.addListener(event -> listener.accept(Minecraft.getInstance()));
+		*///?} else {
+		/*HorsingAroundForge.listen(TickEvent.ClientTickEvent.class, event -> {
+			if (event.phase == TickEvent.Phase.END) {
+				listener.accept(Minecraft.getInstance());
+			}
+		});
+		*///?}
 	}
 
 	@FunctionalInterface
@@ -87,9 +94,12 @@ public final class TestEnv {
 		/*HURT.add(listener);
 		*///?} elif forge {
 		/*// (Forge's event comes as the damage is about to land, armour and the like already counted.)
+		//? if >=1.21.6 {
 		LivingDamageEvent.BUS.addListener(event -> {
 			listener.hurt(event.getEntity(), event.getSource(), event.getAmount());
 		});
+		//?} else
+		/^HorsingAroundForge.listen(LivingDamageEvent.class, event -> listener.hurt(event.getEntity(), event.getSource(), event.getAmount()));^/
 		*///?} elif >=26.1 {
 		/*NeoForge.EVENT_BUS.addListener(LivingDamageEvent.Post.class, event -> listener.hurt(event.getEntity(), event.getSource(), event.getInflictedDamage()));
 		*///?} else
@@ -115,8 +125,10 @@ public final class TestEnv {
 			.anyMatch(entry -> entry.getProvider().getMetadata().getId().equals(HorsingAround.MOD_ID));
 		//?} elif neoforge {
 		/*return ModList.get().getModContainerById(HorsingAround.MOD_ID).flatMap(mod -> mod.getCustomExtension(IConfigScreenFactory.class)).isPresent();
+		*///?} elif >=26.1 {
+		/*return ModList.getModContainerById(HorsingAround.MOD_ID).flatMap(mod -> mod.getCustomExtension(ConfigScreenHandler.ConfigScreenFactory.class)).isPresent();
 		*///?} else
-		/*return ModList.getModContainerById(HorsingAround.MOD_ID).flatMap(mod -> mod.getCustomExtension(ConfigScreenHandler.ConfigScreenFactory.class)).isPresent();*/
+		/*return ModList.get().getModContainerById(HorsingAround.MOD_ID).flatMap(mod -> mod.getCustomExtension(ConfigScreenHandler.ConfigScreenFactory.class)).isPresent();*/
 	}
 
 	/** A connection for a player no client is behind, which sends nothing (the loader's fake player's). */
@@ -152,8 +164,10 @@ public final class TestEnv {
 	/** Sends a payload to the server, from the client thread. */
 	//? if >=1.20.5 {
 	public static void sendToServer(final CustomPacketPayload payload) {
-	//?} else
-	/*public static void sendToServer(final FabricPacket payload) {*/
+	//?} elif fabric {
+	/*public static void sendToServer(final FabricPacket payload) {
+	*///?} else
+	/*public static void sendToServer(final Object payload) {*/
 		//? if fabric {
 		ClientPlayNetworking.send(payload);
 		//?} elif forge {

@@ -3,9 +3,9 @@
 If a check enforces something wrong, fix the check and say so in the PR. When feel numbers change on purpose, update the
 targets.
 
-## Client tests (every version on Fabric and NeoForge, Forge 26.3)
+## Client tests (every build but Forge 1.20.1)
 
-`./gradlew :<version>:runClientGameTest` (`:<version>-neoforge:`, `:26.3-forge:`) runs these; all fail on server corrections ("moved wrongly")
+`./gradlew :<version>:runClientGameTest` (`:<version>-neoforge:`, `:<version>-forge:`) runs these; all fail on server corrections ("moved wrongly")
 and log warnings. They run on this project's harness (`src/gametest/.../harness`, from Fabric API's). Loader differences sit in `TestEnv`, `gametest/neoforge` and `gametest/forge`, version ones in conditions
 (shared ones in `Versions`; version-only mixins come from the mixin configs' plugins).
 
@@ -49,7 +49,7 @@ reports into `build/run/clientGameTest/` (26.3; `clientGameTest-<version>[-<load
   Screenshots: the screenshots folder beside them.
 - F3+B draws the ridden horse's box, line, heading, plan and look-ahead findings.
 - Test horses wear colour-coded legs (`src/gametest/debugpack`). `-PplainTextures` for real ones; `-PvanillaModel` for the plain
-  model with no pack (Forge 26.3's games always: no Entity Model Features there). `LegProbe` measures the legs as drawn: judge leg work by its numbers and close shots.
+  model with no pack (Forge's games always: `docs/porting.md`). `LegProbe` measures the legs as drawn: judge leg work by its numbers and close shots.
 - `TestInput.pressKey` runs a game tick of its own. In a loop sampling every tick, use `holdKey` then `releaseKey`, or trace with
   `HorseTrace`; otherwise a tick goes missing.
 - Test games are silent and run light: lowest settings, a 2 GB heap and (26.3) performance mods. `-PplainGame` drops the mods;

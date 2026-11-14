@@ -7,13 +7,21 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 /**
- * A dedicated server unloads every mod's configs as it exits, the game being over. The server test's runs inside the test
- * client (ServerModLoaderMixin), which plays on: the next world it opens would find its configs gone.
+ * A dedicated server unloads every mod's configs as it exits, the game being over (Forge from 1.21; before, it leaves
+ * them). The server test's runs inside the test client (ServerModLoaderMixin), which plays on: the next world it opens
+ * would find its configs gone.
  */
 @Mixin(DedicatedServer.class)
 abstract class DedicatedServerMixin {
+	//? if >=26.1 {
 	@WrapOperation(method = "onServerExit", at = @At(value = "INVOKE", target = "Lnet/minecraftforge/fml/config/ConfigTracker;forceUnload()V", remap = false))
 	private void horsingaroundTest$keepTheClientsConfigs(final Operation<Void> original) {
 		// (Never needed: the tests' games are clients.)
 	}
+	//?} elif >=1.21 {
+	/*// (The tracker's own method before 26.1, so the call comes with the tracker.)
+	@WrapOperation(method = "onServerExit", at = @At(value = "INVOKE", target = "Lnet/minecraftforge/fml/config/ConfigTracker;forceUnload()V", remap = false))
+	private void horsingaroundTest$keepTheClientsConfigs(final net.minecraftforge.fml.config.ConfigTracker tracker, final Operation<Void> original) {
+	}
+	*///?}
 }

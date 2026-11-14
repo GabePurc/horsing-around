@@ -1,6 +1,6 @@
 # Horsing Around
 
-A Minecraft mod (Fabric and NeoForge 1.20.1 to 26.3, Forge 1.20.1, Mojang names) that makes horse riding feel weighty and
+A Minecraft mod (Fabric and Forge 1.20.1 to 26.3, NeoForge 1.21.1 and 26.x, Mojang names) that makes horse riding feel weighty and
 alive. Red Dead Redemption 2 is the feel target; vanilla is the style boundary. The user guides the feel; Claude is the sole
 developer.
 
