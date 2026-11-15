@@ -16,6 +16,7 @@ import static dev.horsingaround.ride.RideTuning.CART_BEHIND_LEAST;
 import static dev.horsingaround.ride.RideTuning.CART_BEHIND_LESS;
 import static dev.horsingaround.ride.RideTuning.CART_BEHIND_SCALE;
 import static dev.horsingaround.ride.RideTuning.CART_DAMPER;
+import static dev.horsingaround.ride.RideTuning.CART_DRAFT;
 import static dev.horsingaround.ride.RideTuning.CART_DAMPER_GROUND;
 import static dev.horsingaround.ride.RideTuning.CART_FALL_MOST;
 import static dev.horsingaround.ride.RideTuning.CART_GIVE_DAMPING;
@@ -42,10 +43,12 @@ import static dev.horsingaround.ride.RideTuning.CART_WHEEL_TRAVEL_EASE;
 import java.util.Arrays;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
@@ -632,13 +635,26 @@ public final class CartTrail {
 		return Double.isNaN(top) ? Double.NEGATIVE_INFINITY : top;
 	}
 
-	/** The top of a block something can rest on, NaN if it isn't one. Leaves aren't: the ride goes through them. */
+	/**
+	 * The top of a block something can rest on, NaN if it isn't one. Leaves aren't: the ride goes through them. Water is,
+	 * CART_DRAFT below its surface: a cart floats, so it rolls in off a bank, across and out up the other as over any
+	 * ground, whatever its horse is doing (where the bottom is nearer the surface than that, it rolls on the bottom).
+	 */
 	private static double solidTop(final Level level, final BlockPos.MutableBlockPos pos, final int bx, final int by, final int bz) {
 		final BlockState state = level.getBlockState(pos.set(bx, by, bz));
 		if (state.isAir() || Foliage.leavesOpen(level) && Foliage.isLeaves(state)) {
 			return Double.NaN;
 		}
 		final VoxelShape shape = state.getCollisionShape(level, pos);
-		return shape.isEmpty() ? Double.NaN : by + shape.max(Direction.Axis.Y);
+		final double top = shape.isEmpty() ? Double.NaN : by + shape.max(Direction.Axis.Y);
+		final FluidState fluid = state.getFluidState();
+		if (!fluid.is(FluidTags.WATER)) {
+			return top;
+		}
+		// (Water with more water on it counts whole, so that what looks for the ground from under the surface, as from a
+		// swimming horse's feet, goes on up to it. Water too thin to float in isn't ground: the bed under it is.)
+		final float deep = fluid.getHeight(level, pos);
+		final double afloat = deep >= 1.0F ? by + 1.0 : by + deep - CART_DRAFT;
+		return top > afloat || afloat <= by ? top : afloat;
 	}
 }
