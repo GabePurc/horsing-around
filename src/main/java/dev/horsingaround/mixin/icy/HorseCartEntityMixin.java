@@ -119,11 +119,20 @@ public abstract class HorseCartEntityMixin implements CartTrail.Lean {
 	}
 
 	/** ...and where it can be clicked and bumped into. */
+	//? if >=1.21.2 {
 	@ModifyVariable(method = "makeBoundingBox", at = @At("HEAD"), argsOnly = true, remap = false)
 	private Vec3 horsingaround$boxBehind(final Vec3 pos) {
 		final float rad = ((Entity) (Object) this).getYRot() * Mth.DEG_TO_RAD;
 		return this.horsingaround$boxBehind == 0.0F ? pos : pos.add(Mth.sin(rad) * this.horsingaround$boxBehind, 0.0, -Mth.cos(rad) * this.horsingaround$boxBehind);
 	}
+	//?} else {
+	/*// (Before 1.21.2 the box is made where the entity is, not for a position handed in.)
+	@ModifyReturnValue(method = "makeBoundingBox", at = @At("RETURN"), remap = false)
+	private net.minecraft.world.phys.AABB horsingaround$boxBehind(final net.minecraft.world.phys.AABB box) {
+		final float rad = ((Entity) (Object) this).getYRot() * Mth.DEG_TO_RAD;
+		return this.horsingaround$boxBehind == 0.0F ? box : box.move(Mth.sin(rad) * this.horsingaround$boxBehind, 0.0, -Mth.cos(rad) * this.horsingaround$boxBehind);
+	}
+	*///?}
 
 	/** Icy's mod draws the cart and the seats on it this high above the horse: this mod's rise goes on top of its float. */
 	@ModifyReturnValue(method = "renderLift", at = @At("RETURN"), remap = false)

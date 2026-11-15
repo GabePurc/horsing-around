@@ -120,7 +120,7 @@ On this mod's setting, the default:
   charge is the trample, bashing hostile mobs as hard as Icy's.
 - Its models are treated like an animation pack: the rider rides their measured motion, only this mod's lean banks them,
   the ride's legs, neck, tail and stirrups go on them, and the ride tilts on legs measured from the model.
-- Its gear works (user, 2026-11-02): a cart's riders sit on its bench, left to Icy's pose. A cart turns as a real one does
+- Its gear works (user, 2026-11-02): a cart's riders sit square on its bench, heads turning as a neck does. A cart turns as a real one does
   and the horse pulls it (`CartTrail`): wheels don't slide sideways, the shafts hold the horse close, so it turns wide, tighter
   the slower it goes (user), makes no hard cuts and starts and stops slower. Backing up, the rig comes round to where the rider looks and stops at
   walls. In a working Glidewing Harness no drop is refused and legs keep still in the air. In horseshoes powder snow is ground.

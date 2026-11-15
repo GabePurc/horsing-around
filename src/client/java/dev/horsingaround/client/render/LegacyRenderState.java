@@ -77,5 +77,10 @@ public final class LegacyRenderState {
 	public static @Nullable LivingEntityRenderState riderState() {
 		return state instanceof RidePoseState pose && pose.horsingaround$isRider() ? state : null;
 	}
+
+	// The state of the rider being drawn now whose body and head turn as this mod has them: one it poses, or one on a cart.
+	public static @Nullable LivingEntityRenderState turnedState() {
+		return state instanceof RidePoseState pose && (pose.horsingaround$isRider() || pose.horsingaround$onCart()) ? state : null;
+	}
 }
 *///?}

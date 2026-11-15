@@ -201,6 +201,33 @@ public final class IcyCompat {
 		}
 	}
 
+	/**
+	 * The heading, as drawn, of the cart a rider is on behind a horse this mod rides: {@code vehicle} is the horse that
+	 * pulls it (the rider is on its bench) or the cart (in its back). NaN for anything else. Icy's own, so it holds where
+	 * this mod's cart hooks don't fit.
+	 */
+	public static float riddenCartYaw(final Entity vehicle, final float partialTick) {
+		if (!LOADED || Gear.CART_CLASS == null || Gear.CART_ENTITY == null || Gear.CART_YAW_AT == null || Gear.CART_HORSE == null) {
+			return Float.NaN;
+		}
+		try {
+			final Object cart;
+			final Entity horse;
+			if (vehicle instanceof AbstractHorse) {
+				cart = pullsCart(vehicle) ? (Object) Gear.CART_ENTITY.invokeExact(vehicle) : null;
+				horse = vehicle;
+			} else if (Gear.CART_CLASS.isInstance(vehicle)) {
+				cart = vehicle;
+				horse = (Entity) Gear.CART_HORSE.invokeExact((Object) vehicle);
+			} else {
+				return Float.NaN;
+			}
+			return cart == null || RideStateHolder.managedRide(horse) == null ? Float.NaN : (float) Gear.CART_YAW_AT.invokeExact(cart, partialTick);
+		} catch (final Throwable e) {
+			return Float.NaN;
+		}
+	}
+
 	/** Whether the cart the horse pulls has something too tall to roll over right behind it. */
 	public static boolean cartBlockedBehind(final Entity horse) {
 		final CartTrail.Lean cart = cartLean(horse);
@@ -259,6 +286,11 @@ public final class IcyCompat {
 			.asType(MethodType.methodType(Object.class, Entity.class)));
 		static final @Nullable MethodHandle CART_YAW = find(() -> MethodHandles.insertArguments(LOOKUP.findVirtual(CART_CLASS, "gluedRenderYaw", MethodType.methodType(float.class, float.class)), 1, 1.0F)
 			.asType(MethodType.methodType(float.class, Object.class)));
+		/** (Object, float) float: a cart's heading as drawn at a part-tick, and (Object) Entity: the horse it is hitched to. */
+		static final @Nullable MethodHandle CART_YAW_AT = find(() -> LOOKUP.findVirtual(CART_CLASS, "gluedRenderYaw", MethodType.methodType(float.class, float.class))
+			.asType(MethodType.methodType(float.class, Object.class, float.class)));
+		static final @Nullable MethodHandle CART_HORSE = find(() -> LOOKUP.findVirtual(CART_CLASS, "boundHorse", MethodType.methodType(AbstractHorse.class))
+			.asType(MethodType.methodType(Entity.class, Object.class)));
 	}
 
 	/** Icy's API, looked up the first time it's needed (only ever with Icy's mod installed). */

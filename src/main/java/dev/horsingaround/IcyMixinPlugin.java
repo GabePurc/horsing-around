@@ -27,7 +27,12 @@ public final class IcyMixinPlugin implements IMixinConfigPlugin {
 		if (!mixinPackage.endsWith(".client.mixin.icy")) {
 			this.mixins = List.of("ArchetypePerksMixin", "BhGearsMixin", "HorseCartEntityMixin", "HorseCombatMixin", "SpeedAbilitiesMixin", "SwimBoostMixin");
 		} else if (MixinEnvironment.getCurrentEnvironment().getSide() != MixinEnvironment.Side.SERVER) {
+			//? if >=1.21.2 {
 			this.mixins = List.of("BhHorseModelMixin", "BhHorseRenderStateAccess", "BhRiderMotionMixin", "HorseAutodriveControllerMixin", "HorseCartRendererMixin", "HorseGearControllerMixin");
+			//?} else {
+			/*// (Before 1.21.2 Icy's model poses from the horse itself, with no render state: its two hooks have nothing to fit.)
+			this.mixins = List.of("BhRiderMotionMixin", "HorseAutodriveControllerMixin", "HorseCartRendererMixin", "HorseGearControllerMixin");
+			*///?}
 		}
 	}
 

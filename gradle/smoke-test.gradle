@@ -11,6 +11,8 @@
 //   only reported (they are vanilla's own then, which is what the comparison is for).
 // -PsmokePlain: no Entity Model Features, Entity Texture Features or Fresh Animations at all (build.gradle leaves the
 //   two mods off the runtime classpath), to tell this mod's problems from the animation stack's.
+// -PsmokeIcy (Fabric 1.20.1, 1.21.1, 1.21.11: icy_mods in the version's gradle.properties): Icy's Better Horses, and in
+//   place of the usual ride one of its carts behind the horse, its rider drawn over a trench, at a gallop and in a turn.
 // -PsmokeCloseUp (=degrees the side view turns): a shot every tick of the head and bridle at a gallop, a jump and on the
 //   rough course, on a large window (see SmokeTest).
 //
@@ -39,6 +41,9 @@ if (closeUp) {
 }
 if (project.hasProperty("epicFight") && project.hasProperty("epic_fight_version")) {
 	gameProps['horsingaround.smoke.epicFight'] = project.property('epicFight').toString()
+}
+if (project.hasProperty("smokeIcy") && project.hasProperty("icy_mods")) {
+	gameProps['horsingaround.smoke.icy'] = 'true'
 }
 if (project.hasProperty("smokeWild")) {
 	gameProps['horsingaround.smoke.wild'] = project.property('smokeWild').toString()

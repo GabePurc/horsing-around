@@ -176,6 +176,38 @@ final class Scene {
 		cow.setLeashedTo(player, true);
 	}
 
+	/**
+	 * -PsmokeIcy: one of Icy's Better Horses' carts in the ridden horse's gear, as its horse screen puts one there (by
+	 * name: Icy's mod isn't compiled against).
+	 */
+	static void hitchCart(final MinecraftServer server) {
+		final ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+		final Entity horse = player.getVehicle();
+		command(server, "give @p icys-better-horses:horse_cart_gear");
+		final net.minecraft.world.Container carried = player.getInventory();
+		for (int i = 0; i < carried.getContainerSize(); i++) {
+			if (!carried.getItem(i).isEmpty()) {
+				try {
+					final Enum<?> slot = (Enum<?>) Class.forName("icy.betterhorses.net.inventory.GearSlot").getField("STABILIZER").get(null);
+					((net.minecraft.world.Container) horse.getClass().getMethod("bh_getGearContainer").invoke(horse)).setItem(slot.ordinal(), carried.removeItemNoUpdate(i));
+					return;
+				} catch (final ReflectiveOperationException e) {
+					throw new IllegalStateException("Icy's gear has changed", e);
+				}
+			}
+		}
+		throw new IllegalStateException("Icy's cart was not given");
+	}
+
+	/** A trench a block deep under where the cart's wheel to the east stands, behind the horse; and the ground back. */
+	static void trench(final MinecraftServer server) {
+		command(server, "fill 1 " + (groundY - 1) + " -8 1 " + (groundY - 1) + " -1 minecraft:air");
+	}
+
+	static void fillTrench(final MinecraftServer server) {
+		command(server, "fill 1 " + (groundY - 1) + " -8 1 " + (groundY - 1) + " -1 minecraft:grass_block");
+	}
+
 	private static <T extends Entity> T summon(
 		final MinecraftServer server, final ServerLevel level, final Class<T> type, final String id, final double x, final double y, final double z, final String nbt
 	) {

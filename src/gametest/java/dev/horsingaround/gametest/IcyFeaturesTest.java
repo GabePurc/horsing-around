@@ -26,6 +26,8 @@ import dev.horsingaround.gametest.harness.context.TestSingleplayerContext;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -40,10 +42,13 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
+import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.player.ChatVisiblity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -147,6 +152,9 @@ public final class IcyFeaturesTest implements ClientGameTest {
 			}
 			if (all || only.contains("lean")) {
 				cartLean(ctx, world);
+			}
+			if (all || only.contains("riders")) {
+				cartRiders(ctx, input, world);
 			}
 			if (all || only.contains("reverse")) {
 				cartBackIntoWall(ctx, input, world);
@@ -1323,6 +1331,112 @@ public final class IcyFeaturesTest implements ClientGameTest {
 		check("in a hard turn the shafts hold it (degrees off the horse, most)", hardAngle, 10.0, 28.5);
 		check("...and the horse, pulling it round, turns wide (turning radius, blocks, tightest)", circle, widest, 100.0);
 		check("galloping on straight, it lines up behind the horse again (degrees)", last, 0.0, 2.0);
+	}
+
+	// ---- A cart's riders ----
+
+	/**
+	 * A wagon's riders sit square on it (issue 165: players "not really on the cart", heads turning all the way round): the
+	 * driver and a passenger on the bench, who ride the horse, and two in the back, who ride the wagon, as they are drawn
+	 * while the driver looks all the way round and through a hard turn, where the wagon angles off the horse.
+	 */
+	private void cartRiders(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Riders on Icy's wagon");
+		final int x = nextLane();
+		final int id = summon(ctx, world, "belgian_horse", UPGRADED, x, GROUND);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x);
+		final int[] riders = world.getServer().computeOnServer(server -> {
+			final AbstractHorse horse = horse(server, id);
+			final Entity cart = cartOf(horse);
+			final int[] ids = new int[3];
+			for (int i = 0; i < ids.length; i++) {
+				final Villager villager = EntityTypes.VILLAGER.create(server.overworld(), EntitySpawnReason.COMMAND);
+				villager.setPos(horse.getX() + 2.0, horse.getY(), horse.getZ() + 2.0 + i);
+				server.overworld().addFreshEntity(villager);
+				villager.startRiding(i == 0 ? horse : cart, true, true);
+				ids[i] = villager.getVehicle() == null ? -1 : villager.getId();
+			}
+			return ids;
+		});
+		ctx.waitTicks(20);
+		check("a passenger sits on the bench by the driver, two more in the back", riders[0] >= 0 && riders[1] >= 0 && riders[2] >= 0
+			&& ctx.computeOnClient(mc -> mc.level.getEntity(riders[0]) != null && mc.level.getEntity(riders[1]) != null && mc.level.getEntity(riders[2]) != null));
+		check("this mod rides it", managed(ctx));
+		sideScreenshot(ctx, "icy_riders_standing");
+
+		// Standing, the driver looks all the way round.
+		double driverOff = 0.0;
+		double driverHead = 0.0;
+		for (int i = 1; i <= 72; i++) {
+			input.lookAt(180.0F + i * 5.0F, 10.0F);
+			ctx.waitTick();
+			final double[] drawn = drawnTurn(ctx, -1);
+			driverOff = Math.max(driverOff, Math.abs(drawn[0]));
+			driverHead = Math.max(driverHead, Math.abs(drawn[1]));
+			if (i == 18 || i == 36 || i == 54) {
+				screenshot(ctx, "icy_riders_look_" + i * 5);
+			}
+		}
+		check("looking all the way round, the driver stays square on the bench (degrees off the wagon, most)", driverOff, 0.0, 1.0);
+		check("...the head turning no further than a neck does (degrees from the body, most)", driverHead, 60.0, RideTuning.LOOK_LIMIT + 0.01);
+
+		// At a gallop, through a hard turn.
+		ticksToGallop(ctx, input);
+		ctx.waitTicks(20);
+		final double[] off = new double[4];
+		final double[] head = new double[4];
+		double angle = 0.0;
+		float view = 180.0F;
+		for (int i = 0; i < 60; i++) {
+			view += i < 30 ? 4.5F : 0.0F;
+			input.lookAt(view, 10.0F);
+			ctx.waitTick();
+			for (int rider = 0; rider < 4; rider++) {
+				final double[] drawn = drawnTurn(ctx, rider == 0 ? -1 : riders[rider - 1]);
+				off[rider] = Math.max(off[rider], Math.abs(drawn[0]));
+				head[rider] = Math.max(head[rider], Math.abs(drawn[1]));
+			}
+			angle = Math.max(angle, ctx.computeOnClient(mc -> {
+				final Entity horse = mc.player.getVehicle();
+				return (double) Math.abs(Mth.wrapDegrees((float) call(call(horse, "bh_getCartEntity"), "gluedRenderYaw", 1.0F) - ((LivingEntity) horse).yBodyRot));
+			}));
+			if (i == 20) {
+				screenshot(ctx, "icy_riders_turn");
+				sideScreenshot(ctx, "icy_riders_turn_side");
+			}
+		}
+		log("  (the wagon angled %.1f degrees off the horse; off the wagon, driver %.1f, bench %.1f, back %.1f and %.1f; heads %.1f, %.1f, %.1f, %.1f)",
+			angle, off[0], off[1], off[2], off[3], head[0], head[1], head[2], head[3]);
+		check("in a hard turn the wagon angles off the horse (degrees, most)", angle, 10.0, 28.5);
+		check("...the driver square on the bench all through it (degrees off the wagon, most)", off[0], 0.0, 1.0);
+		check("...the passenger by them too", off[1], 0.0, 1.0);
+		check("...and the two in the back", Math.max(off[2], off[3]), 0.0, 1.0);
+		check("no head turns further than a neck does (degrees from the body, most)", Math.max(Math.max(head[0], head[1]), Math.max(head[2], head[3])), 0.0, RideTuning.LOOK_LIMIT + 0.01);
+		stop(ctx, input);
+		world.getServer().runOnServer(server -> {
+			for (final int rider : riders) {
+				final Entity villager = server.overworld().getEntity(rider);
+				if (villager != null) {
+					villager.discard();
+				}
+			}
+		});
+		dismount(ctx, input);
+	}
+
+	/** How a rider on a cart is drawn: the body's heading off the cart's, and the head's turn from the body, degrees. */
+	@SuppressWarnings({"rawtypes", "unchecked"})
+	private static double[] drawnTurn(final ClientGameTestContext ctx, final int id) {
+		return ctx.computeOnClient(mc -> {
+			final Entity rider = id < 0 ? mc.player : mc.level.getEntity(id);
+			final Entity vehicle = rider.getVehicle();
+			final Object cart = vehicle instanceof AbstractHorse ? call(vehicle, "bh_getCartEntity") : vehicle;
+			final EntityRenderer renderer = mc.getEntityRenderDispatcher().getRenderer(rider);
+			final LivingEntityRenderState state = (LivingEntityRenderState) renderer.createRenderState(rider, 1.0F);
+			return new double[] {Mth.wrapDegrees(state.bodyRot - (float) call(cart, "gluedRenderYaw", 1.0F)), state.yRot};
+		});
 	}
 
 	// ---- A second rider ----

@@ -15,6 +15,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemUseAnimation;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
@@ -83,6 +84,14 @@ public final class RidePoser {
 		return ridden instanceof RideStateHolder holder && holder.horsingaround$managed() && (isHorse || !IcyCompat.pullsCart((Entity) ridden)) ? holder : null;
 	}
 
+	//? if <1.21.2 {
+	/*// Whether the entity rides one of Icy's Better Horses' carts behind a horse this mod rides (on its bench or in the back).
+	public static boolean onCart(final LivingEntity entity) {
+		final Entity vehicle = entity instanceof RideStateHolder ? null : entity.getVehicle();
+		return vehicle != null && !Float.isNaN(IcyCompat.riddenCartYaw(vehicle, 1.0F));
+	}
+	*///?}
+
 	public static void extract(final LivingEntity entity, final LivingEntityRenderState state, final float partialTicks) {
 		final RidePoseState pose = (RidePoseState) state;
 		final boolean isHorse = entity instanceof RideStateHolder;
@@ -102,6 +111,17 @@ public final class RidePoser {
 				//?} else
 				/*final float seat = 0.0F;*/
 				pose.horsingaround$setPose(0.0F, 0.0F, 0.0F, -Mth.sin(heading) * Mth.sin(half), 0.0F, Mth.cos(heading) * Mth.sin(half), Mth.cos(half), 0.0F, seat, 0.0F);
+			}
+			final float cartYaw = isHorse || entity.getVehicle() == null ? Float.NaN : IcyCompat.riddenCartYaw(entity.getVehicle(), partialTicks);
+			if (!Float.isNaN(cartYaw)) {
+				// ...and sits square on it. The game turns a rider with the horse and with where they look, which Icy's riding
+				// keeps near the cart's heading; here the cart angles off the horse and the view is free, so the rider sat
+				// askew or back to front. The head turns as far as a neck does: a player's to where they look, a mob's as it had it.
+				final float look = entity instanceof Player ? Mth.rotLerp(partialTicks, entity.yHeadRotO, entity.yHeadRot) - cartYaw : state.yRot;
+				state.bodyRot = cartYaw;
+				state.yRot = Mth.clamp(Mth.wrapDegrees(look), -LOOK_LIMIT, LOOK_LIMIT);
+				//? if <1.21.2
+				/*pose.horsingaround$setOnCart();*/
 			}
 			pose.horsingaround$setNeck(0.0F);
 			pose.horsingaround$setHeadShake(0.0F, 0.0F);
