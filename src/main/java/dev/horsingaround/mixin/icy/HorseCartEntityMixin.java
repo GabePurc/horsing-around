@@ -77,9 +77,11 @@ public abstract class HorseCartEntityMixin implements CartTrail.Lean {
 
 	/**
 	 * Its horse dead, Icy's mod leaves this same cart standing where it is, and settle stops: its box goes back with it, and
-	 * its wheels start afresh should it be hitched again.
+	 * its wheels start afresh should it be hitched again. (The game's own method, here and for the box below: Icy's jar has
+	 * those under the names its loader runs the game with, Fabric's before 26.1, Forge's for 1.20.1, or as written. Nothing
+	 * here is renamed for the mixin.)
 	 */
-	@Inject(method = "tick", at = @At("HEAD"), remap = false)
+	@Inject(method = {"tick", "method_5773", "m_8119_"}, at = @At("HEAD"), remap = false)
 	private void horsingaround$letGo(final CallbackInfo ci) {
 		if (this.horsingaround$axle.placed() && isPlaced()) {
 			horsingaround$standAlone();
@@ -120,14 +122,14 @@ public abstract class HorseCartEntityMixin implements CartTrail.Lean {
 
 	/** ...and where it can be clicked and bumped into. */
 	//? if >=1.21.2 {
-	@ModifyVariable(method = "makeBoundingBox", at = @At("HEAD"), argsOnly = true, remap = false)
+	@ModifyVariable(method = {"makeBoundingBox", "method_65341"}, at = @At("HEAD"), argsOnly = true, remap = false)
 	private Vec3 horsingaround$boxBehind(final Vec3 pos) {
 		final float rad = ((Entity) (Object) this).getYRot() * Mth.DEG_TO_RAD;
 		return this.horsingaround$boxBehind == 0.0F ? pos : pos.add(Mth.sin(rad) * this.horsingaround$boxBehind, 0.0, -Mth.cos(rad) * this.horsingaround$boxBehind);
 	}
 	//?} else {
 	/*// (Before 1.21.2 the box is made where the entity is, not for a position handed in.)
-	@ModifyReturnValue(method = "makeBoundingBox", at = @At("RETURN"), remap = false)
+	@ModifyReturnValue(method = {"makeBoundingBox", "method_33332", "m_142242_"}, at = @At("RETURN"), remap = false)
 	private net.minecraft.world.phys.AABB horsingaround$boxBehind(final net.minecraft.world.phys.AABB box) {
 		final float rad = ((Entity) (Object) this).getYRot() * Mth.DEG_TO_RAD;
 		return this.horsingaround$boxBehind == 0.0F ? box : box.move(Mth.sin(rad) * this.horsingaround$boxBehind, 0.0, -Mth.cos(rad) * this.horsingaround$boxBehind);

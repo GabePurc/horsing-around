@@ -57,10 +57,10 @@ if (sc.current.parsed.matches('<26')) {
 	loom.mixin.useLegacyMixinAp = true
 }
 
-// -PsmokeIcy: Icy's Better Horses in the dev games of the builds it ships for, with the loader and Fabric API it asks for;
+// -Picy: Icy's Better Horses in the smoke test and the mixin audit of the builds it ships for, with the loader and Fabric API it asks for;
 // the smoke test then drives one of its carts (gradle/smoke-test.gradle).
-def smokeIcy = project.hasProperty("smokeIcy") && project.hasProperty("icy_mods")
-def icyMods = smokeIcy ? project.icy_mods.split(',').collect { "maven.modrinth:${it.trim()}" } : []
+def withIcy = project.hasProperty("icy") && project.hasProperty("icy_mods")
+def icyMods = withIcy ? project.icy_mods.split(',').collect { "maven.modrinth:${it.trim()}" } : []
 // (Loom leaves out the plain libraries a mod carries in its jar, such as GeckoLib 4's maths: the game gets them unpacked.)
 def icyLibs = layout.buildDirectory.dir("smoke-icy-libs")
 def unpackIcyLibs = tasks.register("unpackIcyLibs", Sync) {
@@ -77,9 +77,9 @@ def unpackIcyLibs = tasks.register("unpackIcyLibs", Sync) {
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	loomx.applyMojangMappings()
-	modImplementation "net.fabricmc:fabric-loader:${smokeIcy ? project.icy_loader_version : project.loader_version}"
-	modImplementation "net.fabricmc.fabric-api:fabric-api:${smokeIcy && project.hasProperty('icy_fabric_api_version') ? project.icy_fabric_api_version : project.fabric_api_version}"
-	if (smokeIcy) {
+	modImplementation "net.fabricmc:fabric-loader:${withIcy ? project.icy_loader_version : project.loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${withIcy && project.hasProperty('icy_fabric_api_version') ? project.icy_fabric_api_version : project.fabric_api_version}"
+	if (withIcy) {
 		icyMods.each { modLocalRuntime it }
 		localRuntime fileTree(icyLibs) { include '*.jar'; builtBy unpackIcyLibs }
 	}
@@ -132,11 +132,14 @@ if (!mainVersion) {
 // ./gradlew :<version>:auditMixins (or plain auditMixins for every version): the built jar in a production game and on
 // a dedicated server of this Minecraft version, with Fabric API only; both load every class the mixins patch and quit
 // (MixinAudit), and the task fails unless both say so and nothing in the log names a mixin failure. One game at a time.
+// -Picy: with Icy's Better Horses too, as players have it (its classes under the names their loader runs the game with),
+// so the hooks into it are checked against the real thing.
 abstract class AuditGame implements org.gradle.api.services.BuildService<org.gradle.api.services.BuildServiceParameters.None> {}
 def auditGame = gradle.sharedServices.registerIfAbsent("auditGame", AuditGame) { maxParallelUsages = 1 }
 configurations.register("auditMods") { transitive = false }
 dependencies {
-	auditMods "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	auditMods "net.fabricmc.fabric-api:fabric-api:${withIcy && project.hasProperty('icy_fabric_api_version') ? project.icy_fabric_api_version : project.fabric_api_version}"
+	icyMods.each { auditMods it }
 }
 def auditJvmArgs = ["-Dhorsingaround.audit=true", "-Dmixin.debug.countInjections=true"]
 def auditTasks = ["Client": net.fabricmc.loom.task.prod.ClientProductionRunTask, "Server": net.fabricmc.loom.task.prod.ServerProductionRunTask]

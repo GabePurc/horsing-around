@@ -72,9 +72,9 @@ public abstract class BhHorseModelMixin {
 	 * head stay. And in the air its legs keep still: Icy's model paddles them in a panic all through a glide in its
 	 * Glidewing Harness, and flails them in a long fall; they hold the jump's shape instead, as on any horse this mod rides.
 	 */
-	@Inject(method = "setupAnim(Licy/betterhorses/net/client/render/BhHorseRenderState;)V", at = @At("HEAD"))
-	private void horsingaround$ourBank(@Coerce final Object state, final CallbackInfo ci) {
-		if (((RidePoseState) state).horsingaround$rideState() != null) {
+	@Unique
+	private static void horsingaround$ourBank(final Object state, final @Nullable RideState ride) {
+		if (ride != null) {
 			final BhHorseRenderStateAccess icy = (BhHorseRenderStateAccess) state;
 			icy.horsingaround$setBankWeight(0.0F);
 			icy.horsingaround$setJumpPitchScale(0.0F);
@@ -83,10 +83,9 @@ public abstract class BhHorseModelMixin {
 		}
 	}
 
-	// (At every return: drawing the same model again in a frame, Icy's restores the pose it saved and returns early.)
-	@Inject(method = "setupAnim(Licy/betterhorses/net/client/render/BhHorseRenderState;)V", at = @At("RETURN"))
-	private void horsingaround$ride(@Coerce final Object state, final CallbackInfo ci) {
-		final RideState ride = ((RidePoseState) state).horsingaround$rideState();
+	/** Once Icy's model is posed, for the horse this mod rides: {@code time} is its age in ticks. */
+	@Unique
+	private void horsingaround$ride(final Object state, final @Nullable RideState ride, final float time) {
 		if (ride == null) {
 			return;
 		}
@@ -103,13 +102,12 @@ public abstract class BhHorseModelMixin {
 		SaddleMotion.measure(ride, this.body, initial.x(), initial.y() - SADDLE_UP, initial.z());
 		ride.animatedWholeRear = false;
 		AnimatedHorseModel.fitLegs(this.frontLeftLeg, this.backLeftLeg, ride);
-		//? if >=1.21.2 {
 		final float partialTicks = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
 		AnimatedHorseModel.legs(
 			this.rootPart, 16.0F / this.rootPart.yScale, this.frontLeftLeg, this.frontRightLeg, this.backLeftLeg, this.backRightLeg, ride, partialTicks
 		);
 		AnimatedHorseModel.tail(this.tail, ride, partialTicks);
-		if (AnimatedHorseModel.neck(this.neck, ride, ((net.minecraft.client.renderer.entity.state.LivingEntityRenderState) state).ageInTicks, partialTicks)) {
+		if (AnimatedHorseModel.neck(this.neck, ride, time, partialTicks)) {
 			ride.animatedShakeFrames++;
 		}
 		if (!this.horsingaround$stirrupsLooked) {
@@ -118,6 +116,35 @@ public abstract class BhHorseModelMixin {
 			this.horsingaround$stirrupsLooked = true;
 		}
 		AnimatedHorseModel.stirrups(this.horsingaround$leftStirrup, this.horsingaround$rightStirrup, this.body);
-		//?}
 	}
+
+	//? if >=1.21.2 {
+	@Inject(method = "setupAnim(Licy/betterhorses/net/client/render/BhHorseRenderState;)V", at = @At("HEAD"))
+	private void horsingaround$beforePosing(@Coerce final Object state, final CallbackInfo ci) {
+		horsingaround$ourBank(state, ((RidePoseState) state).horsingaround$rideState());
+	}
+
+	// (At every return: drawing the same model again in a frame, Icy's restores the pose it saved and returns early.)
+	@Inject(method = "setupAnim(Licy/betterhorses/net/client/render/BhHorseRenderState;)V", at = @At("RETURN"))
+	private void horsingaround$posed(@Coerce final Object state, final CallbackInfo ci) {
+		horsingaround$ride(state, ((RidePoseState) state).horsingaround$rideState(), ((net.minecraft.client.renderer.entity.state.LivingEntityRenderState) state).ageInTicks);
+	}
+	//?} else {
+	/*// Before 1.21.2 Icy's model fills a state of its own from the horse, then poses from it here: this mod's is that of the
+	// horse being drawn (nothing else is posed while it is).
+	@Inject(method = "setupState", at = @At("HEAD"))
+	private void horsingaround$beforePosing(@Coerce final Object state, final CallbackInfo ci) {
+		horsingaround$ourBank(state, horsingaround$drawnRide());
+	}
+
+	@Inject(method = "setupState", at = @At("RETURN"))
+	private void horsingaround$posed(@Coerce final Object state, final CallbackInfo ci) {
+		horsingaround$ride(state, horsingaround$drawnRide(), ((BhHorseRenderStateAccess) state).horsingaround$ageInTicks());
+	}
+
+	@Unique
+	private static @Nullable RideState horsingaround$drawnRide() {
+		return dev.horsingaround.client.render.LegacyRenderState.state() instanceof RidePoseState pose ? pose.horsingaround$rideState() : null;
+	}
+	*///?}
 }
