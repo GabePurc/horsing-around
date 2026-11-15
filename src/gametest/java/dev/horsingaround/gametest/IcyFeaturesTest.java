@@ -153,9 +153,6 @@ public final class IcyFeaturesTest implements ClientGameTest {
 			if (all || only.contains("lean")) {
 				cartLean(ctx, world);
 			}
-			if (all || only.contains("riders")) {
-				cartRiders(ctx, input, world);
-			}
 			if (all || only.contains("reverse")) {
 				cartBackIntoWall(ctx, input, world);
 				cartReverse(ctx, input, world, "american_paint_horse");
@@ -171,6 +168,9 @@ public final class IcyFeaturesTest implements ClientGameTest {
 				medkit(ctx, input, world);
 				chargeToggle(ctx, input, world);
 				comforts(ctx, input, world);
+			}
+			if (all || only.contains("riders")) {
+				cartRiders(ctx, input, world);
 			}
 
 			section("Log");
