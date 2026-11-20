@@ -30,8 +30,11 @@ public final class IcyMixinPlugin implements IMixinConfigPlugin {
 			//? if >=1.21.2 {
 			this.mixins = List.of("BhHorseModelMixin", "BhHorseRenderStateAccess", "BhRiderMotionMixin", "HorseAutodriveControllerMixin", "HorseCartRendererMixin", "HorseGearControllerMixin");
 			//?} else {
-			/*// (Before 1.21.2 Icy's model poses from the horse itself, with no render state: its two hooks have nothing to fit.)
-			this.mixins = List.of("BhRiderMotionMixin", "HorseAutodriveControllerMixin", "HorseCartRendererMixin", "HorseGearControllerMixin");
+			/*// (Before 1.21.2 Icy's cart is drawn with GeckoLib 4: its bones are reached in GeckoLib's own renderer.)
+			this.mixins = List.of(
+				"BhHorseModelMixin", "BhHorseRenderStateAccess", "BhRiderMotionMixin", "GeoEntityRendererMixin", "HorseAutodriveControllerMixin", "HorseCartRendererMixin",
+				"HorseGearControllerMixin"
+			);
 			*///?}
 		}
 	}

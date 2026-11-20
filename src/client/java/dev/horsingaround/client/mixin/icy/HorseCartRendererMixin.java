@@ -27,15 +27,16 @@ public abstract class HorseCartRendererMixin {
 		IcyCartDrawing.lean(pass, poseStack);
 	}
 	//?} elif >=1.21 {
-	/*// (Before 1.21.2 the cart is drawn with GeckoLib 4, which hands the renderer the cart itself and has no bones to hold.)
-	@Inject(method = "applyRotations", at = @At("TAIL"), remap = false)
+	/*// (Before 1.21.2 the cart is drawn with GeckoLib 4, which hands the renderer the cart itself. Only the method taking a
+	// cart: the compiler's twin of it, taking any entity, calls it and would lean the cart again. Its bones: GeoEntityRendererMixin.)
+	@Inject(method = "name=/applyRotations/ desc=/\\(Licy.betterhorses/", at = @At("TAIL"), remap = false)
 	private void horsingaround$lean(
 		@Coerce final Entity cart, final PoseStack poseStack, final float ageInTicks, final float yaw, final float partialTick, final float scale, final CallbackInfo ci
 	) {
 		IcyCartDrawing.lean(cart, poseStack, partialTick);
 	}
 	*///?} else {
-	/*@Inject(method = "applyRotations", at = @At("TAIL"), remap = false)
+	/*@Inject(method = "name=/applyRotations/ desc=/\\(Licy.betterhorses/", at = @At("TAIL"), remap = false)
 	private void horsingaround$lean(
 		@Coerce final Entity cart, final PoseStack poseStack, final float ageInTicks, final float yaw, final float partialTick, final CallbackInfo ci
 	) {

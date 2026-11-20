@@ -90,7 +90,7 @@ most players run the plain model.
   the neck's numbers logged, for anything that should stay attached.
 - NeoForge and Forge: `:<version>-neoforge:runSmoke` or `-forge:`, results under the node's name. Forge 1.20.1's horse is one of
   Realistic Horse Genetics' (`-PnoGenetics` for vanilla's).
-- `-PsmokeIcy` (Fabric 1.20.1, 1.21.1, 1.21.11): instead, Icy's cart over a trench and through a turn (`icy-*.png`).
+- `-Picy` (Fabric 1.20.1, 1.21.1, 1.21.11): rides Icy's cart instead (`icy-*.png`). On `auditMixins`: with Icy's jar.
 - `-PepicFight` (Forge 1.20.1, NeoForge 1.21.1): with Epic Fight, which draws the rider in a swing; `=vanilla` its other mode,
   `=attack` swings at a gallop.
 

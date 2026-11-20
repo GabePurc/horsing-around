@@ -87,7 +87,7 @@ public final class SmokeTest {
 	private static final String WILD = System.getProperty("horsingaround.smoke.wild");
 	private static final int WILD_TICKS = 2400;
 	/**
-	 * -PsmokeIcy (the Fabric builds Icy's Better Horses ships for, below 26.3, where the compat runs have it): instead of
+	 * -Picy (the Fabric builds Icy's Better Horses ships for, below 26.3, where the compat runs have it): instead of
 	 * the usual ride, one of Icy's carts behind the horse, its rider as drawn looking back, at a gallop
 	 * and in a turn (screenshots/icy-*.png).
 	 */
@@ -151,6 +151,8 @@ public final class SmokeTest {
 	private double jumpHeight;
 	private float cartLean;
 	private float cartAngle;
+	private float cartBounce;
+	private boolean icyModelRidden;
 	private int airTicks;
 	private int stillTicks;
 	private int roughStage;
@@ -456,8 +458,8 @@ public final class SmokeTest {
 			case FINISH -> {
 				if (ICY) {
 					LOGGER.info(
-						"Horsing Around smoke test passed: Icy's cart, leaning {} degrees over a trench (0 where its hooks do not fit) and angled {} off the horse in a turn",
-						fmt(this.cartLean), fmt(this.cartAngle)
+						"Horsing Around smoke test passed: Icy's cart, leaning {} degrees over a trench (0 where its hooks do not fit) and angled {} off the horse in a turn, its bed bouncing {} blocks",
+						fmt(this.cartLean), fmt(this.cartAngle), fmt(this.cartBounce)
 					);
 					this.exitIn = 40;
 					return;
@@ -630,7 +632,7 @@ public final class SmokeTest {
 	}
 
 	/**
-	 * -PsmokeIcy: Icy's cart behind the horse. Standing, the rider looks ahead, then back over a shoulder (the body stays
+	 * -Picy: Icy's cart behind the horse. Standing, the rider looks ahead, then back over a shoulder (the body stays
 	 * square on the bench). Where this mod's cart hooks fit, a trench is dug under one wheel and the cart leans over, its
 	 * rider with it, seen from behind. Then a gallop and a hard turn, from the side and from behind. (The rider's own
 	 * camera throughout: the game draws the player for no other.)
@@ -684,7 +686,25 @@ public final class SmokeTest {
 			if (cart != null && this.cartAngle < 5.0F) {
 				throw new IllegalStateException("The cart never angled off the horse in a hard turn: " + fmt(this.cartAngle) + " degrees");
 			}
+			if (cart != null && this.cartBounce > 0.001F) {
+				throw new IllegalStateException("The cart's bed bounces as it rolls: " + fmt(this.cartBounce) + " blocks");
+			}
+			if (!this.icyModelRidden) {
+				throw new IllegalStateException("The saddle's motion was never measured on Icy's model: its hooks didn't run");
+			}
 			this.next(Phase.FINISH);
+		}
+		// Rolling: how far Icy's wheel animation lifts the bed (none, behind a horse this mod rides), and whether the rider
+		// rides the motion of Icy's own model, measured as it is posed.
+		if (t >= 150 && t < 280 && cart != null) {
+			try {
+				this.cartBounce = Math.max(this.cartBounce, Math.abs((float) cart.getClass().getMethod("bedBounce").invoke(cart)));
+			} catch (final ReflectiveOperationException e) {
+				throw new IllegalStateException("Icy's cart has changed", e);
+			}
+		}
+		if (t == 200) {
+			this.icyModelRidden = System.nanoTime() - ((RideStateHolder) this.horse).horsingaround$ride().animatedAt < 1_000_000_000L;
 		}
 	}
 

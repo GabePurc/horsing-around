@@ -33,6 +33,8 @@ final class Scene {
 
 	/** The y the horses stand at on the flat ground. */
 	static volatile int groundY;
+	/** -Picy: the horse is one of Icy's breeds, drawn with Icy's own model. */
+	private static final boolean ICY_BREED = Boolean.getBoolean("horsingaround.smoke.icy");
 
 	private Scene() {
 	}
@@ -58,7 +60,7 @@ final class Scene {
 			mob.setLeashedTo(LeashFenceKnotEntity.getOrCreateKnot(level, post), true);
 		}
 
-		final AbstractHorse horse = summon(server, level, AbstractHorse.class, "horse", START_X, ground, START_Z, "Variant:3,");
+		final AbstractHorse horse = summon(server, level, AbstractHorse.class, ICY_BREED ? "icys-better-horses:american_paint_horse" : "horse", START_X, ground, START_Z, "Variant:3,");
 		horse.setTamed(true);
 		Compat.saddle(horse);
 		command(server, "tp @p " + number(START_X) + " " + ground + " " + number(START_Z - 2.0) + " 0 0");
@@ -177,7 +179,7 @@ final class Scene {
 	}
 
 	/**
-	 * -PsmokeIcy: one of Icy's Better Horses' carts in the ridden horse's gear, as its horse screen puts one there (by
+	 * -Picy: one of Icy's Better Horses' carts in the ridden horse's gear, as its horse screen puts one there (by
 	 * name: Icy's mod isn't compiled against).
 	 */
 	static void hitchCart(final MinecraftServer server) {
@@ -211,7 +213,7 @@ final class Scene {
 	private static <T extends Entity> T summon(
 		final MinecraftServer server, final ServerLevel level, final Class<T> type, final String id, final double x, final double y, final double z, final String nbt
 	) {
-		command(server, "summon minecraft:" + id + " " + number(x) + " " + y + " " + number(z) + " {" + nbt + "Rotation:[0.0f,0.0f]}");
+		command(server, "summon " + (id.indexOf(':') < 0 ? "minecraft:" : "") + id + " " + number(x) + " " + y + " " + number(z) + " {" + nbt + "Rotation:[0.0f,0.0f]}");
 		final List<T> found = level.getEntitiesOfClass(type, new AABB(x - 0.5, y - 0.5, z - 0.5, x + 0.5, y + 2.0, z + 0.5));
 		if (found.size() != 1) {
 			throw new IllegalStateException("Expected one " + id + " at " + x + " " + y + " " + z + ", found " + found.size());

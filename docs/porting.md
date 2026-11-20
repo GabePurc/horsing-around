@@ -104,9 +104,9 @@ Build and pass the audit, on Fabric and (the named version alone) on Forge: 26.3
 
 - 1.21.10 and older: no spears, so no stab pose. No F3+B steering overlay (gizmos: 1.21.11).
 - 1.21.1 and older: a horse's leg box is found by its size alone (box faces are private there).
-- 1.21.1, 1.20.1, Icy's: cart bounces, wheels and shafts unposed (GeckoLib 4); model unhooked.
 
 Different underneath, not gaps (each handled where named):
+- Hooks on Icy's overrides of game methods name them as each loader's jar does (`-Picy` audit).
 - Before 1.21.11 vanilla horses sink in deep water, so the ride floats all but the skeleton horse (`Mounts.floats`).
 - Before 1.21.5 vanilla slows a ridden horse 2% a tick on its rider's client (`LivingEntityMixin`) and rears it at random
   (`RandomStandGoalMixin`): the ride stops both.

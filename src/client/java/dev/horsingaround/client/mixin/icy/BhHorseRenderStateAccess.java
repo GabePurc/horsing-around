@@ -25,4 +25,10 @@ public interface BhHorseRenderStateAccess {
 
 	@Accessor(value = "jumpLegWeight", remap = false)
 	float horsingaround$jumpLegWeight();
+
+	//? if <1.21.2 {
+	/*// (Before 1.21.2 it is a class of Icy's own, not one of the game's render states: the horse's age is read off it.)
+	@Accessor(value = "ageInTicks", remap = false)
+	float horsingaround$ageInTicks();
+	*///?}
 }

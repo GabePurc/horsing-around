@@ -38,11 +38,24 @@ public final class IcyCartDrawing {
 	private static final Quaternionf LEAN = new Quaternionf();
 
 	private static final MethodHandles.Lookup LOOKUP = MethodHandles.publicLookup();
+	//? if >=1.21.2 {
+	// GeckoLib 5: a frame's bones are snapshots, handed to Icy's renderer before they are drawn.
 	private static final @Nullable Class<?> BONE = find(() -> gecko("animation.state.BoneSnapshot"));
-	/** (Object snapshots, String) Optional: a bone by name. */
+	/** (Object bones, String) Optional: a bone by name. */
 	private static final @Nullable MethodHandle GET = find(() -> LOOKUP.findVirtual(gecko("renderer.base.BoneSnapshots"), "get", MethodType.methodType(Optional.class, String.class))
 		.asType(MethodType.methodType(Optional.class, Object.class, String.class)));
 	private static final @Nullable MethodHandle SET_Y = setter("setTranslateY");
+	//?} else {
+	/*// GeckoLib 4, before 1.21.2: the model's own bones, found on the renderer's model, which move and turn the same way.
+	private static final @Nullable Class<?> BONE = find(() -> Class.forName("software.bernie.geckolib.cache.object.GeoBone"));
+	private static final @Nullable MethodHandle GET = find(() -> LOOKUP.findVirtual(Class.forName("software.bernie.geckolib.model.GeoModel"), "getBone", MethodType.methodType(Optional.class, String.class))
+		.asType(MethodType.methodType(Optional.class, Object.class, String.class)));
+	private static final @Nullable MethodHandle SET_Y = setter("setPosY");
+	// (Object renderer) Object: the model it draws.
+	private static final @Nullable MethodHandle MODEL = find(() -> LOOKUP.findVirtual(
+		Class.forName("software.bernie.geckolib.renderer.GeoEntityRenderer"), "getGeoModel", MethodType.methodType(Class.forName("software.bernie.geckolib.model.GeoModel"))
+	).asType(MethodType.methodType(Object.class, Object.class)));
+	*///?}
 	private static final @Nullable MethodHandle SET_ROT_X = setter("setRotX");
 	private static final @Nullable MethodHandle SET_ROT_Y = setter("setRotY");
 	private static final @Nullable MethodHandle SET_SCALE_Z = setter("setScaleZ");
@@ -58,9 +71,26 @@ public final class IcyCartDrawing {
 	private IcyCartDrawing() {
 	}
 
+	//? if >=1.21.2 {
 	/** Before the bones are drawn: the cart's only move is its wheels turning. */
 	public static void bones(final int id, final Object snapshots) {
-		final CartTrail.Lean cart = cart(id);
+		posed(snapshots, cart(id));
+	}
+	//?} else {
+	/*// The same before 1.21.2, once GeckoLib 4 has animated the model its renderer draws (GeoEntityRendererMixin).
+	public static void bones(final CartTrail.Lean cart, final Object renderer) {
+		if (MODEL != null) {
+			try {
+				posed((Object) MODEL.invokeExact(renderer), cart);
+			} catch (final Throwable e) {
+				// (GeckoLib changed: the cart bounces as Icy's mod has it.)
+			}
+		}
+	}
+	*///?}
+
+	/** {@code snapshots}: what a bone is looked up in by name, GeckoLib 5's snapshots or GeckoLib 4's model. */
+	private static void posed(final Object snapshots, final CartTrail.@Nullable Lean cart) {
 		if (cart == null || GET == null || SET_Y == null || SET_ROT_X == null || SET_ROT_Y == null || SET_SCALE_Z == null) {
 			return;
 		}
@@ -146,7 +176,7 @@ public final class IcyCartDrawing {
 	}
 
 	//? if <1.21.2 {
-	/*// The same before 1.21.2, where GeckoLib 4 hands over the cart itself. Its bones aren't reached: the bed and wheels move as Icy's mod has them.
+	/*// The same before 1.21.2, where GeckoLib 4 hands over the cart itself.
 	public static void lean(final net.minecraft.world.entity.Entity cart, final PoseStack poseStack, final float partialTick) {
 		lean(cart instanceof CartTrail.Lean rolling && rolling.horsingaround$rolling() ? rolling : null, poseStack, partialTick);
 	}
@@ -166,8 +196,8 @@ public final class IcyCartDrawing {
 
 	private static @Nullable MethodHandle setter(final String name) {
 		return find(() -> {
-			final MethodHandle set = LOOKUP.findVirtual(BONE, name, MethodType.methodType(BONE, float.class));
-			return MethodHandles.dropReturn(set).asType(MethodType.methodType(void.class, Object.class, float.class));
+			// (GeckoLib 5's give the snapshot back; GeckoLib 4's give nothing.)
+			return MethodHandles.dropReturn(LOOKUP.unreflect(BONE.getMethod(name, float.class))).asType(MethodType.methodType(void.class, Object.class, float.class));
 		});
 	}
 
