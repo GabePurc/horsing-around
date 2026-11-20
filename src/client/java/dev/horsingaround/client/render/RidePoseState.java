@@ -33,6 +33,13 @@ public interface RidePoseState {
 
 	boolean horsingaround$isRider();
 
+	//? if <1.21.2 {
+	/*// Before 1.21.2 the body's and head's turn reach the renderer as arguments: these say a cart's rider has this mod's too.
+	void horsingaround$setOnCart();
+
+	boolean horsingaround$onCart();
+	*///?}
+
 	//? if <1.21.11 {
 	/*// Before 1.21.11 the humanoid render state has neither the held stacks nor the draw time in part-ticks.
 	void horsingaround$setHeld(ItemStack right, ItemStack left, float usingTicks);

@@ -87,6 +87,13 @@ public final class SmokeTest {
 	private static final String WILD = System.getProperty("horsingaround.smoke.wild");
 	private static final int WILD_TICKS = 2400;
 	/**
+	 * -PsmokeIcy (the Fabric builds Icy's Better Horses ships for, below 26.3, where the compat runs have it): instead of
+	 * the usual ride, one of Icy's carts behind the horse, its rider as drawn looking back, at a gallop
+	 * and in a turn (screenshots/icy-*.png).
+	 */
+	private static final boolean ICY = Boolean.getBoolean("horsingaround.smoke.icy");
+	private static final String[] ICY_SHOTS = {"icy-01-cart.png", "icy-02-looking-back.png", "icy-03-lean.png", "icy-04-turn-side.png", "icy-05-turn-back.png"};
+	/**
 	 * -PsmokeCloseUp (=degrees: how far the view turns, 90 from the side by default, 150 nearly from the front): the same
 	 * run on a large window at a narrow view, with a shot every tick of the moments the head and bridle work hardest
 	 * (screenshots/closeup-*.png; the head is off centre, crop to it) and the neck's numbers in the log.
@@ -108,7 +115,7 @@ public final class SmokeTest {
 	private static final int TAP_TICKS = 3;
 
 	private enum Phase {
-		TITLE, LOADING, BUILD, SETTLE, STAND, WALK, GALLOP, JUMP, STOP, REAR, RIDER, ROUGH, WILD, DISMOUNT, FENCE, LEAD, SETTINGS, FINISH
+		TITLE, LOADING, BUILD, SETTLE, STAND, WALK, GALLOP, JUMP, STOP, REAR, RIDER, ROUGH, WILD, ICY, DISMOUNT, FENCE, LEAD, SETTINGS, FINISH
 	}
 
 	private static final String[] SHOTS = {
@@ -142,6 +149,8 @@ public final class SmokeTest {
 	private double walkSpeed;
 	private double gallopSpeed;
 	private double jumpHeight;
+	private float cartLean;
+	private float cartAngle;
 	private int airTicks;
 	private int stillTicks;
 	private int roughStage;
@@ -295,9 +304,10 @@ public final class SmokeTest {
 						}
 						LOGGER.info("smoke: Epic Fight: {}", EpicFight.state(minecraft.player));
 					}
-					this.next(WILD == null ? Phase.STAND : Phase.WILD);
+					this.next(ICY ? Phase.ICY : WILD == null ? Phase.STAND : Phase.WILD);
 				}
 			}
+			case ICY -> this.icyCart(minecraft, t);
 			case STAND -> {
 				if (t == 0) {
 					this.camera(minecraft, minecraft.player, CameraType.THIRD_PERSON_BACK, SIDE_FOV_STILL, false);
@@ -444,6 +454,14 @@ public final class SmokeTest {
 				}
 			}
 			case FINISH -> {
+				if (ICY) {
+					LOGGER.info(
+						"Horsing Around smoke test passed: Icy's cart, leaning {} degrees over a trench (0 where its hooks do not fit) and angled {} off the horse in a turn",
+						fmt(this.cartLean), fmt(this.cartAngle)
+					);
+					this.exitIn = 40;
+					return;
+				}
 				if (WILD != null) {
 					LOGGER.info("Horsing Around smoke test passed: a wild ride of {} ticks", WILD_TICKS);
 					this.exitIn = 10;
@@ -607,6 +625,65 @@ public final class SmokeTest {
 		if (t >= WILD_TICKS) {
 			minecraft.options.keyUp.setDown(false);
 			this.report("wild", t);
+			this.next(Phase.FINISH);
+		}
+	}
+
+	/**
+	 * -PsmokeIcy: Icy's cart behind the horse. Standing, the rider looks ahead, then back over a shoulder (the body stays
+	 * square on the bench). Where this mod's cart hooks fit, a trench is dug under one wheel and the cart leans over, its
+	 * rider with it, seen from behind. Then a gallop and a hard turn, from the side and from behind. (The rider's own
+	 * camera throughout: the game draws the player for no other.)
+	 */
+	private void icyCart(final Minecraft minecraft, final int t) {
+		final dev.horsingaround.ride.CartTrail.Lean cart = dev.horsingaround.ride.IcyCompat.cartLean(this.horse);
+		final float cartYaw = dev.horsingaround.ride.IcyCompat.riddenCartYaw(this.horse, 1.0F);
+		if (t == 0) {
+			this.job(Scene::hitchCart);
+			this.camera(minecraft, minecraft.player, CameraType.THIRD_PERSON_BACK, SIDE_FOV_STILL, false);
+			this.sideView = true;
+		} else if (t == 40) {
+			if (!this.jobFinished() || Float.isNaN(cartYaw)) {
+				throw new IllegalStateException("No cart of Icy's is hitched behind the horse");
+			}
+			LOGGER.info("smoke: Icy's cart is hitched; this mod's cart hooks {}", cart == null ? "don't fit here: the cart moves as Icy's mod has it" : "fit");
+			this.shoot(minecraft, ICY_SHOTS[0]);
+			minecraft.player.setYRot(150.0F);
+		} else if (t == 70) {
+			this.shoot(minecraft, ICY_SHOTS[1]);
+			minecraft.player.setYRot(0.0F);
+			if (cart != null) {
+				this.job(Scene::trench);
+				this.sideView = false;
+			}
+		} else if (t == 110 && cart != null) {
+			this.cartLean = Math.abs(cart.horsingaround$roll(1.0F));
+			if (!this.jobFinished() || this.cartLean < 5.0F) {
+				throw new IllegalStateException("The cart doesn't lean over a trench under one wheel: " + fmt(this.cartLean) + " degrees");
+			}
+			this.shoot(minecraft, ICY_SHOTS[2]);
+			this.job(Scene::fillTrench);
+		} else if (t == 120) {
+			minecraft.options.fov().set(SIDE_FOV_WALK);
+			this.sideView = true;
+			minecraft.options.keyUp.setDown(true);
+		} else if (t == 124 || t == 128 || t == 132) {
+			this.tap(minecraft.options.keySprint, 1);
+		} else if (t >= 230 && t < 260) {
+			minecraft.player.setYRot(minecraft.player.getYRot() + 4.5F);
+			this.cartAngle = Math.max(this.cartAngle, Math.abs(Mth.wrapDegrees(cartYaw - ((net.minecraft.world.entity.LivingEntity) this.horse).yBodyRot)));
+			if (t == 246) {
+				this.shoot(minecraft, ICY_SHOTS[3]);
+				this.sideView = false;
+			} else if (t == 252) {
+				this.shoot(minecraft, ICY_SHOTS[4]);
+			}
+		} else if (t == 280) {
+			minecraft.options.keyUp.setDown(false);
+		} else if (t >= 320) {
+			if (cart != null && this.cartAngle < 5.0F) {
+				throw new IllegalStateException("The cart never angled off the horse in a hard turn: " + fmt(this.cartAngle) + " degrees");
+			}
 			this.next(Phase.FINISH);
 		}
 	}

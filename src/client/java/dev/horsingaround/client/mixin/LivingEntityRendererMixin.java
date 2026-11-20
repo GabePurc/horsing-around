@@ -37,7 +37,7 @@ public abstract class LivingEntityRendererMixin {
 	}
 	//?} else {
 	/*// Before 1.21.2 there are no render states: the renderer draws the entity itself, so a stand-in state is filled from
-	// it as drawing starts (only for a ridden horse and its rider, the rest are left alone), and the model and layer
+	// it as drawing starts (only for a ridden horse, its rider and a cart's riders, the rest are left alone), and the model and layer
 	// hooks find it in LegacyRenderState while this entity is drawn.
 	@Unique
 	private LivingEntityRenderState horsingaround$state;
@@ -47,7 +47,7 @@ public abstract class LivingEntityRendererMixin {
 		final LivingEntity entity, final float yaw, final float partialTicks, final PoseStack poseStack, final MultiBufferSource buffers, final int lightCoords,
 		final CallbackInfo ci
 	) {
-		if (RidePoser.holder(entity) == null) {
+		if (RidePoser.holder(entity) == null && !RidePoser.onCart(entity)) {
 			LegacyRenderState.clear();
 			return;
 		}
@@ -77,7 +77,7 @@ public abstract class LivingEntityRendererMixin {
 		index = 3
 	)
 	private float horsingaround$bodyRot(final float bodyRot) {
-		final LivingEntityRenderState rider = LegacyRenderState.riderState();
+		final LivingEntityRenderState rider = LegacyRenderState.turnedState();
 		return rider != null ? rider.bodyRot : bodyRot;
 	}
 
@@ -87,7 +87,7 @@ public abstract class LivingEntityRendererMixin {
 		index = 4
 	)
 	private float horsingaround$headYaw(final float headYaw) {
-		final LivingEntityRenderState rider = LegacyRenderState.riderState();
+		final LivingEntityRenderState rider = LegacyRenderState.turnedState();
 		return rider != null ? rider.yRot : headYaw;
 	}
 
@@ -97,7 +97,7 @@ public abstract class LivingEntityRendererMixin {
 		index = 8
 	)
 	private float horsingaround$layersHeadYaw(final float headYaw) {
-		final LivingEntityRenderState rider = LegacyRenderState.riderState();
+		final LivingEntityRenderState rider = LegacyRenderState.turnedState();
 		return rider != null ? rider.yRot : headYaw;
 	}
 	*///?}

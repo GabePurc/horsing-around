@@ -57,11 +57,32 @@ if (sc.current.parsed.matches('<26')) {
 	loom.mixin.useLegacyMixinAp = true
 }
 
+// -PsmokeIcy: Icy's Better Horses in the dev games of the builds it ships for, with the loader and Fabric API it asks for;
+// the smoke test then drives one of its carts (gradle/smoke-test.gradle).
+def smokeIcy = project.hasProperty("smokeIcy") && project.hasProperty("icy_mods")
+def icyMods = smokeIcy ? project.icy_mods.split(',').collect { "maven.modrinth:${it.trim()}" } : []
+// (Loom leaves out the plain libraries a mod carries in its jar, such as GeckoLib 4's maths: the game gets them unpacked.)
+def icyLibs = layout.buildDirectory.dir("smoke-icy-libs")
+def unpackIcyLibs = tasks.register("unpackIcyLibs", Sync) {
+	def carried = configurations.detachedConfiguration(*icyMods.collect { dependencies.create(it) })
+	carried.transitive = false
+	from({ carried.collect { zipTree(it) } }) {
+		include 'META-INF/jars/*.jar'
+		eachFile { path = name }
+	}
+	includeEmptyDirs = false
+	into icyLibs
+}
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	loomx.applyMojangMappings()
-	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	modImplementation "net.fabricmc:fabric-loader:${smokeIcy ? project.icy_loader_version : project.loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${smokeIcy && project.hasProperty('icy_fabric_api_version') ? project.icy_fabric_api_version : project.fabric_api_version}"
+	if (smokeIcy) {
+		icyMods.each { modLocalRuntime it }
+		localRuntime fileTree(icyLibs) { include '*.jar'; builtBy unpackIcyLibs }
+	}
 	// The mixins use MixinExtras 0.4 (@WrapMethod), which Fabric Loader bundles from 0.16 on: for an older loader the
 	// jar carries its own copy (the loader then runs the newest copy any mod brings).
 	// (Decided by the oldest loader the jar claims to run on, see loader_minimum in gradle.properties.)

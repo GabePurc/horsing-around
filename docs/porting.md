@@ -1,13 +1,13 @@
 # Building for several Minecraft versions
 
 One jar per group of versions, 1.20.1 to 26.3, all from the one `src/` with [Stonecutter](https://stonecutter.kikugie.dev/). 26.3 is the
-main version: `src/` reads as 26.3 code, and the compat runs exist only there.
+main version: `src/` reads as 26.3 code, and only it has compat runs.
 
 ## Layout
 
 - `settings.gradle` lists the versions; each is a project `:<version>` with its numbers in `versions/<version>/gradle.properties`.
 - `build.gradle` runs per version. `loom-back-compat` picks Fabric Loom: plain for 26.x (unobfuscated), remapping with Mojang names before,
-  so dependencies use `modImplementation` and friends. Before 26 the mixin annotation processor makes refmaps (`loom.mixin.useLegacyMixinAp`)
+  so dependencies use `modImplementation` etc. Before 26 the mixin annotation processor makes refmaps (`loom.mixin.useLegacyMixinAp`)
   and `build.gradle` names them in the mixin configs, because Loom's own step adds nothing on a clean configuration-cached build, which is
   every GitHub build. `checkRefmaps` fails a jar without them. Without one the game crashes with intermediary names in "could not find any targets".
 - Java: 25 for 26.x, 21 from 1.20.5, 17 before. `src/` must compile at Java 17 (no `switch` patterns, `_`, `getFirst()`/`getLast()`, `Math.clamp`).
@@ -17,9 +17,9 @@ main version: `src/` reads as 26.3 code, and the compat runs exist only there.
 - Forge: `<version>-forge` projects, one Minecraft version each. `forge/` packages or `//? if fabric {} elif neoforge {} else {}`;
   `mods.toml`; the manifest lists the mixin configs. Forge's API changes in `forge/`: payload types from 1.20.5, a bus per event from
   1.21.6, client registration events off the mod bus from 1.21.9, static `ModList` from 26.1. No Forge dev game can load EMF (its
-  Forge jar patches a lambda by its production name): they all draw the plain model.
+  Forge jar patches a lambda by production name): all draw the plain model.
   - 1.20.1 (Realistic Horse Genetics' version; dev games load it, `-PnoGenetics` not): `build.neoforge.gradle`, ModDevGradle's legacy
-    add-on. No client tests yet.
+    add-on.
   - 1.20.2 on: `build.forge.gradle`, ForgeGradle 7. Games load the release jar; run tasks are per source set. Before 1.21.9 the jar carries MixinExtras (`jarJar`). Its Mixin refuses
     `JAVA_25`; without `pack.mcmeta` no assets or tags load. Forge 50.1 (1.20.6) can't start in these games.
   - Before 1.20.5 Forge runs on SRG names: the annotation processor writes refmaps (a name it can't map fails the compile), the
@@ -102,8 +102,9 @@ Build and pass the audit, on Fabric and (the named version alone) on Forge: 26.3
 
 ## Gaps on older versions
 
-- 1.21.10 and older: no spears, so no spear stab pose. No F3+B steering overlay (gizmos came in 1.21.11).
+- 1.21.10 and older: no spears, so no stab pose. No F3+B steering overlay (gizmos: 1.21.11).
 - 1.21.1 and older: a horse's leg box is found by its size alone (box faces are private there).
+- 1.21.1, 1.20.1, Icy's: cart bounces, wheels and shafts unposed (GeckoLib 4); model unhooked.
 
 Different underneath, not gaps (each handled where named):
 - Before 1.21.11 vanilla horses sink in deep water, so the ride floats all but the skeleton horse (`Mounts.floats`).

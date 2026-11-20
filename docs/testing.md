@@ -90,6 +90,7 @@ most players run the plain model.
   the neck's numbers logged, for anything that should stay attached.
 - NeoForge and Forge: `:<version>-neoforge:runSmoke` or `-forge:`, results under the node's name. Forge 1.20.1's horse is one of
   Realistic Horse Genetics' (`-PnoGenetics` for vanilla's).
+- `-PsmokeIcy` (Fabric 1.20.1, 1.21.1, 1.21.11): instead, Icy's cart over a trench and through a turn (`icy-*.png`).
 - `-PepicFight` (Forge 1.20.1, NeoForge 1.21.1): with Epic Fight, which draws the rider in a swing; `=vanilla` its other mode,
   `=attack` swings at a gallop.
 
@@ -103,7 +104,7 @@ with worlds kept in `build/run/play/<pack>/`. Icy's boots straight onto a tamed 
 
 The `icys` pack rides an American Paint (`-Dhorsingaround.horse`, `TestHorse`) through the horse tests, which must pass as on a vanilla horse;
 `MountsTest` also checks a Friesian under both riding styles and the breeds' traits. `IcyFeaturesTest` (`-PcompatTests=icy`) rides Icy's gear on
-this mod's riding; while working on carts, `-PcompatSections=` runs only some of it (`room,cart,stranded,hill,steep,jitter,fast,tight,drop,rough,ledge,jump,lean,reverse`).
+this mod's riding; while working on carts, `-PcompatSections=` runs only some of it (names in `runTest`).
 
 The `realcamera` pack rides first person over steps in each of Real Camera's modes (`RealCameraTest`).
 

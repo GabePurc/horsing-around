@@ -86,7 +86,24 @@ public class LivingEntityRenderStateMixin implements RidePoseState {
 	public void horsingaround$clearPose() {
 		this.horsingaround$posed = false;
 		this.horsingaround$rider = false;
+		//? if <1.21.2
+		/*this.horsingaround$onCart = false;*/
 	}
+
+	//? if <1.21.2 {
+	/*@Unique
+	private boolean horsingaround$onCart;
+
+	@Override
+	public void horsingaround$setOnCart() {
+		this.horsingaround$onCart = true;
+	}
+
+	@Override
+	public boolean horsingaround$onCart() {
+		return this.horsingaround$onCart;
+	}
+	*///?}
 
 	@Override
 	public void horsingaround$setRider(

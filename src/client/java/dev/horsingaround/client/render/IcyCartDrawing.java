@@ -38,9 +38,9 @@ public final class IcyCartDrawing {
 	private static final Quaternionf LEAN = new Quaternionf();
 
 	private static final MethodHandles.Lookup LOOKUP = MethodHandles.publicLookup();
-	private static final @Nullable Class<?> BONE = find(() -> Class.forName("com.geckolib.animation.state.BoneSnapshot"));
+	private static final @Nullable Class<?> BONE = find(() -> gecko("animation.state.BoneSnapshot"));
 	/** (Object snapshots, String) Optional: a bone by name. */
-	private static final @Nullable MethodHandle GET = find(() -> LOOKUP.findVirtual(Class.forName("com.geckolib.renderer.base.BoneSnapshots"), "get", MethodType.methodType(Optional.class, String.class))
+	private static final @Nullable MethodHandle GET = find(() -> LOOKUP.findVirtual(gecko("renderer.base.BoneSnapshots"), "get", MethodType.methodType(Optional.class, String.class))
 		.asType(MethodType.methodType(Optional.class, Object.class, String.class)));
 	private static final @Nullable MethodHandle SET_Y = setter("setTranslateY");
 	private static final @Nullable MethodHandle SET_ROT_X = setter("setRotX");
@@ -50,8 +50,8 @@ public final class IcyCartDrawing {
 	private static final @Nullable MethodHandle PASS_CART = find(() -> {
 		final Field id = Class.forName("icy.betterhorses.net.client.render.HorseCartRenderer").getDeclaredField("CART_ID");
 		id.setAccessible(true);
-		final Class<?> ticket = Class.forName("com.geckolib.constant.dataticket.DataTicket");
-		final MethodHandle data = LOOKUP.findVirtual(Class.forName("com.geckolib.renderer.base.RenderPassInfo"), "getOrDefaultGeckolibData", MethodType.methodType(Object.class, ticket, Object.class));
+		final Class<?> ticket = gecko("constant.dataticket.DataTicket");
+		final MethodHandle data = LOOKUP.findVirtual(gecko("renderer.base.RenderPassInfo"), "getOrDefaultGeckolibData", MethodType.methodType(Object.class, ticket, Object.class));
 		return MethodHandles.insertArguments(data, 1, id.get(null), -1).asType(MethodType.methodType(Object.class, Object.class));
 	});
 
@@ -139,15 +139,23 @@ public final class IcyCartDrawing {
 			return;
 		}
 		try {
-			final CartTrail.Lean cart = cart((Integer) (Object) PASS_CART.invokeExact(pass));
-			if (cart != null) {
-				final float roll = cart.horsingaround$roll(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true));
-				if (roll != 0.0F) {
-					poseStack.rotateAround(LEAN.rotationZ(-roll * Mth.DEG_TO_RAD), 0.0F, 0.0F, 0.0F);
-				}
-			}
+			lean(cart((Integer) (Object) PASS_CART.invokeExact(pass)), poseStack, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true));
 		} catch (final Throwable e) {
 			// (GeckoLib or Icy's mod changed: it doesn't lean.)
+		}
+	}
+
+	//? if <1.21.2 {
+	/*// The same before 1.21.2, where GeckoLib 4 hands over the cart itself. Its bones aren't reached: the bed and wheels move as Icy's mod has them.
+	public static void lean(final net.minecraft.world.entity.Entity cart, final PoseStack poseStack, final float partialTick) {
+		lean(cart instanceof CartTrail.Lean rolling && rolling.horsingaround$rolling() ? rolling : null, poseStack, partialTick);
+	}
+	*///?}
+
+	private static void lean(final CartTrail.@Nullable Lean cart, final PoseStack poseStack, final float partialTick) {
+		final float roll = cart == null ? 0.0F : cart.horsingaround$roll(partialTick);
+		if (roll != 0.0F) {
+			poseStack.rotateAround(LEAN.rotationZ(-roll * Mth.DEG_TO_RAD), 0.0F, 0.0F, 0.0F);
 		}
 	}
 
@@ -161,6 +169,15 @@ public final class IcyCartDrawing {
 			final MethodHandle set = LOOKUP.findVirtual(BONE, name, MethodType.methodType(BONE, float.class));
 			return MethodHandles.dropReturn(set).asType(MethodType.methodType(void.class, Object.class, float.class));
 		});
+	}
+
+	/** One of GeckoLib 5's classes: in a package of its own from 26.1, in its author's before (1.21.11). */
+	private static Class<?> gecko(final String name) throws ClassNotFoundException {
+		try {
+			return Class.forName("com.geckolib." + name);
+		} catch (final ClassNotFoundException e) {
+			return Class.forName("software.bernie.geckolib." + name);
+		}
 	}
 
 	/** A lookup into Icy's mod or GeckoLib, which may throw if they changed. */
