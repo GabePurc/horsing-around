@@ -1,6 +1,7 @@
 package dev.horsingaround.client;
 
 import dev.horsingaround.RiderBridge;
+import dev.horsingaround.client.compat.CameraMods;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
@@ -77,6 +78,11 @@ final class RiderKeys implements RiderBridge {
 		}
 	}
 	*///?}
+
+	@Override
+	public float lookYaw(final Player rider) {
+		return CameraMods.lookYaw(this.minecraft, rider);
+	}
 
 	@Override
 	public int forwardPresses() {

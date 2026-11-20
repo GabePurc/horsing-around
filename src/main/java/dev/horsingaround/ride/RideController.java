@@ -45,13 +45,14 @@ public final class RideController {
 
 	/**
 	 * @param in      keys currently held
+	 * @param look    where the rider looks, degrees (the horse heads there)
 	 * @param urges   forward presses since last tick
 	 * @param spurred sprint presses since last tick
 	 * @param reins   back presses since last tick
 	 * @param jumps   jump presses since last tick
 	 */
 	public static void tick(
-		final AbstractHorse horse, final RideState s, final Player rider, final Input in, final int urges, final int spurred, final int reins,
+		final AbstractHorse horse, final RideState s, final Input in, final float look, final int urges, final int spurred, final int reins,
 		final int jumps
 	) {
 		final long started = profile ? System.nanoTime() : 0L;
@@ -123,7 +124,7 @@ public final class RideController {
 		// The horse has a say: on solid ground it slows for walls, stops short of drops that would hurt it and of
 		// hazards, and from a trot steers round obstacles it can pass. Swimming, jumps and climbs are left alone.
 		final int steer = (in.right() ? 1 : 0) - (in.left() ? 1 : 0);
-		float targetYaw = rider.getYRot() + steer * (across ? ACROSS_OFFSET : STEER_OFFSET);
+		float targetYaw = look + steer * (across ? ACROSS_OFFSET : STEER_OFFSET);
 		s.riderYaw = targetYaw;
 		if (AVOID_DANGER && horse.onGround() && !s.swimming && s.ledgeTicks == 0 && s.bankTicks == 0 && (forward || s.speed > 0.02F)) {
 			final float limit = Awareness.look(horse, s, targetYaw, forward);

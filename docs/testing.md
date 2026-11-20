@@ -46,7 +46,7 @@ reports into `build/run/clientGameTest/` (26.3; `clientGameTest-<version>[-<load
 ### Reading results
 
 - Failures: `grep -E 'FAIL|INCOMPLETE' build/run/clientGameTest/horsingaround-*-report.txt`.
-  Screenshots: the screenshots folder beside them.
+  Screenshots beside them.
 - F3+B draws the ridden horse's box, line, heading, plan and look-ahead findings.
 - Test horses wear colour-coded legs (`src/gametest/debugpack`). `-PplainTextures` for real ones; `-PvanillaModel` for the plain
   model with no pack (Forge's games always: `docs/porting.md`). `LegProbe` measures the legs as drawn: judge leg work by its numbers and close shots.
@@ -57,7 +57,7 @@ reports into `build/run/clientGameTest/` (26.3; `clientGameTest-<version>[-<load
 - Test games don't wait for real time (`TestClock`): the clock counts drawn frames, 5.9 to a tick, so a run goes as fast as the
   machine draws and every tick gets the same frames. Frame-sampling checks need several frames a tick, not a whole number.
   `-PrealTime` runs at normal speed; perf, gallery and store always do.
-- Lanes start from a horse with no AI until mounted (`lane()`): one that idled first sometimes starts off its line, failing checks far on.
+- Lanes start from a horse with no AI until mounted (`lane()`): one that idled first may start off its line.
 
 ## Other runs
 
@@ -83,11 +83,11 @@ error, and the server corrected no move. Screenshots: `build/run/smoke/<version>
 most players run the plain model.
 
 - `-PsmokeNoPack`: no Fresh Animations. `-PsmokePlain`: no EMF, ETF or pack.
-- `-PsmokeWithoutMod` (Fabric only): this mod off; corrections only warn. It fails at the course, where a vanilla horse gets stuck.
+- `-PsmokeWithoutMod` (Fabric only): this mod off; corrections only warn. It fails at the course (a vanilla horse gets stuck).
 - `-PsmokeWild=<seed>` (`-PsmokeWildAt=x,z` for a fixed start): a two-minute gallop over a real world, failing on any correction. Seed
   2145202720632702597 at 7,41 crosses a dip that once rubber-banded.
-- `-PsmokeCloseUp` (`=150` nearly from the front; default 90 is the side): 1920x1080 at a narrow view, a shot every tick (`closeup-*.png`) and
-  the neck's numbers logged, for anything that should stay attached.
+- `-PsmokeCloseUp` (`=150` near the front; default 90, the side): 1920x1080 close shots every tick (`closeup-*.png`) and the
+  neck's numbers, for anything that should stay attached.
 - NeoForge and Forge: `:<version>-neoforge:runSmoke` or `-forge:`, results under the node's name. Forge 1.20.1's horse is one of
   Realistic Horse Genetics' (`-PnoGenetics` for vanilla's).
 - `-Picy` (Fabric 1.20.1, 1.21.1, 1.21.11): rides Icy's cart instead (`icy-*.png`). On `auditMixins`: with Icy's jar.
@@ -99,14 +99,15 @@ most players run the plain model.
 `./gradlew runCompat --continue` (26.3) runs tests in a production game per pack of popular mods (`compatPacks` in
 `gradle/compat.gradle`, pinned by Modrinth version id because some mods reuse version numbers). Results: `build/run/compat/<pack>/`.
 Add a pack mod when a popular one appears. `-PcompatSections`, `-PcompatTests` change what runs. Play with a pack: `./gradlew playCompat<Pack>`,
-with worlds kept in `build/run/play/<pack>/`. Icy's boots straight onto a tamed horse pulling a cart, in the hills of a fresh world (`PlayScene`;
+with worlds kept in `build/run/play/<pack>/`. Icy's boots onto a tamed horse pulling a cart (`PlayScene`;
 `-Pscene=wagon`, `horse`, or `none` to play normally; `-PsceneCheck=1` takes a screenshot there and quits).
 
 The `icys` pack rides an American Paint (`-Dhorsingaround.horse`, `TestHorse`) through the horse tests, which must pass as on a vanilla horse;
 `MountsTest` also checks a Friesian under both riding styles and the breeds' traits. `IcyFeaturesTest` (`-PcompatTests=icy`) rides Icy's gear on
 this mod's riding; while working on carts, `-PcompatSections=` runs only some of it (names in `runTest`).
 
-The `realcamera` pack rides first person over steps in each of Real Camera's modes (`RealCameraTest`).
+The `realcamera` pack rides first person over steps in each of Real Camera's modes (`RealCameraTest`). Leawind's Third Person
+stops at 26.2: `-Pleawind -Ptests=thirdperson` (`ThirdPersonTest`) on Fabric 1.20.1, 1.21.1 or 26.2.
 
 Icy's features with only screens or keys aren't tested. Check by hand in `playCompatIcys`, on this mod's riding:
 

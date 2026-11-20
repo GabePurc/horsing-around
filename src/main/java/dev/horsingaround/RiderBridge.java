@@ -42,6 +42,11 @@ public interface RiderBridge {
 	/** Raw key state of the rider driving the horse. */
 	Input input(Player rider);
 
+	/** Where the rider looks, which the horse heads for (a camera mod can look away from the rider's own facing). */
+	default float lookYaw(final Player rider) {
+		return rider.getYRot();
+	}
+
 	/**
 	 * Presses of the forward, sprint, back and jump keys since the last call. Counting presses rather than sampling held
 	 * state catches taps shorter than a tick and works with toggle-sprint. Forward presses leave out the key repeat while
