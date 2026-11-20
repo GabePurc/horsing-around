@@ -106,8 +106,9 @@ NeoForge and Forge, the Mods screen) or with the "Open horse settings" key.
 
 Tested first against [Fresh Animations](https://modrinth.com/resourcepack/fresh-animations) (Entity Model Features +
 Entity Texture Features), and the rider follows the animated horse. If another mod also changes how horses ride or
-riders sit, Horsing Around handles its own horses and leaves the rest of that mod alone. Shoulder Surfing takes over the
-camera whenever it's on.
+riders sit, Horsing Around handles its own horses and leaves the rest of that mod alone. Shoulder Surfing and
+[Leawind's Third Person](https://modrinth.com/mod/leawind-third-person) take over the camera whenever they're on, and in
+Leawind's view your horse heads where its camera looks.
 
 With [Icy's Better Horses](https://modrinth.com/mod/icys-better-horses), pick whose riding horses use under **Riding** on
 the settings' Compatibility tab (on a server, the server picks). Pick Horsing Around's and Icy's breeds ride this way, with all of Icy's
@@ -122,8 +123,8 @@ whatever size their genes give them.
 
 Automated test rides run alongside Sodium, Iris, Lithium, C2ME, FerriteCore, ImmediatelyFast, Entity Culling, More
 Culling, Not Enough Animations, Emotecraft, Better Combat, First-person Model, Real Camera, Shoulder Surfing Reloaded,
-Camera Overhaul, Freecam, Do a Barrel Roll, AppleSkin, Raised, Better Mount HUD, Jade, Xaero's Minimap, Horse Expert, Horseman,
-Bareback Horse Riding, Mounts Stay Still, Icy's Better Horses and Realistic Horse Genetics.
+Leawind's Third Person, Camera Overhaul, Freecam, Do a Barrel Roll, AppleSkin, Raised, Better Mount HUD, Jade, Xaero's
+Minimap, Horse Expert, Horseman, Bareback Horse Riding, Mounts Stay Still, Icy's Better Horses and Realistic Horse Genetics.
 
 </details>
 

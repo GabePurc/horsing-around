@@ -74,6 +74,10 @@ def unpackIcyLibs = tasks.register("unpackIcyLibs", Sync) {
 	into icyLibs
 }
 
+// -Pleawind: Leawind's Third Person and the Perspective API it runs on (leawind_mods) in this version's dev runs, for its
+// client test (-Ptests=thirdperson). Its own builds stop at 26.2, and 26.2's doesn't load on 26.3.
+def leawindMods = project.hasProperty("leawind") && project.hasProperty("leawind_mods") ? project.leawind_mods.split(',').collect { "maven.modrinth:${it.trim()}" } : []
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	loomx.applyMojangMappings()
@@ -83,6 +87,7 @@ dependencies {
 		icyMods.each { modLocalRuntime it }
 		localRuntime fileTree(icyLibs) { include '*.jar'; builtBy unpackIcyLibs }
 	}
+	leawindMods.each { modLocalRuntime it }
 	// The mixins use MixinExtras 0.4 (@WrapMethod), which Fabric Loader bundles from 0.16 on: for an older loader the
 	// jar carries its own copy (the loader then runs the newest copy any mod brings).
 	// (Decided by the oldest loader the jar claims to run on, see loader_minimum in gradle.properties.)

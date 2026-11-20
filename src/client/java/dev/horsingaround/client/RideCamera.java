@@ -69,6 +69,7 @@ public final class RideCamera {
 
 	/** End of every client tick, after entities have moved. */
 	static void tick(final Minecraft minecraft) {
+		CameraMods.tick(minecraft);
 		final LocalPlayer player = minecraft.player;
 		final RideState s = player == null ? null : RideStateHolder.managedRide(player.getVehicle());
 

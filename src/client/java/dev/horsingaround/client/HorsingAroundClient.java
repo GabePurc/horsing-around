@@ -5,6 +5,7 @@ import dev.horsingaround.Platform;
 import com.mojang.blaze3d.platform.InputConstants;
 //? if >=1.21 || =1.20.1
 import dev.horsingaround.client.compat.EmfSaddleTracker;
+import dev.horsingaround.client.compat.CameraMods;
 import dev.horsingaround.client.config.HorseSettingsScreen;
 import dev.horsingaround.client.debug.SteeringOverlay;
 import dev.horsingaround.client.cosmetic.Hats;
@@ -41,6 +42,7 @@ public final class HorsingAroundClient {
 	public static void init() {
 		keys = new RiderKeys(Minecraft.getInstance());
 		HorsingAround.bridge = keys;
+		CameraMods.init();
 		//? if >=1.21 || =1.20.1 {
 		if (Platform.isModLoaded("entity_model_features")) {
 			try {
