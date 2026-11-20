@@ -36,6 +36,9 @@ public abstract class HorseCartEntityMixin implements CartTrail.Lean {
 	/** (Last tick's: Icy's mod has moved the tilt on already by the end of settle.) */
 	@Shadow(remap = false)
 	private float tiltO;
+	/** How far Icy's mod lifts the cart onto the water its horse swims in. */
+	@Shadow(remap = false)
+	private float lift;
 
 	@Shadow(remap = false)
 	public abstract AbstractHorse boundHorse();
@@ -64,11 +67,9 @@ public abstract class HorseCartEntityMixin implements CartTrail.Lean {
 		this.horsingaround$axle.standBehind(behind);
 		this.horsingaround$boxBehind = (float) behind;
 		this.slackYaw = CartTrail.follow(this.horsingaround$axle, hitch.x, hitch.z, horse.yBodyRot, length + behind);
-		if (horse.isInWater() && !horse.onGround()) {
-			// (Afloat, Icy's mod has it level and on the water.)
-			this.horsingaround$axle.afloat();
-			return;
-		}
+		// (Water holds the wheels up as ground does, CartTrail: Icy's own lift onto the water, which went by whether the horse
+		// swam, would come on top. Going by the horse, the cart dropped to the bottom the moment the horse found its feet.)
+		this.lift = 0.0F;
 		this.tilt = CartTrail.lean(
 			this.horsingaround$axle, horse.level(), hitch.y + horsingaround$stepEase(horse, 1.0F), this.slackYaw, length, IcyCompat.cartFrontAxle(cart), this.tiltO,
 			horse.getControllingPassenger() != null

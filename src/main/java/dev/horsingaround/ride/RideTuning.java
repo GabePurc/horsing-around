@@ -1024,6 +1024,8 @@ public final class RideTuning {
 	static final float CART_AXLE_RISE = 0.35F;
 	static final float CART_AXLE_DROP = 0.8F;
 	static final double CART_WHEEL_STEP = 3.0;
+	/** A cart floats: water holds its wheels this far below the surface (blocks; as deep as Icy's mod floats it). */
+	static final double CART_DRAFT = 0.6;
 	/**
 	 * The cart has weight (user, 2026-11-06: not rigid, not floaty, no sudden stop). Each corner of it is carried by its wheel on
 	 * a spring and damper: its rate gains CART_SUSPENSION of how far it is below where the wheel would hold it, and CART_DAMPER of

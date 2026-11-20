@@ -122,19 +122,19 @@ On this mod's setting, the default:
   the ride's legs, neck, tail and stirrups go on them, and the ride tilts on legs measured from the model.
 - Its gear works (user, 2026-11-02): a cart's riders sit square on its bench, heads turning as a neck does. A cart turns as a real one does
   and the horse pulls it (`CartTrail`): wheels don't slide sideways, the shafts hold the horse close, so it turns wide, tighter
-  the slower it goes (user), makes no hard cuts and starts and stops slower. Backing up, the rig comes round to where the rider looks and stops at
+  the slower it goes (user), and starts and stops slower. Backing up, the rig comes round to where the rider looks and stops at
   walls. In a working Glidewing Harness no drop is refused and legs keep still in the air. In horseshoes powder snow is ground.
 - A cart lies on its wheels (user, 2026-11-06): each rolls on the ground under it and the cart leans by them, across too. A
   wagon goes on its four, a two-wheeled cart on its two, so a horse's jump doesn't lift them; it tilts towards the hitch, only as
   far as a cart tilts on a hill (42 degrees), and the shafts reach for the horse below or above it. Three wheels down,
   the fourth stays in the air and the cart leans only slightly towards it; two a block below the other two lean it all the
   way. Rises and drops along the cart roll as if they had ramps on, up to two blocks, so it doesn't fly up a ledge (user).
-  The body never goes into the ground: it comes up off what it would, and a wheel over a deep drop doesn't drag it down (user).
+  The body never goes into the ground, and a wheel over a deep drop doesn't drag it down (user). On water it floats, whatever its horse does.
   The third-person view backs off so all of a wagon is in view (user).
 - A cart has weight, not a rigid link or a float (user, 2026-11-06). Each corner rides on suspension: with nothing under it, it
   falls at a horse's gravity; landing, it compresses and settles, the wheel going up into the cart. The body follows the ground
   averaged along the cart, over more of it the faster it goes, so it rides over hills at speed instead of hopping at each block
-  (user); the wheels take each block. Icy's wheel animation no longer jolts the bed or riders. The horse comes up against
+  (user); the wheels take each block. Icy's wheel animation doesn't jolt the bed or riders. The horse comes up against
   the shafts softly, and they give a little as it pulls or slows. The cart stands further back by the horse's size, so the
   rider isn't in its hindquarters (user). The shafts swing and stretch to stay on the horse whatever the cart does (user).
 - Its jump clip poses the legs fore and aft only: across the body, it swung the hind legs sideways for a moment (user).

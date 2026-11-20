@@ -172,6 +172,13 @@ public final class IcyFeaturesTest implements ClientGameTest {
 			if (all || only.contains("riders")) {
 				cartRiders(ctx, input, world);
 			}
+			if (all || only.contains("water")) {
+				cartWater(ctx, input, world, "american_paint_horse");
+				cartWater(ctx, input, world, "belgian_horse");
+			}
+			if (all || only.contains("changes")) {
+				cartChanges(ctx, input, world);
+			}
 
 			section("Log");
 			final List<String> problems = watch.matching("horsingaround", "Exception", "moved wrongly", "moved too quickly", "was expected to be controlling");
@@ -1437,6 +1444,177 @@ public final class IcyFeaturesTest implements ClientGameTest {
 			final LivingEntityRenderState state = (LivingEntityRenderState) renderer.createRenderState(rider, 1.0F);
 			return new double[] {Mth.wrapDegrees(state.bodyRot - (float) call(cart, "gluedRenderYaw", 1.0F)), state.yRot};
 		});
+	}
+
+	// ---- A pass over what the other cart checks leave out ----
+
+	/** What a cart and its rider do this tick, as drawn: see the names. Null with no cart behind the horse. */
+	private static double[] cartNow(final ClientGameTestContext ctx, final int horseId) {
+		return ctx.computeOnClient(mc -> {
+			final Entity horse = mc.level.getEntity(horseId);
+			final Object cart = horse == null ? null : call(horse, "bh_getCartEntity");
+			final net.minecraft.world.phys.Vec3 at = cart == null ? null : (net.minecraft.world.phys.Vec3) call(cart, "gluedRenderPosition", 1.0F);
+			if (at == null) {
+				return null;
+			}
+			final boolean aboard = mc.player.getVehicle() != null;
+			final net.minecraft.world.phys.Vec3 seat = aboard ? (net.minecraft.world.phys.Vec3) call(cart, "renderSeat", mc.player, 1.0F) : at;
+			final net.minecraft.world.phys.Vec3 rider = mc.player.getPosition(1.0F);
+			final float[] nod = new float[1];
+			final double eyeUp = aboard ? dev.horsingaround.client.RideCamera.firstPersonOffset(1.0F, nod) : 0.0;
+			final float cartYaw = (float) call(cart, "gluedRenderYaw", 1.0F);
+			return new double[] {
+				at.x, at.y, at.z, (float) call(cart, "renderTilt", 1.0F), ((CartTrail.Lean) cart).horsingaround$roll(1.0F), cartYaw,
+				seat.x, seat.y, seat.z, Math.hypot(seat.x - rider.x, seat.z - rider.z), seat.y - rider.y - eyeUp, dev.horsingaround.client.RideCamera.pivotY(1.0F),
+				horse.getX(), horse.getY(), horse.getZ(), horse.getYRot(), Mth.wrapDegrees(cartYaw - ((LivingEntity) horse).yBodyRot),
+				Math.hypot(at.x - horse.getX(), at.z - horse.getZ())
+			};
+		});
+	}
+
+	private static final int CART_Y = 1;
+	private static final int CART_TILT = 3;
+	private static final int CART_LEAN = 4;
+	private static final int CART_YAW = 5;
+	private static final int SEAT_Y = 7;
+	private static final int EYE_ACROSS = 9;
+	private static final int EYE_UP = 10;
+	private static final int VIEW_Y = 11;
+	private static final int HORSE_YAW = 15;
+	private static final int CART_OFF = 16;
+	private static final int CART_BEHIND = 17;
+
+	/** The most a value is (order 0), changes in a tick (1), or changes its rate from tick to tick (2); angles the short way. */
+	private static double most(final List<double[]> ticks, final int value, final int order) {
+		final boolean angle = value == CART_YAW || value == HORSE_YAW;
+		double most = 0.0;
+		for (int i = order; i < ticks.size(); i++) {
+			double v = ticks.get(i)[value];
+			if (order >= 1) {
+				v -= ticks.get(i - 1)[value];
+				v = angle ? Mth.wrapDegrees((float) v) : v;
+			}
+			if (order == 2) {
+				final double before = ticks.get(i - 1)[value] - ticks.get(i - 2)[value];
+				v -= angle ? Mth.wrapDegrees((float) before) : before;
+			}
+			most = Math.max(most, Math.abs(v));
+		}
+		return most;
+	}
+
+	private static List<double[]> watch(final ClientGameTestContext ctx, final int horseId, final int ticks) {
+		final List<double[]> seen = new ArrayList<>();
+		for (int i = 0; i < ticks; i++) {
+			ctx.waitTick();
+			final double[] now = cartNow(ctx, horseId);
+			if (now != null) {
+				seen.add(now);
+			}
+		}
+		return seen;
+	}
+
+	private void logPass(final String what, final List<double[]> seen) {
+		log(
+			"  (%s, %d ticks. Cart: height %.3f a tick, kicks %.3f; tilt %.2f, kicks %.2f; lean %.2f, kicks %.2f; heading kicks %.2f; off the horse %.1f; behind it %.2f..%.2f."
+				+ " Rider: seat kicks %.3f; eye off the drawn rider %.3f across, %.3f up; view height kicks %.3f)",
+			what, seen.size(), most(seen, CART_Y, 1), most(seen, CART_Y, 2), most(seen, CART_TILT, 1), most(seen, CART_TILT, 2), most(seen, CART_LEAN, 1), most(seen, CART_LEAN, 2),
+			most(seen, CART_YAW, 2), most(seen, CART_OFF, 0), seen.stream().mapToDouble(t -> t[CART_BEHIND]).min().orElse(0.0), most(seen, CART_BEHIND, 0),
+			most(seen, SEAT_Y, 2), most(seen, EYE_ACROSS, 0), most(seen, EYE_UP, 0), most(seen, VIEW_Y, 2)
+		);
+		if (!seen.isEmpty()) {
+			final double[] last = seen.get(seen.size() - 1);
+			log("  (...in the end: tilted %.1f, leaning %.1f, the eye %.3f across and %.3f up off the drawn rider)", last[CART_TILT], last[CART_LEAN], last[EYE_ACROSS], last[EYE_UP]);
+		}
+	}
+
+	/**
+	 * Through a pool four deep at a trot (issue 169): the cart floats in off the bank, across and out. It used to float only
+	 * while its horse swam, and dropped to the bottom with its riders the moment the horse found its feet on the far bank.
+	 */
+	private void cartWater(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world, final String breed) {
+		section("Icy's cart through deep water, behind a " + breed);
+		final int x = nextLane();
+		world.getServer().runCommand(String.format(Locale.ROOT, "fill %d %d -34 %d %d -18 minecraft:water", x - 8, GROUND - 4, x + 8, GROUND - 1));
+		final int id = summon(ctx, world, breed, UPGRADED + ",NoAI:1b", x, GROUND);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x);
+		input.lookAt(180.0F, 15.0F);
+		input.holdKey(o -> o.keyUp);
+		spurs(ctx, input, 1);
+		final List<double[]> seen = new ArrayList<>();
+		double lowest = Double.MAX_VALUE;
+		int shots = 0;
+		for (int i = 0; i < 400 && ctx.computeOnClient(mc -> mc.player.getVehicle() != null && mc.player.getVehicle().getZ() > -48.0); i++) {
+			seen.addAll(watch(ctx, id, 1));
+			lowest = Math.min(lowest, seen.get(seen.size() - 1)[SEAT_Y] - GROUND);
+			final double z = ctx.computeOnClient(mc -> mc.player.getVehicle().getZ());
+			if (shots < 3 && z < new double[] {-19.0, -27.0, -36.0}[shots]) {
+				sideScreenshot(ctx, "icy_water_" + breed + "_" + shots++);
+			}
+		}
+		logPass("through the pool", seen);
+		final double reached = ctx.computeOnClient(mc -> mc.player.getVehicle() == null ? Double.NaN : mc.player.getVehicle().getZ());
+		check("it gets across (blocks along)", -reached, 40.0, 60.0);
+		check("the rider's seat stays out of the water (blocks below the bank, lowest)", -lowest, -2.0, 0.6);
+		check("...and isn't thrown about going in or coming out (blocks a tick, from tick to tick, most)", most(seen, SEAT_Y, 2), 0.0, 0.2);
+		check("the cart keeps its height (blocks a tick, most)", most(seen, CART_Y, 1), 0.0, 0.35);
+		check("...and tilts gradually (degrees a tick, from tick to tick, most)", most(seen, CART_TILT, 2), 0.0, 4.5);
+		stop(ctx, input);
+		dismount(ctx, input);
+	}
+
+	/**
+	 * Sudden changes (issue 169): a teleport, getting off at a trot and on again, and hitching up over ground a block lower
+	 * behind the horse. The cart is where it belongs at once each time, and nothing jolts.
+	 */
+	private void cartChanges(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		section("Icy's cart through sudden changes");
+		int x = nextLane();
+		final int id = summon(ctx, world, "american_paint_horse", UPGRADED + ",NoAI:1b", x, GROUND);
+		onHorse(world, id, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		ctx.waitTicks(10);
+		board(ctx, world, x);
+		ctx.waitTicks(20);
+		final double standing = cartNow(ctx, id)[CART_BEHIND];
+		world.getServer().runCommand(String.format(Locale.ROOT, "tp @e[tag=icy_%d,limit=1] %d.5 %d -40.5 90 0", x, x, GROUND));
+		ctx.waitTicks(2);
+		final List<double[]> far = watch(ctx, id, 20);
+		check("teleported 41 blocks on and a quarter turn round, the cart is behind the horse at once (blocks from its place, most)",
+			far.stream().mapToDouble(t -> Math.abs(t[CART_BEHIND] - standing)).max().orElse(99.0), 0.0, 0.1);
+		check("...in line with it (degrees off it, most)", most(far, CART_OFF, 0), 0.0, 2.0);
+		check("...and level (degrees, most)", Math.max(most(far, CART_TILT, 0), most(far, CART_LEAN, 0)), 0.0, 1.0);
+
+		input.lookAt(90.0F, 15.0F);
+		input.holdKey(o -> o.keyUp);
+		spurs(ctx, input, 1);
+		ctx.waitTicks(30);
+		input.releaseKey(o -> o.keyUp);
+		input.holdKeyFor(o -> o.keyShift, 3);
+		final List<double[]> off = watch(ctx, id, 40);
+		board(ctx, world, x);
+		final List<double[]> on = watch(ctx, id, 40);
+		check("getting off at a trot and on again, the cart doesn't jolt (blocks a tick, from tick to tick, most)", Math.max(most(off, CART_Y, 2), most(on, CART_Y, 2)), 0.0, 0.05);
+		check("...nor tilt (degrees)", Math.max(most(off, CART_TILT, 2), most(on, CART_TILT, 2)), 0.0, 1.0);
+		check("...and stays behind the horse (blocks from its place, most)",
+			Math.max(off.stream().mapToDouble(t -> Math.abs(t[CART_BEHIND] - standing)).max().orElse(99.0), on.stream().mapToDouble(t -> Math.abs(t[CART_BEHIND] - standing)).max().orElse(99.0)),
+			0.0, 0.2);
+		dismount(ctx, input);
+
+		x = nextLane();
+		world.getServer().runCommand(String.format(Locale.ROOT, "fill %d %d 2 %d %d 8 minecraft:air", x - 3, GROUND - 1, x + 3, GROUND - 1));
+		final int low = summon(ctx, world, "american_paint_horse", UPGRADED + ",NoAI:1b", x, GROUND);
+		board(ctx, world, x);
+		ctx.waitTicks(10);
+		onHorse(world, low, horse -> gear(horse, "STABILIZER", item("horse_cart_gear")));
+		final List<double[]> hitched = watch(ctx, low, 40);
+		sideScreenshot(ctx, "icy_hitched_low");
+		check("hitched up with the ground behind a block lower, the cart is there in a tick or two", hitched.size() >= 37);
+		check("...on its wheels down there from the first (blocks a tick, most)", most(hitched, CART_Y, 1), 0.0, 0.05);
+		check("...tilted down to them (degrees nose up)", hitched.isEmpty() ? 0.0 : hitched.get(hitched.size() - 1)[CART_TILT], 10.0, 30.0);
+		dismount(ctx, input);
 	}
 
 	// ---- A second rider ----
