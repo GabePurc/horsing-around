@@ -152,6 +152,7 @@ public final class RideCamera {
 	 * edges. Zero when not riding or with View Bobbing off.
 	 */
 	public static void updateFrame(final Minecraft minecraft, final float partialTicks) {
+		Freelook.frame(minecraft);
 		SaddleMotion.nextFrame();
 		if (ride == null && frameLift == 0.0F && framePitch == 0.0F) {
 			// (Not riding, and the last ride's motion has died away.)

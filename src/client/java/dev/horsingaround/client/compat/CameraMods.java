@@ -83,13 +83,18 @@ public final class CameraMods {
 	 * mouse turns that camera, and Leawind's turns the rider toward where they ride).
 	 */
 	public static float lookYaw(final Minecraft minecraft, final Player rider) {
-		if (rider != minecraft.getCameraEntity() || !leawindView()) {
+		if (!lookIsCamera(minecraft, rider)) {
 			return rider.getYRot();
 		}
 		//? if >=1.21.11 {
 		return minecraft.gameRenderer.mainCamera().yRot();
 		//?} else
 		/*return minecraft.gameRenderer.mainCamera().getYRot();*/
+	}
+
+	/** Where the rider looks is another mod's camera (Leawind's), turned by the mouse apart from the rider's own facing. */
+	public static boolean lookIsCamera(final Minecraft minecraft, final Player rider) {
+		return rider == minecraft.getCameraEntity() && leawindView();
 	}
 
 	/**

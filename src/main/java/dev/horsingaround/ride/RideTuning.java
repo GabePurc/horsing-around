@@ -934,6 +934,13 @@ public final class RideTuning {
 	public static final float PITCH_DEFAULT = 10.0F;
 	public static final float PITCH_RECENTER_RATE = 0.04F;
 	/**
+	 * Freelook let go: the view swings back to the heading the horse held, on a critically damped spring of this rate (per
+	 * second: from looking straight back, it is home in about half a second, starting and landing softly), and settles once
+	 * within FREELOOK_RETURN_DONE degrees.
+	 */
+	public static final float FREELOOK_RETURN_RATE = 14.0F;
+	public static final float FREELOOK_RETURN_DONE = 0.5F;
+	/**
 	 * First-person ride motion (off when the vanilla View Bobbing option is off): share of the saddle lift the eyes
 	 * get, and share of the saddle rocking that nods the view. Kept gentle; low-passed so there are no sharp edges.
 	 */

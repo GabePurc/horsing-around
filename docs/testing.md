@@ -40,6 +40,7 @@ reports into `build/run/clientGameTest/` (26.3; `clientGameTest-<version>[-<load
 | `idle`, `unseen` | Horses no one rides: level, grass, a lead, a step's edge; moved out of view (`performance` pack) |
 | `exits`, `strafe` | Out of water onto banks; stopping after A or D alone |
 | `hands`, `icons` | Rider's arms with items; shulker boxes with Entity Model Features |
+| `freelook` | Held, a bow shot, let go, toggled (also in `cuts`) |
 | `rear` | A ridden horse rears; on a pack's model the seat stays on the measured saddle (also in `core`) |
 | `leads` | Leads on the drawn horse and rider, in both views (also in `steps`) |
 
@@ -65,8 +66,7 @@ reports into `build/run/clientGameTest/` (26.3; `clientGameTest-<version>[-<load
 - `-Ptests=gallery`: clean store screenshots.
 - `-Ptests=perf`: load, not pass/fail: horses of every kind in a pen, a gallop round them for 90 s; server tick time, frame rate and
   plan times in `horsingaround-perf-report.txt`.
-- `-Pprofile`, on any run: a Java Flight Recording, `horsingaround-profile.jfr` in the run folder. Samples with a `dev.horsingaround`
-  frame are the mod's share.
+- `-Pprofile`, on any run: a Java Flight Recording, `horsingaround-profile.jfr` in the run folder.
 - `-Ptests=store`: films the README's clips and stills in a generated world (`StoreMediaTest`, `FilmCamera`; `-Pscenario=gaits,river`
   for some), with ATMOSPHERICS for the sky. `scripts/store-media.sh` turns them into `docs/media/`, as MP4 and animated WebP. Every
   client test run clears `build/run/clientGameTest`, so encode before the next run. Stills may use shaders; the user wants clips
@@ -77,7 +77,7 @@ reports into `build/run/clientGameTest/` (26.3; `clientGameTest-<version>[-<load
 
 ## Smoke test (every version)
 
-`./gradlew :<version>:runSmoke` (`src/smoke`; plain `runSmoke` runs each in turn, about a minute each). A flat world, a saddled horse
+`./gradlew :<version>:runSmoke` (`src/smoke`; plain `runSmoke` runs each in turn). A flat world, a saddled horse
 through a stand, walk, gallop, jump and stop, then a rough course. It fails unless the log reports a pass, nothing names this mod in an
 error, and the server corrected no move. Screenshots: `build/run/smoke/<version>/screenshots/`. Look at them with and without the pack:
 most players run the plain model.

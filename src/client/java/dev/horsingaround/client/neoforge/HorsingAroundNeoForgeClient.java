@@ -62,6 +62,7 @@ public final class HorsingAroundNeoForgeClient {
 			event.registerCategory(HorsingAroundClient.KEY_CATEGORY);
 			event.register(HorsingAroundClient.SETTINGS_KEY);
 			event.register(HorsingAroundClient.SWAP_SHOULDER_KEY);
+			event.register(HorsingAroundClient.FREELOOK_KEY);
 		});
 		modBus.addListener(EntityRenderersEvent.RegisterLayerDefinitions.class, event -> event.registerLayerDefinition(HatModel.LAYER, HatModel::createLayer));
 		modBus.addListener(EntityRenderersEvent.AddLayers.class, HorsingAroundNeoForgeClient::addHatLayers);

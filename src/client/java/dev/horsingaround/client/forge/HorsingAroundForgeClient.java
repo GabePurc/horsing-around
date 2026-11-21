@@ -55,6 +55,7 @@ public final class HorsingAroundForgeClient {
 		RegisterKeyMappingsEvent.BUS.addListener(event -> {
 			event.register(HorsingAroundClient.SETTINGS_KEY);
 			event.register(HorsingAroundClient.SWAP_SHOULDER_KEY);
+			event.register(HorsingAroundClient.FREELOOK_KEY);
 		});
 		EntityRenderersEvent.RegisterLayerDefinitions.BUS.addListener(event -> event.registerLayerDefinition(HatModel.LAYER, HatModel::createLayer));
 		EntityRenderersEvent.AddLayers.BUS.addListener(HorsingAroundForgeClient::addHatLayers);
@@ -62,6 +63,7 @@ public final class HorsingAroundForgeClient {
 		/*RegisterKeyMappingsEvent.getBus(context.getModBusGroup()).addListener(event -> {
 			event.register(HorsingAroundClient.SETTINGS_KEY);
 			event.register(HorsingAroundClient.SWAP_SHOULDER_KEY);
+			event.register(HorsingAroundClient.FREELOOK_KEY);
 		});
 		EntityRenderersEvent.RegisterLayerDefinitions.getBus(context.getModBusGroup()).addListener(event -> event.registerLayerDefinition(HatModel.LAYER, HatModel::createLayer));
 		EntityRenderersEvent.AddLayers.getBus(context.getModBusGroup()).addListener(HorsingAroundForgeClient::addHatLayers);
@@ -89,6 +91,7 @@ public final class HorsingAroundForgeClient {
 		onModBus(modBus, RegisterKeyMappingsEvent.class, event -> {
 			event.register(HorsingAroundClient.SETTINGS_KEY);
 			event.register(HorsingAroundClient.SWAP_SHOULDER_KEY);
+			event.register(HorsingAroundClient.FREELOOK_KEY);
 		});
 		onModBus(modBus, EntityRenderersEvent.RegisterLayerDefinitions.class, event -> event.registerLayerDefinition(HatModel.LAYER, HatModel::createLayer));
 		onModBus(modBus, EntityRenderersEvent.AddLayers.class, HorsingAroundForgeClient::addHatLayers);

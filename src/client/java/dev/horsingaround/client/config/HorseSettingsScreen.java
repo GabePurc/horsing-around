@@ -315,6 +315,11 @@ public final class HorseSettingsScreen extends OptionsSubScreen {
 			percent("camera_distance", SMALL, 50, 150, c.cameraDistance, v -> c.cameraDistance = v),
 			blocks("camera_height", SMALL, HorseConfig.CAMERA_HEIGHT_MIN, HorseConfig.CAMERA_HEIGHT_MAX, c.cameraHeight, v -> c.cameraHeight = v)
 		);
+		this.addHeading("freelook");
+		this.addWide(new Tack.Patch(WIDE, () -> value("freelook", Component.translatable(KEY + "freelook." + c.freelook.name().toLowerCase(Locale.ROOT))), tooltip("freelook"), false, () -> {
+			final HorseConfig.FreelookKey[] all = HorseConfig.FreelookKey.values();
+			c.freelook = all[(c.freelook.ordinal() + 1) % all.length];
+		}));
 	}
 
 	private void addComfort(final HorseConfig c) {
