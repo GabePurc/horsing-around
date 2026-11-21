@@ -2,6 +2,32 @@
 
 Each version's notes are written to paste straight into the store version pages.
 
+## 0.8.0
+
+Horsing Around now runs on Forge for every Minecraft version from 1.20.1 to 26.3, and adds freelook: a key that lets you look around without turning your horse. It also works with Epic Fight and Leawind's Third Person, and carts from Icy's Better Horses ride properly on Minecraft 1.20.1 and 1.21.1.
+
+### New
+- **Freelook.** Hold Left Alt while riding to look around without turning your horse. You swing, shoot and throw wherever you look while your horse keeps its line. Let go and the view swings back behind it. Change the key in Controls, or make it a toggle on the settings' Camera tab.
+- **Forge for every version.** Besides 1.20.1, Horsing Around now runs on Forge for Minecraft 1.20.2, 1.20.4, 1.20.6, 1.21.1, 1.21.3, 1.21.4, 1.21.5, 1.21.8, 1.21.10, 1.21.11, 26.1.2, 26.2 and 26.3.
+- **Works with Epic Fight** (Forge 1.20.1, NeoForge 1.21.1). You stay in the saddle through jumps, stairs and rears, riding with your reins and stirrups, and Epic Fight's own model takes the saddle while you swing, get hit or guard.
+- **Works with Leawind's Third Person.** Getting on from first person switches to its view, and your horse heads where its camera looks.
+
+### Changed
+- **Carts and wagons** (with Icy's Better Horses):
+  - You and your passengers sit square to the cart, on the bench and in the back, and heads turn only as far as a neck does.
+  - Crossing deep water, a cart floats level all the way over, instead of dropping to the bottom as your horse reaches the far bank.
+  - On Minecraft 1.20.1 and 1.21.1, carts behave as on newer versions: they lean with the ground, the bed doesn't bounce, the wheels turn and ride on their suspension, and the shafts stay on the horse.
+- **Icy's breeds,** on Minecraft 1.20.1 and 1.21.1: their legs, neck, tail and stirrups follow the ride, as on newer versions.
+
+### Fixed
+- **With Icy's Better Horses:**
+  - On Minecraft 1.20.1 and 1.21.1, riders no longer drift forward and up off a cart.
+  - On Minecraft 1.21.11, the cart's bed no longer bounces, and its wheels and shafts move.
+  - On Fabric, Minecraft 1.21.11 and older, a cart lets go of a horse that dies, and you click a cart where it is, not at its horse.
+- **With Leawind's Third Person:** your horse no longer rides in circles when you hold A or D.
+- **Without an animation pack:** you no longer snap in the saddle when your horse steps down a block, jumps or lands.
+- **On Minecraft older than 1.21.5:** your horse no longer stops dead for a moment now and then while you ride.
+
 ## 0.7.0
 
 Horsing Around now runs on Forge for Minecraft 1.20.1 and works with Realistic Horse Genetics. Landings have weight behind them, riding is smoother all round, and the settings have a new screen.

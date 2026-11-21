@@ -125,7 +125,7 @@ whatever size their genes give them.
 Automated test rides run alongside Sodium, Iris, Lithium, C2ME, FerriteCore, ImmediatelyFast, Entity Culling, More
 Culling, Not Enough Animations, Emotecraft, Better Combat, First-person Model, Real Camera, Shoulder Surfing Reloaded,
 Leawind's Third Person, Camera Overhaul, Freecam, Do a Barrel Roll, AppleSkin, Raised, Better Mount HUD, Jade, Xaero's
-Minimap, Horse Expert, Horseman, Bareback Horse Riding, Mounts Stay Still, Icy's Better Horses and Realistic Horse Genetics.
+Minimap, Horse Expert, Horseman, Bareback Horse Riding, Mounts Stay Still, Epic Fight, Icy's Better Horses and Realistic Horse Genetics.
 
 </details>
 
