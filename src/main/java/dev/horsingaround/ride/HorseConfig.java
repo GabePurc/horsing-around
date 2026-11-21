@@ -45,6 +45,11 @@ public final class HorseConfig {
 		}
 	}
 
+	/** How the freelook key works: on while held, or each press turns it on or off. */
+	public enum FreelookKey {
+		HOLD, TOGGLE
+	}
+
 	/** Whose riding horses use when Icy's Better Horses is installed too (see {@link IcyCompat}). */
 	public enum RidingStyle {
 		HORSING_AROUND, ICYS
@@ -60,6 +65,7 @@ public final class HorseConfig {
 	/** Riding camera height above the rider's eyes, blocks. */
 	public float cameraHeight = CAMERA_HEIGHT_DEFAULT;
 	public float speedZoom = 1.0F;
+	public FreelookKey freelook = FreelookKey.HOLD;
 	// Comfort (first person).
 	public float viewBob = 1.0F;
 	public float handBob = 1.0F;
@@ -156,6 +162,9 @@ public final class HorseConfig {
 		if (c.shoulder == null) {
 			// (Missing, or a value this version doesn't know.)
 			c.shoulder = DEFAULTS.shoulder;
+		}
+		if (c.freelook == null) {
+			c.freelook = DEFAULTS.freelook;
 		}
 		if (c.ridingStyle == null) {
 			// (Written by hand, on a server: what's on it should hear this one didn't take.)

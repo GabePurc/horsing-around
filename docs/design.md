@@ -13,8 +13,10 @@ it with them before reversing it. "Now" and any number describe one way of doing
   2 s to coast to a stop and under 1 s braking. A head-on wall hit at speed sheds momentum; a graze slips past.
 - Turning (user): the horse shifts its weight before it turns; turn rate is grip-limited, so a gallop turn is wide. Now: a
   weight commitment leads, head first, and the bank follows (up to 15 degrees).
-- Steering (user): the horse heads where the rider looks and never pulls the view. Standing still is free look. W+A/D
-  ride 45 degrees off the view; A or D alone ride across it at the gait. No strafing.
+- Steering (user): the horse heads where the rider looks and never pulls the view. W+A/D ride 45 degrees off the view; A
+  or D alone ride across it at the gait. No strafing.
+- Free look: standing still, or with the freelook key held (user, 2026-11-20; or toggled), the view turns alone and stays
+  the rider's aim; let go, it swings back (`Freelook`).
 - Hard cuts (user): the further the rider turns the view, the harder the horse cuts, sitting back and slowing, then
   galloping on. Only while ridden on, and never from the horse's own avoidance.
 - Stamina: galloping drains it (about 14 s on a full bar); exhausted, the horse drops to a canter until recovered; jumps
@@ -143,9 +145,9 @@ On this mod's setting, the default:
 
 ## Settings and the hat
 
-- Settings are comfort and preference only (`AGENTS.md`), reached from the Mods screen or a key. In tabs, drawn as a tack
-  room at sunset (user, 2026-11-03; `client/config/Tack`).
-- The supporter cowboy hat (user, 2026-10-08) is for people who buy the user a coffee (https://buymeacoffee.com/blintzbug).
+- Settings are comfort and preference only (`AGENTS.md`). In tabs, drawn as a tack room at sunset (user, 2026-11-03;
+  `client/config/Tack`).
+- The supporter cowboy hat (user, 2026-10-08) is for people who buy the user a coffee.
   `hats/` lists claimed supporters by UUID in `supporters.json`, which clients download (disclosed in the README). The
   colour goes through the server (`HatRelay`); clients draw hats only for players on their own copy of the list. While worn,
-  head items aren't drawn but still protect. Shape: `art/cowboy_hat.bbmodel`, built into the code by `scripts/hat-model.py`.
+  head items aren't drawn but still protect.

@@ -30,9 +30,10 @@ public final class HorsingAroundClient {
 	public static final KeyMapping.Category KEY_CATEGORY = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(HorsingAround.MOD_ID, "horses"));
 	//?} else
 	/*private static final String KEY_CATEGORY = "key.category.horsingaround.horses";*/
-	/** The loader registers these (they're left unbound or on O, the defaults). */
+	/** The loader registers these (they're left unbound, on O or on left Alt, the defaults). */
 	public static final KeyMapping SETTINGS_KEY = new KeyMapping("key.horsingaround.settings", InputConstants.UNKNOWN.getValue(), KEY_CATEGORY);
 	public static final KeyMapping SWAP_SHOULDER_KEY = new KeyMapping("key.horsingaround.swap_shoulder", InputConstants.KEY_O, KEY_CATEGORY);
+	public static final KeyMapping FREELOOK_KEY = new KeyMapping("key.horsingaround.freelook", InputConstants.KEY_LALT, KEY_CATEGORY);
 
 	private static RiderKeys keys;
 
@@ -64,6 +65,7 @@ public final class HorsingAroundClient {
 			return;
 		}
 		RideCamera.tick(minecraft);
+		Freelook.tick(minecraft);
 		keys.endTick();
 		while (SETTINGS_KEY.consumeClick()) {
 			HorseSettingsScreen.open(minecraft);

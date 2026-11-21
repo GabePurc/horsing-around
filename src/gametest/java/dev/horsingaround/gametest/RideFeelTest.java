@@ -1,6 +1,8 @@
 package dev.horsingaround.gametest;
 
 import dev.horsingaround.client.render.SaddleMotion;
+import dev.horsingaround.client.Freelook;
+import dev.horsingaround.client.HorsingAroundClient;
 import dev.horsingaround.client.RideCamera;
 import dev.horsingaround.ride.Foliage;
 import dev.horsingaround.ride.HorseConfig;
@@ -194,6 +196,9 @@ public final class RideFeelTest implements ClientGameTest {
 			}
 			if (sections.isEmpty() || sections.contains("cuts")) {
 				hardCuts(ctx, input, world);
+			}
+			if (sections.isEmpty() || sections.contains("cuts") || sections.contains("freelook")) {
+				freelook(ctx, input, world);
 			}
 			if (sections.isEmpty() || sections.contains("stairs")) {
 				stairs(ctx, input, world);
@@ -1480,6 +1485,93 @@ public final class RideFeelTest implements ClientGameTest {
 		check("climbing out is gradual (fastest rise, blocks/tick)", steepestRise, 0.0, 0.2);
 		check("climbing out looks smooth (fastest rendered rise, blocks/tick)", steepestVisualRise, 0.0, 0.2);
 		ticksUntilStopped(ctx, 60);
+	}
+
+	// ---- Freelook: the view turns, the horse keeps its heading ----
+
+	private void freelook(final ClientGameTestContext ctx, final TestInput input, final TestSingleplayerContext world) {
+		final KeyMapping key = HorsingAroundClient.FREELOOK_KEY;
+		section("Freelook held at a gallop: looking round, the horse keeps its line");
+		lane(ctx, input, world, 2200.5, -60, "freelook_test");
+		gallopNorth(ctx, input);
+		ctx.waitTicks(40);
+		input.holdKey(key);
+		ctx.waitTicks(2);
+		input.lookAt(180.0F + 120.0F, 10.0F);
+		float drift = 0.0F;
+		float cut = 0.0F;
+		for (int i = 0; i < 40; i++) {
+			ctx.waitTick();
+			drift = Math.max(drift, Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - 180.0F)));
+			cut = Math.max(cut, ride(ctx, r -> r.cut));
+		}
+		check("the horse holds its heading (most off it, deg)", drift, 0.0, 2.0);
+		check("...and doesn't cut (most, 0..1)", cut, 0.0, 0.01);
+		check("...still galloping (speed / gallop)", averageSpeed(ctx, 5) / GALLOP_SPEED, 0.9, 1.1);
+		check("the view stays where it was turned (deg)", Math.abs(Mth.wrapDegrees(sample(ctx).playerYaw - 300.0F)), 0.0, 0.5);
+		// (Over the shoulder the rider aims at what is under the crosshair, a little off the view: that is what it hears.)
+		final float aim = ctx.computeOnClient(mc -> dev.horsingaround.client.RideAim.isActive() ? dev.horsingaround.client.RideAim.yaw() : mc.player.getYRot());
+		final float heard = server.computeOnServer(s -> s.getPlayerList().getPlayers().get(0).getYRot());
+		log("  the view at 300, the aim at %.1f, the server hears %.1f", aim, heard);
+		check("the server hears the rider's aim, not the horse's heading (deg off)", Math.abs(Mth.wrapDegrees(heard - aim)), 0.0, 2.0);
+
+		// A bow shot while freelooking flies where the view looks, and the horse keeps its line meanwhile.
+		// (Given by the server, which looses the arrow; creative needs none to shoot.)
+		server.runCommand("item replace entity @p weapon.mainhand with minecraft:bow");
+		ctx.waitTicks(2);
+		input.holdKey(o -> o.keyUse);
+		ctx.waitTicks(20);
+		input.releaseKey(o -> o.keyUse);
+		ctx.waitTicks(3);
+		final double shot = ctx.computeOnClient(mc -> {
+			for (final Entity e : mc.level.entitiesForRendering()) {
+				if (e instanceof net.minecraft.world.entity.projectile.Projectile && e.distanceTo(mc.player) < 32.0F) {
+					final Vec3 v = e.getDeltaMovement();
+					return (double) Mth.wrapDegrees((float) (Mth.atan2(-v.x, v.z) * Mth.RAD_TO_DEG) - 300.0F);
+				}
+			}
+			return Double.NaN;
+		});
+		check("an arrow loosed while freelooking flies where the view looks (deg off)", Math.abs(shot), 0.0, 15.0);
+		check("...with the horse still on its line (deg)", Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - 180.0F)), 0.0, 2.0);
+		server.runCommand("item replace entity @p weapon.mainhand with minecraft:air");
+
+		section("Freelook let go: the view swings back behind the horse");
+		input.releaseKey(key);
+		int back = 0;
+		drift = 0.0F;
+		while (Math.abs(Mth.wrapDegrees(sample(ctx).playerYaw - sample(ctx).horseYaw)) > 0.5F && back < 60) {
+			ctx.waitTick();
+			back++;
+			drift = Math.max(drift, Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - 180.0F)));
+		}
+		check("the view is back over the horse's heading (ticks)", back, 5, 20);
+		check("...and the horse never turned toward where the rider looked (most off its line, deg)", drift, 0.0, 2.0);
+		check("...nor the freelook still holding it", !ctx.computeOnClient(mc -> Freelook.holding()));
+		ctx.waitTicks(20);
+		check("then it gallops on along its line (deg)", Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - 180.0F)), 0.0, 2.0);
+
+		section("Freelook as a toggle: one press on, the next off");
+		ctx.runOnClient(mc -> HorseConfig.get().freelook = HorseConfig.FreelookKey.TOGGLE);
+		try {
+			input.pressKey(key);
+			input.lookAt(180.0F - 90.0F, 10.0F);
+			ctx.waitTicks(30);
+			check("with the key let go, freelook stays on (horse off its line, deg)", Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - 180.0F)), 0.0, 2.0);
+			check("...the view where it was turned (deg)", Math.abs(Mth.wrapDegrees(sample(ctx).playerYaw - 90.0F)), 0.0, 0.5);
+			input.pressKey(key);
+			ctx.waitTicks(20);
+			check("the next press ends it: the view swings back (deg off the horse)", Math.abs(Mth.wrapDegrees(sample(ctx).playerYaw - sample(ctx).horseYaw)), 0.0, 1.0);
+			check("...the horse still on its line (deg)", Math.abs(Mth.wrapDegrees(sample(ctx).horseYaw - 180.0F)), 0.0, 2.0);
+			input.pressKey(key);
+			check("on again, then off when the rider gets off", ctx.computeOnClient(mc -> Freelook.holding()));
+			stop(ctx, input);
+			server.runCommand("ride @p dismount");
+			ctx.waitTicks(3);
+			check("...and off after getting off", !ctx.computeOnClient(mc -> Freelook.holding()));
+		} finally {
+			ctx.runOnClient(mc -> HorseConfig.get().freelook = HorseConfig.FreelookKey.HOLD);
+		}
 	}
 
 	// ---- Hard cuts: the further the rider looks off, the harder the horse cuts round ----

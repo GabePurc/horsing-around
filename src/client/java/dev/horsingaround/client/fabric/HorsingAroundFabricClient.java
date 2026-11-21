@@ -49,6 +49,7 @@ public final class HorsingAroundFabricClient implements ClientModInitializer {
 		});
 		KeyMappingHelper.registerKeyMapping(HorsingAroundClient.SETTINGS_KEY);
 		KeyMappingHelper.registerKeyMapping(HorsingAroundClient.SWAP_SHOULDER_KEY);
+		KeyMappingHelper.registerKeyMapping(HorsingAroundClient.FREELOOK_KEY);
 		ClientTickEvents.END_CLIENT_TICK.register(HorsingAroundClient::tick);
 	}
 }

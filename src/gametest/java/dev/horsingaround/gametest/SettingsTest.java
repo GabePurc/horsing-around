@@ -92,7 +92,7 @@ public final class SettingsTest implements ClientGameTest {
 		final String size = shot.isEmpty() ? "" : " (" + shot.substring(1) + " window)";
 		ctx.setScreen(() -> new HorseSettingsScreen(null));
 		ctx.waitTicks(3);
-		this.shows(ctx, "camera" + size, "shoulder", "camera_distance", "camera_height", "third_person");
+		this.shows(ctx, "camera" + size, "shoulder", "camera_distance", "camera_height", "third_person", "freelook");
 		this.laidOut(ctx, "camera" + size);
 		this.shoot(ctx, "camera" + shot);
 
@@ -130,6 +130,13 @@ public final class SettingsTest implements ClientGameTest {
 		this.check("the slider applies as it moves (riding camera distance scale)",
 			Math.abs(ctx.computeOnClient(mc -> RideTuning.CAMERA_DISTANCE_SCALE) - distance) < 0.011);
 		this.check("the slider's label follows it", this.label(ctx, "camera_distance").contains(Math.round(distance * 100.0F) + "%"));
+		// (Below the camera's own options: scrolled to, as a player would.)
+		ctx.getInput().setCursorPos(ctx.computeOnClient(mc -> mc.getWindow().getScreenWidth() / 2.0), ctx.computeOnClient(mc -> mc.getWindow().getScreenHeight() / 2.0));
+		ctx.getInput().scroll(-10.0);
+		ctx.waitTicks(2);
+		this.click(ctx, KEY + "freelook");
+		this.check("clicking the freelook key makes it a toggle", ctx.computeOnClient(mc -> HorseConfig.get().freelook == HorseConfig.FreelookKey.TOGGLE));
+		this.check("...and it reads Toggle", this.label(ctx, "freelook").endsWith(Component.translatable(KEY + "freelook.toggle").getString()));
 
 		this.click(ctx, KEY + "tab.comfort");
 		this.click(ctx, KEY + "speed_zoom", 0.01);
@@ -138,7 +145,8 @@ public final class SettingsTest implements ClientGameTest {
 		ctx.waitTicks(2);
 		this.check("the reset puts every setting back", ctx.computeOnClient(mc -> {
 			final HorseConfig c = HorseConfig.get();
-			return c.thirdPersonOnMount && c.shoulder == HorseConfig.Shoulder.RIGHT && c.cameraDistance == 1.0F && c.speedZoom == 1.0F;
+			return c.thirdPersonOnMount && c.shoulder == HorseConfig.Shoulder.RIGHT && c.cameraDistance == 1.0F && c.speedZoom == 1.0F
+				&& c.freelook == HorseConfig.FreelookKey.HOLD;
 		}));
 		this.shows(ctx, "comfort, after the reset", "speed_zoom", "horse_sounds");
 		this.click(ctx, CommonComponents.GUI_DONE.getString());

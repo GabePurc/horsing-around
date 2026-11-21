@@ -83,6 +83,7 @@ points. The camera pulls back as you speed up and leans in for a bow or spyglass
 | A / D | With W, ride at an angle to where you're looking. Alone, ride straight across it. |
 | Jump | Jump, straight away. |
 | O | Swap the camera to your other shoulder. |
+| Left Alt | Hold to look around without turning your horse: swing, shoot and throw wherever you look while it keeps its line. Let go and the view swings back. It can be a toggle instead, in the settings. |
 
 ## Which mounts
 
