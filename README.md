@@ -14,6 +14,9 @@
 trots, canters and gallops, carries real momentum, tires out, and refuses to run you off a cliff. It's still the vanilla
 horse, ridden with the keys you already know.
 
+Download on [CurseForge](https://www.curseforge.com/members/blintzbug/projects)
+Download on [Modrinth](https://modrinth.com/user/Blintzbug)
+
 I've always loved the horses in Red Dead Redemption 2, and riding in Minecraft never felt anything like them. This mod
 is my go at changing that.
 
